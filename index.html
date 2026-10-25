@@ -2,11 +2,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Ado 應援預習</title>
+<meta name="description" content="非官方粉絲製作的 Ado 演唱會應援預習：看著 MV 跟歌詞，練哪裡拍手、哪裡大合唱。">
+<meta property="og:title" content="Ado 應援預習">
+<meta property="og:description" content="看著 MV 跟歌詞，先在家練好 Ado 演唱會的應援。非官方粉絲製作。">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#070a12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%235d9dfe'/%3E%3Cpath d='M12 5.2c-2.3 0-3.7 1.7-3.7 4 0 1.6-.5 3.4-1.2 5.2-.5 1.3-.6 2.6-.2 3.6h10.2c.4-1 .3-2.3-.2-3.6-.7-1.8-1.2-3.6-1.2-5.2 0-2.3-1.4-4-3.7-4z' fill='%23070a12'/%3E%3C/svg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;600&display=swap">
-<script src="song-lyrics.js"></script>
+<script src="song-lyrics.js?v=2026-10-25"></script>
 <style>
 /* Layout: 無側欄外框，52px 頂欄＋1180px 置中欄。首頁＝大標＋歌曲清單＋動作說明＋參加須知；
    歌曲頁＝大字歌名，左 MV＋現在動作（固定），右逐行歌詞。介面是帶藍近黑上的平面；
@@ -67,10 +73,12 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 
 /* 大標 */
 .hero { display: grid; gap: 16px; align-content: end; padding: 32px 0 24px; }
-.home .hero { min-height: 300px; padding-bottom: 32px; }
+.home { width: 100%; max-width: 760px; margin-inline: auto; }
+.home .hero { padding: 40px 0 8px; }
+.home .lead { max-width: none; }
 .hero h1 { margin: 0; font-family: var(--font-ja); font-weight: 600; font-size: clamp(48px, 8vw, 104px); line-height: .95; letter-spacing: -.02em; text-wrap: balance; }
 .hero h1 span { display: block; font-family: var(--font); font-size: 18px; font-weight: 500; letter-spacing: 0; color: var(--muted); margin-top: 16px; }
-.home .hero h1 { font-family: var(--font); font-size: clamp(44px, 7vw, 88px); }
+.home .hero h1 { font-family: var(--font); font-size: clamp(36px, 5vw, 56px); }
 .lead { color: var(--muted); font-size: 17px; max-width: 46ch; margin: 0; }
 .btn { height: 40px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; border: 0; white-space: nowrap; transition: transform .12s, background .15s; }
 .btn:active { transform: scale(.98); }
@@ -115,16 +123,17 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .vstatus { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; background: #04060c; }
 .vstatus[hidden] { display: none; }
 .vstatus p { margin: 0; max-width: 36ch; color: var(--muted); font-size: 13px; }
-.transport { display: grid; grid-template-columns: auto 1fr auto auto; gap: 14px; align-items: center; padding: 12px 18px; }
 .cc { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); font-size: 13px; white-space: nowrap; }
 .cc select { background: var(--ground); color: var(--text); border: 0; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
-.pp { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--paper); display: grid; place-items: center; cursor: pointer; }
-.pp svg { width: 14px; height: 14px; fill: var(--on-paper); }
-.track { position: relative; height: 4px; background: var(--raised); border-radius: 2px; cursor: pointer; }
-.track i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); border-radius: 2px; }
-.clock { color: var(--faint); font-size: 13px; white-space: nowrap; }
-.tsel { display: flex; gap: 12px; flex-wrap: wrap; }
-/* 歌曲頁頂部：返回、上一首、歌名、下一首 */
+.mvbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 18px; font-size: 13px; }
+.mvhint { color: var(--faint); margin-right: auto; }
+.mvlinks { display: flex; gap: 16px; margin-left: auto; }
+.mvlinks a { color: var(--muted); text-decoration: none; }
+.mvlinks a:hover { color: var(--text); }
+/* 歌曲頁不顯示網站頂欄，頂部是返回、上一首、歌名、下一首 */
+.on-song .bar { display: none; }
+.on-song .left, .on-song .lyrics { top: calc(env(safe-area-inset-top, 0px) + 16px); }
+.on-song .lyrics { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 32px); }
 .songbar { display: flex; align-items: center; gap: 8px; padding-top: 8px; }
 .ib { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text); text-decoration: none; }
 .ib:hover { background: var(--raised); }
@@ -134,10 +143,6 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .pick .ib { background: transparent; }
 .pick h1 { flex: 1; min-width: 0; margin: 0; text-align: center; font-family: var(--font-ja); font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pick h1 span { color: var(--faint); font-family: var(--font); font-weight: 500; font-size: 14px; margin-left: 8px; }
-.mvnote { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin: 0; padding: 0 18px 14px; color: var(--faint); font-size: 13px; }
-.mvnote span { display: flex; gap: 16px; }
-.mvnote a { color: var(--muted); text-decoration: none; }
-.mvnote a:hover { color: var(--text); }
 
 .cue { background: var(--surface); border-radius: var(--radius-card); padding: 20px var(--pad); display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; align-items: center; }
 .cue .top { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -149,6 +154,9 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .cue .next { text-align: right; color: var(--faint); font-size: 13px; }
 .cue .next b { color: var(--act, var(--text)); }
 .cue .next b { display: block; font-weight: 500; font-size: 15px; }
+/* 這句沒有動作：不提示，只留下一個動作 */
+.cue.idle .now, .cue.idle .how { display: none; }
+.cue.idle .next { grid-column: 1 / -1; text-align: left; }
 .summary { grid-column: 1 / -1; margin: 6px 0 0; padding: 0 0 0 18px; color: var(--muted); }
 .summary li { margin: 2px 0; }
 .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 0; }
@@ -256,17 +264,33 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   .grid { grid-template-columns: 1fr; }
   .left { position: static; }
   .lyrics { position: static; height: 70dvh; max-height: none; }
+  .mvhint { display: none; }
+  /* 提示縮成一列：現在的動作、下一個、全螢幕開關 */
+  .cue { grid-template-columns: minmax(0, 1fr) auto auto; padding: 10px 14px; gap: 4px 12px; }
+  .cue .top { display: contents; }
+  .cue h2, .cue .how, .cue .summary { display: none; }
+  .cue .now { order: 1; gap: 8px; }
+  .cue .next { order: 2; }
+  .cue .switch { order: 3; }
+  .cue .now svg { width: 22px; height: 22px; }
+  .cue .now strong { font-size: 18px; }
+  .cue .next b { font-size: 14px; }
+  .cue.idle .next { grid-column: 1 / 3; }
+}
+@media (max-width: 900px) and (min-height: 560px) {
+  .on-song main.col { padding-block: 0; }
+  .on-song footer { display: none; }
+  .on-song #song { height: 100dvh; padding: env(safe-area-inset-top, 0px) 0 max(8px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }
+  .on-song .grid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  .on-song .left { gap: 8px; }
+  .on-song .lyrics { flex: 1; min-height: 0; height: auto; }
 }
 @media (max-width: 600px) {
   :root { --pad: 20px; }
-  .home .hero { min-height: 0; }
   .hero { padding-top: 20px; }
   .lead { font-size: 16px; }
   .panel { padding: 22px var(--pad); }
   .panel > h2 { font-size: 22px; }
-  .cue .now strong { font-size: 26px; }
-  .transport { grid-template-columns: auto 1fr auto; }
-  .tsel { grid-column: 1 / -1; }
   .song { gap: 4px 10px; }
   .song .zh { display: block; margin: 0; }
   .tools .seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; min-width: 0; }
@@ -361,22 +385,18 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
                 <a class="btn ghost" id="ytLink2" target="_blank" rel="noopener">在 YouTube 開啟</a>
               </div>
             </div>
-            <div class="transport">
-              <button class="pp" id="pp" aria-label="播放"><svg viewBox="0 0 24 24" id="ppIcon"><path d="M7 4v16l13-8z"/></svg></button>
-              <div class="track" id="track" role="slider" tabindex="0" aria-label="播放位置" aria-valuemin="0" aria-valuenow="0"><i id="fill"></i></div>
-              <span class="clock" id="clock">0:00</span>
-              <div class="tsel">
-                <label class="cc">速度
-                  <select id="rateSel" aria-label="播放速度">
-                    <option value="0.5">0.5×</option>
-                    <option value="0.75">0.75×</option>
-                    <option value="1">1×</option>
-                    <option value="1.25">1.25×</option>
-                  </select>
-                </label>
-              </div>
+            <div class="mvbar">
+              <label class="cc">速度
+                <select id="rateSel" aria-label="播放速度">
+                  <option value="0.5">0.5×</option>
+                  <option value="0.75">0.75×</option>
+                  <option value="1">1×</option>
+                  <option value="1.25">1.25×</option>
+                </select>
+              </label>
+              <span class="mvhint">點歌詞可以跳到那個時間</span>
+              <span class="mvlinks"><a id="ytLink" target="_blank" rel="noopener">在 YouTube 觀看 ↗</a><a id="lyLink" target="_blank" rel="noopener">正版歌詞 ↗</a></span>
             </div>
-            <p class="mvnote">點歌詞可以跳到那個時間<span><a id="ytLink" target="_blank" rel="noopener">在 YouTube 觀看 ↗</a><a id="lyLink" target="_blank" rel="noopener">正版歌詞 ↗</a></span></p>
           </section>
 
           <section class="cue" aria-live="polite">
@@ -498,7 +518,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     { id: "sukideite", ja: "好きでいて", zh: "請一直喜歡我", date: "2026-09-07", yt: "iTNwVheLpj8", len: "4:07" },
     { id: "soldiergame", ja: "soldier game", zh: "soldier game", date: "2026-01-13", yt: "J3hzdBkd6bg", len: "3:42" },
     // 翻唱
-    { id: "ponpokorin", ja: "おどるポンポコリン", zh: "跳舞的嘭嘭可琳", date: "2026-01-11", yt: "TZYqDl19qLQ", len: "1:26", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true },
+    { id: "ponpokorin", ja: "おどるポンポコリン", zh: "跳舞的嘭嘭可琳", date: "2026-01-11", yt: "TZYqDl19qLQ", len: "1:25", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true },
     { id: "catseye", ja: "CAT'S EYE", zh: "貓眼", date: "2025-12-26", yt: "8-Qekf_GBow", len: "3:05", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true },
     { id: "kitaro", ja: "ゲゲゲの鬼太郎", zh: "鬼太郎", date: "2025-05-15", yt: "6Qd16SxUjj4", len: "2:15", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true },
     { id: "charles", ja: "シャルル", zh: "夏爾", date: "2025-04-16", yt: "trIiMhTDKxo", len: "3:45", acts: ["wave"], tips: ["副歌舉手跟著搖"], sug: true, cover: true },
@@ -553,7 +573,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
       <li><a class="song" href="#${s.id}">
         <span class="no">${String(s.no).padStart(2, "0")}</span>
         <div class="name"><span class="ja">${esc(s.ja)}</span>${s.zh !== s.ja ? `<span class="zh">${esc(s.zh)}</span>` : ""}${s.cover ? '<span class="zh">翻唱</span>' : ""}</div>
-        <div class="acts">${s.acts.map(icon).join("")}${sort === "cheer" && s.cheer ? `<span class="cnt">${s.cheer} 句</span>` : ""}</div>
+        <div class="acts">${s.acts.filter(a => a !== "listen").map(icon).join("")}${sort === "cheer" && s.cheer ? `<span class="cnt">${s.cheer} 句</span>` : ""}</div>
       </a></li>`).join("");
     countEl.textContent = rows.length ? (rows.length < SONGS.length ? `${rows.length} / ` : "共 ") + `${SONGS.length} 首` : "找不到符合的歌曲";
   }
@@ -573,14 +593,14 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   });
   renderList();
   // 圖示說明：只列清單裡用得到的動作
-  const usedActs = new Set(SONGS.flatMap(s => s.acts));
+  const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   document.getElementById("homeLegend").innerHTML = Object.keys(ACT).filter(a => usedActs.has(a))
     .map(a => `<span class="a-${a}">${icon(a)}${ACT[a].name}</span>`).join("");
 
   // ── 歌曲頁 ──
   const homeV = document.getElementById("home"), songV = document.getElementById("song");
-  const box = document.getElementById("lines"), track = document.getElementById("track"), legend = document.getElementById("legend");
-  let S = null, LINES = [], lineEls = [], curLine = -1, curKey = "";
+  const box = document.getElementById("lines"), legend = document.getElementById("legend");
+  let S = null, LINES = [], TAGGED = false, lineEls = [], curLine = -1, curKey = "";
 
   // 歌詞捲動：自己做 0.26 秒先快後慢的動畫，把目前這行放到框的正中央；新的一行來了就從現在位置接著捲，不會疊在一起
   // LEAD：歌詞比歌聲早 0.35 秒亮起，眼睛先看到
@@ -623,7 +643,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
       t: +item.time || 0,
       ja: String(item.jp || "").trim() || null,
       zh: String(item.tr || "").trim() || null,
-      acts: (item.acts || []).filter(a => ACT[a]),
+      acts: (item.acts || []).filter(a => ACT[a] && a !== "listen"),
       sing: item.sing || [],
       call: item.call || null
     }));
@@ -632,6 +652,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   function loadSongData() {
     const builtin = getBuiltinSong(S.id);
     LINES = builtin && builtin.lyrics ? parseBuiltin(builtin) : [];
+    TAGGED = LINES.some(l => l.acts.length);
   }
   function lineAt(t) { let k = -1; LINES.forEach((l, i) => { if (t >= l.t) k = i; }); return k; }
 
@@ -678,16 +699,13 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   // 直接點開檔案（file://）時瀏覽器不送來源網址，YouTube 會拒絕嵌入，所以改顯示提示
   let player = null, ready = false, vid = "", slowTimer = 0;
   const vstatus = document.getElementById("vstatus"), vmsg = document.getElementById("vmsg");
-  const DUR = () => S ? S.dur : 1;
+  // 長度以 YouTube 回報的為準，還沒載好才用資料裡的長度
+  const DUR = () => { try { const d = ready && vid === S.yt && player.getDuration(); if (d) return d; } catch (e) {} return S ? S.dur : 1; };
   function videoMsg(text) { vstatus.hidden = !text; if (text) vmsg.textContent = text; }
   const now = () => { try { return ready && player.getCurrentTime() || 0; } catch (e) { return 0; } };
   const isPlaying = () => { try { return ready && [1, 3].includes(player.getPlayerState()); } catch (e) { return false; } };
-  function play() { if (ready) player.playVideo(); }
   function pause() { if (ready) player.pauseVideo(); }
   function seek(t) { if (!ready) return; player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); }
-  document.getElementById("pp").addEventListener("click", () => isPlaying() ? pause() : play());
-  track.addEventListener("click", e => { const r = track.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * DUR()); });
-  track.addEventListener("keydown", e => { if (e.key === "ArrowRight") seek(now() + 5); if (e.key === "ArrowLeft") seek(now() - 5); });
 
   // 播放速度：放慢練應援時間點，記在這台裝置
   let RATE = +store.get("mv-rate") || 1;
@@ -733,7 +751,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   }
 
   function openSong(s) {
-    S = s; curKey = ""; hideAlert();
+    S = s; curKey = null; hideAlert();
     document.title = `${s.ja}｜Ado 應援預習`;
     const sub = s.zh !== s.ja ? s.zh : s.en;
     document.getElementById("sTitle").innerHTML = esc(s.ja) + (sub ? `<span>${esc(sub)}</span>` : "");
@@ -744,10 +762,9 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
       const a = document.getElementById(id);
       if (x) { a.href = "#" + x.id; a.setAttribute("aria-label", `${word}：${x.ja}`); } else a.removeAttribute("href");
     });
-    track.setAttribute("aria-valuemax", s.dur);
     loadSongData();
     renderLines();
-    document.getElementById("cueSummary").innerHTML = LINES.length ? s.tips.map(t => `<li>${esc(t)}</li>`).join("") : "";
+    document.getElementById("cueSummary").innerHTML = TAGGED ? s.tips.map(t => `<li>${esc(t)}</li>`).join("") : "";
     document.getElementById("cueIcon").innerHTML = `<use href="#${ACT[s.acts[0] || "listen"].icon}"/>`;
     cueBox.className = "cue";
     document.getElementById("cueName").textContent = "按播放開始";
@@ -756,12 +773,20 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     loadVideo();
   }
 
-  // 現在動作：以目前這一行為準
+  // 現在動作：以目前這一行為準。沒有動作的行不提示（聽 Ado 唱）
+  // 整首沒有逐行標記的歌（自由搖、建議），整首用同一個提示，不跳全螢幕
+  function songCue() {
+    if (S.free) return { acts: [], name: "自由跟著節奏", how: "沒有固定應援，跟著現場氣氛就好。" };
+    const acts = S.acts.filter(a => a !== "listen");
+    if (S.sug && acts.length) return { acts, name: "建議：" + acts.map(a => ACT[a].name).join("、"), how: S.tips.join("，") };
+    return null;
+  }
   function cueAt(t) {
     const li = lineAt(t), l = LINES[li];
     if (!l) return null;
-    return { key: li, acts: l.acts.length ? l.acts : ["listen"], name: cueLabel(l) || "安靜聽",
-      how: l.acts.map(a => ACT[a].how).join("，") || "這句不用動作，聽 Ado 唱。", claps: S.claps, beat: l.acts.some(a => a !== "listen"), listen: !l.acts.length || l.acts.includes("listen") };
+    if (!TAGGED) { const c = songCue(); if (c) return { key: "song", ...c, whole: true, beat: c.acts.length > 0 }; }
+    if (!l.acts.length) return { key: li, acts: [], name: "", how: "", listen: true };
+    return { key: li, acts: l.acts, name: cueLabel(l), how: l.acts.map(a => ACT[a].how).join("，"), claps: S.claps, beat: true };
   }
   function nextChange(t) {
     const li = lineAt(t), cur = LINES[li], sig = l => l.acts.join(",") + cueLabel(l);
@@ -795,26 +820,24 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
       const d = t - cue.claps; bigDots.forEach((x, j) => x.classList.toggle("on", d > j * .55 && d < j * .55 + .3));
       return;
     }
-    if (t - lastCueStart.t < 1.6 && !cue.listen) return showAlert(cue.acts[0], cue.name, cue.how);
+    if (t - lastCueStart.t < 1.6 && !cue.listen && !cue.whole) return showAlert(cue.acts[0], cue.name, cue.how);
     hideAlert();
   }
 
   // 畫面更新
-  const fill = document.getElementById("fill"), clock = document.getElementById("clock"), ppIcon = document.getElementById("ppIcon"), pp = document.getElementById("pp");
   const cueBox = document.querySelector(".cue"), cueIcon = document.getElementById("cueIcon"), cueName = document.getElementById("cueName"), cueHow = document.getElementById("cueHow"), cueNext = document.getElementById("cueNext");
-  let wasPlaying = null;
   function update() {
     if (!S || songV.hidden) return null;
-    const t = now(), playing = isPlaying(), d = S.dur;
-    fill.style.width = Math.min(100, t / d * 100) + "%";
-    clock.textContent = `${fmt(t)} / ${fmt(d)}`;
-    track.setAttribute("aria-valuenow", Math.floor(t));
+    const t = now(), playing = isPlaying();
     if (SING.length) { singPrev.disabled = singAt(-1, t) == null; singNext.disabled = singAt(1, t) == null; }
-    if (playing !== wasPlaying) { ppIcon.innerHTML = playing ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>' : '<path d="M7 4v16l13-8z"/>'; pp.setAttribute("aria-label", playing ? "暫停" : "播放"); wasPlaying = playing; }
     const started = playing || t > 0, cue = cueAt(t);
     if (started && cue) {
       const key = cue.name + cue.acts.join();
-      if (key !== curKey) { cueIcon.innerHTML = `<use href="#${ACT[cue.acts[0]].icon}"/>`; cueBox.className = "cue a-" + mainAct(cue.acts); cueName.textContent = cue.name; cueHow.textContent = cue.how; curKey = key; lastCueStart = { key, t }; }
+      if (key !== curKey) {
+        cueIcon.innerHTML = cue.acts.length ? `<use href="#${ACT[cue.acts[0]].icon}"/>` : "";
+        cueBox.className = "cue" + (cue.listen ? " idle" : cue.acts.length ? " a-" + mainAct(cue.acts) : "");
+        cueName.textContent = cue.name; cueHow.textContent = cue.how; curKey = key; lastCueStart = { key, t };
+      }
       const nx = nextChange(t);
       cueNext.innerHTML = nx ? (nx.t - t <= 5 ? `${Math.ceil(nx.t - t)} 秒後` : `下一個 ${fmt(nx.t)}`) + `<b class="a-${mainAct(nx.acts)}">${esc(nx.name)}</b>` : "";
     }
@@ -827,7 +850,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     if (OPT.karaoke && li >= 0 && lineEls[li]) {
       const ks = lineEls[li].querySelectorAll(".k");
       if (ks.length) {
-        const end = LINES[li + 1] ? LINES[li + 1].t : S.dur, frac = Math.max(0, Math.min(1, (tl - LINES[li].t) / Math.max(.5, (end - LINES[li].t) * .9)));
+        const end = LINES[li + 1] ? LINES[li + 1].t : DUR(), frac = Math.max(0, Math.min(1, (tl - LINES[li].t) / Math.max(.5, (end - LINES[li].t) * .9)));
         const lit = Math.round(frac * ks.length); ks.forEach((k, i) => k.classList.toggle("lit", i < lit));
       }
     }
@@ -853,14 +876,18 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   document.addEventListener("click", e => { if (vopt.open && !vopt.contains(e.target)) vopt.open = false; });
 
   // ── 路由：#歌曲 id 開歌曲頁，其他回首頁 ──
+  // 回清單時捲回離開前的位置
+  let listY = 0;
   function route() {
     const h = location.hash.slice(1), s = BY[h];
     if (s) {
+      if (!homeV.hidden) listY = scrollY;
+      document.body.classList.add("on-song");
       homeV.hidden = true; songV.hidden = false; openSong(s); scrollTo(0, 0);
     } else {
-      pause(); hideAlert(); songV.hidden = true; homeV.hidden = false; document.title = "Ado 應援預習";
+      pause(); hideAlert(); document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = "Ado 應援預習";
       const target = h && document.getElementById(h);
-      if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, 0);
+      if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
     }
   }
   addEventListener("hashchange", route);
