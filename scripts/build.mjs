@@ -8,7 +8,7 @@ import { createRequire } from "node:module";
 const SITE = "https://gcree.github.io/ado-guide/";
 const NAME = "Ado 應援預習";
 // Google Search Console 的 HTML 標記驗證碼（只放在首頁）
-const GSC_VERIFY = "";
+const GSC_VERIFY = "YLXviPdOfiLpoPdirdp39Tf7T0PrqSdDVMpdkZnxveg";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const out = path.resolve(process.argv[2] || path.join(root, "dist"));
