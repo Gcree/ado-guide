@@ -237,31 +237,38 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
 
 .ico { fill: none; stroke: var(--act, var(--faint)); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
-/* 全螢幕提醒 */
-.alert { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: grid; place-items: center; background: rgba(7, 10, 18, .62); opacity: 0; transition: opacity .25s; }
-.alert.show { opacity: 1; }
-.alert .stack { display: grid; justify-items: center; gap: 2vmin; text-align: center; padding: 16px; }
-.alert .stage-ico { position: relative; width: min(46vmin, 360px); aspect-ratio: 1; display: grid; place-items: center; }
-.alert .stage-ico svg { width: 72%; height: 72%; position: relative; }
-.alert .stage-ico .ico { stroke: var(--act, var(--text)); stroke-width: 1.3; }
-.alert .ring { position: absolute; inset: 12%; border-radius: 50%; background: color-mix(in srgb, var(--act, var(--accent)) 18%, var(--ground)); }
-.alert .wave1, .alert .wave2 { position: absolute; inset: 12%; border-radius: 50%; border: 2px solid var(--act, var(--accent)); opacity: 0; }
-.alert .label { font-size: clamp(36px, 8vmin, 72px); font-weight: 600; line-height: 1.1; }
-.alert .asub { font-size: clamp(16px, 2.6vmin, 22px); color: var(--muted); max-width: 30ch; }
-.alert .bigclaps { display: flex; gap: 4vmin; }
-.alert .bigclaps span { width: 9vmin; height: 9vmin; border-radius: 50%; background: var(--raised); transition: background .08s, transform .08s; }
-.alert .bigclaps span.on { background: var(--clap); transform: scale(1.2); }
-.alert.go .wave1 { animation: ripple 1.2s ease-out infinite; }
-.alert.go .wave2 { animation: ripple 1.2s ease-out .6s infinite; }
-.alert.go[data-act="clap"] .stage-ico svg { animation: clap .5s ease-in-out infinite; }
-.alert.go[data-act="wave"] .stage-ico svg { animation: swing 1s ease-in-out infinite; transform-origin: 50% 90%; }
-.alert.go[data-act="jump"] .stage-ico svg { animation: hop .5s cubic-bezier(.3,0,.4,1) infinite; }
-.alert.go[data-act="sing"] .stage-ico svg, .alert.go[data-act="call"] .stage-ico svg, .alert.go[data-act="gesture"] .stage-ico svg { animation: pulse .5s ease-in-out infinite; }
-@keyframes ripple { from { transform: scale(1); opacity: .7; } to { transform: scale(1.3); opacity: 0; } }
-@keyframes clap { 0%, 100% { transform: scale(1); } 40% { transform: scale(.9); } }
-@keyframes swing { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
-@keyframes hop { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-8%); } }
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+/* 動作字卡：不蓋住 MV 和歌詞。畫面四周亮起這首的螢光棒顏色，中下方一張字卡寫出要做的事（手機貼在影片下方） */
+.cueframe { position: fixed; inset: 0; z-index: 19; pointer-events: none; opacity: 0; transition: opacity .25s;
+  box-shadow: inset 0 0 0 2px var(--c1, var(--accent)), inset 0 0 120px 4px color-mix(in srgb, var(--c1, var(--accent)) 45%, transparent), inset 0 -80px 160px -40px color-mix(in srgb, var(--c2, var(--accent)) 65%, transparent); }
+.alert { position: fixed; z-index: 20; left: 50%; bottom: max(28px, env(safe-area-inset-bottom, 0px)); width: max-content; max-width: min(640px, calc(100% - 24px)); opacity: 0; transform: translate(-50%, 14px); pointer-events: none; transition: opacity .2s, transform .2s; }
+.alert.show { opacity: 1; transform: translate(-50%, 0); }
+.alert .card { display: grid; justify-items: center; gap: 10px; padding: 16px 24px 20px; border-radius: 24px; text-align: center; background: color-mix(in srgb, var(--raised) 94%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 0 0 2px var(--act, var(--accent)), 0 0 56px color-mix(in srgb, var(--act, var(--accent)) 35%, transparent), 0 18px 48px rgba(0, 0, 0, .5); transform: scale(calc(1 + var(--pulse, 0) * .03)); }
+.alert .ahead { display: inline-flex; align-items: center; gap: 8px; color: var(--act, var(--text)); font-size: 15px; font-weight: 600; }
+.alert .ahead svg { width: 22px; height: 22px; }
+.alert .ahead em { font-style: normal; font-weight: 500; color: var(--muted); }
+.alert .how { color: var(--muted); font-size: 14px; }
+.alert .how:empty { display: none; }
+/* 大合唱：把要唱的字放大，唱到的字亮起來 */
+.alert .words { font-family: var(--font-ja); font-size: clamp(28px, 3.6vw, 44px); font-weight: 600; line-height: 1.3; color: color-mix(in srgb, var(--act) 35%, var(--faint)); text-wrap: balance; }
+.alert .words .k { transition: color .08s linear; }
+.alert .words .k.lit { color: var(--act); }
+.alert .words rt { font-size: .32em; color: var(--muted); }
+/* 喊聲、手勢：大字，每拍跳一下 */
+.alert .big { font-family: var(--font-ja); font-size: clamp(28px, 3.6vw, 44px); font-weight: 700; line-height: 1.2; color: var(--act); transform: translateY(calc(var(--pulse, 0) * -6px)); }
+/* 拍手：每拍亮一顆，小節第一拍那顆比較大 */
+.alert .dots { display: flex; align-items: center; gap: 18px; height: 40px; }
+.alert .dots i { width: 22px; height: 22px; border-radius: 50%; background: var(--line); transition: background .06s, transform .06s, box-shadow .06s; }
+.alert .dots i.first { width: 30px; height: 30px; }
+.alert .dots i.on { background: var(--act); transform: scale(1.25); box-shadow: 0 0 18px var(--act); }
+/* 揮手：一支螢光棒跟著拍子左右擺 */
+.alert .swing { width: 132px; height: 72px; overflow: visible; }
+.alert .swing .arc { fill: none; stroke: var(--line); stroke-width: 2; stroke-dasharray: 3 6; stroke-linecap: round; }
+.alert .swing .stick { transform-origin: 66px 70px; transform: rotate(var(--ang, 0deg)); }
+.alert .swing line { stroke: var(--act); stroke-width: 6; stroke-linecap: round; }
+/* 跳躍：圖示在拍子上彈起 */
+.alert .hop { width: 56px; height: 56px; transform: translateY(calc(var(--pulse, 0) * -14px)); }
+.alert .hop .ico { stroke: var(--act); stroke-width: 1.5; }
 
 
 
@@ -270,7 +277,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   .left { position: static; }
   .lyrics { position: static; height: 70dvh; max-height: none; }
   .mvhint { display: none; }
-  /* 提示縮成一列：現在的動作、下一個、全螢幕開關 */
+  /* 提示縮成一列：現在的動作、下一個、大字提醒開關 */
   .cue { grid-template-columns: minmax(0, 1fr) auto auto; padding: 10px 14px; gap: 4px 12px; }
   .cue .top { display: contents; }
   .cue h2, .cue .how, .cue .summary { display: none; }
@@ -281,6 +288,10 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   .cue .now strong { font-size: 18px; }
   .cue .next b { font-size: 14px; }
   .cue.idle .next { grid-column: 1 / 3; }
+  /* 字卡貼在影片正下方，不蓋影片 */
+  .alert { bottom: auto; top: var(--al-top, 45%); }
+  .alert .card { gap: 6px; padding: 12px 16px 14px; border-radius: 18px; }
+  .alert .words, .alert .big { font-size: clamp(24px, 7.5vw, 34px); }
 }
 @media (max-width: 900px) and (min-height: 560px) {
   .on-song main.col { padding-block: 0; }
@@ -319,12 +330,12 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
 
 <canvas id="fx" aria-hidden="true"></canvas>
 
+<div class="cueframe" id="cueFrame" aria-hidden="true"></div>
 <div class="alert" id="alert" aria-hidden="true">
-  <div class="stack">
-    <div class="stage-ico"><span class="ring"></span><span class="wave1"></span><span class="wave2"></span><svg id="alIcon"><use href="#i-clap"/></svg></div>
-    <div class="label" id="alLabel"></div>
-    <div class="asub" id="alSub"></div>
-    <div class="bigclaps" id="alClaps" hidden><span></span><span></span><span></span></div>
+  <div class="card">
+    <div class="ahead"><svg id="alIcon"><use href="#i-clap"/></svg><span id="alName"></span></div>
+    <div class="abody" id="alBody"></div>
+    <div class="how" id="alHow"></div>
   </div>
 </div>
 
@@ -406,7 +417,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
           </section>
 
           <section class="cue" aria-live="polite">
-            <div class="top"><h2>現在要做的事</h2><button class="switch" id="alertSw" aria-pressed="true"><i></i>全螢幕提醒</button></div>
+            <div class="top"><h2>現在要做的事</h2><button class="switch" id="alertSw" aria-pressed="true"><i></i>大字提醒</button></div>
             <div class="now"><svg id="cueIcon"><use href="#i-clap"/></svg><strong id="cueName">按播放開始</strong></div>
             <div class="next" id="cueNext"></div>
             <div class="how" id="cueHow"></div>
@@ -794,7 +805,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   }
 
   // 現在動作：以目前這一行為準。沒有動作的行不提示（聽 Ado 唱）
-  // 整首沒有逐行標記的歌（自由搖、建議），整首用同一個提示，不跳全螢幕
+  // 整首沒有逐行標記的歌（自由搖、建議），整首用同一個提示，不跳字卡
   function songCue() {
     if (S.free) return { acts: [], name: "自由跟著節奏", how: "沒有固定應援，跟著現場氣氛就好。" };
     const acts = S.acts.filter(a => a !== "listen");
@@ -816,32 +827,85 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     return null;
   }
 
-  // 全螢幕提醒
-  const al = document.getElementById("alert"), alIcon = document.getElementById("alIcon"), alLabel = document.getElementById("alLabel"), alSub = document.getElementById("alSub"),
-        alClaps = document.getElementById("alClaps"), bigDots = [...alClaps.children], alertSw = document.getElementById("alertSw");
-  let alertOn = store.get("alert-off") !== "1", alKey = "";
+  // 拍點：x 是第幾拍（含小數）、f 是這拍過了多少、bar 是小節裡的第幾拍、down 是小節第一拍；這首沒有拍點資料回 null
+  function beatAt(t) {
+    const bt = S && BEAT[S.id]; if (!bt) return null;
+    const P = 60 / bt[0], x = (t - bt[1]) / P, k = Math.floor(x), bar = ((k % 4) + 4) % 4;
+    return { P, x, k, f: x - k, bar, known: !!bt[2], down: !!bt[2] && bar === 0 };
+  }
+  // 拍子剛到時是 1，很快退到 0
+  const beatPulse = b => Math.exp(-b.f * b.P / Math.min(.16, b.P * .35));
+
+  // 大字提醒：字卡＋四周邊框光，不蓋住 MV 和歌詞
+  // 動作前一小節邊框先微亮預告（不倒數），動作開始那拍整個亮；字卡內容跟著拍子動
+  const al = document.getElementById("alert"), alIcon = document.getElementById("alIcon"), alName = document.getElementById("alName"),
+        alBody = document.getElementById("alBody"), alHow = document.getElementById("alHow"), cueFrame = document.getElementById("cueFrame"), alertSw = document.getElementById("alertSw");
+  const screenEl = document.getElementById("screen");
+  let alertOn = store.get("alert-off") !== "1", alKey = "", alKind = "", alDots = [], alWords = [], alSing = [];
   alertSw.setAttribute("aria-pressed", alertOn);
   alertSw.addEventListener("click", () => { alertOn = !alertOn; alertSw.setAttribute("aria-pressed", alertOn); store.set("alert-off", alertOn ? "0" : "1"); });
-  // 不倒數：動作開始時直接播動畫
-  function showAlert(act, label, sub, claps) {
-    const key = act + label;
-    if (key === alKey) return; alKey = key;
-    al.className = `alert show go a-${act}`; al.dataset.act = act;
-    alIcon.innerHTML = `<use href="#${ACT[act].icon}"/>`;
-    alLabel.textContent = label; alSub.textContent = sub;
-    alClaps.hidden = !claps;
+  const dotsHTML = (n, first) => `<div class="dots">${Array.from({ length: n }, (_, i) => `<i${first && !i ? ' class="first"' : ""}></i>`).join("")}</div>`;
+  // 字卡內容：大合唱寫出要唱的字，喊聲寫出要喊的話，拍手是每拍亮的圓點，揮手是擺動的螢光棒，跳躍是彈起的圖示
+  function cardFor(cue, l) {
+    const act = l.sing.length ? "sing" : l.call ? (l.acts.includes("call") ? "call" : mainAct(l.acts)) : mainAct(l.acts);
+    const extra = l.acts.filter(a => a !== act).map(a => ACT[a].name);
+    const head = { act, name: ACT[act].name + (extra.length ? `<em>＋${extra.join("、")}</em>` : "") };
+    // 整句都要唱（沒標要唱哪幾個字）時，整句放大
+    const words = l.sing.length ? l.sing : act === "sing" && l.ja && !l.call ? [l.ja] : null;
+    if (words) return { ...head, kind: "sing", words, body: `<div class="words">${words.map(w => jaHTML(w)).join("　")}</div>`, how: "" };
+    if (l.call) return { ...head, kind: "big", body: `<div class="big">${esc(l.call)}</div>`, how: "" };
+    if (act === "clap") return { ...head, kind: "dots", body: dotsHTML(4, true), how: ACT.clap.how };
+    if (act === "wave") return { ...head, kind: "swing", body: '<svg class="swing" viewBox="0 0 132 72"><path class="arc" d="M14 54a54 54 0 0 1 104 0"/><g class="stick"><line x1="66" y1="70" x2="66" y2="16"/></g></svg>', how: ACT.wave.how };
+    if (act === "jump") return { ...head, kind: "hop", body: `<svg class="hop"><use href="#i-jump"/></svg>`, how: ACT.jump.how };
+    return { ...head, kind: "big", body: `<div class="big">${esc(ACT[act].how)}</div>`, how: "" };
   }
-  function hideAlert() { if (alKey) { al.className = "alert"; alKey = ""; } }
-  let lastCueStart = { key: null, t: 0 };
+  function showCard(key, c) {
+    if (key === alKey) return;
+    alKey = key; alKind = c.kind; alSing = c.words || [];
+    al.className = `alert show a-${c.act}`;
+    alIcon.innerHTML = `<use href="#${ACT[c.act].icon}"/>`;
+    alName.innerHTML = c.name; alBody.innerHTML = c.body; alHow.textContent = c.how;
+    alDots = [...alBody.querySelectorAll(".dots i")];
+    alWords = [...alBody.querySelectorAll(".k")];
+    // 手機：字卡放在影片正下方
+    if (innerWidth <= 900) al.style.setProperty("--al-top", Math.round(screenEl.getBoundingClientRect().bottom + 8) + "px");
+  }
+  function hideAlert() { if (alKey) { al.className = "alert"; alKey = ""; } cueFrame.style.opacity = 0; }
   function alerts(t, playing, cue) {
     if (!alertOn || !playing || !cue) return hideAlert();
+    const b = beatAt(t), pulse = b && !reduce ? beatPulse(b) * (b.known && !b.down ? .6 : 1) : 0;
+    const pen = penOf(S).cols;
+    cueFrame.style.setProperty("--c1", pen[0]); cueFrame.style.setProperty("--c2", pen[1 % pen.length]);
+    al.style.setProperty("--pulse", pulse.toFixed(3));
+    // 「唱」最後的 Clap Clap Clap：三下圓點
     if (cue.claps && t >= cue.claps && t < cue.claps + 2.2) {
-      showAlert("clap", "拍三下", "啪、啪、啪", true);
-      const d = t - cue.claps; bigDots.forEach((x, j) => x.classList.toggle("on", d > j * .55 && d < j * .55 + .3));
+      showCard("claps3", { act: "clap", name: "拍三下", kind: "claps3", body: dotsHTML(3), how: "啪、啪、啪" });
+      const d = t - cue.claps; alDots.forEach((x, j) => x.classList.toggle("on", d > j * .55 && d < j * .55 + .3));
+      cueFrame.style.opacity = .8;
       return;
     }
-    if (t - lastCueStart.t < 1.6 && !cue.listen && !cue.whole) return showAlert(cue.acts[0], cue.name, cue.how);
-    hideAlert();
+    const l = LINES[cue.key];
+    if (cue.listen || cue.whole || !l) {
+      if (alKey) { al.className = "alert"; alKey = ""; }
+      // 預告：下一個動作前一小節（沒有拍點資料時 2 秒），邊框慢慢亮起
+      const nx = nextChange(t), lead = b ? b.P * 4 : 2, left = nx ? nx.t - t : Infinity;
+      cueFrame.style.opacity = left > 0 && left < lead ? (.15 + .35 * (1 - left / lead)).toFixed(2) : 0;
+      return;
+    }
+    showCard("l" + cue.key, cardFor(cue, l));
+    cueFrame.style.opacity = (.6 + .4 * pulse).toFixed(2);
+    if (alKind === "sing") {
+      // 唱到的字亮起：要唱的字在這行的位置，照這行的進度換算
+      const end = LINES[cue.key + 1] ? LINES[cue.key + 1].t : DUR(), frac = Math.max(0, Math.min(1, (t - l.t) / Math.max(.5, (end - l.t) * .9)));
+      const at = Math.min(...alSing.map(w => l.ja.lastIndexOf(w)).filter(i => i >= 0), l.ja.length), len = Math.max(1, l.ja.length - at);
+      const lit = Math.round(Math.max(0, Math.min(1, (frac * l.ja.length - at) / len)) * alWords.length);
+      alWords.forEach((k, i) => k.classList.toggle("lit", i < lit));
+    } else if (alKind === "dots") {
+      const on = b ? (b.known ? b.bar : ((b.k % 4) + 4) % 4) : Math.floor((t - l.t) * 2) % 4;
+      alDots.forEach((x, j) => x.classList.toggle("on", j === on && (!b || b.f < .5)));
+    } else if (alKind === "swing" && !reduce) {
+      al.style.setProperty("--ang", (Math.cos(Math.PI * (b ? b.x : (t - l.t) * 2)) * 28).toFixed(1) + "deg");
+    }
   }
 
   // 畫面更新
@@ -856,7 +920,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
       if (key !== curKey) {
         cueIcon.innerHTML = cue.acts.length ? `<use href="#${ACT[cue.acts[0]].icon}"/>` : "";
         cueBox.className = "cue" + (cue.listen ? " idle" : cue.acts.length ? " a-" + mainAct(cue.acts) : "");
-        cueName.textContent = cue.name; cueHow.textContent = cue.how; curKey = key; lastCueStart = { key, t };
+        cueName.textContent = cue.name; cueHow.textContent = cue.how; curKey = key;
       }
       const nx = nextChange(t);
       cueNext.innerHTML = nx ? (nx.t - t <= 5 ? `${Math.ceil(nx.t - t)} 秒後` : `下一個 ${fmt(nx.t)}`) + `<b class="a-${mainAct(nx.acts)}">${esc(nx.name)}</b>` : "";
@@ -980,12 +1044,10 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     if (playing) stageT += Math.min(.1, (ms - lastMs) / 1000);
     lastMs = ms;
     // 每拍亮一下再退，小節第一拍最亮；這首沒有拍點資料時，改在每句歌詞開頭亮
-    const li = lineAt(t), l = LINES[li], bt = S && BEAT[S.id];
+    const li = lineAt(t), l = LINES[li], b = beatAt(t);
     let hit = 0, beat = Math.max(0, li);
-    if (playing && !reduce && bt) {
-      const P = 60 / bt[0], x = (t - bt[1]) / P, k = Math.floor(x), down = bt[2] && ((k % 4) + 4) % 4 === 0;
-      hit = Math.exp(-(x - k) * P / Math.min(.16, P * .35)) * (down ? 1 : .5); beat = Math.max(0, Math.floor(k / 4));
-    } else if (playing && !reduce && l) hit = Math.exp(-(t - l.t) / .4) * (l.acts.length ? 1 : .65);
+    if (playing && !reduce && b) { hit = beatPulse(b) * (b.down ? 1 : .5); beat = Math.max(0, Math.floor(b.k / 4)); }
+    else if (playing && !reduce && l) hit = Math.exp(-(t - l.t) / .4) * (l.acts.length ? 1 : .65);
     const energy = playing && cue ? (cue.listen ? .2 : cue.beat ? 1 : .45) : .4;
     if (playing || !idleDrawn) { bg(stageT, energy, hit, cue && cue.listen, playing, beat); idleDrawn = !playing; }
     requestAnimationFrame(frame);
