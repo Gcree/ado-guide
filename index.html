@@ -196,7 +196,10 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .ln { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: background .2s, box-shadow .2s; }
 .ln:hover { background: var(--hover); }
 .ln .ja { font-family: var(--font-ja); font-size: 17px; line-height: 1.7; color: var(--muted); transition: color .2s; }
-.ln[class*=" a-"]:not(.a-listen) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
+.ln[class*=" a-"]:not(.a-listen):not(.a-sing) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
+/* 「唱」不染整行，只染觀眾要唱的字 */
+.ln .sung { color: color-mix(in srgb, var(--sing) 75%, var(--muted)); }
+.ln.now .sung { color: var(--sing); }
 .ln .zh { grid-column: 1; font-size: 14px; color: var(--faint); }
 .ln .ph { color: var(--ph); }
 .ln .acts { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 6px; align-items: center; }
@@ -204,7 +207,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .ln .call { grid-column: 1; justify-self: start; margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--act, var(--text)); background: color-mix(in srgb, var(--act, var(--text)) 14%, transparent); border-radius: 999px; padding: 2px 10px; }
 .ln.now { background: var(--raised); box-shadow: inset 3px 0 0 var(--act, var(--text)); }
 .ln.now .ja, .ln.now.a-listen .ja { color: var(--text); }
-.ln.now:not(.a-listen) .ja { color: var(--act, var(--text)); }
+.ln.now:not(.a-listen):not(.a-sing) .ja { color: var(--act, var(--text)); }
 .ln.now .zh { color: var(--muted); }
 .ln.past .ja { opacity: .55; }
 .hide-ja .ja, .hide-zh .zh { display: none; }
@@ -215,7 +218,9 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .karaoke .ln.now .ja { color: var(--muted); }
 .karaoke .ln .k, .karaoke .ln rt { transition: color .08s linear; }
 .karaoke .ln.now .k.lit, .karaoke .ln.now .k.lit rt { color: var(--act, var(--accent)); }
-.karaoke .ln.now.a-listen .k.lit, .karaoke .ln.now.a-listen .k.lit rt { color: var(--text); }
+.karaoke .ln.now.a-listen .k.lit, .karaoke .ln.now.a-listen .k.lit rt, .karaoke .ln.now.a-sing .k.lit, .karaoke .ln.now.a-sing .k.lit rt { color: var(--text); }
+.karaoke .ln.now .k.sung { color: color-mix(in srgb, var(--sing) 45%, var(--muted)); }
+.karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: var(--sing); }
 .only-sing .ln:not(.sing) { display: none; }
 .only-sing .part { display: none; }
 /* 跳到大合唱：一顆膠囊，左右兩個箭頭 */
@@ -680,6 +685,10 @@ details.tapper code { font-family: var(--font); background: var(--raised); borde
   const icon = a => `<svg class="a-${a}" role="img" aria-label="${ACT[a].name}"><use href="#${ACT[a].icon}"/></svg>`;
   // 一行的主色：第一個不是「安靜聽」的動作
   const mainAct = acts => acts.find(a => a !== "listen") || (acts.length ? "listen" : "");
+  // 歌詞行的底色：有要唱的字時整行不染色，只染那幾個字；其他行用第一個不是「唱」的動作
+  const lineAct = l => l.sing.length ? "sing" : mainAct(l.acts.filter(a => a !== "sing")) || mainAct(l.acts);
+  // 提醒文字：有標籤用標籤，有要唱的字就寫出來
+  const cueLabel = l => l.call || (l.sing.length ? `唱「${l.sing.join("」「")}」` : l.acts.map(a => ACT[a].name).join("、"));
   const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -775,7 +784,7 @@ details.tapper code { font-family: var(--font); background: var(--raised); borde
       }
       const [ja, zh] = rest.split(/\s+\/\s+/);
       if (!ja && !acts.length) return;
-      lines.push({ t, ja: (ja || "").trim() || null, zh: (zh || "").trim() || null, acts, call });
+      lines.push({ t, ja: (ja || "").trim() || null, zh: (zh || "").trim() || null, acts, sing: [], call });
     });
     lines.sort((a, b) => a.t - b.t); parts.sort((a, b) => a.t - b.t);
     return { lines, parts };
@@ -801,6 +810,7 @@ details.tapper code { font-family: var(--font); background: var(--raised); borde
       ja: String(item.jp || "").trim() || null,
       zh: String(item.tr || "").trim() || null,
       acts: (item.acts || []).filter(a => ACT[a]),
+      sing: item.sing || [],
       call: item.call || null
     }));
     return { lines: lines.sort((a, b) => a.t - b.t), parts: [] };
@@ -819,12 +829,15 @@ details.tapper code { font-family: var(--font); background: var(--raised); borde
   function lineAt(t) { let k = -1; LINES.forEach((l, i) => { if (t >= l.t) k = i; }); return k; }
 
   // 假名：歌詞裡寫「漢字(かな)」就會標在漢字上方；每個字包成 .k 給卡拉OK用
-  function jaHTML(txt) {
-    const out = [], re = /([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g;
-    const chars = str => [...str].forEach(c => out.push(`<span class="k">${esc(c)}</span>`));
+  // sung 是觀眾要唱的字，取最後一次出現的位置（Ado 先唱、觀眾接時，觀眾在後面）
+  function jaHTML(txt, sung = []) {
+    const out = [], re = /([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g, hit = new Set();
+    sung.forEach(w => { const i = txt.lastIndexOf(w); if (i >= 0) for (let j = i; j < i + w.length; j++) hit.add(j); });
+    const k = (i, html) => out.push(`<span class="k${hit.has(i) ? " sung" : ""}">${html}</span>`);
+    const chars = (str, at) => { for (const c of str) { k(at, esc(c)); at += c.length; } };
     let last = 0, m;
-    while ((m = re.exec(txt))) { chars(txt.slice(last, m.index)); out.push(`<span class="k"><ruby>${esc(m[1])}<rt>${esc(m[2])}</rt></ruby></span>`); last = re.lastIndex; }
-    chars(txt.slice(last));
+    while ((m = re.exec(txt))) { chars(txt.slice(last, m.index), last); k(m.index, `<ruby>${esc(m[1])}<rt>${esc(m[2])}</rt></ruby>`); last = re.lastIndex; }
+    chars(txt.slice(last), last);
     return out.join("");
   }
   function renderLines(mode) {
@@ -844,10 +857,10 @@ details.tapper code { font-family: var(--font); background: var(--raised); borde
       }
       lastPart = pi;
       const el = document.createElement("div");
-      const m = mainAct(l.acts);
+      const m = lineAct(l);
       el.className = "ln" + (m ? " a-" + m : "") + (l.acts.includes("sing") ? " sing" : ""); el.tabIndex = 0;
       const where = pi >= 0 ? `${PARTS[pi].name}・${fmt(l.t)}` : fmt(l.t);
-      const ja = l.ja ? jaHTML(l.ja) : `<span class="ph">日文歌詞（${esc(where)}）</span>`;
+      const ja = l.ja ? jaHTML(l.ja, l.sing) : `<span class="ph">日文歌詞（${esc(where)}）</span>`;
       const zh = l.zh ? esc(l.zh) : (l.ja ? "" : `<span class="ph">中譯</span>`);
       // 喊聲標籤只放在同一句喊聲的第一行
       const call = l.call && !(i && LINES[i - 1].call === l.call) ? `<span class="call">${esc(l.call)}</span>` : "";
@@ -857,7 +870,7 @@ details.tapper code { font-family: var(--font); background: var(--raised); borde
       box.appendChild(el);
     });
     lineEls = [...box.querySelectorAll(".ln")]; curLine = -1;
-    const used = new Set(LINES.map(l => mainAct(l.acts)).filter(Boolean));
+    const used = new Set(LINES.flatMap(l => l.acts));
     legend.innerHTML = Object.keys(ACT).filter(a => used.has(a)).map(a => `<span class="a-${a}"><i></i>${ACT[a].name}</span>`).join("");
     SING = LINES.filter((l, i) => l.acts.includes("sing") && !(i && LINES[i - 1].acts.includes("sing"))).map(l => l.t);
     singJump.hidden = !SING.length;
@@ -958,13 +971,13 @@ details.tapper code { font-family: var(--font); background: var(--raised); borde
     const li = lineAt(t), l = LINES[li];
     if (!l) return null;
     const p = l.part || null;
-    return { key: li, acts: l.acts.length ? l.acts : ["listen"], name: p ? p.cue : (l.call || l.acts.map(a => ACT[a].name).join("、") || "安靜聽"),
+    return { key: li, acts: l.acts.length ? l.acts : ["listen"], name: p ? p.cue : (cueLabel(l) || "安靜聽"),
       how: p ? p.how : l.acts.map(a => ACT[a].how).join("，") || "這句不用動作，聽 Ado 唱。", claps: (p && p.claps) || S.claps, beat: p ? p.beat : l.acts.some(a => a !== "listen"), listen: p ? p.listen : !l.acts.length || l.acts.includes("listen") };
   }
   function nextChange(t) {
-    const li = lineAt(t), cur = LINES[li], sig = l => (l.part ? l.part.cue : "") + l.acts.join(",") + (l.call || "");
+    const li = lineAt(t), cur = LINES[li], sig = l => (l.part ? l.part.cue : "") + l.acts.join(",") + cueLabel(l);
     for (let i = li + 1; i < LINES.length; i++) {
-      if (!cur || sig(LINES[i]) !== sig(cur)) { const l = LINES[i]; if (!l.acts.length) continue; return { t: l.t, acts: l.acts, name: l.part ? l.part.cue : (l.call || l.acts.map(a => ACT[a].name).join("、")), where: l.part ? l.part.name : fmt(l.t) }; }
+      if (!cur || sig(LINES[i]) !== sig(cur)) { const l = LINES[i]; if (!l.acts.length) continue; return { t: l.t, acts: l.acts, name: l.part ? l.part.cue : cueLabel(l), where: l.part ? l.part.name : fmt(l.t) }; }
     }
     return null;
   }
@@ -1075,7 +1088,7 @@ details.tapper code { font-family: var(--font); background: var(--raised); borde
         tapProg = document.getElementById("tapProg"), tapCur = document.getElementById("tapCur"), tapNxt = document.getElementById("tapNxt"), tapStatus = document.getElementById("tapStatus");
   let TAP = { rows: [], times: [], on: false, fmt: "lrc" };
   // 段落範本：不含歌詞，只列段落與應援，讓使用者在每段開頭打點。順序依一般歌曲結構，實際以 MV 為準
-  const TPL = {"show":["{sing}0:00","{sing}0:48","{sing,clap}0:51","{sing,clap}0:55","{clap}0:58","{clap}1:04","{sing}1:06","{sing}1:08","{sing}1:16","{clap}1:21","{clap}1:24","{clap}1:28","{sing}2:02","{sing}2:20","{sing}2:34","{sing}2:38","{clap}2:53","{sing,clap}2:57","{clap,sing|拍三下}3:00：拍三下","{clap}3:05"],"usseewa":["{sing}1:07","{sing}2:16","{sing}3:01"],"readymade":["{sing|回唱短問句}0:57：回唱短問句","{sing|回唱短問句}1:07：回唱短問句","{sing|回唱短問句}2:11：回唱短問句","{sing|回唱短問句}2:21：回唱短問句","{sing|回唱短問句}3:07：回唱短問句","{sing|回唱短問句}3:16：回唱短問句","{sing|回唱短問句}3:26：回唱短問句","{sing|回唱短問句}3:36：回唱短問句"],"freedom":["{sing|1,2,3,4}0:45：1,2,3,4","{clap}2:09","{sing|Wow wow}2:11：Wow wow","{clap}2:15","{sing|Wow wow}2:16：Wow wow","{sing|Wow wow wow wow}2:20：Wow wow wow wow","{sing|1,2,3,4}2:25：1,2,3,4"],"rule":["{sing|サヨナラ×3}1:04：サヨナラ×3","{sing}1:12","{sing}2:30"],"ashura":["{wave,call|ハイ！ハイ！}0:07：ハイ！ハイ！","{wave|從左邊開始揮}0:45：從左邊開始揮","{wave|從左邊開始揮}0:48：從左邊開始揮","{wave,sing|從左邊開始揮}0:51：從左邊開始揮","{wave|從左邊開始揮}0:54：從左邊開始揮","{wave|從左邊開始揮}0:57：從左邊開始揮","{wave|從左邊開始揮}1:00：從左邊開始揮","{wave,sing|從左邊開始揮}1:03：從左邊開始揮","{wave|從左邊開始揮}1:06：從左邊開始揮","{wave,call|ハイ！ハイ！}1:13：ハイ！ハイ！","{wave|從左邊開始揮}1:54：從左邊開始揮","{wave|從左邊開始揮}1:57：從左邊開始揮","{wave,sing|從左邊開始揮}2:00：從左邊開始揮","{wave|從左邊開始揮}2:03：從左邊開始揮","{wave|從左邊開始揮}2:06：從左邊開始揮","{wave|從左邊開始揮}2:09：從左邊開始揮","{wave,sing|從左邊開始揮}2:12：從左邊開始揮","{wave|從左邊開始揮}2:15：從左邊開始揮","{sing}2:25","{wave|從左邊開始揮}2:31：從左邊開始揮","{wave|從左邊開始揮}2:34：從左邊開始揮","{wave,sing|從左邊開始揮}2:37：從左邊開始揮","{wave|從左邊開始揮}2:40：從左邊開始揮","{wave,call|ハイ！ハイ！}2:53：ハイ！ハイ！"],"mondaisaku":["{sing}0:38","{sing}0:44","{sing}0:57","{sing}1:48","{sing}1:55","{sing}2:08","{sing}2:46"],"gyakkou":["{clap|第 2、4 拍反拍}0:00：第 2、4 拍反拍","{clap|改拍正拍}0:06：改拍正拍","{gesture|轉手 3 次}0:52：轉手 3 次","{gesture|轉手 3 次}1:05：轉手 3 次","{gesture|轉手 3 次}2:11：轉手 3 次","{gesture|轉手 3 次}2:25：轉手 3 次","{clap}2:45","{clap}2:49","{clap}2:52","{clap}2:58","{clap}3:02","{clap}3:05","{gesture|轉手 3 次}3:19：轉手 3 次","{gesture|轉手 3 次}3:32：轉手 3 次"],"odo":["{sing}0:06","{sing}0:38","{sing}0:42","{sing}0:43","{sing}0:55","{sing}1:12","{sing}1:19","{jump|第 3、4、7、8 小節跳}1:27：第 3、4、7、8 小節跳","{sing}1:47","{sing}1:55","{call|接「ない」}1:60：接「ない」","{call|接「ない」}2:01：接「ない」","{jump|第 3、4、7、8 小節跳}2:22：第 3、4、7、8 小節跳","{clap}2:36","{sing}2:48","{sing}2:59","{sing}3:06","{sing}3:13"],"shinjidai":["{clap}0:22","{sing}1:15","{sing}2:42"],"giragira":["{sing}1:25","{sing}1:31","{sing}1:41","{sing}2:48","{sing}2:54","{sing}3:04","{sing}3:38","{sing}3:44","{sing}3:54"],"kurakura":["{sing|接括號裡的英文}0:27：接括號裡的英文","{sing}1:00","{sing}1:16","{sing}1:26","{sing}2:16","{sing}2:27","{sing}2:37","{sing}2:53"],"aiaia":["{sing}1:29","{sing}3:27","{sing}3:42"],"rockstar":["{call|Hey}2:52：Hey"],"staygold":["{sing|wow wow}1:00：wow wow","{sing|wow wow}1:07：wow wow","{sing|wow wow}2:16：wow wow","{sing|wow wow}2:27：wow wow","{sing|wow wow}2:50：wow wow","{sing|wow wow}2:57：wow wow"],"episodex":["{sing}1:46","{sing}1:49","{sing}1:52"],"kira":["{sing}0:38","{sing}1:58"],"monstruo":["{sing}0:43","{sing|接英文}0:57：接英文","{sing|接英文}1:34：接英文","{sing|接英文}1:39：接英文","{sing}2:34","{sing|接英文}2:48：接英文","{sing}2:57"],"ibara":["{call|歡呼}2:29：歡呼","{call|歡呼}3:27：歡呼"],"rebellion":["{clap|拍到 Yeah 為止}0:00：拍到 Yeah 為止","{sing}0:36","{gesture|跟 Ado 轉手臂}0:49：跟 Ado 轉手臂","{sing}1:03","{sing|想唱再唱}1:14：想唱再唱","{sing}1:35","{gesture|跟 Ado 轉手臂}2:13：跟 Ado 轉手臂","{sing}2:24","{sing|想唱再唱}2:29：想唱再唱","{sing|想唱再唱}2:42：想唱再唱"],"chocolat":["{clap}0:10","{clap}0:38","{sing|ショコラカタブラ}1:11：ショコラカタブラ","{sing|ショコラカタブラ}1:18：ショコラカタブラ","{sing|ショコラカタブラ}1:25：ショコラカタブラ","{clap}2:02"],"utakata":["{call|Hey}0:48：Hey","{call|Ooh-ooh-yeah}0:58：Ooh-ooh-yeah","{call|Hey}1:19：Hey","{call|Hey}1:45：Hey","{call|Ooh-ooh-yeah}1:55：Ooh-ooh-yeah","{sing}2:33"],"radio":["{sing}0:01","{wave|從左邊開始揮}0:36：從左邊開始揮","{wave|從左邊開始揮}1:48：從左邊開始揮","{sing}2:39","{wave|從左邊開始揮}2:42：從左邊開始揮"],"mirror":["{sing|NE! NE! NE!}1:28：NE! NE! NE!","{sing|もう一回！}1:37：もう一回！","{sing|NE! NE! NE!}2:31：NE! NE! NE!","{sing|もう一回！}2:40：もう一回！"],"hanabi":["{clap}0:09","{clap}0:11","{clap}0:14","{clap}0:19","{clap}0:21","{clap}0:23","{clap}0:31","{clap}0:33","{clap}0:35","{clap}0:38","{clap}0:40","{clap}0:43","{clap}1:26","{clap}1:30","{clap}1:36","{clap}1:39","{clap}1:42","{clap}1:48","{clap}1:50","{clap}1:52","{clap}1:54","{clap}1:57","{clap}2:00","{clap}3:02","{clap}3:04","{clap}3:06","{clap}3:11","{clap}3:14","{clap}3:16","{clap}3:19"],"luckybruto":["{sing}0:37","{sing|ヘイミスター}0:42：ヘイミスター","{sing}1:28","{sing}1:38","{sing|ヘイミスター}1:50：ヘイミスター","{sing}2:30","{sing}2:35","{sing}2:40","{sing}2:45","{sing}2:50","{sing}3:00"],"motherland":["{clap}0:07","{clap}0:11","{clap}0:22","{clap}0:26","{clap}0:29","{clap}0:33","{clap}0:37","{clap}0:41","{clap}0:44","{clap}0:48","{clap}0:52","{clap}1:29","{clap}1:32","{clap}1:36","{clap}1:40","{clap}1:42","{clap}1:44","{clap}1:46","{clap}1:50","{clap}1:52","{clap}1:53","{clap}1:55","{clap}1:58","{clap|第 2、4 拍反拍}3:00：第 2、4 拍反拍","{clap|第 2、4 拍反拍}3:04：第 2、4 拍反拍","{clap|第 2、4 拍反拍}3:08：第 2、4 拍反拍","{clap|第 2、4 拍反拍}3:11：第 2、4 拍反拍"],"zero":["{clap}0:33","{clap}0:35","{clap}0:36","{clap}0:37","{clap}0:39","{clap}0:40","{clap}0:42","{clap}0:43","{clap}1:52","{clap}1:53","{clap}1:55","{clap}1:56","{clap}1:57","{clap}1:59","{clap}2:00","{clap}2:02"],"kittocoaster":["{sing}0:57","{sing|接副歌那句疊字}2:26：接副歌那句疊字","{sing}2:38"]};
+  const TPL = {"show":["{sing}0:00","{sing}0:48","{sing,clap}0:51","{sing,clap}0:55","{clap}0:58","{clap}1:04","{sing}1:06","{sing}1:08","{sing}1:16","{clap}1:21","{clap}1:24","{clap}1:28","{sing}2:02","{sing}2:20","{sing}2:35","{sing}2:38","{clap}2:53","{sing,clap}2:57","{clap,sing|拍三下}3:00：拍三下","{clap}3:06"],"usseewa":["{sing}1:07","{sing}2:16","{sing}3:01"],"readymade":["{sing}1:00","{sing}1:10","{sing}2:14","{sing}2:24","{sing}3:09","{sing}3:19","{sing}3:29","{sing}3:39"],"freedom":["{sing}0:45","{clap}2:09","{sing|Wow wow}2:11：Wow wow","{clap}2:15","{sing|Wow wow}2:16：Wow wow","{sing|Wow wow wow wow}2:20：Wow wow wow wow","{sing}2:27"],"rule":["{sing}1:05","{sing}1:12","{sing}2:30"],"ashura":["{wave,call|ハイ！ハイ！}0:07：ハイ！ハイ！","{wave|從左邊開始揮}0:45：從左邊開始揮","{wave|從左邊開始揮}0:48：從左邊開始揮","{wave,sing|從左邊開始揮}0:51：從左邊開始揮","{wave|從左邊開始揮}0:54：從左邊開始揮","{wave|從左邊開始揮}0:57：從左邊開始揮","{wave|從左邊開始揮}1:00：從左邊開始揮","{wave,sing|從左邊開始揮}1:03：從左邊開始揮","{wave|從左邊開始揮}1:06：從左邊開始揮","{wave,call|ハイ！ハイ！}1:13：ハイ！ハイ！","{wave|從左邊開始揮}1:54：從左邊開始揮","{wave|從左邊開始揮}1:57：從左邊開始揮","{wave,sing|從左邊開始揮}2:00：從左邊開始揮","{wave|從左邊開始揮}2:03：從左邊開始揮","{wave|從左邊開始揮}2:06：從左邊開始揮","{wave|從左邊開始揮}2:09：從左邊開始揮","{wave,sing|從左邊開始揮}2:12：從左邊開始揮","{wave|從左邊開始揮}2:15：從左邊開始揮","{sing}2:25","{wave|從左邊開始揮}2:31：從左邊開始揮","{wave|從左邊開始揮}2:34：從左邊開始揮","{wave,sing|從左邊開始揮}2:37：從左邊開始揮","{wave|從左邊開始揮}2:40：從左邊開始揮","{wave,call|ハイ！ハイ！}2:53：ハイ！ハイ！"],"mondaisaku":["{sing}0:38","{sing}0:44","{sing}0:57","{sing}1:48","{sing}1:55","{sing}2:08","{sing}2:46"],"gyakkou":["{clap|第 2、4 拍反拍}0:00：第 2、4 拍反拍","{clap|改拍正拍}0:06：改拍正拍","{gesture|轉手 3 次}0:52：轉手 3 次","{gesture|轉手 3 次}1:05：轉手 3 次","{gesture|轉手 3 次}2:11：轉手 3 次","{gesture|轉手 3 次}2:25：轉手 3 次","{clap}2:45","{clap}2:49","{clap}2:52","{clap}2:58","{clap}3:02","{clap}3:05","{gesture|轉手 3 次}3:19：轉手 3 次","{gesture|轉手 3 次}3:32：轉手 3 次"],"odo":["{sing}0:06","{sing}0:38","{sing}0:42","{sing}0:43","{sing}0:55","{sing}1:12","{sing}1:19","{jump|第 3、4、7、8 小節跳}1:27：第 3、4、7、8 小節跳","{sing}1:47","{sing}1:55","{call|接「ない」}2:00：接「ない」","{call|接「ない」}2:01：接「ない」","{jump|第 3、4、7、8 小節跳}2:22：第 3、4、7、8 小節跳","{clap}2:36","{sing}2:48","{sing}2:59","{sing}3:06","{sing}3:13"],"shinjidai":["{clap}0:22","{sing}1:15","{sing}2:42"],"giragira":["{sing}1:25","{sing}1:31","{sing}1:41","{sing}2:48","{sing}2:54","{sing}3:04","{sing}3:38","{sing}3:44","{sing}3:54"],"kurakura":["{sing}0:29","{sing}1:03","{sing}1:16","{sing}1:26","{sing}2:19","{sing}2:27","{sing}2:29","{sing}2:40","{sing}2:53"],"aiaia":["{sing}1:29","{sing}3:27","{sing}3:42"],"rockstar":["{call|Hey}2:52：Hey"],"staygold":["{sing|wow wow}1:00：wow wow","{sing|wow wow}1:07：wow wow","{sing|wow wow}2:16：wow wow","{sing|wow wow}2:27：wow wow","{sing|wow wow}2:50：wow wow","{sing|wow wow}2:57：wow wow"],"episodex":["{sing}1:46","{sing}1:49","{sing}1:52"],"kira":["{sing}0:38","{sing}0:42","{sing}1:59","{sing}2:02"],"monstruo":["{sing}0:43","{sing}0:59","{sing}1:00","{sing}1:02","{sing}1:37","{sing}1:41","{sing}2:34","{sing}2:50","{sing}2:52","{sing}2:54","{sing}2:57","{sing}2:59","{sing}3:01"],"ibara":["{call|歡呼}2:29：歡呼","{call|歡呼}3:27：歡呼"],"rebellion":["{clap|拍到 Yeah 為止}0:00：拍到 Yeah 為止","{sing}0:36","{gesture|跟 Ado 轉手臂}0:49：跟 Ado 轉手臂","{sing}1:03","{sing|想唱再唱}1:14：想唱再唱","{sing}1:35","{gesture|跟 Ado 轉手臂}2:13：跟 Ado 轉手臂","{sing}2:24","{sing|想唱再唱}2:30：想唱再唱","{sing|想唱再唱}2:42：想唱再唱"],"chocolat":["{clap}0:10","{clap}0:38","{sing}1:08","{sing}1:15","{sing}1:22","{clap}2:02"],"utakata":["{call|Hey}0:48：Hey","{call|Ooh-ooh-yeah}0:58：Ooh-ooh-yeah","{call|Hey}1:19：Hey","{call|Hey}1:45：Hey","{call|Ooh-ooh-yeah}1:55：Ooh-ooh-yeah","{sing}2:33"],"radio":["{sing}0:01","{wave|從左邊開始揮}0:36：從左邊開始揮","{wave|從左邊開始揮}1:48：從左邊開始揮","{sing}2:40","{wave|從左邊開始揮}2:42：從左邊開始揮"],"mirror":["{sing}1:27","{sing}1:36","{sing}2:30","{sing}2:39"],"hanabi":["{clap}0:09","{clap}0:11","{clap}0:14","{clap}0:19","{clap}0:21","{clap}0:23","{clap}0:31","{clap}0:33","{clap}0:35","{clap}0:38","{clap}0:40","{clap}0:43","{clap}1:26","{clap}1:30","{clap}1:36","{clap}1:39","{clap}1:42","{clap}1:48","{clap}1:50","{clap}1:52","{clap}1:54","{clap}1:57","{clap}2:00","{clap}3:02","{clap}3:04","{clap}3:06","{clap}3:11","{clap}3:14","{clap}3:16","{clap}3:19"],"luckybruto":["{sing}0:37","{sing}0:47","{sing}1:28","{sing}1:38","{sing}1:55","{sing}2:30","{sing}2:35","{sing}2:40","{sing}2:45","{sing}2:50","{sing}3:00"],"motherland":["{clap}0:07","{clap}0:11","{clap}0:22","{clap}0:26","{clap}0:29","{clap}0:33","{clap}0:37","{clap}0:41","{clap}0:44","{clap}0:48","{clap}0:52","{clap}1:29","{clap}1:32","{clap}1:36","{clap}1:40","{clap}1:42","{clap}1:44","{clap}1:46","{clap}1:50","{clap}1:52","{clap}1:53","{clap}1:55","{clap}1:58","{clap|第 2、4 拍反拍}3:00：第 2、4 拍反拍","{clap|第 2、4 拍反拍}3:04：第 2、4 拍反拍","{clap|第 2、4 拍反拍}3:08：第 2、4 拍反拍","{clap|第 2、4 拍反拍}3:11：第 2、4 拍反拍"],"zero":["{clap}0:33","{clap}0:35","{clap}0:36","{clap}0:37","{clap}0:39","{clap}0:40","{clap}0:42","{clap}0:43","{clap}1:52","{clap}1:53","{clap}1:55","{clap}1:56","{clap}1:57","{clap}1:59","{clap}2:00","{clap}2:02"],"kittocoaster":["{sing}0:57","{sing}2:29","{sing}2:38"]};
   function sectionTemplate(s) {
     if (TPL[s.id]) return TPL[s.id].join("\n");
     // 沒有整理過的歌只給空白段落，動作由使用者自己標
