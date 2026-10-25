@@ -9,7 +9,11 @@
 <meta property="og:description" content="看著 MV 跟歌詞，先在家練好 Ado 演唱會的應援。非官方粉絲製作。">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#070a12">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%235d9dfe'/%3E%3Cpath d='M12 5.2c-2.3 0-3.7 1.7-3.7 4 0 1.6-.5 3.4-1.2 5.2-.5 1.3-.6 2.6-.2 3.6h10.2c.4-1 .3-2.3-.2-3.6-.7-1.8-1.2-3.6-1.2-5.2 0-2.3-1.4-4-3.7-4z' fill='%23070a12'/%3E%3C/svg%3E">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- build:seo（scripts/build.mjs 在這裡放網址、分享圖與結構化資料） -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap">
@@ -600,7 +604,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   </main>
 
   <footer class="col">
-    <p class="credits-copy"><span class="m">Ado 應援預習</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.9.1</span></span></p>
+    <p class="credits-copy"><span class="m">Ado 應援預習</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.10.0</span></span></p>
     <nav class="credits-links" aria-label="專案連結">
       <a class="gh" href="https://github.com/Gcree/ado-guide" target="_blank" rel="noopener" aria-label="GitHub Repo" title="GitHub Repo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
       <a href="https://vaundy.tiaui.co/" target="_blank" rel="noopener">Inspired by Vaundy 台北場應援指南</a>
@@ -810,6 +814,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   // ── 歌曲頁 ──
   const homeV = document.getElementById("home"), songV = document.getElementById("song");
   const box = document.getElementById("lines"), legend = document.getElementById("legend");
+  const PAGE_SONG = document.documentElement.dataset.song || "", PAGE_TITLE = document.title;
   let S = null, LINES = [], TAGGED = false, lineEls = [], curLine = -1, curKey = "";
 
   // 歌詞捲動：自己做 0.26 秒先快後慢的動畫，把目前這行放到框的正中央；新的一行來了就從現在位置接著捲，不會疊在一起
@@ -977,7 +982,8 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
 
   function openSong(s, t = 0) {
     S = s; curKey = null; hideAlert(); START = t; remember(s.id);
-    document.title = `${s.ja}｜Ado 應援預習`;
+    // 在這首自己的頁面（song/<id>/）時保留建置時寫好的完整標題，給搜尋引擎看
+    document.title = s.id === PAGE_SONG ? PAGE_TITLE : `${s.ja}｜Ado 應援預習`;
     const sub = s.zh !== s.ja ? s.zh : s.en;
     document.getElementById("sTitle").innerHTML = esc(s.ja) + (sub ? `<span lang="zh-Hant-TW">${esc(sub)}</span>` : "");
     ["ytLink", "ytLink2"].forEach(id => document.getElementById(id).href = `https://www.youtube.com/watch?v=${s.yt}`);
@@ -1233,7 +1239,9 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   // 分享目前時間：網址後面加 @秒數，打開就從那裡開始
   document.getElementById("shareBtn").addEventListener("click", async () => {
     if (!S) return;
-    const t = Math.floor(now()), url = `${location.origin}${location.pathname}#${S.id}${t ? "@" + t : ""}`;
+    // 正式網站（有每首歌的獨立頁）分享那首的頁面，連結預覽才會是那首歌；本機預覽沒有獨立頁，用 # 網址
+    const t = Math.floor(now()), at = t ? `#${S.id}@${t}` : "";
+    const url = location.hostname.endsWith("github.io") ? new URL(`song/${S.id}/`, document.baseURI).href + at : `${location.origin}${location.pathname}${at || "#" + S.id}`;
     document.getElementById("tools").open = false;
     const text = `${S.ja}${t ? " " + fmt(t) : ""}｜Ado 應援預習`;
     if (navigator.share && matchMedia("(pointer: coarse)").matches) { try { await navigator.share({ title: text, url }); return; } catch (e) { if (e.name === "AbortError") return; } }
@@ -1326,13 +1334,14 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   // 回清單時捲回離開前的位置
   let listY = 0;
   function route() {
-    const h = location.hash.slice(1), [id, at] = h.split("@"), s = BY[id];
+    // 每首歌的獨立頁（song/<id>/）沒有 # 時直接開那首
+    const h = location.hash.slice(1) || PAGE_SONG, [id, at] = h.split("@"), s = BY[id];
     if (s) {
       if (!homeV.hidden) listY = scrollY;
       document.body.classList.add("on-song");
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
     } else {
-      pause(); hideAlert(); document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = "Ado 應援預習";
+      pause(); hideAlert(); document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援預習" : PAGE_TITLE;
       renderRecent();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);

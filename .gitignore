@@ -1,3 +1,7 @@
 .DS_Store
 # 本機預覽設定（含暫存資料夾路徑）
 .claude/
+
+# 建置輸出（GitHub Actions 會自己建）
+dist/
+.playwright-mcp/

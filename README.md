@@ -2,18 +2,23 @@
 
 非官方粉絲製作的 Ado 演唱會應援預習網站。看著官方 MV，跟著歌詞知道哪裡拍手、哪裡喊、哪裡跟著唱、哪裡安靜聽。不照任何一場的歌單，不會暴雷。
 
+網站：<https://gcree.github.io/ado-guide/>
 專案儲存庫：<https://github.com/Gcree/ado-guide>
 
 ## 1. 專案結構
 
-不需要建置，兩個檔案放在同一個資料夾，用 http(s) 開啟就能用。
+平常只改 `index.html` 和 `song-lyrics.js`，用 http(s) 開啟就能用；發布時 GitHub Actions 會另外建出每首歌的獨立頁。
 
 ```text
-index.html          ← 網站本體：版面、樣式與所有互動程式
-song-lyrics.js      ← 每首歌的同步日文歌詞、繁中翻譯與逐行應援動作
-CHANGELOG.md        ← 更新日誌；網站頁尾的「更新日誌」直接讀這個檔案
-README.md           ← 這份說明
-開啟網站.command     ← 在自己的 Mac 上看網站時點兩下（開一個本機伺服器）
+index.html                  ← 網站本體：版面、樣式與所有互動程式
+song-lyrics.js              ← 每首歌的同步日文歌詞、繁中翻譯與逐行應援動作
+CHANGELOG.md                ← 更新日誌；網站頁尾的「更新日誌」直接讀這個檔案
+manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示與顏色
+assets/                     ← 網站圖示（favicon、主畫面圖示）與分享預覽圖 og.jpg
+scripts/build.mjs           ← 建置：每首歌一頁 song/<id>/、sitemap.xml、404.html，輸出到 dist/
+.github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
+README.md                   ← 這份說明
+開啟網站.command             ← 在自己的 Mac 上看網站時點兩下（開一個本機伺服器）
 ```
 
 `index.html` 裡的資料表：
@@ -40,20 +45,35 @@ python3 -m http.server 8000
 
 再打開 <http://localhost:8000/>。
 
-## 3. 發佈到 GitHub Pages
+想看發布後的樣子（含每首歌的獨立頁）：
 
-到 **Settings** → **Pages**，Source 選 **Deploy from a branch**、分支選 `main`、資料夾選 `/ (root)`。
+```bash
+node scripts/build.mjs dist
+```
 
-目前儲存庫是私人的，要開 GitHub Pages 需要付費方案（GitHub Pro），或先把儲存庫改成公開。
+再到 `dist` 資料夾開靜態伺服器。獨立頁的網址、分享圖與 canonical 都寫成正式網址，所以本機只用來看版面和功能。
 
-## 4. 改版流程
+## 3. 發布到 GitHub Pages
+
+儲存庫是公開的，**Settings** → **Pages** 的 Source 設為 **GitHub Actions**。推到 `main` 後 `.github/workflows/pages.yml` 會跑 `node scripts/build.mjs dist` 並發布 `dist/`，一兩分鐘後 <https://gcree.github.io/ado-guide/> 就會更新；進度在 GitHub 的 **Actions** 分頁。
+
+## 4. 搜尋引擎（SEO）
+
+- **每首歌一頁**：`song/<id>/` 有自己的標題、說明、canonical 與結構化資料（schema.org 的 WebPage／MusicRecording），打開會直接進那首歌。網站內切歌仍用 `#<id>`，搜尋引擎收錄的是獨立頁。
+- **網站地圖**：`sitemap.xml` 列出首頁和所有歌曲頁，已提交到 Google Search Console。新增歌曲後不用另外提交，Google 會再讀。
+- **Google Search Console**：帳號 kuti36.work，資源是「網址前置字元」`https://gcree.github.io/ado-guide/`，用首頁的 HTML 標記驗證（`scripts/build.mjs` 的 `GSC_VERIFY`，不要刪）。
+- **分享預覽**：所有頁面共用 `assets/og.jpg`（1200×630）；正式網站的「分享目前時間」會分享那首歌的獨立頁。
+- 因為網站在 `/ado-guide/` 子路徑，`robots.txt` 必須放在網域根目錄才有效，這裡不放。
+
+## 5. 改版流程
 
 1. 改 `index.html` 或 `song-lyrics.js`。
 2. 改了 `song-lyrics.js` 時，把 `index.html` 裡載入它的 `song-lyrics.js?v=…` 換一個新字串，避免手機讀到舊快取。
 3. 在 `CHANGELOG.md` 最上面加一段新版本，並把頁尾的版本號（`class="build"`）改成一樣。
-4. commit 並推到 `main`。
+4. 新增歌曲時，`SONGS` 加一筆就會自動多一個獨立頁並列進網站地圖。
+5. commit 並推到 `main`，GitHub Actions 會自動發布。
 
-## 5. 資料來源與致謝
+## 6. 資料來源與致謝
 
 - 原創曲的應援動作：[じゅん🌝ぴ 在 note 的整理](https://note.com/jun1217imokenp/n/nda2715681fcd)（2024 年 4 月）。翻唱曲原文沒寫，標「建議」的是依曲風寫的。
 - 網站架構與歌詞檔格式參考 [Vaundy 台北場應援指南](https://vaundy.tiaui.co/)（[GitHub](https://github.com/watain666/Vaundy-Taiwan-2026)），它 fork 自 [SEOUL 응원가이드](https://vaundy-seoul-2026.pages.dev/)。

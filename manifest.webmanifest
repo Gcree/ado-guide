@@ -1,0 +1,16 @@
+{
+  "name": "Ado 應援預習",
+  "short_name": "Ado 應援",
+  "description": "非官方粉絲製作的 Ado 演唱會應援預習：看著 MV 跟歌詞，練哪裡拍手、哪裡大合唱。",
+  "lang": "zh-Hant-TW",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070a12",
+  "theme_color": "#070a12",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
