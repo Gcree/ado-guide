@@ -63,9 +63,9 @@ const urls = [SITE];
 for (const s of SONGS) {
   const b = LYRICS.find(x => x.id === s.id), hasLines = !!(b && b.lyrics && b.lyrics.length);
   const name = s.zh && s.zh !== s.ja ? `${s.ja}（${s.zh}）` : s.ja;
-  const tips = s.hold ? [] : s.tips || [];
+  const tips = s.hold || s.sug ? [] : s.tips || [];  // 和網頁一樣，sug 的建議先不寫
   const desc = tips.length
-    ? `Ado〈${s.ja}〉演唱會應援${s.sug ? "建議" : ""}：${tips.join("；")}。看著 MV 跟${hasLines ? "同步歌詞" : "重點"}練習。非官方粉絲製作。`
+    ? `Ado〈${s.ja}〉演唱會應援：${tips.join("；")}。看著 MV 跟${hasLines ? "同步歌詞" : "重點"}練習。非官方粉絲製作。`
     : `Ado〈${s.ja}〉的 MV${hasLines ? " 與同步歌詞" : ""}，應援還在整理，先熟悉旋律。非官方粉絲製作。`;
   const url = `${SITE}song/${s.id}/`;
   urls.push(url);

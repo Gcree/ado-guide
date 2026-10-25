@@ -509,7 +509,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
           <div class="seg" role="group" aria-label="篩選">
             <button data-f="all" aria-pressed="true">全部</button>
             <button data-f="cheer" aria-pressed="false" title="粉絲整理過固定應援的歌">有應援</button>
-            <button data-f="loose" aria-pressed="false" title="粉絲說沒有固定應援，或查不到現場資料、只寫了依曲風的建議">沒有固定應援</button>
+            <button data-f="loose" aria-pressed="false" title="粉絲說沒有固定應援，或還查不到可靠的應援資料">沒有固定應援</button>
             <button data-f="cover" aria-pressed="false" title="Ado 翻唱別人的歌">翻唱</button>
           </div>
           <div class="seg" role="group" aria-label="排序">
@@ -608,7 +608,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   </main>
 
   <footer class="col">
-    <p class="credits-copy"><span class="m">Ado 應援預習</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.10.1</span></span></p>
+    <p class="credits-copy"><span class="m">Ado 應援預習</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.10.2</span></span></p>
     <nav class="credits-links" aria-label="專案連結">
       <a class="gh" href="https://github.com/Gcree/ado-guide" target="_blank" rel="noopener" aria-label="GitHub Repo" title="GitHub Repo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
       <a href="https://vaundy.tiaui.co/" target="_blank" rel="noopener">Inspired by Vaundy 台北場應援指南</a>
@@ -616,7 +616,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
       <button type="button" id="feedbackBtn">意見回饋</button>
       <button type="button" id="logBtn" aria-haspopup="dialog" aria-controls="logDlg">更新日誌</button>
     </nav>
-    <p class="credits-note">原創曲的應援依 じゅん🌝ぴ 在 note 的整理（2024 年 4 月）；翻唱曲原文沒寫，標「建議」的是依曲風寫的；實際以現場氣氛和 Ado 的引導為準。MV、歌詞與圖像的著作權屬於原權利人。</p>
+    <p class="credits-note">原創曲的應援依 じゅん🌝ぴ 在 note 的整理（2024 年 4 月）；翻唱曲和還查不到可靠資料的歌先不顯示應援；實際以現場氣氛和 Ado 的引導為準。MV、歌詞與圖像的著作權屬於原權利人。</p>
   </footer>
 </div>
 
@@ -634,7 +634,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   };
 
   // ── 歌曲資料（MV 為 Ado 官方頻道；len 為 MV 長度） ──
-  // 原創曲的 acts／tips／free 依 じゅん🌝ぴ 的 note（2024-04-26）整理；逐行動作在 song-lyrics.js。翻唱曲原文沒寫，標 sug 的是依曲風的建議。
+  // 原創曲的 acts／tips／free 依 じゅん🌝ぴ 的 note（2024-04-26）整理；逐行動作在 song-lyrics.js。翻唱曲原文沒寫，標 sug 的是依曲風的建議（目前不顯示，見下方 hold）。
   const SONGS = [
     { id: "show", ja: "唱", zh: "唱", en: "Show", date: "2023-09-06", yt: "pgXpM4l_MwI", len: "3:10", acts: ["sing", "clap"], tips: ["開頭和每次副歌開頭的英文句由觀眾唱", "主歌和副歌有好幾句是 Ado 起頭、觀眾接", "主歌後半、副歌後半、最後副歌三個地方拍手", "最後副歌喊「Clap Clap Clap」時拍三下"], claps: 180.94 },
     { id: "usseewa", ja: "うっせぇわ", zh: "吵死了", date: "2020-10-23", yt: "Qp3b-RXtz4w", len: "3:23", acts: ["call", "sing"], tips: ["間奏喊「ハイ！ハイ！」", "副歌第二次重複歌名那句由觀眾唱"] },
@@ -715,8 +715,8 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   ];
   // 正版歌詞：歌ネット（uta-net.com）的歌曲頁編號
   const UT = {"show":343570,"usseewa":292534,"readymade":295824,"freedom":313113,"rule":356726,"ashura":309074,"mondaisaku":332973,"gyakkou":321128,"odo":301298,"shinjidai":319758,"giragira":297951,"kurakura":344008,"saikyo":320568,"aiaia":389756,"rockstar":371304,"episodex":364731,"totmusica":322907,"kira":392133,"monstruo":397076,"ibara":336879,"rebellion":324691,"chocolat":349160,"shoka":361947,"pierrot":303332,"aitakute":306065,"akuruhi":315407,"kokoro":313110,"utakata":322805,"sekai":322906,"kaze":322905,"missing":326032,"himawari":340373,"dignity":343573,"radio":344727,"unravel":350288,"hotaru":350286,"value":350381,"mirror":355040,"sakura":362390,"elf":367139,"hanataba":369630,"kazetowatashi":380660,"magic":381653,"angelseek":386914,"vivarium":388255,"haruni":392755,"kagakushu":313108,"hanabi":313112,"domestic":313114,"luckybruto":313111,"motherland":313109,"nukegara":357493,"zero":357492,"hellosignals":371303,"kittocoaster":363098,"lovemeforever":395819,"ravensky":400798,"sukideite":398715,"soldiergame":386267,"ponpokorin":385914,"catseye":380030,"kitaro":374762,"charles":371560,"jikkai":373551,"aishite":350293,"kazarijanai":350294,"kamippoina":350289,"kawaikute":350291,"tsumitobatsu":350292,"dryflower":350295,"villain":350290,"burikino":350287};
-  // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold
-  SONGS.forEach(s => { if (s.hold) { s.acts = []; s.tips = []; } });
+  // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示
+  SONGS.forEach(s => { if (s.sug) s.hold = true; if (s.hold) { s.acts = []; s.tips = []; } });
   SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = s.tips || []; s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
   // 推出順序：MV 在 YouTube 公開的日期（日本時間）；編號照這個順序
   SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => s.no = i + 1);
@@ -733,7 +733,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
     SONGS.forEach(s => { const b = getBuiltinSong(s.id); s.lines = !!(b && b.lyrics && b.lyrics.length); s.cheer = s.lines && !s.hold ? b.lyrics.filter(l => (l.acts || []).some(a => a !== "listen")).length : 0; });
   });
   const BY = Object.fromEntries(SONGS.map(s => [s.id, s]));
-  // 螢光棒顏色：依 じゅん🌝ぴ 的 note；彩＝カラフル，開頭 ? 是原文的預測；沒寫的歌用藍（原文：迷ったら青）
+  // 螢光棒顏色：依 じゅん🌝ぴ 的 note；彩＝カラフル，開頭 ? 是原文的預測（不顯示，當作沒寫）；沒寫的歌用藍（原文：迷ったら青）
   const PEN = { usseewa: "青赤", readymade: "赤桃水", giragira: "白", odo: "赤青", pierrot: "水紫", aitakute: "桃", ashura: "赤橙", kokoro: "白水", hanabi: "彩", kagakushu: "白水", akuruhi: "白水", domestic: "赤桃青", motherland: "青水白", luckybruto: "青赤", shinjidai: "彩桃", saikyo: "彩橙", gyakkou: "赤", utakata: "緑青赤", sekai: "黄", totmusica: "紫青", kaze: "青水", rebellion: "赤青", missing: "白水", freedom: "白青", mondaisaku: "緑彩", ibara: "水白青", himawari: "黄橙緑水", show: "橙黄", dignity: "青水", kurakura: "水桃", radio: "橙黄緑", chocolat: "赤白", value: "水白", mirror: "青桃", kittocoaster: "水桃", rule: "青水赤", nukegara: "水白", zero: "白", hellosignals: "水桃", shoka: "赤青", sakura: "桃", episodex: "青水白", elf: "緑橙黄", hanataba: "水黄", rockstar: "赤黄", staygold: "赤青紫", kazetowatashi: "青水", magic: "紫桃赤", angelseek: "水白", vivarium: "青", aiaia: "赤橙黄", kira: "青橙", haruni: "桃", sukideite: "?黄", monstruo: "橙赤黄水", lovemeforever: "紫水白", kanjaa: "?桃白", ravensky: "?橙赤紫" };
   const PENC = { 青: ["藍", "#5d9dfe"], 水: ["水藍", "#5fd4ff"], 白: ["白", "#f2efe8"], 赤: ["紅", "#ff4a5a"], 桃: ["粉紅", "#ff7ab8"], 紫: ["紫", "#a374ff"], 橙: ["橘", "#ff9a3c"], 黄: ["黃", "#ffd84a"], 緑: ["綠", "#4ee08a"] };
   const RAINBOW = [..."赤橙黄緑水青紫"];
@@ -741,8 +741,8 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   // 拍點不清楚的歌不列，燈光改成每句歌詞開頭亮一下
   const BEAT = { aiaia: [138, 1.685, 0], aitakute: [160, 0.97, 1], akuruhi: [147, 0.671, 0], ashura: [156, 1.522, 1], burikino: [172, 0.695, 1], catseye: [145, 0.635, 1], charles: [148, 1.306, 0], chocolat: [137, 0.033, 1], dignity: [154, 0.447, 1], domestic: [116, 0.726, 1], dryflower: [148, 0.473, 1], elf: [160, 1.47, 1], episodex: [174, 0.152, 1], freedom: [178, 0.203, 1], giragira: [96, 2.05, 1], gyakkou: [145, 0.366, 0], hanabi: [100, 0.95, 1], hanataba: [93.5, 2.005, 0], haruni: [145, 1.055, 1], hellosignals: [170, 0.595, 0], himawari: [95, 0.773, 1], hotaru: [80, 1.79, 0], ibara: [165, 1.064, 1], jikkai: [149, 0.58, 1], kagakushu: [100, 2.11, 1], kanjaa: [120, 0.056, 0], kawaikute: [160, 0.5, 1], kazarijanai: [178, 1.001, 1], kaze: [140, 1.686, 1], kazetowatashi: [172, 0.533, 0], kira: [155, 0.362, 1], kitaro: [110.98, 1.646, 0], kokoro: [152, 1.525, 1], kurakura: [94, 1.977, 1], lovemeforever: [135, 0.418, 1], luckybruto: [99, 2.172, 0], magic: [133, 0.853, 1], mirror: [114, 1.208, 1], missing: [137.98, 0.393, 1], mondaisaku: [150, 0.42, 1], monstruo: [130, 0.172, 1], motherland: [130, 0.262, 1], nukegara: [132, 0.461, 1], odo: [128, 1.858, 1], pierrot: [120, 0.68, 0], ponpokorin: [140, 0.496, 1], radio: [118, 1.084, 1], ravensky: [162, 0.997, 1], readymade: [97.51, 1.216, 0], rebellion: [178, 0.344, 1], rockstar: [105, 1.643, 0], rule: [132, 0.107, 1], saikyo: [96, 2.17, 0], sakura: [174, 0.152, 1], sekai: [76, 0.39, 1], shinjidai: [175, 1.208, 1], shoka: [94, 0.59, 0], show: [132, 0.747, 1], soldiergame: [132, 0.631, 1], staygold: [140, 1.564, 1], sukideite: [164, 0.379, 1], totmusica: [130, 0.32, 1], tsumitobatsu: [118.5, 1.827, 0], unravel: [135, 0.396, 1], usseewa: [178, 0.505, 1], utakata: [178, 0.874, 1], villain: [102, 1.654, 1], vivarium: [97.5, 0.981, 0], zero: [171, 0.017, 1] };
   function penOf(s) {
-    const pen = !s.hold && PEN[s.id], raw = pen || "青", keys = [...raw.replace("?", "")];
-    return { keys, guess: raw[0] === "?", none: !pen, cols: keys.flatMap(k => (k === "彩" ? RAINBOW : [k]).map(c => PENC[c][1])) };
+    const pen = !s.hold && PEN[s.id] && PEN[s.id][0] !== "?" && PEN[s.id], keys = [...(pen || "青")];
+    return { keys, none: !pen, cols: keys.flatMap(k => (k === "彩" ? RAINBOW : [k]).map(c => PENC[c][1])) };
   }
 
   const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -762,13 +762,13 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   let filter = "all", sort = store.get("list-sort") === "cheer" ? "cheer" : "date";
   // 目前排序下的歌曲順序；切換上一首、下一首也照這個
   const ordered = () => sort === "cheer" ? [...SONGS].sort((a, b) => b.cheer - a.cheer || a.no - b.no) : SONGS;
-  // free：粉絲說沒有固定應援；sug：查不到現場做法，依曲風寫的建議
+  // free：粉絲說沒有固定應援；hold（含 sug）：還查不到可靠的應援資料
   function renderList() {
     const term = q.value.trim().toLowerCase();
     const rows = ordered().filter(s => {
       if (term && ![s.ja, s.zh, s.en || ""].some(x => x.toLowerCase().includes(term))) return false;
-      if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.sug;
-      if (filter === "loose") return !!(s.free || s.sug);
+      if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
+      if (filter === "loose") return !!(s.free || s.hold);
       if (filter === "cover") return !!s.cover;
       return true;
     });
@@ -782,7 +782,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
     countEl.textContent = rows.length ? (rows.length < SONGS.length ? `${rows.length} / ` : "共 ") + `${SONGS.length} 首` : "找不到符合的歌曲";
     document.getElementById("fdesc").textContent = FDESC[filter] || "";
   }
-  const FDESC = { cheer: "粉絲整理過固定應援的歌。", loose: "粉絲說沒有固定應援，或查不到現場資料、只寫了依曲風的建議。跟著節奏自由搖就好。", cover: "Ado 翻唱別人的歌。" };
+  const FDESC = { cheer: "粉絲整理過固定應援的歌。", loose: "粉絲說沒有固定應援，或還查不到可靠的應援資料。跟著節奏自由搖就好。", cover: "Ado 翻唱別人的歌。" };
   // 螢光棒顏色的小圓點
   const penDots = s => `<span class="dots" aria-label="螢光棒：${penOf(s).keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、")}">${penOf(s).keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")}</span>`;
   q.addEventListener("input", renderList);
@@ -994,7 +994,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
     document.getElementById("lyLink").href = s.ut;
     const p = penOf(s);
     document.getElementById("pen").innerHTML = "螢光棒" + p.keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")
-      + `<b>${p.keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、")}${p.guess ? "（預測）" : p.none ? "（沒指定）" : ""}</b>`;
+      + `<b>${p.keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、")}${p.none ? "（沒指定）" : ""}</b>`;
     const seq = ordered(), at = seq.indexOf(s);
     [["prevSong", seq[at - 1], "上一首"], ["nextSong", seq[at + 1], "下一首"]].forEach(([id, x, word]) => {
       const a = document.getElementById(id);
@@ -1019,12 +1019,11 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   lyLoaded.then(() => { if (S && !songV.hidden) fillSong(); });
 
   // 現在動作：以目前這一行為準。沒有動作的行不提示（聽 Ado 唱）
-  // 整首沒有逐行標記的歌（自由搖、建議），整首用同一個提示，不跳字卡
+  // 整首沒有逐行標記的歌（自由搖、應援還在整理），整首用同一個提示，不跳字卡
   function songCue() {
     if (S.free) return { acts: [], name: "自由跟著節奏", how: "沒有固定應援，跟著現場氣氛就好。" };
     if (S.hold) return { acts: [], name: "應援還在整理", how: "先熟悉旋律，跟著現場氣氛就好。" };
     const acts = S.acts.filter(a => a !== "listen");
-    if (S.sug && acts.length) return { acts, name: "建議：" + acts.map(a => ACT[a].name).join("、"), how: S.tips.join("，") };
     return null;
   }
   function cueAt(t) {
