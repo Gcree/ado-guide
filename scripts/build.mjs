@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 
 const SITE = "https://gcree.github.io/ado-guide/";
 const NAME = "Ado 應援預習";
-// Google Search Console 的 HTML 標記驗證碼（只放在首頁）
+// Google Search Console 的 HTML 標記驗證碼（只放在首頁）；另外根目錄的 googlea6b361c7e6e7d11c.html 是 HTML 檔案驗證，兩個都不要刪
 const GSC_VERIFY = "YLXviPdOfiLpoPdirdp39Tf7T0PrqSdDVMpdkZnxveg";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
@@ -93,7 +93,7 @@ const today = new Date().toISOString().slice(0, 10);
 write("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc><lastmod>${today}</lastmod></url>`).join("\n")}\n</urlset>\n`);
 
 // 其他檔案原樣複製
-for (const f of ["song-lyrics.js", "CHANGELOG.md", "manifest.webmanifest"]) fs.copyFileSync(path.join(root, f), path.join(out, f));
+for (const f of ["song-lyrics.js", "CHANGELOG.md", "manifest.webmanifest", "googlea6b361c7e6e7d11c.html"]) fs.copyFileSync(path.join(root, f), path.join(out, f));
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
 console.log(`輸出到 ${out}：首頁＋${SONGS.length} 首歌頁、sitemap.xml、404.html`);

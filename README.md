@@ -18,6 +18,7 @@ assets/                     ← 網站圖示（favicon、主畫面圖示）與�
 scripts/build.mjs           ← 建置：每首歌一頁 song/<id>/、sitemap.xml、404.html，輸出到 dist/
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
 README.md                   ← 這份說明
+google….html               ← Google Search Console 的擁有權驗證檔，不要刪
 開啟網站.command             ← 在自己的 Mac 上看網站時點兩下（開一個本機伺服器）
 ```
 
@@ -61,7 +62,7 @@ node scripts/build.mjs dist
 
 - **每首歌一頁**：`song/<id>/` 有自己的標題、說明、canonical 與結構化資料（schema.org 的 WebPage／MusicRecording），打開會直接進那首歌。網站內切歌仍用 `#<id>`，搜尋引擎收錄的是獨立頁。
 - **網站地圖**：`sitemap.xml` 列出首頁和所有歌曲頁，已提交到 Google Search Console。新增歌曲後不用另外提交，Google 會再讀。
-- **Google Search Console**：帳號 kuti36.work，資源是「網址前置字元」`https://gcree.github.io/ado-guide/`，用首頁的 HTML 標記驗證（`scripts/build.mjs` 的 `GSC_VERIFY`，不要刪）。
+- **Google Search Console**：帳號 kuti36.work，資源是「網址前置字元」`https://gcree.github.io/ado-guide/`，用首頁的 HTML 標記（`scripts/build.mjs` 的 `GSC_VERIFY`）和根目錄的 `googlea6b361c7e6e7d11c.html` 驗證，兩個都不要刪，刪了會失去擁有權。
 - **分享預覽**：所有頁面共用 `assets/og.jpg`（1200×630）；正式網站的「分享目前時間」會分享那首歌的獨立頁。
 - 因為網站在 `/ado-guide/` 子路徑，`robots.txt` 必須放在網域根目錄才有效，這裡不放。
 
