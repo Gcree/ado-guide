@@ -1,9 +1,11 @@
-// 建置正式網站：複製檔案，並替每首歌做一頁 song/<id>/（有自己的標題、說明與分享資訊，Google 才收錄得到）
+// 建置正式網站：複製檔案，並替每首歌做一頁 song/<id>/（有自己的標題、說明與分享資訊，Google 才收錄得到）；
+// 歌詞拆成每首一個檔 lyrics/<id>.json，網頁打開哪首才載哪首
 // 用法：node scripts/build.mjs [輸出資料夾，預設 dist]
-// GitHub Actions 每次推到 main 都會跑這支，再發布到 GitHub Pages；平常改網站只要改 index.html、song-lyrics.js
+// GitHub Actions 每次推到 main 都會跑這支，再發布到 GitHub Pages；平常改網站只要改 index.html、style.css、app.js、song-lyrics.js
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 
 const SITE = "https://gcree.github.io/ado-guide/";
 const NAME = "Ado 應援預習";
@@ -12,12 +14,29 @@ const GSC_VERIFY = "YLXviPdOfiLpoPdirdp39Tf7T0PrqSdDVMpdkZnxveg";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const out = path.resolve(process.argv[2] || path.join(root, "dist"));
-const src = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const read = f => fs.readFileSync(path.join(root, f), "utf8");
+const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);
+const css = read("style.css"), app = read("app.js");
 const LYRICS = createRequire(import.meta.url)(path.join(root, "song-lyrics.js"));
 
-// 從 index.html 讀出歌單（和網頁用同一份資料）
-const start = src.indexOf("const SONGS = [");
-const SONGS = Function("return " + src.slice(start + "const SONGS = ".length, src.indexOf("];", start) + 1))();
+// 從 app.js 讀出歌單（和網頁用同一份資料）
+const start = app.indexOf("const SONGS = [");
+const SONGS = Function("return " + app.slice(start + "const SONGS = ".length, app.indexOf("];", start) + 1))();
+
+// 每首一個歌詞檔（沒有歌詞的歌也放一個空的，網頁就不會讀到 404）；index.json 記每首的應援數量（有動作、不是「安靜聽」的行數）
+const lyFiles = {}, lyIndex = {};
+for (const s of SONGS) {
+  const b = LYRICS.find(x => x.id === s.id), lines = (b && b.lyrics) || [];
+  lyFiles[`lyrics/${s.id}.json`] = JSON.stringify({ ...(b || { id: s.id }), lyrics: lines });
+  if (lines.length) lyIndex[s.id] = lines.filter(l => (l.acts || []).some(a => a !== "listen")).length;
+}
+lyFiles["lyrics/index.json"] = JSON.stringify(lyIndex);
+// 版本字串：內容變了才換，瀏覽器才會抓新的（原始檔寫 ?v=dev）
+const LYV = hash(Object.values(lyFiles).join("\n"));
+const src = read("index.html")
+  .replace("style.css?v=dev", `style.css?v=${hash(css)}`)
+  .replace("app.js?v=dev", `app.js?v=${hash(app)}`)
+  .replace('<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-lyrics="${LYV}">`);
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
@@ -42,7 +61,7 @@ function page({ url, title, desc, ld, base, song, extra = "" }) {
       extra
     ].filter(Boolean).join("\n"));
   if (base) html = html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n<base href="${base}">`);
-  if (song) html = html.replace('<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-song="${song}">`);
+  if (song) html = html.replace('<html lang="zh-Hant-TW" ', `<html lang="zh-Hant-TW" data-song="${song}" `);
   return html;
 }
 
@@ -92,8 +111,10 @@ write("404.html", `<!doctype html><html lang="zh-Hant-TW"><meta charset="utf-8">
 const today = new Date().toISOString().slice(0, 10);
 write("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${u}</loc><lastmod>${today}</lastmod></url>`).join("\n")}\n</urlset>\n`);
 
-// 其他檔案原樣複製
-for (const f of ["song-lyrics.js", "CHANGELOG.md", "manifest.webmanifest", "googlea6b361c7e6e7d11c.html"]) fs.copyFileSync(path.join(root, f), path.join(out, f));
+for (const [f, text] of Object.entries(lyFiles)) write(f, text);
+
+// 其他檔案原樣複製（song-lyrics.js 留著給還開著舊版網頁的人）
+for (const f of ["style.css", "app.js", "song-lyrics.js", "CHANGELOG.md", "manifest.webmanifest", "googlea6b361c7e6e7d11c.html"]) fs.copyFileSync(path.join(root, f), path.join(out, f));
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
-console.log(`輸出到 ${out}：首頁＋${SONGS.length} 首歌頁、sitemap.xml、404.html`);
+console.log(`輸出到 ${out}：首頁＋${SONGS.length} 首歌頁、${Object.keys(lyIndex).length} 首歌詞檔、sitemap.xml、404.html`);

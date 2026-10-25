@@ -1,0 +1,404 @@
+/* Layout: 無側欄外框，52px 頂欄＋1180px 置中欄。首頁＝大標＋歌曲清單＋動作說明＋參加須知；
+   歌曲頁＝大字歌名，左 MV＋現在動作（固定），右逐行歌詞。介面是帶藍近黑上的平面；
+   顏色只用來分應援動作，同一種動作在歌詞、圖示、提醒都是同一個顏色。 */
+:root {
+  color-scheme: dark;
+  --ground: #070a12;      /* 帶藍的近黑：熄燈後的場館 */
+  --surface: rgba(14, 19, 34, .9);
+  --raised: #1c2439;
+  --hover: #121a2c;
+  --line: #3a4560;
+  --text: #f2efe8;        /* 米白 */
+  --muted: #bcc1cf;       /* 霧藍灰 */
+  --faint: #8e95a8;
+  --ph: #858ca0;
+  --accent: #5d9dfe;      /* Ado 藍：取自官方商店主色 */
+  --accent-deep: #2348a8;
+  --paper: #e6e1d6;       /* 米色 */
+  --on-paper: #0b1020;
+  /* 應援動作色：在 --surface 上對比都在 4.5:1 以上；安靜聽用中性灰，不搶眼 */
+  --sing: #ffc857;
+  --clap: #ff9466;
+  --wave: #6fb2ff;
+  --jump: #5fd68a;
+  --call: #ff7aa8;
+  --gesture: #bc9cff;
+  --listen: #9aa1b4;
+  --radius-card: 20px;
+  --gap: 16px;
+  --pad: 24px;
+  --font: "Inter", "Noto Sans TC", "Noto Sans JP", "PingFang TC", "Hiragino Sans", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-ja: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Inter", sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--ground); }
+body { margin: 0; color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+a { color: inherit; }
+button, textarea, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+.shell { position: relative; z-index: 1; }
+/* 彩帶砲：副歌高潮時從左右下角噴，蓋在內容上但點得到下面 */
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 18; pointer-events: none; display: block; }
+.a-sing { --act: var(--sing); } .a-clap { --act: var(--clap); } .a-wave { --act: var(--wave); } .a-jump { --act: var(--jump); }
+.a-call { --act: var(--call); } .a-gesture { --act: var(--gesture); } .a-listen { --act: var(--listen); }
+
+/* 頂欄 */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--ground); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ground); }
+.col { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.bar .col { height: 52px; display: flex; align-items: center; gap: 28px; }
+.mark { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; text-decoration: none; }
+.mark svg { width: 22px; height: 22px; }
+.bar .tag { margin-left: auto; color: var(--faint); font-size: 13px; }
+
+main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
+.view { display: grid; gap: var(--gap); }
+
+/* 大標 */
+.hero { display: grid; gap: 16px; align-content: end; padding: 32px 0 24px; }
+.home { width: 100%; max-width: 760px; margin-inline: auto; }
+.home .hero { padding: 24px 0 4px; gap: 8px; }
+.home .lead { max-width: none; }
+.hero h1 { margin: 0; font-family: var(--font-ja); font-weight: 600; font-size: clamp(48px, 8vw, 104px); line-height: .95; letter-spacing: -.02em; text-wrap: balance; }
+.hero h1 span { display: block; font-family: var(--font); font-size: 18px; font-weight: 500; letter-spacing: 0; color: var(--muted); margin-top: 16px; }
+.home .hero h1 { font-family: var(--font); font-size: clamp(26px, 3.4vw, 36px); }
+.home .lead { font-size: 15px; }
+.lead { color: var(--muted); font-size: 17px; max-width: 46ch; margin: 0; }
+.btn { height: 40px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; border: 0; white-space: nowrap; transition: transform .12s, background .15s; }
+.btn:active { transform: scale(.98); }
+.btn.primary { background: var(--paper); color: var(--on-paper); }
+.btn.primary:hover { background: var(--text); }
+.btn.ghost { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--line); /* taste-skill-ignore: outlined button */ }
+.btn.ghost:hover { background: var(--raised); }
+.btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+.view, .panel, .tools { min-width: 0; }
+.panel { background: var(--surface); border-radius: var(--radius-card); padding: 28px var(--pad); }
+.panel > h2 { margin: 0 0 6px; font-size: 24px; font-weight: 600; line-height: 1.25; }
+
+/* 首頁：歌曲清單 */
+.tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.search { height: 40px; border-radius: 999px; border: 0; background: var(--ground); padding: 0 16px; min-width: 0; width: min(320px, 100%); color: var(--text); }
+.search::placeholder { color: var(--faint); }
+.seg { display: inline-flex; background: var(--ground); border-radius: 999px; padding: 3px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--faint); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.seg button[class^="a-"]::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--act); }
+.seg button[aria-pressed="true"] { background: var(--raised); color: var(--text); }
+.songs { list-style: none; margin: 0; padding: 0; }
+.song { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 12px; border-radius: 12px; text-decoration: none; transition: background .15s; }
+.song:hover { background: var(--hover); }
+.song .name { min-width: 0; }
+.song .ja { font-family: var(--font-ja); font-size: 17px; font-weight: 500; }
+.song .zh { color: var(--faint); font-size: 14px; margin-left: 8px; }
+.song .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-top: 2px; color: var(--faint); font-size: 13px; }
+.song .sub .zh { margin: 0; font-size: 13px; }
+.song .dots { display: inline-flex; gap: 3px; }
+.song .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.song .dots i.rb { background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a); }
+.song .tagx { color: var(--muted); background: var(--raised); border-radius: 999px; padding: 0 8px; font-size: 12px; }
+.fdesc { margin: -4px 12px 8px; color: var(--faint); font-size: 13px; }
+.fdesc:empty { display: none; }
+/* 最近看過 */
+.recent { display: grid; gap: 8px; }
+.recent h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--faint); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips a { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; background: var(--surface); text-decoration: none; font-family: var(--font-ja); font-size: 14px; }
+.chips a:hover { background: var(--raised); }
+.chips a .dots { display: inline-flex; gap: 3px; }
+.chips a .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.chips a .dots i.rb { background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a); }
+.song .no { color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; }
+.song .acts { display: flex; gap: 6px; align-items: center; }
+.song .cnt { min-width: 3.5em; text-align: right; color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; }
+.song .acts svg { width: 20px; height: 20px; }
+.count { color: var(--faint); font-size: 13px; margin: 12px 12px 0; }
+
+/* 首頁：動作說明 */
+
+/* 歌曲頁 */
+.grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--gap); align-items: start; }
+.left { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 68px); display: grid; gap: var(--gap); }
+.mv { background: var(--surface); border-radius: var(--radius-card); overflow: hidden; }
+.screen { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: #04060c; }
+.screen #ytp, .screen iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.vstatus { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; background: #04060c; }
+.vstatus[hidden] { display: none; }
+.vstatus p { margin: 0; max-width: 36ch; color: var(--muted); font-size: 13px; }
+/* 練習工具選單要蓋在歌詞上，MV 區塊不能裁切；影片自己保留圓角 */
+.mv { overflow: visible; position: relative; }
+.mv:has(details[open]) { z-index: 6; }
+.screen { border-radius: var(--radius-card) var(--radius-card) 0 0; overflow: hidden; }
+.mvbar .vopt .view-opts { min-width: 200px; }
+.view-opts .sep { height: 1px; margin: 4px 6px; background: var(--line); }
+.view-opts button.do::after { display: none; }
+.view-opts button:disabled { opacity: .45; cursor: default; }
+.view-opts .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 4px 10px; color: var(--muted); font-size: 14px; }
+.view-opts .row .seg button { padding: 4px 10px; }
+.view-opts .row .seg button::after { display: none; }
+/* 提示訊息：複製連結之類的結果，從下方浮出幾秒 */
+.toast { position: fixed; z-index: 30; left: 50%; bottom: max(24px, env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 12px); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; background: var(--paper); color: var(--on-paper); font-size: 14px; font-weight: 500; padding: 10px 18px; border-radius: 999px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* 回報錯誤：表單還沒接上時，先讓人複製內容 */
+.report { border: 0; padding: 0; border-radius: var(--radius-card); background: var(--raised); color: var(--text); width: min(440px, calc(100% - 32px)); box-shadow: 0 24px 64px rgba(0, 0, 0, .6); }
+.report::backdrop { background: rgba(4, 6, 12, .7); }
+.report form { display: grid; gap: 12px; padding: 22px var(--pad); }
+.report h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.report p { margin: 0; color: var(--muted); font-size: 14px; }
+.report dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; }
+.report dt { color: var(--faint); }
+.report dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.report select, .report textarea { width: 100%; background: var(--ground); border: 0; border-radius: 12px; padding: 10px 12px; color: var(--text); font-size: 14px; }
+.report textarea { min-height: 84px; resize: vertical; }
+.report .acts { display: flex; justify-content: flex-end; gap: 8px; }
+.cc { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); font-size: 13px; white-space: nowrap; }
+.cc select { background: var(--ground); color: var(--text); border: 0; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
+.mvbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 18px; font-size: 13px; }
+.mvhint { color: var(--faint); margin-right: auto; }
+/* 這首的螢光棒顏色 */
+.pen { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); white-space: nowrap; }
+.pen i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.pen i.rb { background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a); box-shadow: none; }
+.pen b { color: var(--muted); font-weight: 500; }
+.mvlinks { display: flex; gap: 16px; margin-left: auto; }
+.mvlinks a { display: inline-block; padding: 4px 0; color: var(--muted); text-decoration: none; }
+.mvlinks a:hover { color: var(--text); }
+/* 歌曲頁不顯示網站頂欄，頂部是返回、上一首、歌名、下一首 */
+.on-song .bar { display: none; }
+.on-song .left, .on-song .lyrics { top: calc(env(safe-area-inset-top, 0px) + 16px); }
+.on-song .lyrics { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 32px); }
+.songbar { display: flex; align-items: center; gap: 8px; padding-top: 8px; }
+.ib { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text); text-decoration: none; }
+.ib:hover { background: var(--raised); }
+.ib:not([href]) { visibility: hidden; }
+.ib svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; background: var(--surface); border-radius: 999px; padding: 0 4px; }
+.pick .ib { background: transparent; }
+.pick h1 { flex: 1; min-width: 0; margin: 0; text-align: center; font-family: var(--font-ja); font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick h1 span { color: var(--faint); font-family: var(--font); font-weight: 500; font-size: 14px; margin-left: 8px; }
+
+.cue { background: var(--surface); border-radius: var(--radius-card); padding: 20px var(--pad); display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; align-items: center; }
+.cue .top { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.cue h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--faint); }
+.cue .now { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cue .now svg { width: 32px; height: 32px; flex: none; }
+.cue .now strong { font-size: 30px; font-weight: 600; line-height: 1.15; color: var(--act, var(--text)); transition: color .2s; }
+.cue .how { grid-column: 1 / -1; color: var(--muted); }
+.cue .next { text-align: right; color: var(--faint); font-size: 13px; }
+.cue .next b { color: var(--act, var(--text)); }
+.cue .next b { display: block; font-weight: 500; font-size: 15px; }
+/* 這句沒有動作：不提示，只留下一個動作 */
+.cue.idle .now, .cue.idle .how { display: none; }
+.cue.idle .next { grid-column: 1 / -1; text-align: left; }
+.summary { grid-column: 1 / -1; margin: 6px 0 0; padding: 0 0 0 18px; color: var(--muted); }
+.summary li { margin: 2px 0; }
+.cue.playing .summary, .cue.playing.alerting .how { display: none; }
+.switch { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 0; }
+.switch i { width: 30px; height: 18px; border-radius: 999px; background: var(--raised); position: relative; transition: background .15s; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--faint); transition: transform .15s, background .15s; }
+.switch[aria-pressed="true"] i { background: var(--accent-deep); }
+.switch[aria-pressed="true"] i::after { transform: translateX(12px); background: var(--text); }
+
+.lyrics { background: var(--surface); border-radius: var(--radius-card); padding: 12px 8px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 68px); display: flex; flex-direction: column; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 76px); }
+/* 歌詞自己捲，MV 和頁面不動 */
+.lyrics-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; position: relative; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.lyrics-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px 10px; }
+.lyrics-top h2 { margin: 0 auto 0 0; font-size: 17px; font-weight: 600; white-space: nowrap; }
+/* 有動作的行，日文用該動作的顏色（淡），唱到時變全彩並在左邊加色條 */
+.ln { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: background .2s, box-shadow .2s; }
+.ln:hover { background: var(--hover); }
+.ln .ja { font-family: var(--font-ja); font-size: calc(var(--ly-ja, 17px) * var(--ly-k, 1)); line-height: 1.7; color: var(--muted); transition: color .2s; }
+.ln[class*=" a-"]:not(.a-listen):not(.a-sing) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
+/* 「唱」不染整行，只染觀眾要唱的字 */
+.ln .sung { color: color-mix(in srgb, var(--sing) 75%, var(--muted)); }
+.ln.now .sung { color: var(--sing); }
+.ln .zh { grid-column: 1; font-size: calc(var(--ly-zh, 14px) * var(--ly-k, 1)); color: var(--faint); }
+.ln .ph { color: var(--ph); }
+.ln .acts { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 6px; align-items: center; }
+.ln .acts svg { width: 18px; height: 18px; }
+.ln .call { grid-column: 1; justify-self: start; margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--act, var(--text)); background: color-mix(in srgb, var(--act, var(--text)) 14%, transparent); border-radius: 999px; padding: 2px 10px; }
+.ln.now { background: var(--raised); box-shadow: inset 3px 0 0 var(--act, var(--text)); }
+.ln.now .ja, .ln.now.a-listen .ja { color: var(--text); }
+.ln.now:not(.a-listen):not(.a-sing) .ja { color: var(--act, var(--text)); }
+.ln.now .zh { color: var(--muted); }
+.ln.past .ja { opacity: .55; }
+.hide-ja .ja, .hide-zh .zh { display: none; }
+.ln ruby { ruby-position: over; }
+.ln rt { font-size: 11px; color: var(--faint); font-family: var(--font-ja); }
+.ln.now rt { color: var(--muted); }
+.hide-kana rt { display: none; }
+.karaoke .ln.now .ja { color: var(--muted); }
+.karaoke .ln .k, .karaoke .ln rt { transition: color .08s linear; }
+.karaoke .ln.now .k.lit, .karaoke .ln.now .k.lit rt { color: var(--act, var(--accent)); }
+.karaoke .ln.now.a-listen .k.lit, .karaoke .ln.now.a-listen .k.lit rt, .karaoke .ln.now.a-sing .k.lit, .karaoke .ln.now.a-sing .k.lit rt { color: var(--text); }
+.karaoke .ln.now .k.sung { color: color-mix(in srgb, var(--sing) 45%, var(--muted)); }
+.karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: var(--sing); }
+.only-sing .ln:not(.sing) { display: none; }
+.size-s { --ly-k: .88; } .size-l { --ly-k: 1.15; }
+/* 點圖例：只亮出有那個動作的句子 */
+.ln.dim { opacity: .28; }
+.ln.dim:hover { opacity: .6; }
+.legend button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; color: inherit; font-size: 13px; padding: 2px 8px; margin: -2px -8px; border-radius: 999px; cursor: pointer; }
+.legend button:hover { background: var(--hover); }
+.legend button[aria-pressed="true"] { background: color-mix(in srgb, var(--act) 18%, transparent); color: var(--text); }
+/* 跳到大合唱：一顆膠囊，左右兩個箭頭 */
+.jump { display: inline-flex; align-items: center; height: 32px; border-radius: 999px; background: color-mix(in srgb, var(--sing) 14%, transparent); color: var(--sing); font-size: 13px; font-weight: 600; }
+.jump .mid { width: auto; border-radius: 999px; padding: 0 8px; font-size: 13px; font-weight: 600; }
+.jump .mid[aria-pressed="true"] { background: var(--sing); color: var(--on-paper); }
+.jump button { width: 32px; height: 32px; border: 0; background: none; color: inherit; border-radius: 50%; font-size: 17px; line-height: 1; cursor: pointer; }
+.jump button:hover:not(:disabled) { background: color-mix(in srgb, var(--sing) 22%, transparent); }
+.jump button:disabled { color: var(--faint); opacity: .5; cursor: default; }
+/* 顯示選項收進一個按鈕 */
+.vopt { position: relative; }
+.vopt summary { list-style: none; height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 999px; background: var(--ground); color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; }
+.vopt summary::-webkit-details-marker { display: none; }
+.vopt summary::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
+.vopt[open] summary { color: var(--text); background: var(--raised); }
+.view-opts { position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; display: grid; gap: 2px; width: max-content; min-width: 150px; overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 14px; background: var(--raised); box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+.view-opts.to-right { right: auto; left: 0; }
+.view-opts.to-up { top: auto; bottom: calc(100% + 6px); }
+.view-opts button { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: none; color: var(--muted); border-radius: 8px; padding: 8px 10px; font-size: 14px; text-align: left; cursor: pointer; }
+.view-opts button:hover { background: var(--hover); }
+.view-opts button::after { content: ""; width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--faint); }
+.view-opts button[aria-pressed="true"] { color: var(--text); }
+.view-opts button[aria-pressed="true"]::after { background: var(--accent); box-shadow: none; }
+/* 圖例：這首用到的動作 */
+#homeLegend { padding: 4px 0 16px; gap: 6px 16px; }
+#homeLegend svg { width: 16px; height: 16px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 0 14px 10px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--act); }
+.empty { padding: 12px 12px 8px; color: var(--muted); display: grid; gap: 10px; justify-items: start; }
+.empty .summary { margin: 0; color: var(--text); }
+
+
+/* 頁尾：網站名稱和版本一行，下面一排參考來源、回饋與更新日誌 */
+footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var(--faint); font-size: 13px; line-height: 1.7; display: grid; justify-items: center; gap: 10px; text-align: center; }
+.credits-copy { margin: 0; color: var(--muted); font-size: 14px; letter-spacing: .02em; }
+.credits-copy .build { margin-left: 8px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.credits-links { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 6px; }
+.credits-links a, .credits-links button { display: inline-flex; align-items: center; min-height: 36px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: inherit; font-size: 14px; text-decoration: none; cursor: pointer; transition: color .15s, background .15s; }
+.credits-links a:hover, .credits-links button:hover { color: var(--text); background: var(--surface); }
+.credits-links .gh { padding: 0 8px; }
+.credits-links .gh svg { width: 22px; height: 22px; fill: currentColor; }
+.credits-note { margin: 0; max-width: 68ch; font-size: 12px; }
+.credits-note a { color: inherit; }
+.log { border: 0; padding: 0; border-radius: var(--radius-card); background: var(--raised); color: var(--text); width: min(560px, calc(100% - 32px)); max-height: min(80dvh, 720px); box-shadow: 0 24px 64px rgba(0, 0, 0, .6); }
+.log::backdrop { background: rgba(4, 6, 12, .7); }
+.log form { display: flex; flex-direction: column; max-height: inherit; }
+.log header { display: flex; align-items: center; justify-content: space-between; padding: 18px var(--pad) 10px; }
+.log h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.log .x { flex: none; width: 40px; height: 40px; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text); cursor: pointer; }
+.log .x svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.log .body { overflow-y: auto; padding: 0 var(--pad) 22px; overscroll-behavior: contain; }
+.log h3 { margin: 18px 0 6px; font-size: 15px; font-weight: 600; color: var(--accent); }
+.log h3 small { margin-left: 8px; color: var(--faint); font-size: 13px; font-weight: 400; }
+.log ul { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.log code { font-size: .92em; color: var(--text); }
+@media (max-width: 600px) { .credits-copy .m { display: block; } .credits-copy .sep { display: none; } }
+
+.ico { fill: none; stroke: var(--act, var(--faint)); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 動作字卡：不蓋住 MV 和歌詞。畫面四周亮起這首的螢光棒顏色，中下方一張字卡寫出要做的事（手機貼在影片下方） */
+.cueframe { position: fixed; inset: 0; z-index: 19; pointer-events: none; opacity: 0; transition: opacity .25s;
+  box-shadow: inset 0 0 0 2px var(--c1, var(--accent)), inset 0 0 120px 4px color-mix(in srgb, var(--c1, var(--accent)) 45%, transparent), inset 0 -80px 160px -40px color-mix(in srgb, var(--c2, var(--accent)) 65%, transparent); }
+.alert { position: fixed; z-index: 20; left: var(--al-left, 50%); top: var(--al-top, auto); bottom: auto; width: max-content; max-width: min(640px, var(--al-max, calc(100% - 24px))); opacity: 0; transform: translate(-50%, 14px); pointer-events: none; transition: opacity .2s, transform .2s; }
+.alert.show { opacity: 1; transform: translate(-50%, 0); }
+.alert .card { display: grid; justify-items: center; gap: 10px; padding: 16px 24px 20px; border-radius: 24px; text-align: center; background: color-mix(in srgb, var(--raised) 94%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 0 0 2px var(--act, var(--accent)), 0 0 56px color-mix(in srgb, var(--act, var(--accent)) 35%, transparent), 0 18px 48px rgba(0, 0, 0, .5); transform: scale(calc(1 + var(--pulse, 0) * .03)); }
+.alert .ahead { display: inline-flex; align-items: center; gap: 8px; color: var(--act, var(--text)); font-size: 15px; font-weight: 600; }
+.alert .ahead svg { width: 22px; height: 22px; }
+.alert .ahead em { font-style: normal; font-weight: 500; color: var(--muted); }
+.alert .how { color: var(--muted); font-size: 14px; }
+.alert .how:empty { display: none; }
+/* 大合唱：把要唱的字放大，唱到的字亮起來 */
+.alert .words { font-family: var(--font-ja); font-size: clamp(28px, 3.6vw, 44px); font-weight: 600; line-height: 1.3; color: color-mix(in srgb, var(--act) 35%, var(--faint)); text-wrap: balance; }
+.alert .words .k { transition: color .08s linear; }
+.alert .words .k.lit { color: var(--act); }
+.alert .words rt { font-size: .32em; color: var(--muted); }
+/* 喊聲、手勢：大字，每拍跳一下 */
+.alert .big { font-family: var(--font-ja); font-size: clamp(28px, 3.6vw, 44px); font-weight: 700; line-height: 1.2; color: var(--act); transform: translateY(calc(var(--pulse, 0) * -6px)); }
+/* 拍手：每拍亮一顆，小節第一拍那顆比較大 */
+.alert .dots { display: flex; align-items: center; gap: 18px; height: 40px; }
+.alert .dots i { width: 22px; height: 22px; border-radius: 50%; background: var(--line); transition: background .06s, transform .06s, box-shadow .06s; }
+.alert .dots i.first { width: 30px; height: 30px; }
+.alert .dots i.on { background: var(--act); transform: scale(1.25); box-shadow: 0 0 18px var(--act); }
+/* 揮手：一支螢光棒跟著拍子左右擺 */
+.alert .swing { width: 132px; height: 72px; overflow: visible; }
+.alert .swing .arc { fill: none; stroke: var(--line); stroke-width: 2; stroke-dasharray: 3 6; stroke-linecap: round; }
+.alert .swing .stick { transform-origin: 66px 70px; transform: rotate(var(--ang, 0deg)); }
+.alert .swing line { stroke: var(--act); stroke-width: 6; stroke-linecap: round; }
+/* 跳躍：圖示在拍子上彈起 */
+.alert .hop { width: 56px; height: 56px; transform: translateY(calc(var(--pulse, 0) * -14px)); }
+.alert .hop .ico { stroke: var(--act); stroke-width: 1.5; }
+
+
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; }
+  .left { position: static; }
+  .lyrics { position: static; height: 70dvh; max-height: none; }
+  .mvhint { display: none; }
+  /* 提示縮成一列：現在的動作、下一個、大字提醒開關 */
+  .cue { grid-template-columns: minmax(0, 1fr) auto auto; padding: 10px 14px; gap: 4px 12px; }
+  .cue .top { display: contents; }
+  .cue h2, .cue .how, .cue .summary { display: none; }
+  .cue .now { order: 1; gap: 8px; }
+  .cue .next { order: 2; }
+  .cue .switch { order: 3; }
+  .cue .now svg { width: 22px; height: 22px; }
+  .cue .now strong { font-size: 18px; }
+  .cue .next b { font-size: 14px; }
+  .cue.idle .next { grid-column: 1 / 3; }
+  .lyrics { --ly-ja: 15px; --ly-zh: 13px; }
+  .ln { padding: 8px 12px; }
+  .mvlinks { margin-left: 0; }
+  .alert .card { gap: 6px; padding: 12px 16px 14px; border-radius: 18px; }
+  .alert .words, .alert .big { font-size: clamp(24px, 7.5vw, 34px); }
+}
+@media (max-width: 900px) and (min-height: 560px) {
+  .on-song main.col { padding-block: 0; }
+  .on-song footer { display: none; }
+  .on-song #song { height: 100dvh; padding: env(safe-area-inset-top, 0px) 0 max(8px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }
+  .on-song .grid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  .on-song .left { gap: 8px; }
+  .on-song .lyrics { flex: 1; min-height: 0; height: auto; }
+}
+@media (max-width: 600px) {
+  :root { --pad: 20px; }
+  .hero { padding-top: 20px; }
+  .lead { font-size: 16px; }
+  .panel { padding: 22px var(--pad); }
+  .panel > h2 { font-size: 22px; }
+  .song { gap: 4px 10px; }
+  .song .zh { display: block; margin: 0; }
+  .tools .seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; min-width: 0; }
+  .tools .seg button { flex: none; }
+  .seg button { flex: none; }
+  .mvbar { gap: 6px 12px; padding-inline: 14px; }
+  .mvlinks { gap: 12px; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .on-song main.col { padding-block: 0; }
+  .on-song footer { display: none; }
+  .on-song #song { height: 100dvh; padding: 4px 0 max(4px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 6px; }
+  .songbar { padding-top: 2px; }
+  .songbar .ib { width: 34px; height: 34px; }
+  .on-song .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: min(52vw, calc((100dvh - 200px) * 16 / 9)) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 8px; }
+  .on-song .left { position: static; gap: 6px; min-height: 0; overflow-y: auto; align-self: stretch; }
+  .on-song .lyrics { position: static; height: auto; max-height: none; min-height: 0; align-self: stretch; }
+  .mvhint, .cue h2, .cue .how, .cue .summary { display: none; }
+  .mvbar { padding: 6px 12px; }
+  .cue { grid-template-columns: minmax(0, 1fr) auto auto; padding: 8px 12px; gap: 4px 12px; }
+  .cue .top { display: contents; }
+  .cue .now { order: 1; gap: 8px; } .cue .next { order: 2; } .cue .switch { order: 3; }
+  .cue .now svg { width: 22px; height: 22px; }
+  .cue .now strong { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cue .now { min-width: 0; }
+  .lyrics { --ly-ja: 15px; --ly-zh: 13px; }
+  .alert .card { gap: 4px; padding: 8px 14px 10px; }
+  .alert .words, .alert .big { font-size: clamp(20px, 6.5vh, 28px); }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } .alert * { animation: none !important; } }

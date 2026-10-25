@@ -19,22 +19,24 @@
 
 ## 1. 專案結構
 
-平常只改 `index.html` 和 `song-lyrics.js`，用 http(s) 開啟就能用；發布時 GitHub Actions 會另外建出每首歌的獨立頁。
+平常只改下面前四個檔案，用 http(s) 開啟就能用；發布時 GitHub Actions 會另外建出每首歌的獨立頁，並把歌詞拆成每首一個小檔（打開哪首才下載哪首）。
 
 ```text
-index.html                  ← 網站本體：版面、樣式與所有互動程式
+index.html                  ← 網站的版面（HTML）
+style.css                   ← 樣式：顏色、排版、手機版
+app.js                      ← 所有互動程式和資料表（歌單、螢光棒顏色、拍點…）
 song-lyrics.js              ← 每首歌的同步日文歌詞、繁中翻譯與逐行應援動作
 CHANGELOG.md                ← 更新日誌；網站頁尾的「更新日誌」直接讀這個檔案
 manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示與顏色
 assets/                     ← 網站圖示（favicon、主畫面圖示）與分享預覽圖 og.jpg
-scripts/build.mjs           ← 建置：每首歌一頁 song/<id>/、sitemap.xml、404.html，輸出到 dist/
+scripts/build.mjs           ← 建置：每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
 README.md                   ← 這份說明
 google….html               ← Google Search Console 的擁有權驗證檔，不要刪
 開啟網站.command             ← 在自己的 Mac 上看網站時點兩下（開一個本機伺服器）
 ```
 
-`index.html` 裡的資料表：
+`app.js` 裡的資料表：
 
 | 名稱 | 內容 |
 | --- | --- |
@@ -46,7 +48,7 @@ google….html               ← Google Search Console 的擁有權驗證檔，�
 | `CLIMAX` | 副歌高潮噴彩帶的時間 |
 | `REPORT` | 回報表單：Google 表單「Ado 應援預習｜回報與意見回饋」的網址與各題的 entry 編號；改表單題目後要重新對編號，留空時改成複製文字 |
 
-`song-lyrics.js` 每一行是 `{ time, jp, tr, acts, sing, call }`：`time` 是 MV 秒數，`acts` 是這行的動作，`sing` 是觀眾要唱的字，`call` 是喊聲。
+`song-lyrics.js` 是唯一要改的歌詞檔，`lyrics/` 由建置自動產生，不用手動改。每一行是 `{ time, jp, tr, acts, sing, call }`：`time` 是 MV 秒數，`acts` 是這行的動作，`sing` 是觀眾要唱的字，`call` 是喊聲。
 
 ## 2. 在自己電腦上看
 
@@ -66,6 +68,8 @@ node scripts/build.mjs dist
 
 再到 `dist` 資料夾開靜態伺服器。獨立頁的網址、分享圖與 canonical 都寫成正式網址，所以本機只用來看版面和功能。
 
+直接開原始檔時沒有拆好的歌詞，網頁會自動改讀整份 `song-lyrics.js`；建置後的網頁（`<html data-lyrics="…">`）才會一首一首讀 `lyrics/`。
+
 ## 3. 發布到 GitHub Pages
 
 儲存庫是公開的，**Settings** → **Pages** 的 Source 設為 **GitHub Actions**。推到 `main` 後 `.github/workflows/pages.yml` 會跑 `node scripts/build.mjs dist` 並發布 `dist/`，一兩分鐘後 <https://gcree.github.io/ado-guide/> 就會更新；進度在 GitHub 的 **Actions** 分頁。
@@ -80,10 +84,10 @@ node scripts/build.mjs dist
 
 ## 5. 改版流程
 
-1. 改 `index.html` 或 `song-lyrics.js`。
-2. 改了 `song-lyrics.js` 時，把 `index.html` 裡載入它的 `song-lyrics.js?v=…` 換一個新字串，避免手機讀到舊快取。
-3. 在 `CHANGELOG.md` 最上面加一段新版本，並把頁尾的版本號（`class="build"`）改成一樣。
-4. 新增歌曲時，`SONGS` 加一筆就會自動多一個獨立頁並列進網站地圖。
+1. 改 `index.html`、`style.css`、`app.js` 或 `song-lyrics.js`。
+2. 不用改快取版本字串：原始檔寫 `?v=dev`，建置時會依內容自動換成新的，手機不會讀到舊檔。
+3. 在 `CHANGELOG.md` 最上面加一段新版本，並把 `index.html` 頁尾的版本號（`class="build"`）改成一樣。
+4. 新增歌曲時，`app.js` 的 `SONGS` 加一筆、`song-lyrics.js` 加歌詞，就會自動多一個獨立頁、歌詞檔，並列進網站地圖。
 5. commit 並推到 `main`，GitHub Actions 會自動發布。
 
 ## 6. 資料來源與致謝
