@@ -1,0 +1,1221 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Ado 應援預習</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;600&display=swap">
+<script src="song-lyrics.js"></script>
+<style>
+/* Layout: 無側欄外框，52px 頂欄＋1180px 置中欄。首頁＝大標＋歌曲清單＋動作說明＋參加須知；
+   歌曲頁＝大字歌名，左 MV＋現在動作（固定），右逐行歌詞。介面是帶藍近黑上的平面；
+   顏色只用來分應援動作，同一種動作在歌詞、圖示、提醒都是同一個顏色。 */
+:root {
+  color-scheme: dark;
+  --ground: #070a12;      /* 帶藍的近黑：熄燈後的場館 */
+  --surface: rgba(14, 19, 34, .9);
+  --raised: #1c2439;
+  --hover: #121a2c;
+  --line: #3a4560;
+  --text: #f2efe8;        /* 米白 */
+  --muted: #bcc1cf;       /* 霧藍灰 */
+  --faint: #8e95a8;
+  --ph: #858ca0;
+  --accent: #5d9dfe;      /* Ado 藍：取自官方商店主色 */
+  --accent-deep: #2348a8;
+  --paper: #e6e1d6;       /* 米色 */
+  --on-paper: #0b1020;
+  /* 應援動作色：在 --surface 上對比都在 4.5:1 以上；安靜聽用中性灰，不搶眼 */
+  --sing: #ffc857;
+  --clap: #ff9466;
+  --wave: #6fb2ff;
+  --jump: #5fd68a;
+  --call: #ff7aa8;
+  --gesture: #bc9cff;
+  --listen: #9aa1b4;
+  --radius-card: 20px;
+  --gap: 16px;
+  --pad: 24px;
+  --font: "Inter", "Noto Sans TC", "Noto Sans JP", "PingFang TC", "Hiragino Sans", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-ja: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Inter", sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--ground); }
+body { margin: 0; color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+a { color: inherit; }
+button, textarea, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+.shell { position: relative; z-index: 1; }
+.a-sing { --act: var(--sing); } .a-clap { --act: var(--clap); } .a-wave { --act: var(--wave); } .a-jump { --act: var(--jump); }
+.a-call { --act: var(--call); } .a-gesture { --act: var(--gesture); } .a-listen { --act: var(--listen); }
+
+/* 頂欄 */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--ground); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ground); }
+.col { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.bar .col { height: 52px; display: flex; align-items: center; gap: 28px; }
+.mark { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; text-decoration: none; }
+.mark svg { width: 22px; height: 22px; }
+.nav { display: flex; gap: 22px; font-size: 14px; font-weight: 600; }
+.nav a { color: var(--faint); text-decoration: none; }
+.nav a[aria-current="page"], .nav a:hover { color: var(--text); }
+.bar .tag { margin-left: auto; color: var(--faint); font-size: 13px; }
+
+main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
+.view { display: grid; gap: var(--gap); }
+
+/* 大標 */
+.hero { display: grid; gap: 16px; align-content: end; padding: 32px 0 24px; }
+.home .hero { min-height: 300px; padding-bottom: 32px; }
+.hero h1 { margin: 0; font-family: var(--font-ja); font-weight: 600; font-size: clamp(48px, 8vw, 104px); line-height: .95; letter-spacing: -.02em; text-wrap: balance; }
+.hero h1 span { display: block; font-family: var(--font); font-size: 18px; font-weight: 500; letter-spacing: 0; color: var(--muted); margin-top: 16px; }
+.home .hero h1 { font-family: var(--font); font-size: clamp(44px, 7vw, 88px); }
+.lead { color: var(--muted); font-size: 17px; max-width: 46ch; margin: 0; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { height: 40px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; border: 0; white-space: nowrap; transition: transform .12s, background .15s; }
+.btn:active { transform: scale(.98); }
+.btn.primary { background: var(--paper); color: var(--on-paper); }
+.btn.primary:hover { background: var(--text); }
+.btn.ghost { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--line); /* taste-skill-ignore: outlined button */ }
+.btn.ghost:hover { background: var(--raised); }
+.btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+.view, .panel, .tools { min-width: 0; }
+.panel { background: var(--surface); border-radius: var(--radius-card); padding: 28px var(--pad); }
+.panel > h2 { margin: 0 0 6px; font-size: 24px; font-weight: 600; line-height: 1.25; }
+.panel > .sub { margin: 0 0 20px; color: var(--muted); }
+
+/* 首頁：歌曲清單 */
+.tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.search { height: 40px; border-radius: 999px; border: 0; background: var(--ground); padding: 0 16px; min-width: 0; width: min(320px, 100%); color: var(--text); }
+.search::placeholder { color: var(--faint); }
+.seg { display: inline-flex; background: var(--ground); border-radius: 999px; padding: 3px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--faint); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.seg button[class^="a-"]::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--act); }
+.seg button[aria-pressed="true"] { background: var(--raised); color: var(--text); }
+.songs { list-style: none; margin: 0; padding: 0; }
+.song { display: grid; grid-template-columns: minmax(0, 1fr) 96px 48px; gap: 16px; align-items: center; padding: 14px 12px; border-radius: 12px; text-decoration: none; transition: background .15s; }
+.song:hover { background: var(--hover); }
+.song .name { min-width: 0; }
+.song .ja { font-family: var(--font-ja); font-size: 17px; font-weight: 500; }
+.song .zh { color: var(--faint); font-size: 14px; margin-left: 8px; }
+.song .tip { margin-top: 2px; color: var(--muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.song .acts { display: flex; gap: 6px; }
+.song .acts svg { width: 20px; height: 20px; }
+.song .len { color: var(--faint); text-align: right; font-size: 13px; }
+.song.todo .ja { color: var(--muted); }
+.song .state { color: var(--faint); }
+.count { color: var(--faint); font-size: 13px; margin: 12px 12px 0; }
+
+/* 首頁：動作說明 */
+.moves { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--gap); }
+.move { display: grid; justify-items: center; align-content: start; gap: 6px; text-align: center; padding: 4px; }
+.move .orb { width: 72px; height: 72px; margin-bottom: 4px; border-radius: 50%; background: color-mix(in srgb, var(--act) 14%, transparent); display: grid; place-items: center; }
+.move .orb svg { width: 40px; height: 40px; }
+.move .orb .ico { stroke-width: 1.5; }
+.move b { font-size: 15px; font-weight: 600; color: var(--act); }
+.move span { color: var(--muted); font-size: 14px; line-height: 1.45; }
+/* 滑過才動一下，平常靜止 */
+@media (prefers-reduced-motion: no-preference) {
+  .move[data-act="clap"]:hover .orb svg { animation: clap .5s ease-in-out 2; }
+  .move[data-act="wave"]:hover .orb svg { animation: swing 1s ease-in-out; transform-origin: 50% 90%; }
+  .move[data-act="jump"]:hover .orb svg { animation: hop .5s cubic-bezier(.3,0,.4,1) 2; }
+  .move[data-act="sing"]:hover .orb svg, .move[data-act="call"]:hover .orb svg, .move[data-act="gesture"]:hover .orb svg { animation: pulse .5s ease-in-out 2; }
+}
+
+/* 首頁：參加須知 */
+.lore { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px; margin: 0; padding: 0; list-style: none; }
+.lore li { display: grid; grid-template-columns: 52px 1fr; gap: 16px; align-items: start; }
+.lore svg { width: 52px; height: 52px; overflow: visible; }
+.lore b { display: block; font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.lore span { color: var(--muted); font-size: 14px; line-height: 1.65; }
+.lore .ln-a { fill: none; stroke: var(--text); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.lore .fl-a { fill: var(--accent); }
+.lore .fl-d { fill: var(--accent-deep); }
+.rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 32px; margin: 0; padding: 0; list-style: none; }
+.rules li { padding: 8px 0; display: grid; gap: 2px; }
+.rules b { font-size: 16px; font-weight: 600; }
+.rules span { color: var(--muted); }
+
+/* 歌曲頁 */
+.grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--gap); align-items: start; }
+.left { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 68px); display: grid; gap: var(--gap); }
+.mv { background: var(--surface); border-radius: var(--radius-card); overflow: hidden; }
+.screen { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: #04060c; }
+.screen #ytp, .screen iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.vstatus { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; background: #04060c; }
+.vstatus[hidden] { display: none; }
+.vstatus p { margin: 0; max-width: 36ch; color: var(--muted); font-size: 13px; }
+.transport { display: grid; grid-template-columns: auto 1fr auto auto; gap: 14px; align-items: center; padding: 12px 18px; }
+.cc { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); font-size: 13px; white-space: nowrap; }
+.cc select { background: var(--ground); color: var(--text); border: 0; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
+.pp { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--paper); display: grid; place-items: center; cursor: pointer; }
+.pp svg { width: 14px; height: 14px; fill: var(--on-paper); }
+.track { position: relative; height: 4px; background: var(--raised); border-radius: 2px; cursor: pointer; }
+.track i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); border-radius: 2px; }
+.track b { position: absolute; top: -3px; width: 2px; height: 10px; background: var(--line); }
+.clock { color: var(--faint); font-size: 13px; white-space: nowrap; }
+.tsel { display: flex; gap: 12px; flex-wrap: wrap; }
+.steps { display: flex; justify-content: space-between; gap: 16px; }
+.steps a { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); font-size: 14px; text-decoration: none; }
+.steps a:hover { color: var(--text); }
+.steps a:empty { visibility: hidden; }
+.steps a:last-child { margin-left: auto; text-align: right; }
+
+.cue { background: var(--surface); border-radius: var(--radius-card); padding: 20px var(--pad); display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; align-items: center; }
+.cue .top { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.cue h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--faint); }
+.cue .now { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cue .now svg { width: 32px; height: 32px; flex: none; }
+.cue .now strong { font-size: 30px; font-weight: 600; line-height: 1.15; color: var(--act, var(--text)); transition: color .2s; }
+.cue .how { grid-column: 1 / -1; color: var(--muted); }
+.cue .next { text-align: right; color: var(--faint); font-size: 13px; }
+.cue .next b { color: var(--act, var(--text)); }
+.cue .next b { display: block; font-weight: 500; font-size: 15px; }
+.summary { grid-column: 1 / -1; margin: 6px 0 0; padding: 0 0 0 18px; color: var(--muted); }
+.summary li { margin: 2px 0; }
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 0; }
+.switch i { width: 30px; height: 18px; border-radius: 999px; background: var(--raised); position: relative; transition: background .15s; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--faint); transition: transform .15s, background .15s; }
+.switch[aria-pressed="true"] i { background: var(--accent-deep); }
+.switch[aria-pressed="true"] i::after { transform: translateX(12px); background: var(--text); }
+
+.lyrics { background: var(--surface); border-radius: var(--radius-card); padding: 12px 8px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 68px); display: flex; flex-direction: column; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 76px); }
+/* 歌詞自己捲，MV 和頁面不動 */
+.lyrics-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; position: relative; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.lyrics-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px 10px; }
+.lyrics-top h2 { margin: 0 auto 0 0; font-size: 17px; font-weight: 600; white-space: nowrap; }
+.part { margin: 20px 14px 6px; font-size: 13px; color: var(--faint); font-weight: 500; }
+.part:first-child { margin-top: 4px; }
+.solo { font-size: 12px; color: var(--listen); margin-left: 8px; }
+/* 有動作的行，日文用該動作的顏色（淡），唱到時變全彩並在左邊加色條 */
+.ln { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: background .2s, box-shadow .2s; }
+.ln:hover { background: var(--hover); }
+.ln .ja { font-family: var(--font-ja); font-size: 17px; line-height: 1.7; color: var(--muted); transition: color .2s; }
+.ln[class*=" a-"]:not(.a-listen) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
+.ln .zh { grid-column: 1; font-size: 14px; color: var(--faint); }
+.ln .ph { color: var(--ph); }
+.ln .acts { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 6px; align-items: center; }
+.ln .acts svg { width: 18px; height: 18px; }
+.ln .call { grid-column: 1; justify-self: start; margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--act, var(--text)); background: color-mix(in srgb, var(--act, var(--text)) 14%, transparent); border-radius: 999px; padding: 2px 10px; }
+.ln.now { background: var(--raised); box-shadow: inset 3px 0 0 var(--act, var(--text)); }
+.ln.now .ja, .ln.now.a-listen .ja { color: var(--text); }
+.ln.now:not(.a-listen) .ja { color: var(--act, var(--text)); }
+.ln.now .zh { color: var(--muted); }
+.ln.past .ja { opacity: .55; }
+.hide-ja .ja, .hide-zh .zh { display: none; }
+.ln ruby { ruby-position: over; }
+.ln rt { font-size: 11px; color: var(--faint); font-family: var(--font-ja); }
+.ln.now rt { color: var(--muted); }
+.hide-kana rt { display: none; }
+.karaoke .ln.now .ja { color: var(--muted); }
+.karaoke .ln .k, .karaoke .ln rt { transition: color .08s linear; }
+.karaoke .ln.now .k.lit, .karaoke .ln.now .k.lit rt { color: var(--act, var(--accent)); }
+.karaoke .ln.now.a-listen .k.lit, .karaoke .ln.now.a-listen .k.lit rt { color: var(--text); }
+.only-sing .ln:not(.sing) { display: none; }
+.only-sing .part { display: none; }
+/* 跳到大合唱：一顆膠囊，左右兩個箭頭 */
+.jump { display: inline-flex; align-items: center; height: 32px; border-radius: 999px; background: color-mix(in srgb, var(--sing) 14%, transparent); color: var(--sing); font-size: 13px; font-weight: 600; }
+.jump span { padding: 0 2px; }
+.jump button { width: 32px; height: 32px; border: 0; background: none; color: inherit; border-radius: 50%; font-size: 17px; line-height: 1; cursor: pointer; }
+.jump button:hover:not(:disabled) { background: color-mix(in srgb, var(--sing) 22%, transparent); }
+.jump button:disabled { color: var(--faint); opacity: .5; cursor: default; }
+/* 顯示選項收進一個按鈕 */
+.vopt { position: relative; }
+.vopt summary { list-style: none; height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 999px; background: var(--ground); color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; }
+.vopt summary::-webkit-details-marker { display: none; }
+.vopt summary::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
+.vopt[open] summary { color: var(--text); background: var(--raised); }
+.view-opts { position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; display: grid; gap: 2px; min-width: 150px; padding: 6px; border-radius: 14px; background: var(--raised); box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+.view-opts button { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: none; color: var(--muted); border-radius: 8px; padding: 8px 10px; font-size: 14px; text-align: left; cursor: pointer; }
+.view-opts button:hover { background: var(--hover); }
+.view-opts button::after { content: ""; width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--faint); }
+.view-opts button[aria-pressed="true"] { color: var(--text); }
+.view-opts button[aria-pressed="true"]::after { background: var(--accent); box-shadow: none; }
+/* 圖例：這首用到的動作 */
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 0 14px 10px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--act); }
+.empty { padding: 12px 12px 8px; color: var(--muted); display: grid; gap: 10px; justify-items: start; }
+.empty .summary { margin: 0; color: var(--text); }
+.lyrics-note { margin: 16px 14px 0; color: var(--faint); font-size: 13px; }
+
+details.paste { background: var(--surface); border-radius: var(--radius-card); padding: 16px var(--pad); }
+details.paste summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+details.paste p { color: var(--muted); margin: 8px 0; max-width: 72ch; }
+details.paste code { font-family: var(--font); background: var(--raised); border-radius: 6px; padding: 1px 6px; }
+details.paste textarea { width: 100%; min-height: 180px; background: var(--ground); border: 0; border-radius: 12px; padding: 12px; color: var(--text); font-family: var(--font-ja); font-size: 14px; resize: vertical; }
+details.paste .row { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+details.paste .status { color: var(--faint); font-size: 13px; }
+
+footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(--faint); font-size: 13px; line-height: 1.7; }
+
+.ico { fill: none; stroke: var(--act, var(--faint)); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 全螢幕提醒 */
+.alert { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: grid; place-items: center; background: rgba(7, 10, 18, .62); opacity: 0; transition: opacity .25s; }
+.alert.show { opacity: 1; }
+.alert .stack { display: grid; justify-items: center; gap: 2vmin; text-align: center; padding: 16px; }
+.alert .stage-ico { position: relative; width: min(46vmin, 360px); aspect-ratio: 1; display: grid; place-items: center; }
+.alert .stage-ico svg { width: 72%; height: 72%; position: relative; }
+.alert .stage-ico .ico { stroke: var(--act, var(--text)); stroke-width: 1.3; }
+.alert .ring { position: absolute; inset: 12%; border-radius: 50%; background: color-mix(in srgb, var(--act, var(--accent)) 18%, var(--ground)); }
+.alert .wave1, .alert .wave2 { position: absolute; inset: 12%; border-radius: 50%; border: 2px solid var(--act, var(--accent)); opacity: 0; }
+.alert .label { font-size: clamp(36px, 8vmin, 72px); font-weight: 600; line-height: 1.1; }
+.alert .asub { font-size: clamp(16px, 2.6vmin, 22px); color: var(--muted); max-width: 30ch; }
+.alert .num { position: absolute; right: 2%; top: 2%; width: 26%; aspect-ratio: 1; border-radius: 50%; background: var(--paper); color: var(--on-paper); display: grid; place-items: center; font-size: clamp(28px, 7vmin, 56px); font-weight: 600; }
+.alert .bigclaps { display: flex; gap: 4vmin; }
+.alert .bigclaps span { width: 9vmin; height: 9vmin; border-radius: 50%; background: var(--raised); transition: background .08s, transform .08s; }
+.alert .bigclaps span.on { background: var(--clap); transform: scale(1.2); }
+.alert.go .wave1 { animation: ripple 1.2s ease-out infinite; }
+.alert.go .wave2 { animation: ripple 1.2s ease-out .6s infinite; }
+.alert.go[data-act="clap"] .stage-ico svg { animation: clap .5s ease-in-out infinite; }
+.alert.go[data-act="wave"] .stage-ico svg { animation: swing 1s ease-in-out infinite; transform-origin: 50% 90%; }
+.alert.go[data-act="jump"] .stage-ico svg { animation: hop .5s cubic-bezier(.3,0,.4,1) infinite; }
+.alert.go[data-act="sing"] .stage-ico svg, .alert.go[data-act="call"] .stage-ico svg, .alert.go[data-act="gesture"] .stage-ico svg { animation: pulse .5s ease-in-out infinite; }
+.alert.soon .stage-ico svg { opacity: .8; }
+@keyframes ripple { from { transform: scale(1); opacity: .7; } to { transform: scale(1.3); opacity: 0; } }
+@keyframes clap { 0%, 100% { transform: scale(1); } 40% { transform: scale(.9); } }
+@keyframes swing { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes hop { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-8%); } }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+
+/* 對時間工具 */
+details.tapper { background: var(--surface); border-radius: var(--radius-card); padding: 16px var(--pad); }
+details.tapper summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+details.tapper p { color: var(--muted); margin: 8px 0; max-width: 72ch; }
+details.tapper code { font-family: var(--font); background: var(--raised); border-radius: 6px; padding: 1px 6px; }
+.tap-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); margin-top: 10px; }
+.tap-grid textarea { width: 100%; min-height: 220px; background: var(--ground); border: 0; border-radius: 12px; padding: 12px; color: var(--text); font-family: var(--font-ja); font-size: 14px; resize: vertical; }
+.tap-grid label { display: block; font-size: 12px; color: var(--faint); margin-bottom: 6px; }
+.tap-live { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; background: var(--ground); border-radius: 16px; padding: 16px; margin-top: 10px; }
+.tap-btn { width: 96px; height: 96px; border-radius: 50%; border: 0; background: var(--accent-deep); color: var(--text); font-size: 16px; font-weight: 600; cursor: pointer; transition: transform .08s, background .15s; }
+.tap-btn:active, .tap-btn.hit { transform: scale(.92); background: var(--accent); }
+.tap-btn:disabled { background: var(--raised); color: var(--faint); cursor: default; }
+.tap-info { min-width: 0; display: grid; gap: 4px; }
+.tap-info .prog { color: var(--faint); font-size: 13px; }
+.tap-info .cur { font-family: var(--font-ja); font-size: 18px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tap-info .nxt { font-family: var(--font-ja); font-size: 14px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tap-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+.seg-out { display: inline-flex; background: var(--ground); border-radius: 999px; padding: 3px; }
+.seg-out button { border: 0; background: transparent; color: var(--faint); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.seg-out button[aria-pressed="true"] { background: var(--raised); color: var(--text); }
+@media (max-width: 700px) { .tap-grid { grid-template-columns: 1fr; } }
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; }
+  .left { position: static; }
+  .lyrics { position: static; height: 70dvh; max-height: none; }
+  .moves { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 24px; }
+  .lore { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .nav { display: none; }
+  :root { --pad: 20px; }
+  .home .hero { min-height: 0; }
+  .hero { padding-top: 20px; }
+  .lead { font-size: 16px; }
+  .panel { padding: 22px var(--pad); }
+  .panel > h2 { font-size: 22px; }
+  .moves { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lore { grid-template-columns: 1fr; gap: 22px; }
+  .cue .now strong { font-size: 26px; }
+  .transport { grid-template-columns: auto 1fr auto; }
+  .tsel { grid-column: 1 / -1; }
+  .rules { grid-template-columns: 1fr; }
+  .song { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .song .acts { grid-column: 2; grid-row: 1; }
+  .song .len { display: none; }
+  .song .zh { display: block; margin: 0; }
+  .tools .seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; min-width: 0; }
+  .tools .seg button { flex: none; }
+  .seg button { flex: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } .alert * { animation: none !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-sing" viewBox="0 0 24 24"><g class="ico"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.6 2.5-6 5.5-6s5.5 2.4 5.5 6"/><path d="M16 6.5c1.2 1 1.2 3 0 4M18.5 4.5c2.4 2.2 2.4 6.3 0 8.5"/></g></symbol>
+    <symbol id="i-clap" viewBox="0 0 24 24"><g class="ico"><path d="M8 20l-3-6.5a1.4 1.4 0 0 1 2.5-1.2L9 15V6.5a1.4 1.4 0 0 1 2.8 0V12"/><path d="M11.8 11V5a1.4 1.4 0 0 1 2.8 0v6.5M14.6 8a1.4 1.4 0 0 1 2.8 0v6c0 3.3-2.2 6-5.4 6H8"/><path d="M18 3.5l1.5-1.5M20 6h2"/></g></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><g class="ico"><path d="M12 21v-6M12 15l-3.5-9.5M12 15l3.5-9.5"/><path d="M5 7.5c-.8-1.6-.6-3.3.6-4.5M19 7.5c.8-1.6.6-3.3-.6-4.5"/></g></symbol>
+    <symbol id="i-jump" viewBox="0 0 24 24"><g class="ico"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v6M12 9l-4-2.5M12 9l4-2.5M12 13l-3 4M12 13l3 4M6 21h12"/></g></symbol>
+    <symbol id="i-call" viewBox="0 0 24 24"><g class="ico"><path d="M4 9v6h3l5 4V5L7 9H4z"/><path d="M16 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10"/></g></symbol>
+    <symbol id="i-listen" viewBox="0 0 24 24"><g class="ico"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></g></symbol>
+    <symbol id="i-gesture" viewBox="0 0 24 24"><g class="ico"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11M12 10V4.5a1.5 1.5 0 0 1 3 0V11M15 10.5V6.5a1.5 1.5 0 0 1 3 0V14c0 3.9-2.7 7-6.5 7-2.4 0-4-1.2-5.2-3.2L4.3 14a1.5 1.5 0 0 1 2.4-1.7L9 15"/></g></symbol>
+  </defs>
+</svg>
+
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<div class="alert" id="alert" aria-hidden="true">
+  <div class="stack">
+    <div class="stage-ico"><span class="ring"></span><span class="wave1"></span><span class="wave2"></span><svg id="alIcon"><use href="#i-clap"/></svg><span class="num" id="alNum" hidden>3</span></div>
+    <div class="label" id="alLabel"></div>
+    <div class="asub" id="alSub"></div>
+    <div class="bigclaps" id="alClaps" hidden><span></span><span></span><span></span></div>
+  </div>
+</div>
+
+<div class="shell">
+  <header class="bar">
+    <div class="col">
+      <a class="mark" href="#songs" aria-label="Ado 應援預習 首頁">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#5d9dfe"/><path d="M12 5.2c-2.3 0-3.7 1.7-3.7 4 0 1.6-.5 3.4-1.2 5.2-.5 1.3-.6 2.6-.2 3.6h10.2c.4-1 .3-2.3-.2-3.6-.7-1.8-1.2-3.6-1.2-5.2 0-2.3-1.4-4-3.7-4z" fill="#070a12"/></svg>
+        Ado 應援預習
+      </a>
+      <nav class="nav" aria-label="主選單">
+        <a href="#songs" id="navSongs">全部歌曲</a>
+        <a href="#moves" id="navMoves">應援動作</a>
+        <a href="#ado">認識 Ado</a>
+        <a href="#rules" id="navRules">參加須知</a>
+      </nav>
+      <span class="tag">非官方粉絲製作</span>
+    </div>
+  </header>
+
+  <main class="col" id="main">
+    <!-- 首頁 -->
+    <div class="view home" id="home">
+      <section class="hero">
+        <h1>Ado 應援預習</h1>
+        <p class="lead">演唱會前在家先練：看著 MV 跟歌詞，哪裡拍手、哪裡合唱、哪裡安靜聽 Ado 唱。不照任何一場的歌單，不會暴雷。</p>
+        <div class="actions">
+          <a class="btn primary" href="#show"><svg viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg>從〈唱〉開始練</a>
+          <a class="btn ghost" href="#rules">先看參加須知</a>
+        </div>
+      </section>
+
+      <section class="panel" id="songs" aria-labelledby="songsH">
+        <h2 id="songsH">全部歌曲</h2>
+        <p class="sub">「有應援」是已經整理好動作的常唱曲。每首都附正版歌詞連結。</p>
+        <div class="tools">
+          <input class="search" id="q" type="search" placeholder="搜尋歌名，日文或中文都可以" aria-label="搜尋歌曲">
+          <div class="seg" role="group" aria-label="篩選">
+            <button data-f="all" aria-pressed="true">全部</button>
+            <button data-f="cheer" aria-pressed="false">有應援</button>
+            <button data-f="clap" class="a-clap" aria-pressed="false">拍手</button>
+            <button data-f="sing" class="a-sing" aria-pressed="false">大合唱</button>
+            <button data-f="jump" class="a-jump" aria-pressed="false">跳躍</button>
+            <button data-f="free" aria-pressed="false">自由搖</button>
+            <button data-f="sug" aria-pressed="false">建議</button>
+            <button data-f="todo" aria-pressed="false">待補</button>
+            <button data-f="cover" aria-pressed="false">翻唱</button>
+          </div>
+        </div>
+        <ul class="songs" id="songList"></ul>
+        <p class="count" id="songCount"></p>
+      </section>
+
+      <section class="panel" id="moves" aria-labelledby="movesH">
+        <h2 id="movesH">應援動作</h2>
+        <p class="sub">歌詞、提醒和清單都用這套顏色跟圖示，看到顏色就知道要做什麼。</p>
+        <div class="moves" id="moveList"></div>
+      </section>
+
+      <section class="panel" id="ado" aria-labelledby="adoH">
+        <h2 id="adoH">認識 Ado</h2>
+        <p class="sub">第一次去也看得懂的幾個梗。</p>
+        <ul class="lore">
+          <li><svg viewBox="0 0 72 72" aria-hidden="true"><g><path class="ln-a" d="M36 66V38M36 52c-6-1-10-5-11-10 6 0 10 4 11 10z"/><circle class="fl-d" cx="36" cy="24" r="15"/><path class="fl-a" d="M36 11c6 3 9 8 8 14-4-4-10-4-14 0-1-6 2-11 6-14z"/><path class="ln-a" d="M27 22c3 5 15 5 18 0M30 30c4 3 8 3 12 0"/></g></svg>
+            <div><b>藍玫瑰</b><span>Ado 的視覺裡常出現玫瑰，演唱會的 dress code 也是玫瑰。戴一朵藍玫瑰去就很有氣氛。</span></div></li>
+          <li><svg viewBox="0 0 72 72" aria-hidden="true"><g><path class="fl-d" d="M10 30c0-9 12-14 26-14s26 5 26 14v2H10z"/><path class="fl-a" d="M14 32l5 9 5-9 5 9 5-9 5 9 5-9 5 9 5-9 5 9 4-9z"/><path class="fl-d" d="M10 42h52v2c0 8-12 12-26 12S10 52 10 44z"/></g></svg>
+            <div><b>鯊魚尖牙</b><span>Ado 的插畫形象有一口鋸齒狀的尖牙，粉絲畫 Ado 時常用它當記號。</span></div></li>
+          <li><svg viewBox="0 0 72 72" aria-hidden="true"><rect class="ln-a" x="16" y="8" width="40" height="58" rx="3"/><g><path class="ln-a" d="M44 30c3 3 3 9 0 12"/><path class="ln-a" d="M49 26c5 5 5 15 0 20"/></g><path class="ln-a" d="M30 30v8a6 6 0 0 0 12 0M36 44v6"/><rect class="fl-d" x="20" y="12" width="16" height="50" rx="2"/></svg>
+            <div><b>衣櫃錄音室</b><span>Ado 長年在自家衣櫃裡錄歌，訪談和 MC 常提到。</span></div></li>
+          <li><svg viewBox="0 0 72 72" aria-hidden="true"><path class="fl-d" d="M36 4L22 60h28z" opacity=".7"/><rect class="ln-a" x="14" y="44" width="44" height="22" rx="2"/><path class="ln-a" d="M14 55h44M25 44v22M36 44v22M47 44v22"/></svg>
+            <div><b>不露臉的舞台</b><span>Ado 不公開長相，演唱會靠燈光、剪影和舞台裝置呈現。這也是全面禁止拍照的原因之一。</span></div></li>
+          <li><svg viewBox="0 0 72 72" aria-hidden="true"><g><path class="fl-d" d="M36 60L10 30a36 36 0 0 1 52 0z"/><path class="ln-a" d="M36 60L18 24M36 60V18M36 60l18-36"/><path class="fl-a" d="M36 60l-4-4h8z"/></g></svg>
+            <div><b>名字的由來</b><span>「Ado」取自日本傳統戲劇狂言裡的配角稱呼「アド」。</span></div></li>
+          <li><svg viewBox="0 0 72 72" aria-hidden="true"><rect class="ln-a" x="8" y="12" width="56" height="40" rx="5"/><path class="ln-a" d="M28 60h16M36 52v8"/><g><rect class="fl-a" x="24" y="22" width="6" height="22" rx="2"/><rect class="fl-a" x="33" y="22" width="6" height="22" rx="2"/><rect class="fl-a" x="42" y="22" width="6" height="22" rx="2"/></g></svg>
+            <div><b>從「歌ってみた」出發</b><span>Ado 國中時開始在網路上投稿翻唱，2020 年以〈うっせぇわ〉正式出道，所以歌單裡也有很多 Vocaloid 翻唱。</span></div></li>
+        </ul>
+      </section>
+
+      <section class="panel" id="rules" aria-labelledby="rulesH">
+        <h2 id="rulesH">參加須知</h2>
+        <p class="sub">每場以主辦公告為準，以下是 Ado 演唱會一直以來的規矩。</p>
+        <ul class="rules">
+          <li><b>全面禁止拍照、錄影、錄音</b><span>從進場那一刻開始就算，開演前也一樣。</span></li>
+          <li><b>不能帶望遠鏡</b><span>入場檢查會被收走。</span></li>
+          <li><b>螢光棒以官方公告為準</b><span>近年巨蛋場只能用最新的官方螢光棒，會跟演出自動連動，不用自己換色。開演前一晚先用 App 配對好。</span></li>
+          <li><b>Dress code 是玫瑰</b><span>戴玫瑰飾品或穿玫瑰圖案的衣服，不是強制。</span></li>
+          <li><b>喊聲與呼應</b><span>主辦沒有禁止就可以，但不要蓋過 Ado，也不要影響旁邊的人。不確定時跟著現場氣氛。</span></li>
+          <li><b>跳之前先看周圍</b><span>前後左右留空間，螢光棒不要甩、不要丟。</span></li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- 歌曲頁 -->
+    <div class="view" id="song" hidden>
+      <section class="hero">
+        <nav class="steps" aria-label="切換歌曲">
+          <a id="prevSong"></a>
+          <a id="nextSong"></a>
+        </nav>
+        <h1 id="sTitle"></h1>
+        <p class="lead" id="sLead"></p>
+        <div class="actions">
+          <button class="btn primary" id="start"><svg viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg>開始預習</button>
+          <a class="btn ghost" id="ytLink" target="_blank" rel="noopener">在 YouTube 開啟</a>
+          <a class="btn ghost" id="lyLink" target="_blank" rel="noopener">看歌詞（歌ネット）</a>
+        </div>
+      </section>
+
+      <div class="grid">
+        <div class="left">
+          <section class="mv" aria-label="MV">
+            <div class="screen" id="screen">
+              <div id="ytp"></div>
+              <div class="vstatus" id="vstatus">
+                <p id="vmsg">正在載入影片…</p>
+                <a class="btn ghost" id="ytLink2" target="_blank" rel="noopener">在 YouTube 開啟</a>
+              </div>
+            </div>
+            <div class="transport">
+              <button class="pp" id="pp" aria-label="播放"><svg viewBox="0 0 24 24" id="ppIcon"><path d="M7 4v16l13-8z"/></svg></button>
+              <div class="track" id="track" role="slider" tabindex="0" aria-label="播放位置" aria-valuemin="0" aria-valuenow="0"><i id="fill"></i></div>
+              <span class="clock" id="clock">0:00</span>
+              <div class="tsel">
+                <label class="cc">速度
+                  <select id="rateSel" aria-label="播放速度">
+                    <option value="0.5">0.5×</option>
+                    <option value="0.75">0.75×</option>
+                    <option value="1">1×</option>
+                    <option value="1.25">1.25×</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="cue" aria-live="polite">
+            <div class="top"><h2>現在要做的事</h2><button class="switch" id="alertSw" aria-pressed="true"><i></i>全螢幕提醒</button></div>
+            <div class="now"><svg id="cueIcon"><use href="#i-clap"/></svg><strong id="cueName">按播放開始</strong></div>
+            <div class="next" id="cueNext"></div>
+            <div class="how" id="cueHow"></div>
+            <ul class="summary" id="cueSummary"></ul>
+          </section>
+        </div>
+
+        <section class="lyrics" aria-label="歌詞與應援">
+          <div class="lyrics-top">
+            <h2>歌詞與應援</h2>
+            <div class="jump" id="singJump" role="group" aria-label="跳到大合唱段落">
+              <button id="singPrev" aria-label="上一段大合唱">‹</button><span>大合唱</span><button id="singNext" aria-label="下一段大合唱">›</button>
+            </div>
+            <details class="vopt" id="vopt">
+              <summary>顯示</summary>
+              <div class="view-opts" role="group" aria-label="歌詞顯示">
+                <button data-opt="ja" aria-pressed="true">日文</button>
+                <button data-opt="kana" aria-pressed="true">假名</button>
+                <button data-opt="zh" aria-pressed="true">中文</button>
+                <button data-opt="karaoke" aria-pressed="false">卡拉OK</button>
+                <button data-opt="sing" aria-pressed="false">只看大合唱</button>
+                <button data-opt="scroll" aria-pressed="true">自動捲動</button>
+              </div>
+            </details>
+          </div>
+          <div class="legend" id="legend" aria-label="顏色代表的動作"></div>
+          <div class="lyrics-scroll" id="lyScroll">
+            <div id="lines"></div>
+            <p class="lyrics-note" id="lyricsNote"></p>
+          </div>
+        </section>
+      </div>
+
+      <details class="paste" id="paste">
+        <summary>貼上歌詞與應援</summary>
+        <p>用 LRC 格式，一行一句：<code>[00:47.20]日文歌詞 / 中譯</code>。斜線後的中譯可以省略。</p>
+        <p>漢字的讀音寫在後面的括號裡，例如 <code>練習(れんしゅう)</code>，假名會標在漢字上方。</p>
+        <p>要標動作，在時間後面加大括號：<code>[00:47.20]{sing,wave|一起唱}日文 / 中譯</code>。動作有 sing（大合唱）、clap（拍手）、wave（舉手揮動）、jump（跳躍）、call（喊聲）、gesture（手勢）、listen（安靜聽），直線後面是要喊的字。段落標題寫成 <code>[00:47.00]#副歌</code>。</p>
+        <p>貼好按「套用」，這首歌就換成你的版本，只存在這台裝置的瀏覽器。整理好後把文字交給我，我再放進正式網站。</p>
+        <textarea id="lrc" placeholder="[00:00.00]#前奏&#10;[00:12.00]{listen}第一行日文歌詞 / 第一行中譯"></textarea>
+        <div class="row">
+          <button class="btn primary" id="apply">套用</button>
+          <button class="btn ghost" id="copy">複製目前內容</button>
+          <button class="btn ghost" id="reset">還原</button>
+          <span class="status" id="status"></span>
+        </div>
+      </details>
+
+      <details class="tapper" id="tapper">
+        <summary>對時間工具：邊聽邊打點，產生 LRC／SRT</summary>
+        <p>1. 把正版歌詞貼在左邊，一行一句；要附中譯就寫成 <code>日文 / 中譯</code>，要標動作就在行首加 <code>{sing,wave}</code>，段落標題寫 <code>#副歌</code>（段落不用打點，會跟著下一句的時間）。</p>
+        <p>2. 按「開始打點」，影片會從頭播放。每唱到新的一行就按一下「打點」或空白鍵；按錯了按 Backspace 退回一行。</p>
+        <p>3. 打完右邊會產生 LRC 和 SRT。按「套用到這首歌」就能直接預覽，或複製下來保存。</p>
+        <p><b>只想做應援提醒、不放歌詞？</b>按「載入段落範本」，會依這首的應援重點列出前奏、副歌、間奏等段落。刪掉這首沒有的段落，再邊看 MV 邊在每段開頭打點。</p>
+        <div class="tap-grid">
+          <div><label for="tapSrc">歌詞（一行一句）</label><textarea id="tapSrc" placeholder="#前奏&#10;{listen}第一句日文 / 第一句中譯&#10;#副歌&#10;{sing,wave|一起唱}副歌第一句 / 中譯"></textarea></div>
+          <div><label for="tapOut">結果</label><textarea id="tapOut" readonly placeholder="打點完成後會出現在這裡"></textarea></div>
+        </div>
+        <div class="tap-live">
+          <button class="tap-btn" id="tapBtn" disabled>打點</button>
+          <div class="tap-info">
+            <span class="prog" id="tapProg">還沒開始</span>
+            <span class="cur" id="tapCur">按「開始打點」後，這裡顯示下一句要打的歌詞</span>
+            <span class="nxt" id="tapNxt"></span>
+          </div>
+        </div>
+        <div class="tap-row">
+          <button class="btn ghost" id="tapTpl">載入段落範本</button>
+          <button class="btn primary" id="tapStart">開始打點</button>
+          <button class="btn ghost" id="tapUndo">退回一行</button>
+          <div class="seg-out" role="group" aria-label="輸出格式"><button data-fmt="lrc" aria-pressed="true">LRC</button><button data-fmt="srt" aria-pressed="false">SRT</button></div>
+          <button class="btn ghost" id="tapCopy">複製結果</button>
+          <button class="btn ghost" id="tapApply">套用到這首歌</button>
+          <span class="status" id="tapStatus"></span>
+        </div>
+      </details>
+    </div>
+  </main>
+
+  <footer class="col">非官方粉絲製作。原創曲的應援依 <a href="https://note.com/jun1217imokenp/n/nda2715681fcd" target="_blank" rel="noopener">じゅん🌝ぴ 在 note 的整理</a>（2024 年 4 月）；翻唱曲原文沒寫，標「建議」的是依曲風寫的；實際以現場氣氛和 Ado 的引導為準；MV、歌詞與圖像的著作權屬於原權利人。</footer>
+</div>
+
+<script>
+(() => {
+  // ── 動作 ──
+  const ACT = {
+    sing:    { name: "大合唱",   icon: "i-sing",    how: "跟著一起唱" },
+    clap:    { name: "拍手",     icon: "i-clap",    how: "跟著節拍拍手" },
+    wave:    { name: "舉手揮動", icon: "i-wave",    how: "舉手左右揮" },
+    jump:    { name: "跳躍",     icon: "i-jump",    how: "跟著節奏跳" },
+    call:    { name: "喊聲",     icon: "i-call",    how: "跟著喊短句" },
+    gesture: { name: "手勢",     icon: "i-gesture", how: "跟 Ado 做同樣的動作" },
+    listen:  { name: "安靜聽",   icon: "i-listen",  how: "留給 Ado 唱" }
+  };
+
+  // ── 歌曲資料（MV 為 Ado 官方頻道；len 為 MV 長度） ──
+  // 原創曲的 acts／tips／free 依 じゅん🌝ぴ 的 note（2024-04-26）整理；逐行動作在 song-lyrics.js。翻唱曲原文沒寫，標 sug 的是依曲風的建議。
+  const SONGS = [
+    { id: "show", ja: "唱", zh: "唱", en: "Show", year: 2023, yt: "pgXpM4l_MwI", len: "3:10", acts: ["sing", "clap"], tips: ["開頭和每次副歌開頭的英文句由觀眾唱", "主歌和副歌有好幾句是 Ado 起頭、觀眾接", "主歌後半、副歌後半、最後副歌三個地方拍手", "最後副歌喊「Clap Clap Clap」時拍三下"], claps: 180.94 },
+    { id: "usseewa", ja: "うっせぇわ", zh: "吵死了", year: 2020, yt: "Qp3b-RXtz4w", len: "3:23", acts: ["call", "sing"], tips: ["間奏喊「ハイ！ハイ！」", "副歌第二次重複歌名那句由觀眾唱"] },
+    { id: "readymade", ja: "レディメイド", zh: "Readymade", year: 2020, yt: "jg09lNupc1s", len: "4:03", acts: ["call", "sing"], tips: ["間奏喊「ハイ！ハイ！」", "副歌裡成對的短問句由觀眾回唱"] },
+    { id: "freedom", ja: "FREEDOM", zh: "FREEDOM", yt: "hgyGhu49sGc", len: "3:02", acts: ["clap", "call", "sing"], tips: ["曲前可能先帶一段「パン パン パパン パン」的拍手，聽到這個節奏就是 FREEDOM", "間奏喊「ハイ！ハイ！」", "副歌以外想拍就跟著拍", "副歌前和 C 段最後，Ado 起頭後觀眾接「1,2,3,4」", "C 段跟著拍手，「Wow wow」和 Ado 一來一往"] },
+    { id: "rule", ja: "ルル", zh: "RuLe", year: 2024, yt: "0Z_YqhYHhpg", len: "3:19", acts: ["sing"], tips: ["副歌連續三次的「サヨナラ」由觀眾唱"] },
+    { id: "ashura", ja: "阿修羅ちゃん", zh: "阿修羅醬", year: 2021, yt: "cyq5-StPISU", len: "3:19", acts: ["wave", "call", "sing"], tips: ["間奏跟著 Ado 舉手，喊「ハイ！ハイ！」", "副歌跟著 Ado 的手臂左右揮，從左邊開始", "副歌裡 Ado 唱「アンダスタン」後，觀眾重複一次"] },
+    { id: "mondaisaku", ja: "アタシは問題作", zh: "我是問題作", year: 2023, yt: "lZGo8jcEW2M", len: "3:15", acts: ["sing"], tips: ["副歌裡重複歌名的問句由觀眾唱", "副歌另外兩處重複的台詞也由觀眾唱，有時 Ado 會自己唱"] },
+    { id: "gyakkou", ja: "逆光", zh: "逆光", year: 2022, yt: "gt-v_YCkaMY", len: "4:10", acts: ["clap", "call", "gesture"], tips: ["曲前可能先帶一段「パパン パン パパン パン」的拍手，聽到這個節奏就是逆光", "前奏先在第 2、4 拍的反拍拍手，之後改拍正拍", "間奏喊「ハイ！ハイ！」", "副歌指定的句子跟著轉手 3 次", "C 段整段拍手"] },
+    { id: "odo", ja: "踊", zh: "踊", year: 2021, yt: "YnSW8ian29w", len: "3:29", acts: ["sing", "call", "jump", "clap"], tips: ["開頭和 B 段結尾那句由觀眾唱", "主歌有幾句和 Ado 一來一往對唱", "副歌的「Woah」由觀眾唱", "間奏第 3、4 和 7、8 小節跳（依演唱會影像）", "最後副歌前拍手"] },
+    { id: "shinjidai", ja: "新時代", zh: "新時代", year: 2022, yt: "1FliVTcX8bQ", len: "3:58", acts: ["clap", "call", "sing"], tips: ["開頭清唱結束、鼓聲進來時拍手", "間奏喊「ハイ！ハイ！」", "副歌前那句英文由觀眾唱"] },
+    { id: "giragira", ja: "ギラギラ", zh: "閃閃發光", year: 2021, yt: "sOiMD45QGLs", len: "4:37", acts: ["sing"], tips: ["副歌開頭的兩個疊字詞由觀眾唱", "副歌中間的三句英文由觀眾唱"] },
+    { id: "kurakura", ja: "クラクラ", zh: "暈眩", year: 2023, yt: "W_fHWaoQwkw", len: "3:11", acts: ["sing"], tips: ["A 段括號裡的英文由觀眾唱", "副歌 Ado 起頭後，觀眾接下一句", "副歌的歌名由觀眾唱", "最後副歌有一長句由觀眾唱"] },
+    { id: "saikyo", ja: "私は最強", zh: "我是最強", year: 2022, yt: "sk1Z-Hqwwog", len: "4:30", acts: ["clap", "call"], tips: ["開頭的副歌拍手，依場次有時不拍", "間奏喊「ハイ！ハイ！」"] },
+    { id: "aiaia", ja: "アイ・アイ・ア", zh: "AiAiA", year: 2026, yt: "_8CNByAq1n4", len: "4:20", acts: ["sing"], tips: ["副歌 Ado 唱完歌名，觀眾重複一次", "最後副歌連續四次的歌名也由觀眾重複"] },
+    { id: "rockstar", ja: "ロックスター", zh: "搖滾巨星", yt: "hRJpiCZlLX8", len: "3:51", acts: ["clap", "sing", "call"], tips: ["前奏和間奏照固定節奏踏腳、拍手", "Ado 給信號後一起唱", "官方推薦這樣做到曲子結束；作者建議只有間奏照官方做，其他時候拍手就好", "最後副歌前喊「Hey」"] },
+    { id: "staygold", ja: "Stay Gold", zh: "Stay Gold", yt: "Tmz3mpOq8aE", len: "3:55", acts: ["wave", "call"], tips: ["副歌加「wow」", "跟著節拍搖螢光棒"], live: true, acts: ["sing"], tips: ["副歌的「wow wow」由觀眾唱"] },
+    { id: "episodex", ja: "Episode X", zh: "Episode X", year: 2024, yt: "9dKZeL2UbUM", len: "3:46", acts: ["sing"], tips: ["第二段 A 段的三個單字由觀眾唱"] },
+    { id: "totmusica", ja: "Tot Musica", zh: "Tot Musica", year: 2022, yt: "V9_ZpqfqHFI", len: "3:22", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "kira", ja: "綺羅", zh: "KIRA", year: 2026, yt: "qpcz3-iDUP8", len: "3:19", acts: ["call", "sing"], tips: ["間奏喊「ハイ！ハイ！」", "副歌前那一長句由觀眾唱"] },
+    { id: "monstruo", ja: "モンストロ", zh: "Monstruo", year: 2026, yt: "4IKHox-DKrM", len: "3:14", acts: ["sing"], tips: ["副歌的英文短句由觀眾唱", "第二段 Ado 唱完日文後，觀眾接英文"] },
+    { id: "ibara", ja: "いばら", zh: "荊棘", year: 2023, yt: "oy2WTnhVT2w", len: "4:20", acts: ["call"], tips: ["第二次副歌前和最後副歌前，Ado 問準備好了沒，用歡呼回應"] },
+    { id: "rebellion", ja: "リベリオン", zh: "叛逆", year: 2022, yt: "0Y8e0LJf0i0", len: "2:59", acts: ["clap", "sing", "gesture"], tips: ["前奏一路拍手，拍到「Yeah」為止", "A 段的「Wowow」由觀眾唱", "副歌跟著 Ado 轉手臂", "副歌的「Shake it out out!」由觀眾唱", "副歌結尾的英文段和最後副歌後半那句，想唱再唱"] },
+    { id: "chocolat", ja: "ショコラカタブラ", zh: "Chocolat Cadabra", year: 2024, yt: "c5j7lpWprro", len: "3:21", acts: ["clap", "sing"], tips: ["開頭和副歌前，括號裡的短句拍手", "副歌的歌名由觀眾唱"] },
+    { id: "shoka", ja: "初夏", zh: "初夏", year: 2024, yt: "GORsp0gc2Nc", len: "3:56", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    // 以下：free＝粉絲說沒有固定應援；sug＝查不到現場資料，依曲風寫的建議
+    { id: "pierrot", ja: "夜のピエロ", zh: "夜之小丑", year: 2021, yt: "cSgZxz3le7s", len: "3:20", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "aitakute", ja: "会いたくて", zh: "好想見你", year: 2021, yt: "jTVSU-Lr1ew", len: "4:48", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "akuruhi", ja: "永遠のあくる日", zh: "永遠的翌日", year: 2022, yt: "ZHAnZTVF_10", len: "4:07", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "kokoro", ja: "心という名の不可解", zh: "名為心的不可解", yt: "BMb5IetESGE", len: "4:30", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "utakata", ja: "ウタカタララバイ", zh: "泡影搖籃曲", year: 2022, yt: "hyV1AJiFNyo", len: "3:13", acts: ["call", "sing"], tips: ["副歌有兩個地方跟著喊", "第二段饒舌段喊「Hey」", "結尾那句英文由觀眾唱"] },
+    { id: "sekai", ja: "世界のつづき", zh: "世界的延續", year: 2022, yt: "b3GCfyNKeLs", len: "4:55", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "kaze", ja: "風のゆくえ", zh: "風的去向", year: 2022, yt: "YO-rXgQKlF8", len: "4:47", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "missing", ja: "行方知れず", zh: "下落不明", year: 2022, yt: "VQtmqpSE64w", len: "3:16", acts: ["call"], tips: ["間奏喊「ハイ！ハイ！」"] },
+    { id: "himawari", ja: "向日葵", zh: "向日葵", year: 2023, yt: "aOKa-5AHCtU", len: "4:19", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "dignity", ja: "DIGNITY", zh: "DIGNITY", year: 2023, yt: "Q9X0J_tLHwY", len: "4:13", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "radio", ja: "オールナイトレディオ", zh: "All Night Radio", year: 2023, yt: "lfw8W3uWO7s", len: "3:35", acts: ["sing", "wave"], tips: ["開頭和最後副歌前，觀眾喊那串數字", "副歌跟著 Ado 的手臂左右揮，從左邊開始"] },
+    { id: "unravel", ja: "unravel", zh: "unravel", year: 2023, yt: "eZuDklxsaRg", len: "4:01", acts: ["listen", "wave"], tips: ["以聽為主，副歌可以舉手"], sug: true, cover: true },
+    { id: "hotaru", ja: "夜明けと蛍", zh: "黎明與螢火蟲", year: 2023, yt: "1T6b26DTQy4", len: "5:09", acts: ["listen"], tips: ["抒情歌，安靜聽"], sug: true, cover: true },
+    { id: "value", ja: "Value", zh: "Value", year: 2024, yt: "5iAQF_q6FSk", len: "3:13", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "mirror", ja: "MIRROR", zh: "MIRROR", year: 2024, yt: "zsBBWBEZkFQ", len: "3:00", acts: ["sing"], tips: ["第二次副歌和最後副歌後半，「NE! NE! NE!」和「もう一回！」由觀眾唱"] },
+    { id: "sakura", ja: "桜日和とタイムマシン with 初音ミク", zh: "櫻花晴日與時光機", year: 2024, yt: "nIWZfhpnq6M", len: "5:30", acts: ["call"], tips: ["間奏喊「ハイ！ハイ！」"] },
+    { id: "elf", ja: "エルフ", zh: "精靈", year: 2025, yt: "SbxR25brgoE", len: "4:23", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "hanataba", ja: "わたしに花束", zh: "給我的花束", year: 2025, yt: "_RAffg8JQ6g", len: "3:47", acts: ["call"], tips: ["間奏喊「ハイ！ハイ！」"] },
+    { id: "kazetowatashi", ja: "風と私の物語", zh: "風與我的故事", year: 2025, yt: "oAuKa5NOzWE", len: "5:53", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "magic", ja: "MAGIC", zh: "MAGIC", year: 2025, yt: "l0WArCNh6G0", len: "2:52", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "angelseek", ja: "エンゼルシーク", zh: "Angelseek", year: 2026, yt: "aGSmxr-dUq0", len: "3:50", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "vivarium", ja: "ビバリウム", zh: "Vivarium", year: 2026, yt: "YvYii6dluM8", len: "4:32", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "haruni", ja: "春に舞う", zh: "於春日起舞", year: 2026, yt: "xIYfDbkq-SM", len: "3:59", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "kagakushu", ja: "過学習", zh: "過度學習", yt: "55W2LxbQoHc", len: "3:35", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "hanabi", ja: "花火", zh: "花火", yt: "5_-TcIOxm60", len: "3:36", acts: ["clap"], tips: ["副歌和間奏以外一直拍手", "B 段第一句先停拍，下一句再接著拍"] },
+    { id: "domestic", ja: "ドメスティックでバイオレンス", zh: "Domestic de Violence", yt: "iRMYLKIWyUk", len: "2:37", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "luckybruto", ja: "ラッキー・ブルート", zh: "Lucky Bruto", yt: "u-G_zzhLSy8", len: "3:28", acts: ["sing"], tips: ["副歌裡的「ヘイミスター」由觀眾唱", "結尾的「ダダダン」「バババン」由觀眾唱"] },
+    { id: "motherland", ja: "マザーランド", zh: "Motherland", yt: "_wZfYtYwxro", len: "4:21", acts: ["clap"], tips: ["副歌和 C 段以外一直拍手，樂團會帶", "安靜下來的那段副歌，改在第 2、4 拍的反拍拍手"] },
+    { id: "nukegara", ja: "抜け空", zh: "空殼", yt: "JpnqXqy-XMg", len: "3:09", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "zero", ja: "0", zh: "0", yt: "8vm3Tkv43jw", len: "3:01", acts: ["clap"], tips: ["B 段整段拍手"] },
+    { id: "hellosignals", ja: "Hello Signals", zh: "Hello Signals", yt: "IH-u0Mk_xEY", len: "3:19", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "kittocoaster", ja: "きっとコースター", zh: "一定是雲霄飛車", yt: "nV5SHldicJY", len: "3:02", acts: ["sing"], tips: ["副歌那句疊字由觀眾唱"] },
+    { id: "lovemeforever", ja: "Love me forever!", zh: "Love me forever!", yt: "WSuAVkaSC38", len: "4:10", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
+    { id: "ravensky", ja: "Raven Sky", zh: "Raven Sky", yt: "7DBSMzbPQzc", len: "4:12" },
+    { id: "sukideite", ja: "好きでいて", zh: "請一直喜歡我", yt: "iTNwVheLpj8", len: "4:07" },
+    { id: "soldiergame", ja: "soldier game", zh: "soldier game", yt: "J3hzdBkd6bg", len: "3:42" },
+    // 翻唱
+    { id: "ponpokorin", ja: "おどるポンポコリン", zh: "跳舞的嘭嘭可琳", yt: "TZYqDl19qLQ", len: "1:26", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true },
+    { id: "catseye", ja: "CAT'S EYE", zh: "貓眼", yt: "8-Qekf_GBow", len: "3:05", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true },
+    { id: "kitaro", ja: "ゲゲゲの鬼太郎", zh: "鬼太郎", yt: "6Qd16SxUjj4", len: "2:15", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true },
+    { id: "charles", ja: "シャルル", zh: "夏爾", yt: "trIiMhTDKxo", len: "3:45", acts: ["wave"], tips: ["副歌舉手跟著搖"], sug: true, cover: true },
+    { id: "jikkai", ja: "十戒（1984）", zh: "十戒", yt: "BFVn0ZQwGpk", len: "3:33", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true },
+    { id: "aishite", ja: "愛して愛して愛して", zh: "愛我愛我愛我", yt: "HmkbBdD8044", len: "4:16", acts: ["clap", "wave"], tips: ["跟著節拍拍手，副歌舉手"], sug: true, cover: true, live: true },
+    { id: "kazarijanai", ja: "飾りじゃないのよ涙は", zh: "眼淚不是裝飾品", yt: "Mtfkq7doqWw", len: "4:13", acts: ["wave"], tips: ["跟著節奏輕輕搖"], sug: true, cover: true },
+    { id: "kamippoina", ja: "神っぽいな", zh: "像神一樣呢", yt: "7i_nc5GGIsI", len: "3:25", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true },
+    { id: "kawaikute", ja: "可愛くてごめん", zh: "可愛真是抱歉", yt: "axOhZD3boe8", len: "3:40", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true },
+    { id: "tsumitobatsu", ja: "罪と罰", zh: "罪與罰", yt: "x1UsJ2Znjk0", len: "4:50", acts: ["listen"], tips: ["以聽為主"], sug: true, cover: true },
+    { id: "dryflower", ja: "ドライフラワー", zh: "乾燥花", yt: "qhmrt3ZNgcs", len: "4:49", acts: ["listen"], tips: ["抒情歌，安靜聽"], sug: true, cover: true },
+    { id: "villain", ja: "ヴィラン", zh: "Villain", yt: "r_wO7xKI-tw", len: "3:20", acts: ["wave"], tips: ["副歌舉手跟著搖"], sug: true, cover: true },
+    { id: "burikino", ja: "ブリキノダンス", zh: "鐵皮之舞", yt: "iL7uoLCbJoc", len: "3:22", acts: ["clap", "wave"], tips: ["跟著節拍拍手、搖螢光棒"], sug: true, cover: true }
+  ];
+  // 正版歌詞：歌ネット（uta-net.com）的歌曲頁編號
+  const UT = {"show":343570,"usseewa":292534,"readymade":295824,"freedom":313113,"rule":356726,"ashura":309074,"mondaisaku":332973,"gyakkou":321128,"odo":301298,"shinjidai":319758,"giragira":297951,"kurakura":344008,"saikyo":320568,"aiaia":389756,"rockstar":371304,"episodex":364731,"totmusica":322907,"kira":392133,"monstruo":397076,"ibara":336879,"rebellion":324691,"chocolat":349160,"shoka":361947,"pierrot":303332,"aitakute":306065,"akuruhi":315407,"kokoro":313110,"utakata":322805,"sekai":322906,"kaze":322905,"missing":326032,"himawari":340373,"dignity":343573,"radio":344727,"unravel":350288,"hotaru":350286,"value":350381,"mirror":355040,"sakura":362390,"elf":367139,"hanataba":369630,"kazetowatashi":380660,"magic":381653,"angelseek":386914,"vivarium":388255,"haruni":392755,"kagakushu":313108,"hanabi":313112,"domestic":313114,"luckybruto":313111,"motherland":313109,"nukegara":357493,"zero":357492,"hellosignals":371303,"kittocoaster":363098,"lovemeforever":395819,"ravensky":400798,"sukideite":398715,"soldiergame":386267,"ponpokorin":385914,"catseye":380030,"kitaro":374762,"charles":371560,"jikkai":373551,"aishite":350293,"kazarijanai":350294,"kamippoina":350289,"kawaikute":350291,"tsumitobatsu":350292,"dryflower":350295,"villain":350290,"burikino":350287};
+  SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = s.tips || []; s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
+  const BY = Object.fromEntries(SONGS.map(s => [s.id, s]));
+
+  const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const icon = a => `<svg class="a-${a}" role="img" aria-label="${ACT[a].name}"><use href="#${ACT[a].icon}"/></svg>`;
+  // 一行的主色：第一個不是「安靜聽」的動作
+  const mainAct = acts => acts.find(a => a !== "listen") || (acts.length ? "listen" : "");
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ── 首頁 ──
+  const list = document.getElementById("songList"), q = document.getElementById("q"), countEl = document.getElementById("songCount");
+  let filter = "all";
+  // free：粉絲說沒有固定應援；sug：查不到現場做法，依曲風寫的建議
+  const badge = s => s.sug ? '<span class="state">建議・</span>' : s.free ? '<span class="state">自由・</span>' : "";
+  function hasLyrics(s) {
+    if (store.get("lrc-" + s.id)) return true;
+    if (typeof SONG_LYRICS !== "undefined") {
+      var all = Array.isArray(SONG_LYRICS) ? SONG_LYRICS : Object.values(SONG_LYRICS);
+      return all.some(function(x) { return x.id === s.id && x.lyrics && x.lyrics.length > 0; });
+    }
+    return false;
+  }
+  function renderList() {
+    const term = q.value.trim().toLowerCase();
+    const rows = SONGS.filter(s => {
+      if (term && ![s.ja, s.zh, s.en || ""].some(x => x.toLowerCase().includes(term))) return false;
+      if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.sug;
+      if (filter === "free") return !!s.free;
+      if (filter === "sug") return !!s.sug;
+      if (filter === "todo") return s.tips.length === 0;
+      if (filter === "cover") return !!s.cover;
+      if (filter !== "all") return s.acts.includes(filter);
+      return true;
+    });
+    list.innerHTML = rows.map(s => `
+      <li><a class="song${s.tips.length ? "" : " todo"}" href="#${s.id}">
+        <div class="name"><span class="ja">${esc(s.ja)}</span>${s.zh !== s.ja ? `<span class="zh">${esc(s.zh)}</span>` : ""}${s.cover ? '<span class="zh">翻唱</span>' : ""}
+          <div class="tip">${s.tips.length ? badge(s) + esc(s.tips.join("・")) : '<span class="state">應援待補，可以先看 MV 預習</span>'}</div></div>
+        <div class="acts">${s.acts.map(icon).join("")}</div>
+        <div class="len">${s.len}</div>
+      </a></li>`).join("");
+    const cheer = SONGS.filter(s => s.tips.length && !s.free && !s.sug).length, free = SONGS.filter(s => s.free).length, sug = SONGS.filter(s => s.sug).length;
+    countEl.textContent = rows.length ? `顯示 ${rows.length} 首，共 ${SONGS.length} 首；${cheer} 首有現場應援，${free} 首自由搖，${sug} 首是建議。` : "沒有符合的歌曲，換個關鍵字試試。";
+  }
+  q.addEventListener("input", renderList);
+  document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
+    filter = b.dataset.f;
+    document.querySelectorAll("[data-f]").forEach(x => x.setAttribute("aria-pressed", x === b));
+    renderList();
+  }));
+  renderList();
+  document.getElementById("moveList").innerHTML = Object.entries(ACT)
+    .map(([k, a]) => `<div class="move a-${k}" data-act="${k}"><div class="orb"><svg aria-hidden="true"><use href="#${a.icon}"/></svg></div><b>${a.name}</b><span>${a.how}</span></div>`).join("");
+
+  // ── 歌曲頁 ──
+  const homeV = document.getElementById("home"), songV = document.getElementById("song");
+  const box = document.getElementById("lines"), track = document.getElementById("track"), legend = document.getElementById("legend");
+  let S = null, LINES = [], PARTS = [], lineEls = [], curLine = -1, curKey = "";
+
+  // 歌詞捲動：自己做 0.26 秒先快後慢的動畫，把目前這行放到框的正中央；新的一行來了就從現在位置接著捲，不會疊在一起
+  // LEAD：歌詞比歌聲早 0.35 秒亮起，眼睛先看到
+  const sc = document.getElementById("lyScroll"), LEAD = .35;
+  let glideId = null, holdUntil = 0;
+  function glide(to) {
+    if (glideId !== null) cancelAnimationFrame(glideId);
+    glideId = null;
+    if (reduce) { sc.scrollTop = to; return; }
+    const from = sc.scrollTop, d = to - from, t0 = performance.now();
+    const step = ms => { const k = Math.min(1, (ms - t0) / 260); sc.scrollTop = from + d * (1 - Math.pow(1 - k, 3)); glideId = k < 1 ? requestAnimationFrame(step) : null; };
+    glideId = requestAnimationFrame(step);
+  }
+  function centerLine(el) {
+    if (!el || !el.offsetParent || performance.now() < holdUntil) return;
+    const r = el.getBoundingClientRect(), b = sc.getBoundingClientRect();
+    const to = Math.max(0, Math.min(sc.scrollHeight - sc.clientHeight, sc.scrollTop + r.top - b.top - (sc.clientHeight - r.height) / 2));
+    if (Math.abs(to - sc.scrollTop) >= 4) glide(to);
+  }
+  // 自己滑歌詞時，自動捲動先停 3 秒，不跟手指搶
+  ["wheel", "touchmove"].forEach(ev => sc.addEventListener(ev, () => {
+    holdUntil = performance.now() + 3000;
+    if (glideId !== null) { cancelAnimationFrame(glideId); glideId = null; }
+  }, { passive: true }));
+  // 底部留半個框的空白，最後幾行也能捲到中間
+  const padEnd = () => { sc.style.paddingBottom = LINES.length ? Math.round(sc.clientHeight / 2) + "px" : ""; };
+  addEventListener("resize", padEnd);
+
+  // LRC：[mm:ss.xx]{acts|喊聲}日文 / 中譯；[mm:ss.xx]#段落
+  function parseLRC(txt) {
+    const lines = [], parts = [];
+    txt.split(/\r?\n/).forEach(row => {
+      const m = row.match(/^\s*\[(\d+):(\d+(?:\.\d+)?)\](.*)$/); if (!m) return;
+      const t = +m[1] * 60 + +m[2]; let rest = m[3].trim();
+      if (rest.startsWith("#")) { parts.push({ t, name: rest.slice(1).trim() || "段落" }); return; }
+      let acts = [], call = null;
+      const tag = rest.match(/^\{([^}]*)\}\s*/);
+      if (tag) {
+        const [a, c] = tag[1].split("|"); acts = a.split(/[,\s]+/).filter(x => ACT[x]); call = c ? c.trim() : null;
+        rest = rest.slice(tag[0].length);
+      }
+      const [ja, zh] = rest.split(/\s+\/\s+/);
+      if (!ja && !acts.length) return;
+      lines.push({ t, ja: (ja || "").trim() || null, zh: (zh || "").trim() || null, acts, call });
+    });
+    lines.sort((a, b) => a.t - b.t); parts.sort((a, b) => a.t - b.t);
+    return { lines, parts };
+  }
+  function toLRC() {
+    const rows = [];
+    PARTS.forEach(p => rows.push({ t: p.t, s: `#${p.name}` }));
+    LINES.forEach(l => rows.push({ t: l.t + .001, s: `${l.acts.length || l.call ? `{${l.acts.join(",")}${l.call ? "|" + l.call : ""}}` : ""}${l.ja || ""}${l.zh ? " / " + l.zh : ""}` }));
+    return rows.sort((a, b) => a.t - b.t).map(r => `[${String(Math.floor(r.t / 60)).padStart(2, "0")}:${(r.t % 60).toFixed(2).padStart(5, "0")}]${r.s}`).join("\n");
+  }
+  function getBuiltinSong(id) {
+    if (typeof SONG_LYRICS === "undefined" && typeof window.SONG_LYRICS === "undefined") return null;
+    const list = (typeof SONG_LYRICS !== "undefined" ? SONG_LYRICS : window.SONG_LYRICS) || [];
+    if (Array.isArray(list)) {
+      return list.find(x => x.id === id || (x.id && x.id.toLowerCase() === id.toLowerCase())) || null;
+    }
+    return list[id] || null;
+  }
+  // 內建歌詞：動作只看每行的 acts，依 じゅん🌝ぴ 的 note 整理
+  function parseBuiltin(builtin) {
+    const lines = (builtin.lyrics || []).map(item => ({
+      t: +item.time || 0,
+      ja: String(item.jp || "").trim() || null,
+      zh: String(item.tr || "").trim() || null,
+      acts: (item.acts || []).filter(a => ACT[a]),
+      call: item.call || null
+    }));
+    return { lines: lines.sort((a, b) => a.t - b.t), parts: [] };
+  }
+  function loadSongData() {
+    const saved = store.get("lrc-" + S.id);
+    if (saved) { const d = parseLRC(saved); if (d.lines.length) { LINES = d.lines; PARTS = d.parts; return "mine"; } }
+    const builtin = getBuiltinSong(S.id);
+    if (builtin && builtin.lyrics && builtin.lyrics.length) {
+      const d = parseBuiltin(builtin);
+      if (d.lines.length) { LINES = d.lines; PARTS = d.parts; return "builtin"; }
+    }
+    LINES = []; PARTS = []; return "none";
+  }
+  function partAt(t) { let k = -1; PARTS.forEach((p, i) => { if (t >= p.t) k = i; }); return k; }
+  function lineAt(t) { let k = -1; LINES.forEach((l, i) => { if (t >= l.t) k = i; }); return k; }
+
+  // 假名：歌詞裡寫「漢字(かな)」就會標在漢字上方；每個字包成 .k 給卡拉OK用
+  function jaHTML(txt) {
+    const out = [], re = /([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g;
+    const chars = str => [...str].forEach(c => out.push(`<span class="k">${esc(c)}</span>`));
+    let last = 0, m;
+    while ((m = re.exec(txt))) { chars(txt.slice(last, m.index)); out.push(`<span class="k"><ruby>${esc(m[1])}<rt>${esc(m[2])}</rt></ruby></span>`); last = re.lastIndex; }
+    chars(txt.slice(last));
+    return out.join("");
+  }
+  function renderLines(mode) {
+    box.innerHTML = "";
+    const note = document.getElementById("lyricsNote");
+    if (!LINES.length) {
+      box.innerHTML = `<div class="empty"><b>這首還沒有逐行時間軸</b>${S.tips.length ? `<ul class="summary">${S.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul><span>先邊看 MV 邊照上面的重點練。</span>` : "<span>應援還在整理，先看 MV 熟悉旋律，副歌跟著現場氣氛就好。</span>"}<span>歌詞請看<a href="${S.ut}" target="_blank" rel="noopener">歌ネット的正版歌詞頁</a>；要讓 MV 播放時跳出提醒，打開下方「對時間工具」按「載入段落範本」，邊看 MV 邊在每段開頭打點就好。</span></div>`;
+      note.textContent = ""; legend.innerHTML = ""; SING = []; singJump.hidden = true; sc.scrollTop = 0; padEnd(); return;
+    }
+    let lastPart = -2;
+    LINES.forEach((l, i) => {
+      const pi = partAt(l.t + .001);
+      if (pi !== lastPart && pi >= 0) {
+        const p = PARTS[pi], h = document.createElement("div");
+        h.className = "part"; h.innerHTML = `${fmt(p.t)}　${esc(p.name)}${p.listen ? '<span class="solo">Ado 獨唱</span>' : ""}`;
+        box.appendChild(h);
+      }
+      lastPart = pi;
+      const el = document.createElement("div");
+      const m = mainAct(l.acts);
+      el.className = "ln" + (m ? " a-" + m : "") + (l.acts.includes("sing") ? " sing" : ""); el.tabIndex = 0;
+      const where = pi >= 0 ? `${PARTS[pi].name}・${fmt(l.t)}` : fmt(l.t);
+      const ja = l.ja ? jaHTML(l.ja) : `<span class="ph">日文歌詞（${esc(where)}）</span>`;
+      const zh = l.zh ? esc(l.zh) : (l.ja ? "" : `<span class="ph">中譯</span>`);
+      // 喊聲標籤只放在同一句喊聲的第一行
+      const call = l.call && !(i && LINES[i - 1].call === l.call) ? `<span class="call">${esc(l.call)}</span>` : "";
+      el.innerHTML = `<div class="ja">${ja}</div>${zh ? `<div class="zh">${zh}</div>` : ""}<div class="acts">${l.acts.map(icon).join("")}</div>${call}`;
+      el.addEventListener("click", () => seek(l.t));
+      el.addEventListener("keydown", e => { if (e.key === "Enter") seek(l.t); });
+      box.appendChild(el);
+    });
+    lineEls = [...box.querySelectorAll(".ln")]; curLine = -1;
+    const used = new Set(LINES.map(l => mainAct(l.acts)).filter(Boolean));
+    legend.innerHTML = Object.keys(ACT).filter(a => used.has(a)).map(a => `<span class="a-${a}"><i></i>${ACT[a].name}</span>`).join("");
+    SING = LINES.filter((l, i) => l.acts.includes("sing") && !(i && LINES[i - 1].acts.includes("sing"))).map(l => l.t);
+    singJump.hidden = !SING.length;
+    sc.scrollTop = 0; holdUntil = 0; padEnd();
+    note.textContent = (mode === "builtin" ? "歌詞跟著 MV 走。要改成自己的版本，展開下方「貼上歌詞與應援」。" : "這是你貼入的版本，只存在這台裝置。");
+  }
+
+  // 播放：同 Vaundy 版，YouTube 播放器只建立一次，換歌用 cueVideoById 換影片
+  // 直接點開檔案（file://）時瀏覽器不送來源網址，YouTube 會拒絕嵌入，所以改顯示提示
+  let player = null, ready = false, vid = "", slowTimer = 0;
+  const vstatus = document.getElementById("vstatus"), vmsg = document.getElementById("vmsg");
+  const DUR = () => S ? S.dur : 1;
+  function videoMsg(text) { vstatus.hidden = !text; if (text) vmsg.textContent = text; }
+  const now = () => { try { return ready && player.getCurrentTime() || 0; } catch (e) { return 0; } };
+  const isPlaying = () => { try { return ready && [1, 3].includes(player.getPlayerState()); } catch (e) { return false; } };
+  function play() { if (ready) player.playVideo(); }
+  function pause() { if (ready) player.pauseVideo(); }
+  function seek(t) { if (!ready) return; player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); }
+  document.getElementById("pp").addEventListener("click", () => isPlaying() ? pause() : play());
+  document.getElementById("start").addEventListener("click", () => { seek(0); document.getElementById("screen").scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" }); });
+  track.addEventListener("click", e => { const r = track.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * DUR()); });
+  track.addEventListener("keydown", e => { if (e.key === "ArrowRight") seek(now() + 5); if (e.key === "ArrowLeft") seek(now() - 5); });
+
+  // 播放速度：放慢練應援時間點，記在這台裝置
+  let RATE = +store.get("mv-rate") || 1;
+  const rateSel = document.getElementById("rateSel");
+  rateSel.value = String(RATE);
+  const applyRate = () => { try { player.setPlaybackRate(RATE); } catch (e) {} };
+  rateSel.addEventListener("change", () => { RATE = +rateSel.value; store.set("mv-rate", RATE === 1 ? null : String(RATE)); if (ready) applyRate(); });
+
+  // 跳到大合唱：每段連續 sing 行的第一行
+  const singJump = document.getElementById("singJump"), singPrev = document.getElementById("singPrev"), singNext = document.getElementById("singNext");
+  let SING = [];
+  const singAt = (dir, t) => dir < 0 ? SING.filter(x => x < t - 1.5).pop() : SING.find(x => x > t + .5);
+  singPrev.addEventListener("click", () => { const t = singAt(-1, now()); if (t != null) seek(t); });
+  singNext.addEventListener("click", () => { const t = singAt(1, now()); if (t != null) seek(t); });
+
+  function loadVideo() {
+    if (!S || songV.hidden || !window.YT || !YT.Player) return;
+    if (!player) {
+      vid = S.yt;
+      player = new YT.Player("ytp", {
+        videoId: vid,
+        playerVars: { rel: 0, playsinline: 1, modestbranding: 1, autoplay: 0 },
+        events: {
+          onReady: () => { ready = true; clearTimeout(slowTimer); videoMsg(""); applyRate(); loadVideo(); },
+          // 換影片後 YouTube 會把速度重設成 1，播放或載入完成時再套一次
+          onStateChange: e => { if (e.data === 1 || e.data === 5) applyRate(); },
+          onError: () => videoMsg("無法播放影片，請到 YouTube 觀看。")
+        }
+      });
+      return;
+    }
+    if (ready && vid !== S.yt) { vid = S.yt; player.cueVideoById(S.yt); }
+  }
+  if (location.protocol === "file:") {
+    videoMsg("直接點開檔案時 YouTube 不允許嵌入播放。請改用資料夾裡的「開啟網站.command」，或放上 GitHub Pages 再看。");
+  } else {
+    slowTimer = setTimeout(() => { if (!ready) videoMsg("影片連線延遲，請到 YouTube 觀看。"); }, 8000);
+    window.onYouTubeIframeAPIReady = loadVideo;
+    const yts = document.createElement("script");
+    yts.src = "https://www.youtube.com/iframe_api";
+    yts.onerror = () => videoMsg("無法載入 YouTube 播放器，請到 YouTube 觀看。");
+    document.head.appendChild(yts);
+  }
+
+  function openSong(s) {
+    S = s; curKey = ""; hideAlert();
+    document.title = `${s.ja}｜Ado 應援預習`;
+    document.getElementById("sTitle").innerHTML = `${esc(s.ja)}<span>${[s.zh !== s.ja ? s.zh : s.en, s.year, s.len].filter(Boolean).map(esc).join(" · ")}</span>`;
+    document.getElementById("sLead").textContent = s.tips.length ? (s.sug ? "查不到固定的現場應援，以下是依曲風的建議：" : "") + s.tips.join("。") + "。" : (s.cover ? "Ado 翻唱的歌，演唱會上比較少唱。" : "這首的應援還在整理。") + "先看 MV 熟悉旋律，副歌跟著現場氣氛就好。";
+    ["ytLink", "ytLink2"].forEach(id => document.getElementById(id).href = `https://www.youtube.com/watch?v=${s.yt}`);
+    document.getElementById("lyLink").href = s.ut;
+    const at = SONGS.indexOf(s);
+    [["prevSong", SONGS[at - 1], "‹ 上一首："], ["nextSong", SONGS[at + 1], "下一首：", " ›"]].forEach(([id, x, pre, post = ""]) => {
+      const a = document.getElementById(id);
+      if (x) { a.href = "#" + x.id; a.textContent = pre + x.ja + post; } else { a.removeAttribute("href"); a.textContent = ""; }
+    });
+    track.querySelectorAll("b").forEach(b => b.remove());
+    track.setAttribute("aria-valuemax", s.dur);
+    const mode = loadSongData();
+    PARTS.slice(1).forEach(p => { const b = document.createElement("b"); b.style.left = (p.t / s.dur * 100) + "%"; track.appendChild(b); });
+    renderLines(mode);
+    document.getElementById("cueSummary").innerHTML = LINES.length ? s.tips.map(t => `<li>${esc(t)}</li>`).join("") : "";
+    document.getElementById("cueIcon").innerHTML = `<use href="#${ACT[s.acts[0] || "listen"].icon}"/>`;
+    cueBox.className = "cue";
+    document.getElementById("cueName").textContent = "按播放開始";
+    document.getElementById("cueHow").textContent = LINES.length ? "播放後，這裡會顯示現在要做的動作。" : "這首還沒有逐行時間軸，不會跳提示，照歌詞欄的重點練。";
+    document.getElementById("cueNext").innerHTML = "";
+    document.getElementById("lrc").value = store.get("lrc-" + s.id) || (LINES.length ? toLRC() : "");
+    document.getElementById("status").textContent = "";
+    loadVideo();
+    if (typeof tapReset === "function") tapReset();
+  }
+
+  // 現在動作：以行為準，行沒有動作就用段落
+  function cueAt(t) {
+    const li = lineAt(t), l = LINES[li];
+    if (!l) return null;
+    const p = l.part || null;
+    return { key: li, acts: l.acts.length ? l.acts : ["listen"], name: p ? p.cue : (l.call || l.acts.map(a => ACT[a].name).join("、") || "安靜聽"),
+      how: p ? p.how : l.acts.map(a => ACT[a].how).join("，") || "這句不用動作，聽 Ado 唱。", claps: (p && p.claps) || S.claps, beat: p ? p.beat : l.acts.some(a => a !== "listen"), listen: p ? p.listen : !l.acts.length || l.acts.includes("listen") };
+  }
+  function nextChange(t) {
+    const li = lineAt(t), cur = LINES[li], sig = l => (l.part ? l.part.cue : "") + l.acts.join(",") + (l.call || "");
+    for (let i = li + 1; i < LINES.length; i++) {
+      if (!cur || sig(LINES[i]) !== sig(cur)) { const l = LINES[i]; if (!l.acts.length) continue; return { t: l.t, acts: l.acts, name: l.part ? l.part.cue : (l.call || l.acts.map(a => ACT[a].name).join("、")), where: l.part ? l.part.name : fmt(l.t) }; }
+    }
+    return null;
+  }
+
+  // 全螢幕提醒
+  const al = document.getElementById("alert"), alIcon = document.getElementById("alIcon"), alLabel = document.getElementById("alLabel"), alSub = document.getElementById("alSub"),
+        alNum = document.getElementById("alNum"), alClaps = document.getElementById("alClaps"), bigDots = [...alClaps.children], alertSw = document.getElementById("alertSw");
+  let alertOn = store.get("alert-off") !== "1", alKey = "";
+  alertSw.setAttribute("aria-pressed", alertOn);
+  alertSw.addEventListener("click", () => { alertOn = !alertOn; alertSw.setAttribute("aria-pressed", alertOn); store.set("alert-off", alertOn ? "0" : "1"); });
+  function showAlert(mode, act, label, sub, n, claps) {
+    const key = mode + label + (n || "");
+    if (key === alKey) return; alKey = key;
+    al.className = `alert show ${mode} a-${act}`; al.dataset.act = act;
+    alIcon.innerHTML = `<use href="#${ACT[act].icon}"/>`;
+    alLabel.textContent = label; alSub.textContent = sub;
+    alNum.hidden = mode !== "soon"; alNum.textContent = n || "";
+    alClaps.hidden = !claps;
+  }
+  function hideAlert() { if (alKey) { al.className = "alert"; alKey = ""; } }
+  let lastCueStart = { key: null, t: 0 };
+  function alerts(t, playing, cue) {
+    if (!alertOn || !playing || !cue) return hideAlert();
+    if (cue.claps && t >= cue.claps - 3 && t < cue.claps + 2.2) {
+      if (t < cue.claps) return showAlert("soon", "clap", "拍三下", "喊 Clap 的時候一起拍", Math.ceil(cue.claps - t), false);
+      showAlert("go", "clap", "拍三下", "啪、啪、啪", 0, true);
+      const d = t - cue.claps; bigDots.forEach((x, j) => x.classList.toggle("on", d > j * .55 && d < j * .55 + .3));
+      return;
+    }
+    const nx = nextChange(t);
+    if (nx && nx.t - t <= 3 && nx.t - t > 0) return showAlert("soon", nx.acts[0], nx.name, `${nx.where}・準備`, Math.ceil(nx.t - t));
+    if (t - lastCueStart.t < 1.6 && !cue.listen) return showAlert("go", cue.acts[0], cue.name, cue.how);
+    hideAlert();
+  }
+
+  // 畫面更新
+  const fill = document.getElementById("fill"), clock = document.getElementById("clock"), ppIcon = document.getElementById("ppIcon"), pp = document.getElementById("pp");
+  const cueBox = document.querySelector(".cue"), cueIcon = document.getElementById("cueIcon"), cueName = document.getElementById("cueName"), cueHow = document.getElementById("cueHow"), cueNext = document.getElementById("cueNext");
+  let wasPlaying = null;
+  function update() {
+    if (!S || songV.hidden) return null;
+    const t = now(), playing = isPlaying(), d = S.dur;
+    fill.style.width = Math.min(100, t / d * 100) + "%";
+    clock.textContent = `${fmt(t)} / ${fmt(d)}`;
+    track.setAttribute("aria-valuenow", Math.floor(t));
+    if (SING.length) { singPrev.disabled = singAt(-1, t) == null; singNext.disabled = singAt(1, t) == null; }
+    if (playing !== wasPlaying) { ppIcon.innerHTML = playing ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>' : '<path d="M7 4v16l13-8z"/>'; pp.setAttribute("aria-label", playing ? "暫停" : "播放"); wasPlaying = playing; }
+    const started = playing || t > 0, cue = cueAt(t);
+    if (started && cue) {
+      const key = cue.name + cue.acts.join();
+      if (key !== curKey) { cueIcon.innerHTML = `<use href="#${ACT[cue.acts[0]].icon}"/>`; cueBox.className = "cue a-" + mainAct(cue.acts); cueName.textContent = cue.name; cueHow.textContent = cue.how; curKey = key; lastCueStart = { key, t }; }
+      const nx = nextChange(t);
+      cueNext.innerHTML = nx ? (nx.t - t <= 5 ? `${Math.ceil(nx.t - t)} 秒後` : `下一個 ${fmt(nx.t)}`) + `<b class="a-${mainAct(nx.acts)}">${esc(nx.name)}</b>` : "";
+    }
+    const tl = t + LEAD, li = lineAt(tl);
+    if (started && li !== curLine && lineEls.length) {
+      lineEls.forEach((e, i) => { e.classList.toggle("now", i === li); e.classList.toggle("past", i < li); });
+      if (li >= 0 && OPT.scroll) centerLine(lineEls[li]);
+      curLine = li;
+    }
+    if (OPT.karaoke && li >= 0 && lineEls[li]) {
+      const ks = lineEls[li].querySelectorAll(".k");
+      if (ks.length) {
+        const end = LINES[li + 1] ? LINES[li + 1].t : S.dur, frac = Math.max(0, Math.min(1, (tl - LINES[li].t) / Math.max(.5, (end - LINES[li].t) * .9)));
+        const lit = Math.round(frac * ks.length); ks.forEach((k, i) => k.classList.toggle("lit", i < lit));
+      }
+    }
+    alerts(t, playing, cue);
+    return cue;
+  }
+
+  // 語言切換
+  // 歌詞顯示選項：預設值 → 記在這台裝置
+  const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true };
+  try { Object.assign(OPT, JSON.parse(store.get("view-opts") || "{}")); } catch (e) {}
+  function applyOpts() {
+    box.classList.toggle("hide-ja", !OPT.ja); box.classList.toggle("hide-kana", !OPT.kana); box.classList.toggle("hide-zh", !OPT.zh);
+    box.classList.toggle("karaoke", OPT.karaoke); box.classList.toggle("only-sing", OPT.sing);
+    document.querySelectorAll("[data-opt]").forEach(b => b.setAttribute("aria-pressed", !!OPT[b.dataset.opt]));
+  }
+  document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => {
+    OPT[b.dataset.opt] = !OPT[b.dataset.opt]; store.set("view-opts", JSON.stringify(OPT)); applyOpts();
+    holdUntil = 0; if (OPT.scroll && lineEls[curLine]) centerLine(lineEls[curLine]);
+  }));
+  applyOpts();
+  const vopt = document.getElementById("vopt");
+  document.addEventListener("click", e => { if (vopt.open && !vopt.contains(e.target)) vopt.open = false; });
+
+  // 貼上歌詞
+  const lrc = document.getElementById("lrc"), status = document.getElementById("status");
+  document.getElementById("apply").addEventListener("click", () => {
+    const d = parseLRC(lrc.value);
+    if (!d.lines.length) { status.textContent = "沒有讀到任何一行，請確認每行開頭是 [分:秒] 的時間。"; return; }
+    store.set("lrc-" + S.id, lrc.value); LINES = d.lines; PARTS = d.parts; renderLines("mine"); curKey = "";
+    track.querySelectorAll("b").forEach(b => b.remove());
+    PARTS.slice(1).forEach(p => { const b = document.createElement("b"); b.style.left = (p.t / S.dur * 100) + "%"; track.appendChild(b); });
+    status.textContent = `已套用 ${d.lines.length} 行歌詞、${d.parts.length} 個段落。`; renderList();
+  });
+  document.getElementById("reset").addEventListener("click", () => { store.set("lrc-" + S.id, null); openSong(S); status.textContent = "已還原。"; renderList(); });
+  document.getElementById("copy").addEventListener("click", () => {
+    const text = store.get("lrc-" + S.id) || toLRC();
+    navigator.clipboard.writeText(text).then(() => status.textContent = "已複製。", () => { lrc.value = text; lrc.select(); status.textContent = "請按 Ctrl＋C／⌘C 複製選取的文字。"; });
+  });
+
+
+  // ── 對時間工具 ──
+  const tapSrc = document.getElementById("tapSrc"), tapOut = document.getElementById("tapOut"), tapBtn = document.getElementById("tapBtn"),
+        tapProg = document.getElementById("tapProg"), tapCur = document.getElementById("tapCur"), tapNxt = document.getElementById("tapNxt"), tapStatus = document.getElementById("tapStatus");
+  let TAP = { rows: [], times: [], on: false, fmt: "lrc" };
+  // 段落範本：不含歌詞，只列段落與應援，讓使用者在每段開頭打點。順序依一般歌曲結構，實際以 MV 為準
+  const TPL = {"show":["{sing}0:00","{sing}0:48","{sing,clap}0:51","{sing,clap}0:55","{clap}0:58","{clap}1:04","{sing}1:06","{sing}1:08","{sing}1:16","{clap}1:21","{clap}1:24","{clap}1:28","{sing}2:02","{sing}2:20","{sing}2:34","{sing}2:38","{clap}2:53","{sing,clap}2:57","{clap,sing|拍三下}3:00：拍三下","{clap}3:05"],"usseewa":["{sing}1:07","{sing}2:16","{sing}3:01"],"readymade":["{sing|回唱短問句}0:57：回唱短問句","{sing|回唱短問句}1:07：回唱短問句","{sing|回唱短問句}2:11：回唱短問句","{sing|回唱短問句}2:21：回唱短問句","{sing|回唱短問句}3:07：回唱短問句","{sing|回唱短問句}3:16：回唱短問句","{sing|回唱短問句}3:26：回唱短問句","{sing|回唱短問句}3:36：回唱短問句"],"freedom":["{sing|1,2,3,4}0:45：1,2,3,4","{clap}2:09","{sing|Wow wow}2:11：Wow wow","{clap}2:15","{sing|Wow wow}2:16：Wow wow","{sing|Wow wow wow wow}2:20：Wow wow wow wow","{sing|1,2,3,4}2:25：1,2,3,4"],"rule":["{sing|サヨナラ×3}1:04：サヨナラ×3","{sing}1:12","{sing}2:30"],"ashura":["{wave,call|ハイ！ハイ！}0:07：ハイ！ハイ！","{wave|從左邊開始揮}0:45：從左邊開始揮","{wave|從左邊開始揮}0:48：從左邊開始揮","{wave,sing|從左邊開始揮}0:51：從左邊開始揮","{wave|從左邊開始揮}0:54：從左邊開始揮","{wave|從左邊開始揮}0:57：從左邊開始揮","{wave|從左邊開始揮}1:00：從左邊開始揮","{wave,sing|從左邊開始揮}1:03：從左邊開始揮","{wave|從左邊開始揮}1:06：從左邊開始揮","{wave,call|ハイ！ハイ！}1:13：ハイ！ハイ！","{wave|從左邊開始揮}1:54：從左邊開始揮","{wave|從左邊開始揮}1:57：從左邊開始揮","{wave,sing|從左邊開始揮}2:00：從左邊開始揮","{wave|從左邊開始揮}2:03：從左邊開始揮","{wave|從左邊開始揮}2:06：從左邊開始揮","{wave|從左邊開始揮}2:09：從左邊開始揮","{wave,sing|從左邊開始揮}2:12：從左邊開始揮","{wave|從左邊開始揮}2:15：從左邊開始揮","{sing}2:25","{wave|從左邊開始揮}2:31：從左邊開始揮","{wave|從左邊開始揮}2:34：從左邊開始揮","{wave,sing|從左邊開始揮}2:37：從左邊開始揮","{wave|從左邊開始揮}2:40：從左邊開始揮","{wave,call|ハイ！ハイ！}2:53：ハイ！ハイ！"],"mondaisaku":["{sing}0:38","{sing}0:44","{sing}0:57","{sing}1:48","{sing}1:55","{sing}2:08","{sing}2:46"],"gyakkou":["{clap|第 2、4 拍反拍}0:00：第 2、4 拍反拍","{clap|改拍正拍}0:06：改拍正拍","{gesture|轉手 3 次}0:52：轉手 3 次","{gesture|轉手 3 次}1:05：轉手 3 次","{gesture|轉手 3 次}2:11：轉手 3 次","{gesture|轉手 3 次}2:25：轉手 3 次","{clap}2:45","{clap}2:49","{clap}2:52","{clap}2:58","{clap}3:02","{clap}3:05","{gesture|轉手 3 次}3:19：轉手 3 次","{gesture|轉手 3 次}3:32：轉手 3 次"],"odo":["{sing}0:06","{sing}0:38","{sing}0:42","{sing}0:43","{sing}0:55","{sing}1:12","{sing}1:19","{jump|第 3、4、7、8 小節跳}1:27：第 3、4、7、8 小節跳","{sing}1:47","{sing}1:55","{call|接「ない」}1:60：接「ない」","{call|接「ない」}2:01：接「ない」","{jump|第 3、4、7、8 小節跳}2:22：第 3、4、7、8 小節跳","{clap}2:36","{sing}2:48","{sing}2:59","{sing}3:06","{sing}3:13"],"shinjidai":["{clap}0:22","{sing}1:15","{sing}2:42"],"giragira":["{sing}1:25","{sing}1:31","{sing}1:41","{sing}2:48","{sing}2:54","{sing}3:04","{sing}3:38","{sing}3:44","{sing}3:54"],"kurakura":["{sing|接括號裡的英文}0:27：接括號裡的英文","{sing}1:00","{sing}1:16","{sing}1:26","{sing}2:16","{sing}2:27","{sing}2:37","{sing}2:53"],"aiaia":["{sing}1:29","{sing}3:27","{sing}3:42"],"rockstar":["{call|Hey}2:52：Hey"],"staygold":["{sing|wow wow}1:00：wow wow","{sing|wow wow}1:07：wow wow","{sing|wow wow}2:16：wow wow","{sing|wow wow}2:27：wow wow","{sing|wow wow}2:50：wow wow","{sing|wow wow}2:57：wow wow"],"episodex":["{sing}1:46","{sing}1:49","{sing}1:52"],"kira":["{sing}0:38","{sing}1:58"],"monstruo":["{sing}0:43","{sing|接英文}0:57：接英文","{sing|接英文}1:34：接英文","{sing|接英文}1:39：接英文","{sing}2:34","{sing|接英文}2:48：接英文","{sing}2:57"],"ibara":["{call|歡呼}2:29：歡呼","{call|歡呼}3:27：歡呼"],"rebellion":["{clap|拍到 Yeah 為止}0:00：拍到 Yeah 為止","{sing}0:36","{gesture|跟 Ado 轉手臂}0:49：跟 Ado 轉手臂","{sing}1:03","{sing|想唱再唱}1:14：想唱再唱","{sing}1:35","{gesture|跟 Ado 轉手臂}2:13：跟 Ado 轉手臂","{sing}2:24","{sing|想唱再唱}2:29：想唱再唱","{sing|想唱再唱}2:42：想唱再唱"],"chocolat":["{clap}0:10","{clap}0:38","{sing|ショコラカタブラ}1:11：ショコラカタブラ","{sing|ショコラカタブラ}1:18：ショコラカタブラ","{sing|ショコラカタブラ}1:25：ショコラカタブラ","{clap}2:02"],"utakata":["{call|Hey}0:48：Hey","{call|Ooh-ooh-yeah}0:58：Ooh-ooh-yeah","{call|Hey}1:19：Hey","{call|Hey}1:45：Hey","{call|Ooh-ooh-yeah}1:55：Ooh-ooh-yeah","{sing}2:33"],"radio":["{sing}0:01","{wave|從左邊開始揮}0:36：從左邊開始揮","{wave|從左邊開始揮}1:48：從左邊開始揮","{sing}2:39","{wave|從左邊開始揮}2:42：從左邊開始揮"],"mirror":["{sing|NE! NE! NE!}1:28：NE! NE! NE!","{sing|もう一回！}1:37：もう一回！","{sing|NE! NE! NE!}2:31：NE! NE! NE!","{sing|もう一回！}2:40：もう一回！"],"hanabi":["{clap}0:09","{clap}0:11","{clap}0:14","{clap}0:19","{clap}0:21","{clap}0:23","{clap}0:31","{clap}0:33","{clap}0:35","{clap}0:38","{clap}0:40","{clap}0:43","{clap}1:26","{clap}1:30","{clap}1:36","{clap}1:39","{clap}1:42","{clap}1:48","{clap}1:50","{clap}1:52","{clap}1:54","{clap}1:57","{clap}2:00","{clap}3:02","{clap}3:04","{clap}3:06","{clap}3:11","{clap}3:14","{clap}3:16","{clap}3:19"],"luckybruto":["{sing}0:37","{sing|ヘイミスター}0:42：ヘイミスター","{sing}1:28","{sing}1:38","{sing|ヘイミスター}1:50：ヘイミスター","{sing}2:30","{sing}2:35","{sing}2:40","{sing}2:45","{sing}2:50","{sing}3:00"],"motherland":["{clap}0:07","{clap}0:11","{clap}0:22","{clap}0:26","{clap}0:29","{clap}0:33","{clap}0:37","{clap}0:41","{clap}0:44","{clap}0:48","{clap}0:52","{clap}1:29","{clap}1:32","{clap}1:36","{clap}1:40","{clap}1:42","{clap}1:44","{clap}1:46","{clap}1:50","{clap}1:52","{clap}1:53","{clap}1:55","{clap}1:58","{clap|第 2、4 拍反拍}3:00：第 2、4 拍反拍","{clap|第 2、4 拍反拍}3:04：第 2、4 拍反拍","{clap|第 2、4 拍反拍}3:08：第 2、4 拍反拍","{clap|第 2、4 拍反拍}3:11：第 2、4 拍反拍"],"zero":["{clap}0:33","{clap}0:35","{clap}0:36","{clap}0:37","{clap}0:39","{clap}0:40","{clap}0:42","{clap}0:43","{clap}1:52","{clap}1:53","{clap}1:55","{clap}1:56","{clap}1:57","{clap}1:59","{clap}2:00","{clap}2:02"],"kittocoaster":["{sing}0:57","{sing|接副歌那句疊字}2:26：接副歌那句疊字","{sing}2:38"]};
+  function sectionTemplate(s) {
+    if (TPL[s.id]) return TPL[s.id].join("\n");
+    // 沒有整理過的歌只給空白段落，動作由使用者自己標
+    return ["前奏", "A 段", "B 段", "副歌", "間奏", "A 段 2", "副歌 2", "最後副歌", "結尾"].join("\n");
+  }
+  document.getElementById("tapTpl").addEventListener("click", () => {
+    if (tapSrc.value.trim() && !confirm("要用段落範本取代目前左邊的內容嗎？")) return;
+    tapSrc.value = sectionTemplate(S); tapStatus.textContent = "已載入範本。先刪掉這首沒有的段落，再按「開始打點」。";
+  });
+
+  const isHead = r => r.trim().startsWith("#");
+  const stamp = t => `[${String(Math.floor(t / 60)).padStart(2, "0")}:${(t % 60).toFixed(2).padStart(5, "0")}]`;
+  const srtTime = t => { const ms = Math.round(t * 1000), h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, s2 = Math.floor(ms / 1000) % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s2).padStart(2, "0")},${String(ms % 1000).padStart(3, "0")}`; };
+  const lyricRows = () => TAP.rows.filter(r => !isHead(r));
+  function tapView() {
+    const rows = lyricRows(), i = TAP.times.length, clean = r => (r || "").replace(/^\{[^}]*\}\s*/, "").split(/\s+\/\s+/)[0];
+    tapProg.textContent = rows.length ? `第 ${Math.min(i + 1, rows.length)} / ${rows.length} 行${i >= rows.length ? "，全部打完了" : ""}` : "左邊還沒有歌詞";
+    tapCur.textContent = i < rows.length ? clean(rows[i]) || "（空白行）" : "完成，可以複製結果或套用到這首歌";
+    tapNxt.textContent = i + 1 < rows.length ? "下一句：" + clean(rows[i + 1]) : "";
+    tapBtn.disabled = !TAP.on || i >= rows.length;
+    tapOut.value = tapBuild();
+  }
+  function tapBuild() {
+    const out = [], lyr = [];
+    let k = 0, pending = [];
+    TAP.rows.forEach(r => {
+      if (isHead(r)) { pending.push(r.trim()); return; }
+      const t = TAP.times[k++];
+      if (t == null) return;
+      pending.forEach(h => out.push(stamp(t) + h)); pending = [];
+      out.push(stamp(t) + r.trim()); lyr.push({ t, r: r.trim() });
+    });
+    if (TAP.fmt === "lrc") return out.join("\n");
+    return lyr.map((x, i) => {
+      const end = lyr[i + 1] ? lyr[i + 1].t - .05 : Math.min(S ? S.dur : x.t + 4, x.t + 4);
+      const body = x.r.replace(/^\{[^}]*\}\s*/, "").replace(/([\u4e00-\u9fff々〆ヵヶ]+)[(（][\u3040-\u30ffー]+[)）]/g, "$1").split(/\s+\/\s+/);
+      return `${i + 1}\n${srtTime(x.t)} --> ${srtTime(Math.max(end, x.t + .3))}\n${body.join("\n")}\n`;
+    }).join("\n");
+  }
+  function tapHit() {
+    if (!TAP.on || TAP.times.length >= lyricRows().length) return;
+    TAP.times.push(Math.round(now() * 100) / 100);
+    tapBtn.classList.add("hit"); setTimeout(() => tapBtn.classList.remove("hit"), 90);
+    tapView();
+  }
+  document.getElementById("tapStart").addEventListener("click", () => {
+    TAP.rows = tapSrc.value.split(/\r?\n/).filter(r => r.trim());
+    if (!lyricRows().length) { tapStatus.textContent = "先在左邊貼上歌詞。"; return; }
+    TAP.times = []; TAP.on = true; tapStatus.textContent = "播放中，每唱到新的一行就打點。";
+    seek(0); tapView(); tapBtn.focus();
+  });
+  tapBtn.addEventListener("click", tapHit);
+  document.getElementById("tapUndo").addEventListener("click", () => { TAP.times.pop(); tapView(); });
+  document.addEventListener("keydown", e => {
+    if (!TAP.on || songV.hidden || /TEXTAREA|INPUT/.test(document.activeElement.tagName)) return;
+    if (e.code === "Space") { e.preventDefault(); tapHit(); }
+    if (e.code === "Backspace") { e.preventDefault(); TAP.times.pop(); tapView(); }
+  });
+  document.querySelectorAll("[data-fmt]").forEach(b => b.addEventListener("click", () => {
+    TAP.fmt = b.dataset.fmt; document.querySelectorAll("[data-fmt]").forEach(x => x.setAttribute("aria-pressed", x === b)); tapView();
+  }));
+  document.getElementById("tapCopy").addEventListener("click", () => {
+    const text = tapOut.value; if (!text) { tapStatus.textContent = "還沒有結果可以複製。"; return; }
+    navigator.clipboard.writeText(text).then(() => tapStatus.textContent = "已複製。", () => { tapOut.select(); tapStatus.textContent = "請按 Ctrl＋C／⌘C 複製選取的文字。"; });
+  });
+  document.getElementById("tapApply").addEventListener("click", () => {
+    const fmt = TAP.fmt; TAP.fmt = "lrc"; const text = tapBuild(); TAP.fmt = fmt;
+    if (!text) { tapStatus.textContent = "還沒有打點，沒有東西可以套用。"; return; }
+    lrc.value = text; document.getElementById("apply").click(); tapStatus.textContent = "已套用，往上捲就能看到。";
+  });
+  function tapReset() { TAP = { rows: [], times: [], on: false, fmt: TAP.fmt }; tapSrc.value = ""; tapOut.value = ""; tapStatus.textContent = ""; tapView(); }
+
+  // ── 路由：#歌曲 id 開歌曲頁，其他回首頁 ──
+  function route() {
+    const h = location.hash.slice(1), s = BY[h];
+    if (s) {
+      homeV.hidden = true; songV.hidden = false; openSong(s); scrollTo(0, 0);
+      document.querySelectorAll(".nav a").forEach(a => a.removeAttribute("aria-current"));
+    } else {
+      pause(); hideAlert(); songV.hidden = true; homeV.hidden = false; document.title = "Ado 應援預習";
+      document.querySelectorAll(".nav a").forEach(a => a.toggleAttribute("aria-current", a.getAttribute("href") === "#" + (h || "songs")));
+      const target = h && document.getElementById(h);
+      if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, 0);
+    }
+  }
+  addEventListener("hashchange", route);
+  route();
+
+  // ── 舞台燈光 ──
+  const hex = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${Math.max(0, Math.min(1, a))})`; };
+  const BLUE = "#5d9dfe", DEEP = "#2348a8", IVORY = "#f2efe8";
+  function stage(cv, o) {
+    const ctx = cv.getContext("2d"); let W = 0, H = 0;
+    const size = () => { const d = Math.min(2, devicePixelRatio || 1), r = cv.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
+    addEventListener("resize", size); size();
+    const sticks = Array.from({ length: o.sticks }, () => ({ x: Math.random(), y: Math.random(), ph: Math.random() * 6.28, c: Math.random() < .75 ? BLUE : IVORY }));
+    const petals = Array.from({ length: o.petals }, () => ({ x: Math.random(), y: Math.random(), r: 3 + Math.random() * 4, s: .2 + Math.random() * .4, a: Math.random() * 6.28 }));
+    return (tt, energy, pulse, listen, playing) => {
+      if (!cv.width) size();
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "lighter";
+      [[.12, DEEP], [.34, BLUE], [.58, IVORY], [.86, DEEP]].forEach(([bx, col], i) => {
+        const sway = reduce ? 0 : Math.sin(tt * .45 + i * 1.7) * .16;
+        const ox = W * (bx + (i % 2 ? .08 : -.08)), oy = H * 1.05, tx = W * (bx + sway), w = W * .06;
+        const g = ctx.createLinearGradient(ox, oy, tx, 0), a = (.05 + .12 * energy + .2 * pulse) * o.k;
+        g.addColorStop(0, hex(col, 0)); g.addColorStop(.4, hex(col, a)); g.addColorStop(1, hex(col, 0));
+        ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ox - 4, oy); ctx.lineTo(tx - w, -20); ctx.lineTo(tx + w, -20); ctx.lineTo(ox + 4, oy); ctx.fill();
+      });
+      petals.forEach(p => {
+        if (!reduce && playing) { p.y += p.s * .0015 * (1 + energy); p.a += .008; if (p.y > 1.05) { p.y = -.05; p.x = Math.random(); } }
+        ctx.save(); ctx.translate(p.x * W + Math.sin(p.a) * 12, p.y * H); ctx.rotate(p.a);
+        ctx.fillStyle = hex(BLUE, .28 * o.k); ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * .55, 0, 0, 6.28); ctx.fill(); ctx.restore();
+      });
+      const baseY = H - 4, band = Math.min(70, H * .14);
+      sticks.forEach(s => {
+        const swing = reduce ? 0 : Math.sin(tt * (playing ? 4.2 : 1.3) + s.ph) * (playing ? .5 : .2) * (listen ? .3 : 1);
+        ctx.save(); ctx.translate(s.x * W, baseY - s.y * band); ctx.rotate(swing);
+        ctx.strokeStyle = hex(s.c, (.16 + .3 * energy + .3 * pulse) * (.45 + s.y * .55) * o.k);
+        ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -(12 + s.y * 8)); ctx.stroke(); ctx.restore();
+      });
+      ctx.globalCompositeOperation = "source-over";
+    };
+  }
+  const bg = stage(document.getElementById("fx"), { sticks: 110, petals: 22, k: 1.25 });
+  addEventListener("hashchange", () => setTimeout(() => dispatchEvent(new Event("resize")), 0));
+
+  // 背景燈光只在播放時動；沒播放時畫一次就停，不在閱讀時晃
+  let stageT = 0, lastMs = 0, idleDrawn = false;
+  addEventListener("resize", () => { idleDrawn = false; });
+  function frame(ms) {
+    const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
+    if (playing) stageT += Math.min(.1, (ms - lastMs) / 1000);
+    lastMs = ms;
+    const pulse = playing && cue && cue.beat ? Math.pow(1 - ((t * 120 / 60) % 1), 3) : 0;
+    const energy = playing && cue ? (cue.listen ? .2 : cue.beat ? 1 : .45) : .4;
+    if (playing || !idleDrawn) { bg(stageT, energy, pulse, cue && cue.listen, playing); idleDrawn = !playing; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
