@@ -183,7 +183,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .pen i.rb { background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a); box-shadow: none; }
 .pen b { color: var(--muted); font-weight: 500; }
 .mvlinks { display: flex; gap: 16px; margin-left: auto; }
-.mvlinks a { color: var(--muted); text-decoration: none; }
+.mvlinks a { display: inline-block; padding: 4px 0; color: var(--muted); text-decoration: none; }
 .mvlinks a:hover { color: var(--text); }
 /* 歌曲頁不顯示網站頂欄，頂部是返回、上一首、歌名、下一首 */
 .on-song .bar { display: none; }
@@ -215,7 +215,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .summary { grid-column: 1 / -1; margin: 6px 0 0; padding: 0 0 0 18px; color: var(--muted); }
 .summary li { margin: 2px 0; }
 .cue.playing .summary, .cue.playing.alerting .how { display: none; }
-.switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 0; }
+.switch { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 0; }
 .switch i { width: 30px; height: 18px; border-radius: 999px; background: var(--raised); position: relative; transition: background .15s; }
 .switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--faint); transition: transform .15s, background .15s; }
 .switch[aria-pressed="true"] i { background: var(--accent-deep); }
@@ -276,7 +276,9 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .vopt summary::-webkit-details-marker { display: none; }
 .vopt summary::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
 .vopt[open] summary { color: var(--text); background: var(--raised); }
-.view-opts { position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; display: grid; gap: 2px; min-width: 150px; padding: 6px; border-radius: 14px; background: var(--raised); box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+.view-opts { position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; display: grid; gap: 2px; width: max-content; min-width: 150px; overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 14px; background: var(--raised); box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+.view-opts.to-right { right: auto; left: 0; }
+.view-opts.to-up { top: auto; bottom: calc(100% + 6px); }
 .view-opts button { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: none; color: var(--muted); border-radius: 8px; padding: 8px 10px; font-size: 14px; text-align: left; cursor: pointer; }
 .view-opts button:hover { background: var(--hover); }
 .view-opts button::after { content: ""; width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--faint); }
@@ -395,6 +397,8 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   .tools .seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; min-width: 0; }
   .tools .seg button { flex: none; }
   .seg button { flex: none; }
+  .mvbar { gap: 6px 12px; padding-inline: 14px; }
+  .mvlinks { gap: 12px; }
 }
 @media (orientation: landscape) and (max-height: 500px) {
   .on-song main.col { padding-block: 0; }
@@ -604,7 +608,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   </main>
 
   <footer class="col">
-    <p class="credits-copy"><span class="m">Ado 應援預習</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.10.0</span></span></p>
+    <p class="credits-copy"><span class="m">Ado 應援預習</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.10.1</span></span></p>
     <nav class="credits-links" aria-label="專案連結">
       <a class="gh" href="https://github.com/Gcree/ado-guide" target="_blank" rel="noopener" aria-label="GitHub Repo" title="GitHub Repo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
       <a href="https://vaundy.tiaui.co/" target="_blank" rel="noopener">Inspired by Vaundy 台北場應援指南</a>
@@ -1192,6 +1196,19 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   // 點選單外面就收起來
   const menus = [document.getElementById("vopt"), document.getElementById("tools")];
   document.addEventListener("click", e => menus.forEach(m => { if (m.open && !m.contains(e.target)) m.open = false; }));
+  // 窄螢幕上按鈕換行到左邊時選單往右展開，下面放不下時往上展開，才不會跑出畫面
+  menus.forEach(m => m.addEventListener("toggle", () => {
+    const box = m.querySelector(".view-opts");
+    box.classList.remove("to-right", "to-up");
+    box.style.maxHeight = "";
+    if (!m.open) return;
+    const r = box.getBoundingClientRect(), below = innerHeight - r.top - 8, above = m.getBoundingClientRect().top - 14;
+    if (r.left < 8) box.classList.add("to-right");
+    if (r.height > below) {
+      if (above > below) box.classList.add("to-up");
+      if (r.height > Math.max(above, below)) box.style.maxHeight = Math.max(above, below) + "px";
+    }
+  }));
 
   // ── 練習工具 ──
   const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), 2600); }; })();
