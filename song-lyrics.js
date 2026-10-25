@@ -15574,7 +15574,7 @@
         "tr": "每一件都跟大家不一樣 沒有繩子 沒有繩子"
       },
       {
-        "time": 34.1,
+        "time": 34.42,
         "jp": "AH AH～",
         "tr": ""
       },
@@ -15765,6 +15765,11 @@
         "tr": "真是辛苦了 AH～"
       },
       {
+        "time": 171.08,
+        "jp": "（間奏）",
+        "tr": ""
+      },
+      {
         "time": 186,
         "jp": "AH AH AH AH AH AH AH AH AH AH",
         "tr": "",
@@ -15941,6 +15946,15 @@
       {
         "time": 274,
         "jp": "AH AH AH AH AH AH AH AH AH AH",
+        "tr": "",
+        "acts": [
+          "clap",
+          "wave"
+        ]
+      },
+      {
+        "time": 282.5,
+        "jp": "（尾奏）",
         "tr": "",
         "acts": [
           "clap",
