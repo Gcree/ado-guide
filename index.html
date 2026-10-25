@@ -56,6 +56,8 @@ button, textarea, input { font: inherit; color: inherit; }
 
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
 .shell { position: relative; z-index: 1; }
+/* 彩帶砲：副歌高潮時從左右下角噴，蓋在內容上但點得到下面 */
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 18; pointer-events: none; display: block; }
 .a-sing { --act: var(--sing); } .a-clap { --act: var(--clap); } .a-wave { --act: var(--wave); } .a-jump { --act: var(--jump); }
 .a-call { --act: var(--call); } .a-gesture { --act: var(--gesture); } .a-listen { --act: var(--listen); }
 
@@ -329,6 +331,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
 </svg>
 
 <canvas id="fx" aria-hidden="true"></canvas>
+<canvas id="confetti" aria-hidden="true"></canvas>
 
 <div class="cueframe" id="cueFrame" aria-hidden="true"></div>
 <div class="alert" id="alert" aria-hidden="true">
@@ -1031,16 +1034,77 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     return draw;
   }
   const bg = stage(document.getElementById("fx"), { sticks: 110, petals: 22, k: 1.25 });
+
+  // 彩帶砲：左右下角各噴一發，紙片會翻面飄落，長彩帶邊飛邊扭；只在有東西在飛的時候畫
+  function cannon(cv) {
+    const ctx = cv.getContext("2d"); let W = 0, H = 0, bits = [], run = false, last = 0;
+    const size = () => { const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
+    addEventListener("resize", size); size();
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const tick = ms => {
+      const dt = Math.min(.05, last ? (ms - last) / 1000 : .016); last = ms;
+      ctx.clearRect(0, 0, W, H);
+      bits = bits.filter(p => p.age < p.life && p.y < H + 80);
+      for (const p of bits) {
+        p.age += dt; if (p.age < 0) continue;
+        // 空氣阻力讓它很快慢下來，之後靠重力慢慢飄落
+        const k = Math.exp(-p.drag * dt);
+        p.vx *= k; p.vy = p.vy * k + 520 * dt;
+        p.x += (p.vx + Math.sin(p.age * p.fq + p.ph) * p.sway) * dt; p.y += p.vy * dt; p.spin += p.vs * dt;
+        const a = Math.min(1, (p.life - p.age) / 1.2);
+        if (p.trail) {
+          // 每移動一小段記一個點，飄得慢時彩帶也保持一樣長
+          const h = p.trail[0];
+          if (!h || Math.hypot(p.x - h[0], p.y - h[1]) > 7) { p.trail.unshift([p.x, p.y]); if (p.trail.length > 16) p.trail.pop(); }
+          ctx.fillStyle = hex(p.c, a);
+          for (let i = 1; i < p.trail.length; i++) {
+            const [x0, y0] = p.trail[i - 1], [x1, y1] = p.trail[i], dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1;
+            const w = 3.5 * Math.abs(Math.cos(p.spin + i * .55)) + .6, nx = -dy / l * w, ny = dx / l * w;
+            ctx.beginPath(); ctx.moveTo(x0 + nx, y0 + ny); ctx.lineTo(x1 + nx, y1 + ny); ctx.lineTo(x1 - nx, y1 - ny); ctx.lineTo(x0 - nx, y0 - ny); ctx.fill();
+          }
+        } else {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.spin * .6); ctx.scale(1, Math.cos(p.spin));
+          ctx.fillStyle = hex(p.c, a); ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+        }
+      }
+      run = bits.length > 0;
+      if (run) requestAnimationFrame(tick); else { ctx.clearRect(0, 0, W, H); last = 0; }
+    };
+    return cols => {
+      if (reduce) return;
+      const pal = [...(cols && cols.length ? cols : [BLUE, IVORY]), "#ffd76a", "#eef2f8"], n = W < 600 ? 55 : 95;
+      [-1, 1].forEach(side => {
+        const ox = side < 0 ? -10 : W + 10, oy = H + 10;
+        for (let i = 0; i < n + 10; i++) {
+          // 往畫面中間偏上噴：角度離垂直 15–40 度，速度決定能衝多高
+          const ribbon = i >= n, ang = rnd(15, 40) * Math.PI / 180, v = H * rnd(1.5, 2.5) * (ribbon ? 1.1 : 1);
+          bits.push({ x: ox, y: oy, vx: -side * Math.sin(ang) * v, vy: -Math.cos(ang) * v, age: -rnd(0, .18), life: rnd(4.5, 6.5),
+            drag: ribbon ? rnd(1.6, 2.1) : rnd(2.2, 3), sway: rnd(20, 60), fq: rnd(2, 5), ph: rnd(0, 6.28), spin: rnd(0, 6.28), vs: rnd(4, 11) * (Math.random() < .5 ? -1 : 1),
+            w: rnd(6, 10), h: rnd(10, 16), c: pal[Math.floor(Math.random() * pal.length)], trail: ribbon ? [] : null });
+        }
+      });
+      if (!run) { run = true; requestAnimationFrame(tick); }
+    };
+  }
+  const blast = cannon(document.getElementById("confetti"));
+  // 副歌高潮（最後一次副歌開頭）的秒數：MV 音訊和聲比對＋歌詞重複找的，再依歌詞段落人工修正
+  const CLIMAX = { aiaia: 190.36, aishite: 161.24, akuruhi: 202.94, angelseek: 149.3, ashura: 139.43, burikino: 163.7, catseye: 145.75, charles: 178.85, chocolat: 178.27, dignity: 187.27, domestic: 114.59, dryflower: 229.74, elf: 237.27, episodex: 165.67, freedom: 153.74, giragira: 219.12, gyakkou: 192.71, hanabi: 163.72, hanataba: 183.25, haruni: 181.86, hellosignals: 147.49, himawari: 174.22, hotaru: 265.96, ibara: 209.89, jikkai: 175.46, kagakushu: 184.47, kamippoina: 174.95, kawaikute: 188.49, kazarijanai: 173.36, kaze: 211.47, kazetowatashi: 282.75, kira: 137.71, kitaro: 106.47, kittocoaster: 143.9, kokoro: 217.56, kurakura: 146.97, lovemeforever: 206.43, luckybruto: 170.63, magic: 134.64, mirror: 135.86, missing: 118.79, mondaisaku: 160.09, monstruo: 154.83, motherland: 214.34, nukegara: 140.44, odo: 169.11, pierrot: 148.16, ponpokorin: 69.01, radio: 167.91, ravensky: 212.09, readymade: 184.18, rebellion: 133.56, rockstar: 177.47, rule: 178.23, saikyo: 189.47, sakura: 280.79, sekai: 189.4, shinjidai: 160.4, shoka: 180.15, show: 154.95, soldiergame: 176.73, staygold: 184.22, sukideite: 182.07, totmusica: 144.62, tsumitobatsu: 179.27, unravel: 199.14, usseewa: 167.48, utakata: 108.64, value: 150.66, villain: 165.25, vivarium: 171.27, zero: 112.16 };
   addEventListener("hashchange", () => setTimeout(() => dispatchEvent(new Event("resize")), 0));
 
   // 背景燈光只在播放時動；沒播放時畫一次就停，不在閱讀時晃
-  let stageT = 0, lastMs = 0, idleDrawn = false, penSong;
+  let stageT = 0, lastMs = 0, idleDrawn = false, penSong, blasted = false;
   addEventListener("resize", () => { idleDrawn = false; });
   function frame(ms) {
     const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
     // 歌曲頁燈光換成這首的螢光棒顏色，回首頁換回藍白
     const want = S && !songV.hidden ? S : null;
-    if (want !== penSong) { penSong = want; bg.pen(want && penOf(want).cols); idleDrawn = false; }
+    if (want !== penSong) { penSong = want; bg.pen(want && penOf(want).cols); idleDrawn = false; blasted = false; }
+    // 播到副歌高潮噴一次彩帶；倒回高潮前再播到會再噴
+    const cx = want && CLIMAX[want.id];
+    if (cx != null) {
+      if (t < cx - .3) blasted = false;
+      else if (playing && !blasted && t >= cx - .05 && t < cx + .8) { blasted = true; blast(penOf(want).cols); }
+    }
     if (playing) stageT += Math.min(.1, (ms - lastMs) / 1000);
     lastMs = ms;
     // 每拍亮一下再退，小節第一拍最亮；這首沒有拍點資料時，改在每句歌詞開頭亮
