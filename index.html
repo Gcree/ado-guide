@@ -127,6 +127,11 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .cc select { background: var(--ground); color: var(--text); border: 0; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
 .mvbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 18px; font-size: 13px; }
 .mvhint { color: var(--faint); margin-right: auto; }
+/* 這首的螢光棒顏色 */
+.pen { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); white-space: nowrap; }
+.pen i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.pen i.rb { background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a); box-shadow: none; }
+.pen b { color: var(--muted); font-weight: 500; }
 .mvlinks { display: flex; gap: 16px; margin-left: auto; }
 .mvlinks a { color: var(--muted); text-decoration: none; }
 .mvlinks a:hover { color: var(--text); }
@@ -394,6 +399,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
                   <option value="1.25">1.25×</option>
                 </select>
               </label>
+              <span class="pen" id="pen"></span>
               <span class="mvhint">點歌詞可以跳到那個時間</span>
               <span class="mvlinks"><a id="ytLink" target="_blank" rel="noopener">在 YouTube 觀看 ↗</a><a id="lyLink" target="_blank" rel="noopener">正版歌詞 ↗</a></span>
             </div>
@@ -540,6 +546,14 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   // 應援數量：歌詞裡有動作的行數（「安靜聽」不算）
   SONGS.forEach(s => { const b = getBuiltinSong(s.id); s.cheer = b && b.lyrics ? b.lyrics.filter(l => (l.acts || []).some(a => a !== "listen")).length : 0; });
   const BY = Object.fromEntries(SONGS.map(s => [s.id, s]));
+  // 螢光棒顏色：依 じゅん🌝ぴ 的 note；彩＝カラフル，開頭 ? 是原文的預測；沒寫的歌用藍（原文：迷ったら青）
+  const PEN = { usseewa: "青赤", readymade: "赤桃水", giragira: "白", odo: "赤青", pierrot: "水紫", aitakute: "桃", ashura: "赤橙", kokoro: "白水", hanabi: "彩", kagakushu: "白水", akuruhi: "白水", domestic: "赤桃青", motherland: "青水白", luckybruto: "青赤", shinjidai: "彩桃", saikyo: "彩橙", gyakkou: "赤", utakata: "緑青赤", sekai: "黄", totmusica: "紫青", kaze: "青水", rebellion: "赤青", missing: "白水", freedom: "白青", mondaisaku: "緑彩", ibara: "水白青", himawari: "黄橙緑水", show: "橙黄", dignity: "青水", kurakura: "水桃", radio: "橙黄緑", chocolat: "赤白", value: "水白", mirror: "青桃", kittocoaster: "水桃", rule: "青水赤", nukegara: "水白", zero: "白", hellosignals: "水桃", shoka: "赤青", sakura: "桃", episodex: "青水白", elf: "緑橙黄", hanataba: "水黄", rockstar: "赤黄", staygold: "赤青紫", kazetowatashi: "青水", magic: "紫桃赤", angelseek: "水白", vivarium: "青", aiaia: "赤橙黄", kira: "青橙", haruni: "桃", sukideite: "?黄", monstruo: "橙赤黄水", lovemeforever: "紫水白", ravensky: "?橙赤紫" };
+  const PENC = { 青: ["藍", "#5d9dfe"], 水: ["水藍", "#5fd4ff"], 白: ["白", "#f2efe8"], 赤: ["紅", "#ff4a5a"], 桃: ["粉紅", "#ff7ab8"], 紫: ["紫", "#a374ff"], 橙: ["橘", "#ff9a3c"], 黄: ["黃", "#ffd84a"], 緑: ["綠", "#4ee08a"] };
+  const RAINBOW = [..."赤橙黄緑水青紫"];
+  function penOf(s) {
+    const raw = PEN[s.id] || "青", keys = [...raw.replace("?", "")];
+    return { keys, guess: raw[0] === "?", none: !PEN[s.id], cols: keys.flatMap(k => (k === "彩" ? RAINBOW : [k]).map(c => PENC[c][1])) };
+  }
 
   const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -757,6 +771,9 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     document.getElementById("sTitle").innerHTML = esc(s.ja) + (sub ? `<span>${esc(sub)}</span>` : "");
     ["ytLink", "ytLink2"].forEach(id => document.getElementById(id).href = `https://www.youtube.com/watch?v=${s.yt}`);
     document.getElementById("lyLink").href = s.ut;
+    const p = penOf(s);
+    document.getElementById("pen").innerHTML = "螢光棒" + p.keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")
+      + `<b>${p.keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、")}${p.guess ? "（預測）" : p.none ? "（沒指定）" : ""}</b>`;
     const seq = ordered(), at = seq.indexOf(s);
     [["prevSong", seq[at - 1], "上一首"], ["nextSong", seq[at + 1], "下一首"]].forEach(([id, x, word]) => {
       const a = document.getElementById(id);
@@ -900,48 +917,70 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     const ctx = cv.getContext("2d"); let W = 0, H = 0;
     const size = () => { const d = Math.min(2, devicePixelRatio || 1), r = cv.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
     addEventListener("resize", size); size();
-    const sticks = Array.from({ length: o.sticks }, () => ({ x: Math.random(), y: Math.random(), ph: Math.random() * 6.28, c: Math.random() < .75 ? BLUE : IVORY }));
+    const sticks = Array.from({ length: o.sticks }, () => ({ x: Math.random(), y: Math.random(), ph: Math.random() * 6.28, c: BLUE }));
     const petals = Array.from({ length: o.petals }, () => ({ x: Math.random(), y: Math.random(), r: 3 + Math.random() * 4, s: .2 + Math.random() * .4, a: Math.random() * 6.28 }));
-    return (tt, energy, pulse, listen, playing) => {
+    // pal：這首的螢光棒顏色；null 是首頁的藍白
+    let pal = null, beams = [];
+    const pen = cols => {
+      pal = cols && cols.length ? cols : null;
+      beams = pal ? [0, 1, 2, 3].map(i => pal[i % pal.length]) : [DEEP, BLUE, IVORY, DEEP];
+      sticks.forEach((s, i) => s.c = pal ? pal[i % pal.length] : Math.random() < .75 ? BLUE : IVORY);
+    };
+    pen(null);
+    // hit：重拍的亮度（1 → 0），beat：第幾拍，用來輪流換閃光的顏色
+    const draw = (tt, energy, hit, listen, playing, beat) => {
       if (!cv.width) size();
       if (!W) return;
       ctx.clearRect(0, 0, W, H);
       ctx.globalCompositeOperation = "lighter";
-      [[.12, DEEP], [.34, BLUE], [.58, IVORY], [.86, DEEP]].forEach(([bx, col], i) => {
-        const sway = reduce ? 0 : Math.sin(tt * .45 + i * 1.7) * .16;
-        const ox = W * (bx + (i % 2 ? .08 : -.08)), oy = H * 1.05, tx = W * (bx + sway), w = W * .06;
-        const g = ctx.createLinearGradient(ox, oy, tx, 0), a = (.05 + .12 * energy + .2 * pulse) * o.k;
+      [.12, .34, .58, .86].forEach((bx, i) => {
+        const col = beams[i], sway = reduce ? 0 : Math.sin(tt * .45 + i * 1.7) * .16;
+        const ox = W * (bx + (i % 2 ? .08 : -.08)), oy = H * 1.05, tx = W * (bx + sway), w = W * (.06 + .03 * hit);
+        const g = ctx.createLinearGradient(ox, oy, tx, 0), a = (.05 + .12 * energy + .3 * hit) * o.k;
         g.addColorStop(0, hex(col, 0)); g.addColorStop(.4, hex(col, a)); g.addColorStop(1, hex(col, 0));
         ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ox - 4, oy); ctx.lineTo(tx - w, -20); ctx.lineTo(tx + w, -20); ctx.lineTo(ox + 4, oy); ctx.fill();
       });
-      petals.forEach(p => {
+      // 重拍：從台下往上整片亮一下
+      if (hit > .01) {
+        const col = (pal || [BLUE])[beat % (pal || [BLUE]).length], g = ctx.createRadialGradient(W / 2, H * 1.1, 0, W / 2, H * 1.1, Math.max(W, H) * .95);
+        g.addColorStop(0, hex(col, .2 * hit * o.k)); g.addColorStop(1, hex(col, 0));
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      }
+      petals.forEach((p, i) => {
         if (!reduce && playing) { p.y += p.s * .0015 * (1 + energy); p.a += .008; if (p.y > 1.05) { p.y = -.05; p.x = Math.random(); } }
         ctx.save(); ctx.translate(p.x * W + Math.sin(p.a) * 12, p.y * H); ctx.rotate(p.a);
-        ctx.fillStyle = hex(BLUE, .28 * o.k); ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * .55, 0, 0, 6.28); ctx.fill(); ctx.restore();
+        ctx.fillStyle = hex(pal ? pal[i % pal.length] : BLUE, .28 * o.k); ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * .55, 0, 0, 6.28); ctx.fill(); ctx.restore();
       });
       const baseY = H - 4, band = Math.min(70, H * .14);
       sticks.forEach(s => {
         const swing = reduce ? 0 : Math.sin(tt * (playing ? 4.2 : 1.3) + s.ph) * (playing ? .5 : .2) * (listen ? .3 : 1);
-        ctx.save(); ctx.translate(s.x * W, baseY - s.y * band); ctx.rotate(swing);
-        ctx.strokeStyle = hex(s.c, (.16 + .3 * energy + .3 * pulse) * (.45 + s.y * .55) * o.k);
+        ctx.save(); ctx.translate(s.x * W, baseY - s.y * band - 6 * hit); ctx.rotate(swing);
+        ctx.strokeStyle = hex(s.c, (.16 + .3 * energy + .45 * hit) * (.45 + s.y * .55) * o.k);
         ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -(12 + s.y * 8)); ctx.stroke(); ctx.restore();
       });
       ctx.globalCompositeOperation = "source-over";
     };
+    draw.pen = pen;
+    return draw;
   }
   const bg = stage(document.getElementById("fx"), { sticks: 110, petals: 22, k: 1.25 });
   addEventListener("hashchange", () => setTimeout(() => dispatchEvent(new Event("resize")), 0));
 
   // 背景燈光只在播放時動；沒播放時畫一次就停，不在閱讀時晃
-  let stageT = 0, lastMs = 0, idleDrawn = false;
+  let stageT = 0, lastMs = 0, idleDrawn = false, penSong;
   addEventListener("resize", () => { idleDrawn = false; });
   function frame(ms) {
     const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
+    // 歌曲頁燈光換成這首的螢光棒顏色，回首頁換回藍白
+    const want = S && !songV.hidden ? S : null;
+    if (want !== penSong) { penSong = want; bg.pen(want && penOf(want).cols); idleDrawn = false; }
     if (playing) stageT += Math.min(.1, (ms - lastMs) / 1000);
     lastMs = ms;
-    const pulse = playing && cue && cue.beat ? Math.pow(1 - ((t * 120 / 60) % 1), 3) : 0;
+    // 重拍：抓不到音訊，用每句歌詞的開頭當樂句第一拍，燈光在那一刻爆亮再退；有應援的句子更亮
+    const li = lineAt(t), l = LINES[li];
+    const hit = playing && l && !reduce ? Math.exp(-(t - l.t) / .4) * (l.acts.length ? 1 : .65) : 0;
     const energy = playing && cue ? (cue.listen ? .2 : cue.beat ? 1 : .45) : .4;
-    if (playing || !idleDrawn) { bg(stageT, energy, pulse, cue && cue.listen, playing); idleDrawn = !playing; }
+    if (playing || !idleDrawn) { bg(stageT, energy, hit, cue && cue.listen, playing, Math.max(0, li)); idleDrawn = !playing; }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
