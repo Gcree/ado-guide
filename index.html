@@ -11,8 +11,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;600&display=swap">
-<script src="song-lyrics.js?v=2026-10-26a"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap">
 <style>
 /* Layout: 無側欄外框，52px 頂欄＋1180px 置中欄。首頁＝大標＋歌曲清單＋動作說明＋參加須知；
    歌曲頁＝大字歌名，左 MV＋現在動作（固定），右逐行歌詞。介面是帶藍近黑上的平面；
@@ -76,11 +75,12 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 /* 大標 */
 .hero { display: grid; gap: 16px; align-content: end; padding: 32px 0 24px; }
 .home { width: 100%; max-width: 760px; margin-inline: auto; }
-.home .hero { padding: 40px 0 8px; }
+.home .hero { padding: 24px 0 4px; gap: 8px; }
 .home .lead { max-width: none; }
 .hero h1 { margin: 0; font-family: var(--font-ja); font-weight: 600; font-size: clamp(48px, 8vw, 104px); line-height: .95; letter-spacing: -.02em; text-wrap: balance; }
 .hero h1 span { display: block; font-family: var(--font); font-size: 18px; font-weight: 500; letter-spacing: 0; color: var(--muted); margin-top: 16px; }
-.home .hero h1 { font-family: var(--font); font-size: clamp(36px, 5vw, 56px); }
+.home .hero h1 { font-family: var(--font); font-size: clamp(26px, 3.4vw, 36px); }
+.home .lead { font-size: 15px; }
 .lead { color: var(--muted); font-size: 17px; max-width: 46ch; margin: 0; }
 .btn { height: 40px; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; border: 0; white-space: nowrap; transition: transform .12s, background .15s; }
 .btn:active { transform: scale(.98); }
@@ -108,6 +108,23 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .song .name { min-width: 0; }
 .song .ja { font-family: var(--font-ja); font-size: 17px; font-weight: 500; }
 .song .zh { color: var(--faint); font-size: 14px; margin-left: 8px; }
+.song .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-top: 2px; color: var(--faint); font-size: 13px; }
+.song .sub .zh { margin: 0; font-size: 13px; }
+.song .dots { display: inline-flex; gap: 3px; }
+.song .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.song .dots i.rb { background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a); }
+.song .tagx { color: var(--muted); background: var(--raised); border-radius: 999px; padding: 0 8px; font-size: 12px; }
+.fdesc { margin: -4px 12px 8px; color: var(--faint); font-size: 13px; }
+.fdesc:empty { display: none; }
+/* 最近看過 */
+.recent { display: grid; gap: 8px; }
+.recent h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--faint); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips a { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; background: var(--surface); text-decoration: none; font-family: var(--font-ja); font-size: 14px; }
+.chips a:hover { background: var(--raised); }
+.chips a .dots { display: inline-flex; gap: 3px; }
+.chips a .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.chips a .dots i.rb { background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a); }
 .song .no { color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; }
 .song .acts { display: flex; gap: 6px; align-items: center; }
 .song .cnt { min-width: 3.5em; text-align: right; color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -125,6 +142,32 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .vstatus { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; background: #04060c; }
 .vstatus[hidden] { display: none; }
 .vstatus p { margin: 0; max-width: 36ch; color: var(--muted); font-size: 13px; }
+/* 練習工具選單要蓋在歌詞上，MV 區塊不能裁切；影片自己保留圓角 */
+.mv { overflow: visible; position: relative; }
+.mv:has(details[open]) { z-index: 6; }
+.screen { border-radius: var(--radius-card) var(--radius-card) 0 0; overflow: hidden; }
+.mvbar .vopt .view-opts { min-width: 200px; }
+.view-opts .sep { height: 1px; margin: 4px 6px; background: var(--line); }
+.view-opts button.do::after { display: none; }
+.view-opts button:disabled { opacity: .45; cursor: default; }
+.view-opts .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 4px 10px; color: var(--muted); font-size: 14px; }
+.view-opts .row .seg button { padding: 4px 10px; }
+.view-opts .row .seg button::after { display: none; }
+/* 提示訊息：複製連結之類的結果，從下方浮出幾秒 */
+.toast { position: fixed; z-index: 30; left: 50%; bottom: max(24px, env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 12px); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; background: var(--paper); color: var(--on-paper); font-size: 14px; font-weight: 500; padding: 10px 18px; border-radius: 999px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* 回報錯誤：表單還沒接上時，先讓人複製內容 */
+.report { border: 0; padding: 0; border-radius: var(--radius-card); background: var(--raised); color: var(--text); width: min(440px, calc(100% - 32px)); box-shadow: 0 24px 64px rgba(0, 0, 0, .6); }
+.report::backdrop { background: rgba(4, 6, 12, .7); }
+.report form { display: grid; gap: 12px; padding: 22px var(--pad); }
+.report h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.report p { margin: 0; color: var(--muted); font-size: 14px; }
+.report dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; }
+.report dt { color: var(--faint); }
+.report dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.report select, .report textarea { width: 100%; background: var(--ground); border: 0; border-radius: 12px; padding: 10px 12px; color: var(--text); font-size: 14px; }
+.report textarea { min-height: 84px; resize: vertical; }
+.report .acts { display: flex; justify-content: flex-end; gap: 8px; }
 .cc { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); font-size: 13px; white-space: nowrap; }
 .cc select { background: var(--ground); color: var(--text); border: 0; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
 .mvbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 18px; font-size: 13px; }
@@ -166,6 +209,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .cue.idle .next { grid-column: 1 / -1; text-align: left; }
 .summary { grid-column: 1 / -1; margin: 6px 0 0; padding: 0 0 0 18px; color: var(--muted); }
 .summary li { margin: 2px 0; }
+.cue.playing .summary, .cue.playing.alerting .how { display: none; }
 .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 0; }
 .switch i { width: 30px; height: 18px; border-radius: 999px; background: var(--raised); position: relative; transition: background .15s; }
 .switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--faint); transition: transform .15s, background .15s; }
@@ -180,12 +224,12 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 /* 有動作的行，日文用該動作的顏色（淡），唱到時變全彩並在左邊加色條 */
 .ln { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: background .2s, box-shadow .2s; }
 .ln:hover { background: var(--hover); }
-.ln .ja { font-family: var(--font-ja); font-size: 17px; line-height: 1.7; color: var(--muted); transition: color .2s; }
+.ln .ja { font-family: var(--font-ja); font-size: calc(var(--ly-ja, 17px) * var(--ly-k, 1)); line-height: 1.7; color: var(--muted); transition: color .2s; }
 .ln[class*=" a-"]:not(.a-listen):not(.a-sing) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
 /* 「唱」不染整行，只染觀眾要唱的字 */
 .ln .sung { color: color-mix(in srgb, var(--sing) 75%, var(--muted)); }
 .ln.now .sung { color: var(--sing); }
-.ln .zh { grid-column: 1; font-size: 14px; color: var(--faint); }
+.ln .zh { grid-column: 1; font-size: calc(var(--ly-zh, 14px) * var(--ly-k, 1)); color: var(--faint); }
 .ln .ph { color: var(--ph); }
 .ln .acts { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 6px; align-items: center; }
 .ln .acts svg { width: 18px; height: 18px; }
@@ -207,9 +251,17 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .karaoke .ln.now .k.sung { color: color-mix(in srgb, var(--sing) 45%, var(--muted)); }
 .karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: var(--sing); }
 .only-sing .ln:not(.sing) { display: none; }
+.size-s { --ly-k: .88; } .size-l { --ly-k: 1.15; }
+/* 點圖例：只亮出有那個動作的句子 */
+.ln.dim { opacity: .28; }
+.ln.dim:hover { opacity: .6; }
+.legend button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; color: inherit; font-size: 13px; padding: 2px 8px; margin: -2px -8px; border-radius: 999px; cursor: pointer; }
+.legend button:hover { background: var(--hover); }
+.legend button[aria-pressed="true"] { background: color-mix(in srgb, var(--act) 18%, transparent); color: var(--text); }
 /* 跳到大合唱：一顆膠囊，左右兩個箭頭 */
 .jump { display: inline-flex; align-items: center; height: 32px; border-radius: 999px; background: color-mix(in srgb, var(--sing) 14%, transparent); color: var(--sing); font-size: 13px; font-weight: 600; }
-.jump span { padding: 0 2px; }
+.jump .mid { width: auto; border-radius: 999px; padding: 0 8px; font-size: 13px; font-weight: 600; }
+.jump .mid[aria-pressed="true"] { background: var(--sing); color: var(--on-paper); }
 .jump button { width: 32px; height: 32px; border: 0; background: none; color: inherit; border-radius: 50%; font-size: 17px; line-height: 1; cursor: pointer; }
 .jump button:hover:not(:disabled) { background: color-mix(in srgb, var(--sing) 22%, transparent); }
 .jump button:disabled { color: var(--faint); opacity: .5; cursor: default; }
@@ -242,7 +294,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
 /* 動作字卡：不蓋住 MV 和歌詞。畫面四周亮起這首的螢光棒顏色，中下方一張字卡寫出要做的事（手機貼在影片下方） */
 .cueframe { position: fixed; inset: 0; z-index: 19; pointer-events: none; opacity: 0; transition: opacity .25s;
   box-shadow: inset 0 0 0 2px var(--c1, var(--accent)), inset 0 0 120px 4px color-mix(in srgb, var(--c1, var(--accent)) 45%, transparent), inset 0 -80px 160px -40px color-mix(in srgb, var(--c2, var(--accent)) 65%, transparent); }
-.alert { position: fixed; z-index: 20; left: 50%; bottom: max(28px, env(safe-area-inset-bottom, 0px)); width: max-content; max-width: min(640px, calc(100% - 24px)); opacity: 0; transform: translate(-50%, 14px); pointer-events: none; transition: opacity .2s, transform .2s; }
+.alert { position: fixed; z-index: 20; left: var(--al-left, 50%); top: var(--al-top, auto); bottom: auto; width: max-content; max-width: min(640px, var(--al-max, calc(100% - 24px))); opacity: 0; transform: translate(-50%, 14px); pointer-events: none; transition: opacity .2s, transform .2s; }
 .alert.show { opacity: 1; transform: translate(-50%, 0); }
 .alert .card { display: grid; justify-items: center; gap: 10px; padding: 16px 24px 20px; border-radius: 24px; text-align: center; background: color-mix(in srgb, var(--raised) 94%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   box-shadow: 0 0 0 2px var(--act, var(--accent)), 0 0 56px color-mix(in srgb, var(--act, var(--accent)) 35%, transparent), 0 18px 48px rgba(0, 0, 0, .5); transform: scale(calc(1 + var(--pulse, 0) * .03)); }
@@ -290,8 +342,9 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   .cue .now strong { font-size: 18px; }
   .cue .next b { font-size: 14px; }
   .cue.idle .next { grid-column: 1 / 3; }
-  /* 字卡貼在影片正下方，不蓋影片 */
-  .alert { bottom: auto; top: var(--al-top, 45%); }
+  .lyrics { --ly-ja: 15px; --ly-zh: 13px; }
+  .ln { padding: 8px 12px; }
+  .mvlinks { margin-left: 0; }
   .alert .card { gap: 6px; padding: 12px 16px 14px; border-radius: 18px; }
   .alert .words, .alert .big { font-size: clamp(24px, 7.5vw, 34px); }
 }
@@ -314,6 +367,27 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   .tools .seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; min-width: 0; }
   .tools .seg button { flex: none; }
   .seg button { flex: none; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .on-song main.col { padding-block: 0; }
+  .on-song footer { display: none; }
+  .on-song #song { height: 100dvh; padding: 4px 0 max(4px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 6px; }
+  .songbar { padding-top: 2px; }
+  .songbar .ib { width: 34px; height: 34px; }
+  .on-song .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: min(52vw, calc((100dvh - 200px) * 16 / 9)) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 8px; }
+  .on-song .left { position: static; gap: 6px; min-height: 0; overflow-y: auto; align-self: stretch; }
+  .on-song .lyrics { position: static; height: auto; max-height: none; min-height: 0; align-self: stretch; }
+  .mvhint, .cue h2, .cue .how, .cue .summary { display: none; }
+  .mvbar { padding: 6px 12px; }
+  .cue { grid-template-columns: minmax(0, 1fr) auto auto; padding: 8px 12px; gap: 4px 12px; }
+  .cue .top { display: contents; }
+  .cue .now { order: 1; gap: 8px; } .cue .next { order: 2; } .cue .switch { order: 3; }
+  .cue .now svg { width: 22px; height: 22px; }
+  .cue .now strong { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cue .now { min-width: 0; }
+  .lyrics { --ly-ja: 15px; --ly-zh: 13px; }
+  .alert .card { gap: 4px; padding: 8px 14px 10px; }
+  .alert .words, .alert .big { font-size: clamp(20px, 6.5vh, 28px); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } .alert * { animation: none !important; } }
 </style>
@@ -341,6 +415,27 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     <div class="how" id="alHow"></div>
   </div>
 </div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<dialog class="report" id="reportDlg" aria-labelledby="reportH">
+  <form method="dialog">
+    <h2 id="reportH">回報錯誤</h2>
+    <dl>
+      <dt>歌曲</dt><dd id="rpSong"></dd>
+      <dt>時間</dt><dd id="rpTime"></dd>
+      <dt>這一句</dt><dd id="rpLine"></dd>
+    </dl>
+    <select id="rpKind" aria-label="哪裡不對">
+      <option>歌詞時間太早或太晚</option>
+      <option>應援動作寫錯</option>
+      <option>歌詞或翻譯有錯</option>
+      <option>其他</option>
+    </select>
+    <textarea id="rpNote" placeholder="補充說明（可以不填）" aria-label="補充說明"></textarea>
+    <p id="rpHint"></p>
+    <div class="acts"><button class="btn ghost" value="cancel">取消</button><button class="btn primary" id="rpSend" value="send">送出</button></div>
+  </form>
+</dialog>
 
 <div class="shell">
   <header class="bar">
@@ -361,6 +456,11 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
         <p class="lead">看著 MV 跟歌詞，先在家練好演唱會的應援。不照任何一場的歌單，不會暴雷。</p>
       </section>
 
+      <section class="recent" id="recent" aria-labelledby="recentH" hidden>
+        <h2 id="recentH">最近看過</h2>
+        <div class="chips" id="recentList"></div>
+      </section>
+
       <section class="panel" id="songs" aria-labelledby="songsH">
         <h2 id="songsH">全部歌曲</h2>
         <div class="legend" id="homeLegend" aria-label="圖示代表的動作"></div>
@@ -368,16 +468,16 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
           <input class="search" id="q" type="search" placeholder="搜尋歌名，日文或中文都可以" aria-label="搜尋歌曲">
           <div class="seg" role="group" aria-label="篩選">
             <button data-f="all" aria-pressed="true">全部</button>
-            <button data-f="cheer" aria-pressed="false">有應援</button>
-            <button data-f="free" aria-pressed="false">自由搖</button>
-            <button data-f="sug" aria-pressed="false">建議</button>
-            <button data-f="cover" aria-pressed="false">翻唱</button>
+            <button data-f="cheer" aria-pressed="false" title="粉絲整理過固定應援的歌">有應援</button>
+            <button data-f="loose" aria-pressed="false" title="粉絲說沒有固定應援，或查不到現場資料、只寫了依曲風的建議">沒有固定應援</button>
+            <button data-f="cover" aria-pressed="false" title="Ado 翻唱別人的歌">翻唱</button>
           </div>
           <div class="seg" role="group" aria-label="排序">
             <button data-sort="date" aria-pressed="true">推出順序</button>
             <button data-sort="cheer" aria-pressed="false">應援數量</button>
           </div>
         </div>
+        <p class="fdesc" id="fdesc"></p>
         <ul class="songs" id="songList"></ul>
         <p class="count" id="songCount"></p>
       </section>
@@ -410,12 +510,21 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
                   <option value="0.5">0.5×</option>
                   <option value="0.75">0.75×</option>
                   <option value="1">1×</option>
-                  <option value="1.25">1.25×</option>
                 </select>
               </label>
               <span class="pen" id="pen"></span>
-              <span class="mvhint">點歌詞可以跳到那個時間</span>
-              <span class="mvlinks"><a id="ytLink" target="_blank" rel="noopener">在 YouTube 觀看 ↗</a><a id="lyLink" target="_blank" rel="noopener">正版歌詞 ↗</a></span>
+              <span class="mvhint">點歌詞跳到那句・空白鍵播放、← → 換句</span>
+              <span class="mvlinks"><a id="ytLink" target="_blank" rel="noopener">YouTube ↗</a><a id="lyLink" target="_blank" rel="noopener">正版歌詞 ↗</a></span>
+              <details class="vopt" id="tools">
+                <summary>練習工具</summary>
+                <div class="view-opts" role="group" aria-label="練習工具">
+                  <button data-tool="click" id="tool-click" aria-pressed="false" title="這首沒有拍點資料時不能用">拍點聲</button>
+                  <button data-tool="autonext" id="tool-autonext" aria-pressed="false">播完自動下一首</button>
+                  <div class="sep"></div>
+                  <button class="do" id="shareBtn">分享目前時間</button>
+                  <button class="do" id="reportBtn">回報錯誤</button>
+                </div>
+              </details>
             </div>
           </section>
 
@@ -432,7 +541,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
           <div class="lyrics-top">
             <h2>歌詞與應援</h2>
             <div class="jump" id="singJump" role="group" aria-label="跳到大合唱段落">
-              <button id="singPrev" aria-label="上一段大合唱">‹</button><span>大合唱</span><button id="singNext" aria-label="下一段大合唱">›</button>
+              <button id="singPrev" aria-label="上一段大合唱">‹</button><button class="mid" id="singOnly" aria-pressed="false" title="只看大合唱的句子">大合唱</button><button id="singNext" aria-label="下一段大合唱">›</button>
             </div>
             <details class="vopt" id="vopt">
               <summary>顯示</summary>
@@ -441,8 +550,9 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
                 <button data-opt="kana" aria-pressed="true">假名</button>
                 <button data-opt="zh" aria-pressed="true">中文</button>
                 <button data-opt="karaoke" aria-pressed="false">卡拉OK</button>
-                <button data-opt="sing" aria-pressed="false">只看大合唱</button>
                 <button data-opt="scroll" aria-pressed="true">自動捲動</button>
+                <div class="sep"></div>
+                <div class="row">字體<span class="seg" role="group" aria-label="歌詞字體大小"><button data-size="s" aria-pressed="false">小</button><button data-size="m" aria-pressed="true">中</button><button data-size="l" aria-pressed="false">大</button></span></div>
               </div>
             </details>
           </div>
@@ -557,8 +667,18 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = s.tips || []; s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
   // 推出順序：MV 在 YouTube 公開的日期（日本時間）；編號照這個順序
   SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => s.no = i + 1);
+  // 歌詞檔很大，首頁先畫出來再載；載好後補上應援數量、有沒有逐行時間
   // 應援數量：歌詞裡有動作的行數（「安靜聽」不算）
-  SONGS.forEach(s => { const b = getBuiltinSong(s.id); s.cheer = b && b.lyrics ? b.lyrics.filter(l => (l.acts || []).some(a => a !== "listen")).length : 0; });
+  let lyReady = false;
+  const lyLoaded = new Promise(res => {
+    const el = document.createElement("script");
+    el.src = "song-lyrics.js?v=2026-10-26b";
+    el.onload = el.onerror = res;
+    document.head.appendChild(el);
+  }).then(() => {
+    lyReady = true;
+    SONGS.forEach(s => { const b = getBuiltinSong(s.id); s.lines = !!(b && b.lyrics && b.lyrics.length); s.cheer = s.lines ? b.lyrics.filter(l => (l.acts || []).some(a => a !== "listen")).length : 0; });
+  });
   const BY = Object.fromEntries(SONGS.map(s => [s.id, s]));
   // 螢光棒顏色：依 じゅん🌝ぴ 的 note；彩＝カラフル，開頭 ? 是原文的預測；沒寫的歌用藍（原文：迷ったら青）
   const PEN = { usseewa: "青赤", readymade: "赤桃水", giragira: "白", odo: "赤青", pierrot: "水紫", aitakute: "桃", ashura: "赤橙", kokoro: "白水", hanabi: "彩", kagakushu: "白水", akuruhi: "白水", domestic: "赤桃青", motherland: "青水白", luckybruto: "青赤", shinjidai: "彩桃", saikyo: "彩橙", gyakkou: "赤", utakata: "緑青赤", sekai: "黄", totmusica: "紫青", kaze: "青水", rebellion: "赤青", missing: "白水", freedom: "白青", mondaisaku: "緑彩", ibara: "水白青", himawari: "黄橙緑水", show: "橙黄", dignity: "青水", kurakura: "水桃", radio: "橙黄緑", chocolat: "赤白", value: "水白", mirror: "青桃", kittocoaster: "水桃", rule: "青水赤", nukegara: "水白", zero: "白", hellosignals: "水桃", shoka: "赤青", sakura: "桃", episodex: "青水白", elf: "緑橙黄", hanataba: "水黄", rockstar: "赤黄", staygold: "赤青紫", kazetowatashi: "青水", magic: "紫桃赤", angelseek: "水白", vivarium: "青", aiaia: "赤橙黄", kira: "青橙", haruni: "桃", sukideite: "?黄", monstruo: "橙赤黄水", lovemeforever: "紫水白", ravensky: "?橙赤紫" };
@@ -595,19 +715,23 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     const rows = ordered().filter(s => {
       if (term && ![s.ja, s.zh, s.en || ""].some(x => x.toLowerCase().includes(term))) return false;
       if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.sug;
-      if (filter === "free") return !!s.free;
-      if (filter === "sug") return !!s.sug;
+      if (filter === "loose") return !!(s.free || s.sug);
       if (filter === "cover") return !!s.cover;
       return true;
     });
     list.innerHTML = rows.map(s => `
       <li><a class="song" href="#${s.id}">
         <span class="no">${String(s.no).padStart(2, "0")}</span>
-        <div class="name"><span class="ja">${esc(s.ja)}</span>${s.zh !== s.ja ? `<span class="zh">${esc(s.zh)}</span>` : ""}${s.cover ? '<span class="zh">翻唱</span>' : ""}</div>
+        <div class="name"><span class="ja">${esc(s.ja)}</span>
+          <div class="sub">${s.zh !== s.ja ? `<span class="zh">${esc(s.zh)}</span>` : ""}${s.cover ? '<span class="zh">翻唱</span>' : ""}${penDots(s)}<span>${s.len}</span>${lyReady && !s.lines ? '<span class="tagx">只有重點</span>' : ""}</div></div>
         <div class="acts">${s.acts.filter(a => a !== "listen").map(icon).join("")}${sort === "cheer" && s.cheer ? `<span class="cnt">${s.cheer} 句</span>` : ""}</div>
       </a></li>`).join("");
     countEl.textContent = rows.length ? (rows.length < SONGS.length ? `${rows.length} / ` : "共 ") + `${SONGS.length} 首` : "找不到符合的歌曲";
+    document.getElementById("fdesc").textContent = FDESC[filter] || "";
   }
+  const FDESC = { cheer: "粉絲整理過固定應援的歌。", loose: "粉絲說沒有固定應援，或查不到現場資料、只寫了依曲風的建議。跟著節奏自由搖就好。", cover: "Ado 翻唱別人的歌。" };
+  // 螢光棒顏色的小圓點
+  const penDots = s => `<span class="dots" aria-label="螢光棒：${penOf(s).keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、")}">${penOf(s).keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")}</span>`;
   q.addEventListener("input", renderList);
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
     filter = b.dataset.f;
@@ -623,6 +747,16 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     });
   });
   renderList();
+  lyLoaded.then(renderList);
+  // 最近看過：最多 3 首，記在這台裝置
+  const recentEl = document.getElementById("recent"), recentList = document.getElementById("recentList");
+  const recentIds = () => { try { return JSON.parse(store.get("recent") || "[]").filter(id => BY[id]); } catch (e) { return []; } };
+  function renderRecent() {
+    const ids = recentIds();
+    recentEl.hidden = !ids.length;
+    recentList.innerHTML = ids.map(id => `<a href="#${id}">${penDots(BY[id])}${esc(BY[id].ja)}</a>`).join("");
+  }
+  const remember = id => store.set("recent", JSON.stringify([id, ...recentIds().filter(x => x !== id)].slice(0, 3)));
   // 圖示說明：只列清單裡用得到的動作
   const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   document.getElementById("homeLegend").innerHTML = Object.keys(ACT).filter(a => usedActs.has(a))
@@ -701,6 +835,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   }
   function renderLines() {
     box.innerHTML = "";
+    if (!lyReady) { box.innerHTML = '<div class="empty"><span>正在載入歌詞…</span></div>'; legend.innerHTML = ""; singJump.hidden = true; return; }
     if (!LINES.length) {
       box.innerHTML = `<div class="empty"><b>這首還沒有逐行時間軸</b>${S.tips.length ? `<ul class="summary">${S.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul><span>先邊看 MV 邊照上面的重點練。</span>` : "<span>應援還在整理，先看 MV 熟悉旋律，副歌跟著現場氣氛就好。</span>"}<span>歌詞請看<a href="${S.ut}" target="_blank" rel="noopener">歌ネット的正版歌詞頁</a>。</span></div>`;
       legend.innerHTML = ""; SING = []; singJump.hidden = true; sc.scrollTop = 0; padEnd(); return;
@@ -720,15 +855,25 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     });
     lineEls = [...box.querySelectorAll(".ln")]; curLine = -1;
     const used = new Set(LINES.flatMap(l => l.acts));
-    legend.innerHTML = Object.keys(ACT).filter(a => used.has(a)).map(a => `<span class="a-${a}"><i></i>${ACT[a].name}</span>`).join("");
+    focusAct = "";
+    legend.innerHTML = Object.keys(ACT).filter(a => used.has(a)).map(a => `<button class="a-${a}" data-act="${a}" aria-pressed="false" title="只亮出要${ACT[a].name}的句子"><i></i>${ACT[a].name}</button>`).join("");
     SING = LINES.filter((l, i) => l.acts.includes("sing") && !(i && LINES[i - 1].acts.includes("sing"))).map(l => l.t);
     singJump.hidden = !SING.length;
     sc.scrollTop = 0; holdUntil = 0; padEnd();
   }
 
+  // 圖例：再點一次取消
+  let focusAct = "";
+  legend.addEventListener("click", e => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    focusAct = focusAct === b.dataset.act ? "" : b.dataset.act;
+    legend.querySelectorAll("[data-act]").forEach(x => x.setAttribute("aria-pressed", x.dataset.act === focusAct));
+    lineEls.forEach((el, i) => el.classList.toggle("dim", !!focusAct && !LINES[i].acts.includes(focusAct)));
+  });
+
   // 播放：同 Vaundy 版，YouTube 播放器只建立一次，換歌用 cueVideoById 換影片
   // 直接點開檔案（file://）時瀏覽器不送來源網址，YouTube 會拒絕嵌入，所以改顯示提示
-  let player = null, ready = false, vid = "", slowTimer = 0;
+  let player = null, ready = false, vid = "", slowTimer = 0, START = 0, AUTOPLAY = false;
   const vstatus = document.getElementById("vstatus"), vmsg = document.getElementById("vmsg");
   // 長度以 YouTube 回報的為準，還沒載好才用資料裡的長度
   const DUR = () => { try { const d = ready && vid === S.yt && player.getDuration(); if (d) return d; } catch (e) {} return S ? S.dur : 1; };
@@ -739,7 +884,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   function seek(t) { if (!ready) return; player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); }
 
   // 播放速度：放慢練應援時間點，記在這台裝置
-  let RATE = +store.get("mv-rate") || 1;
+  let RATE = [.5, .75].includes(+store.get("mv-rate")) ? +store.get("mv-rate") : 1;
   const rateSel = document.getElementById("rateSel");
   rateSel.value = String(RATE);
   const applyRate = () => { try { player.setPlaybackRate(RATE); } catch (e) {} };
@@ -758,17 +903,21 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
       vid = S.yt;
       player = new YT.Player("ytp", {
         videoId: vid,
-        playerVars: { rel: 0, playsinline: 1, modestbranding: 1, autoplay: 0 },
+        playerVars: { rel: 0, playsinline: 1, modestbranding: 1, autoplay: 0, start: START },
         events: {
-          onReady: () => { ready = true; clearTimeout(slowTimer); videoMsg(""); applyRate(); loadVideo(); },
+          onReady: () => { ready = true; clearTimeout(slowTimer); videoMsg(""); applyRate(); START = 0; loadVideo(); },
           // 換影片後 YouTube 會把速度重設成 1，播放或載入完成時再套一次
-          onStateChange: e => { if (e.data === 1 || e.data === 5) applyRate(); },
+          onStateChange: e => { if (e.data === 1 || e.data === 5) applyRate(); if (e.data === 0) ended(); },
           onError: () => videoMsg("無法播放影片，請到 YouTube 觀看。")
         }
       });
       return;
     }
-    if (ready && vid !== S.yt) { vid = S.yt; player.cueVideoById(S.yt); }
+    if (!ready) return;
+    // 自動下一首用 load（會直接播），其他時候 cue（等使用者按播放）
+    if (vid !== S.yt) { vid = S.yt; player[AUTOPLAY ? "loadVideoById" : "cueVideoById"]({ videoId: S.yt, startSeconds: START }); }
+    else if (START) seek(START);
+    START = 0; AUTOPLAY = false;
   }
   if (location.protocol === "file:") {
     videoMsg("直接點開檔案時 YouTube 不允許嵌入播放。請改用資料夾裡的「開啟網站.command」，或放上 GitHub Pages 再看。");
@@ -781,8 +930,8 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     document.head.appendChild(yts);
   }
 
-  function openSong(s) {
-    S = s; curKey = null; hideAlert();
+  function openSong(s, t = 0) {
+    S = s; curKey = null; hideAlert(); START = t; remember(s.id);
     document.title = `${s.ja}｜Ado 應援預習`;
     const sub = s.zh !== s.ja ? s.zh : s.en;
     document.getElementById("sTitle").innerHTML = esc(s.ja) + (sub ? `<span>${esc(sub)}</span>` : "");
@@ -796,16 +945,23 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
       const a = document.getElementById(id);
       if (x) { a.href = "#" + x.id; a.setAttribute("aria-label", `${word}：${x.ja}`); } else a.removeAttribute("href");
     });
+    fillSong();
+    document.getElementById("tool-click").disabled = !BEAT[s.id];
+    loadVideo();
+  }
+  // 歌詞相關的部分：歌詞檔載好後會再跑一次
+  function fillSong() {
+    const s = S;
     loadSongData();
     renderLines();
     document.getElementById("cueSummary").innerHTML = TAGGED ? s.tips.map(t => `<li>${esc(t)}</li>`).join("") : "";
     document.getElementById("cueIcon").innerHTML = `<use href="#${ACT[s.acts[0] || "listen"].icon}"/>`;
     cueBox.className = "cue";
     document.getElementById("cueName").textContent = "按播放開始";
-    document.getElementById("cueHow").textContent = LINES.length ? "播放後，這裡會顯示現在要做的動作。" : "這首還沒有逐行時間軸，不會跳提示，照歌詞欄的重點練。";
+    document.getElementById("cueHow").textContent = !lyReady ? "" : LINES.length ? "播放後，這裡會顯示現在要做的動作。" : "這首還沒有逐行時間軸，不會跳提示，照歌詞欄的重點練。";
     document.getElementById("cueNext").innerHTML = "";
-    loadVideo();
   }
+  lyLoaded.then(() => { if (S && !songV.hidden) fillSong(); });
 
   // 現在動作：以目前這一行為準。沒有動作的行不提示（聽 Ado 唱）
   // 整首沒有逐行標記的歌（自由搖、建議），整首用同一個提示，不跳字卡
@@ -870,9 +1026,16 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     alName.innerHTML = c.name; alBody.innerHTML = c.body; alHow.textContent = c.how;
     alDots = [...alBody.querySelectorAll(".dots i")];
     alWords = [...alBody.querySelectorAll(".k")];
-    // 手機：字卡放在影片正下方
-    if (innerWidth <= 900) al.style.setProperty("--al-top", Math.round(screenEl.getBoundingClientRect().bottom + 8) + "px");
+    placeCard();
   }
+  function placeCard() {
+    const r = screenEl.getBoundingClientRect(), c = cueBox.getBoundingClientRect();
+    al.style.setProperty("--al-left", Math.round(r.left + r.width / 2) + "px");
+    al.style.setProperty("--al-max", Math.round(r.width - 16) + "px");
+    const top = c.height ? c.top : r.bottom + 8;
+    al.style.setProperty("--al-top", Math.round(Math.max(8, Math.min(top, innerHeight - al.offsetHeight - 12))) + "px");
+  }
+  addEventListener("resize", () => { if (alKey) placeCard(); });
   function hideAlert() { if (alKey) { al.className = "alert"; alKey = ""; } cueFrame.style.opacity = 0; }
   function alerts(t, playing, cue) {
     if (!alertOn || !playing || !cue) return hideAlert();
@@ -918,11 +1081,12 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
     const t = now(), playing = isPlaying();
     if (SING.length) { singPrev.disabled = singAt(-1, t) == null; singNext.disabled = singAt(1, t) == null; }
     const started = playing || t > 0, cue = cueAt(t);
+    cueBox.classList.toggle("playing", playing); cueBox.classList.toggle("alerting", playing && alertOn);
     if (started && cue) {
       const key = cue.name + cue.acts.join();
       if (key !== curKey) {
         cueIcon.innerHTML = cue.acts.length ? `<use href="#${ACT[cue.acts[0]].icon}"/>` : "";
-        cueBox.className = "cue" + (cue.listen ? " idle" : cue.acts.length ? " a-" + mainAct(cue.acts) : "");
+        cueBox.className = "cue" + (cue.listen ? " idle" : cue.acts.length ? " a-" + mainAct(cue.acts) : "") + (playing ? " playing" : "") + (playing && alertOn ? " alerting" : "");
         cueName.textContent = cue.name; cueHow.textContent = cue.how; curKey = key;
       }
       const nx = nextChange(t);
@@ -947,32 +1111,139 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
 
   // 語言切換
   // 歌詞顯示選項：預設值 → 記在這台裝置
-  const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true };
+  const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true, size: "m" };
   try { Object.assign(OPT, JSON.parse(store.get("view-opts") || "{}")); } catch (e) {}
   function applyOpts() {
     box.classList.toggle("hide-ja", !OPT.ja); box.classList.toggle("hide-kana", !OPT.kana); box.classList.toggle("hide-zh", !OPT.zh);
     box.classList.toggle("karaoke", OPT.karaoke); box.classList.toggle("only-sing", OPT.sing);
+    box.classList.toggle("size-s", OPT.size === "s"); box.classList.toggle("size-l", OPT.size === "l");
     document.querySelectorAll("[data-opt]").forEach(b => b.setAttribute("aria-pressed", !!OPT[b.dataset.opt]));
+    document.querySelectorAll("[data-size]").forEach(b => b.setAttribute("aria-pressed", b.dataset.size === OPT.size));
+    singOnly.setAttribute("aria-pressed", OPT.sing);
   }
-  document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => {
-    OPT[b.dataset.opt] = !OPT[b.dataset.opt]; store.set("view-opts", JSON.stringify(OPT)); applyOpts();
-    holdUntil = 0; if (OPT.scroll && lineEls[curLine]) centerLine(lineEls[curLine]);
-  }));
+  const singOnly = document.getElementById("singOnly");
+  const setOpt = (k, v) => { OPT[k] = v; store.set("view-opts", JSON.stringify(OPT)); applyOpts(); holdUntil = 0; if (OPT.scroll && lineEls[curLine]) centerLine(lineEls[curLine]); };
+  singOnly.addEventListener("click", () => setOpt("sing", !OPT.sing));
+  document.querySelectorAll("[data-size]").forEach(b => b.addEventListener("click", () => setOpt("size", b.dataset.size)));
+  document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => setOpt(b.dataset.opt, !OPT[b.dataset.opt])));
   applyOpts();
-  const vopt = document.getElementById("vopt");
-  document.addEventListener("click", e => { if (vopt.open && !vopt.contains(e.target)) vopt.open = false; });
+  // 點選單外面就收起來
+  const menus = [document.getElementById("vopt"), document.getElementById("tools")];
+  document.addEventListener("click", e => menus.forEach(m => { if (m.open && !m.contains(e.target)) m.open = false; }));
+
+  // ── 練習工具 ──
+  const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), 2600); }; })();
+  const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1" };
+  const paintTools = () => document.querySelectorAll("[data-tool]").forEach(b => b.setAttribute("aria-pressed", TOOL[b.dataset.tool]));
+  document.querySelectorAll("[data-tool]").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.tool; TOOL[k] = !TOOL[k]; store.set("tool-" + k, TOOL[k] ? "1" : null); paintTools();
+    if (k === "click" && TOOL.click) clickCtx();
+  }));
+  paintTools();
+  // 上次就開著拍點聲：瀏覽器要等使用者點一下或按鍵才肯出聲，第一次互動時把聲音準備好
+  ["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (TOOL.click) clickCtx(); }, true));
+
+  // 播完自動下一首：照首頁目前的排序
+  function ended() {
+    if (!TOOL.autonext || !S) return;
+    const seq = ordered(), nx = seq[seq.indexOf(S) + 1];
+    if (nx) { AUTOPLAY = true; location.hash = nx.id; }
+  }
+
+  // 拍點聲：在拍子上響一聲「喀」，小節第一拍高一點；聲音提前排好，不會跟著畫面掉格
+  let actx = null, lastClick = null;
+  function clickCtx() {
+    try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch (e) { actx = null; }
+    return actx;
+  }
+  function tick(at, strong) {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.frequency.value = strong ? 1760 : 1320;
+    g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(strong ? .32 : .2, at + .002); g.gain.exponentialRampToValueAtTime(.0001, at + .05);
+    o.connect(g).connect(actx.destination); o.start(at); o.stop(at + .06);
+  }
+  function clicks(t, playing) {
+    if (!TOOL.click || !playing || !actx) { lastClick = null; return; }
+    const b = beatAt(t); if (!b) return;
+    // 下一拍在 0.12 秒內就先排進去（影片時間換成真實時間要除以速度）
+    const wait = (1 - b.f) * b.P / RATE;
+    if (wait < .12 && lastClick !== b.k + 1) {
+      lastClick = b.k + 1;
+      const bar = (((b.k + 1) % 4) + 4) % 4;
+      tick(actx.currentTime + wait, b.known && bar === 0);
+    }
+  }
+
+  // 分享目前時間：網址後面加 @秒數，打開就從那裡開始
+  document.getElementById("shareBtn").addEventListener("click", async () => {
+    if (!S) return;
+    const t = Math.floor(now()), url = `${location.origin}${location.pathname}#${S.id}${t ? "@" + t : ""}`;
+    document.getElementById("tools").open = false;
+    const text = `${S.ja}${t ? " " + fmt(t) : ""}｜Ado 應援預習`;
+    if (navigator.share && matchMedia("(pointer: coarse)").matches) { try { await navigator.share({ title: text, url }); return; } catch (e) { if (e.name === "AbortError") return; } }
+    try { await navigator.clipboard.writeText(url); toast(`已複製連結${t ? "（從 " + fmt(t) + " 開始）" : ""}`); }
+    catch (e) { prompt("複製這個連結：", url); }
+  });
+
+  // 回報錯誤：之後接上 Google 表單（REPORT.form 填表單網址，entry 填各欄位的 entry 編號）
+  // 還沒接上時，先讓人複製內容
+  const REPORT = { form: "", entry: { song: "", time: "", line: "", kind: "", note: "" } };
+  const dlg = document.getElementById("reportDlg"), rpKind = document.getElementById("rpKind"), rpNote = document.getElementById("rpNote");
+  let rpData = null;
+  document.getElementById("reportBtn").addEventListener("click", () => {
+    if (!S) return;
+    document.getElementById("tools").open = false;
+    pause();
+    const t = now(), l = LINES[lineAt(t)];
+    rpData = { song: `${S.ja}（${S.id}）`, time: fmt(t) + `（${t.toFixed(1)} 秒）`, line: l ? (l.ja || l.zh || "") : "（還沒開始）" };
+    document.getElementById("rpSong").textContent = rpData.song;
+    document.getElementById("rpTime").textContent = rpData.time;
+    document.getElementById("rpLine").textContent = rpData.line;
+    rpNote.value = "";
+    document.getElementById("rpHint").textContent = REPORT.form ? "按送出會開啟 Google 表單，上面的內容已經幫你填好。" : "回報表單還沒開放，按送出會把內容複製起來。";
+    document.getElementById("rpSend").textContent = REPORT.form ? "開啟表單" : "複製內容";
+    dlg.showModal();
+  });
+  dlg.addEventListener("close", async () => {
+    if (dlg.returnValue !== "send" || !rpData) return;
+    const d = { ...rpData, kind: rpKind.value, note: rpNote.value.trim() };
+    if (REPORT.form) {
+      const q = Object.entries(REPORT.entry).filter(([k, e]) => e && d[k]).map(([k, e]) => `entry.${e}=${encodeURIComponent(d[k])}`).join("&");
+      open(`${REPORT.form}?usp=pp_url&${q}`, "_blank", "noopener");
+      return;
+    }
+    const text = `【Ado 應援預習 回報】\n歌曲：${d.song}\n時間：${d.time}\n這一句：${d.line}\n問題：${d.kind}${d.note ? "\n說明：" + d.note : ""}`;
+    try { await navigator.clipboard.writeText(text); toast("已複製回報內容"); } catch (e) { prompt("複製這段內容：", text); }
+  });
+
+  // 鍵盤：空白鍵播放／暫停，← → 上一句、下一句（在輸入框裡不搶按鍵）
+  addEventListener("keydown", e => {
+    if (!S || songV.hidden || !ready || e.metaKey || e.ctrlKey || e.altKey || dlg.open) return;
+    if (e.target.closest("input, textarea, select, [contenteditable]")) return;
+    if (e.key === " " || e.key === "k") {
+      if (e.target.closest("button, summary, a") && e.key === " ") return;
+      e.preventDefault(); isPlaying() ? pause() : player.playVideo();
+    } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && LINES.length) {
+      e.preventDefault();
+      const t = now(), li = lineAt(t);
+      // 往前：這句剛開始 1.5 秒內就回上一句，不然回這句開頭
+      const to = e.key === "ArrowRight" ? LINES[li + 1] : (li >= 0 && t - LINES[li].t > 1.5 ? LINES[li] : LINES[li - 1]);
+      if (to) { holdUntil = 0; seek(to.t); }
+    }
+  });
 
   // ── 路由：#歌曲 id 開歌曲頁，其他回首頁 ──
   // 回清單時捲回離開前的位置
   let listY = 0;
   function route() {
-    const h = location.hash.slice(1), s = BY[h];
+    const h = location.hash.slice(1), [id, at] = h.split("@"), s = BY[id];
     if (s) {
       if (!homeV.hidden) listY = scrollY;
       document.body.classList.add("on-song");
-      homeV.hidden = true; songV.hidden = false; openSong(s); scrollTo(0, 0);
+      homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
     } else {
       pause(); hideAlert(); document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = "Ado 應援預習";
+      renderRecent();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
     }
@@ -1096,6 +1367,7 @@ footer.col { position: relative; z-index: 1; padding-block: 0 48px; color: var(-
   addEventListener("resize", () => { idleDrawn = false; });
   function frame(ms) {
     const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
+    clicks(t, playing);
     // 歌曲頁燈光換成這首的螢光棒顏色，回首頁換回藍白
     const want = S && !songV.hidden ? S : null;
     if (want !== penSong) { penSong = want; bg.pen(want && penOf(want).cols); idleDrawn = false; blasted = false; }
