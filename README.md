@@ -30,6 +30,7 @@ song-lyrics.js              ← 每首歌的同步日文歌詞、繁中翻譯與
 CHANGELOG.md                ← 更新日誌；網站頁尾的「更新日誌」直接讀這個檔案
 manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示與顏色
 assets/                     ← 網站圖示（favicon、主畫面圖示）與分享預覽圖 og.jpg
+scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致性、動作合法性、時間順序等
 scripts/build.mjs           ← 建置：每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
 README.md                   ← 這份說明
@@ -72,6 +73,14 @@ node scripts/build.mjs dist
 
 直接開原始檔時沒有拆好的歌詞，網頁會自動改讀整份 `song-lyrics.js`；建置後的網頁（`<html data-lyrics="…">`）才會一首一首讀 `lyrics/`。
 
+### 資料自動檢查
+
+改完歌曲或歌詞資料後，可以先跑資料檢查腳本，確認格式、動作名稱、時間順序與資料表完整性（GitHub Actions 發布前也會自動跑）：
+
+```bash
+node scripts/check-data.mjs
+```
+
 ## 3. 發布到 GitHub Pages
 
 儲存庫是公開的，**Settings** → **Pages** 的 Source 設為 **GitHub Actions**。推到 `main` 後 `.github/workflows/pages.yml` 會跑 `node scripts/build.mjs dist` 並發布 `dist/`，一兩分鐘後 <https://gcree.github.io/ado-guide/> 就會更新；進度在 GitHub 的 **Actions** 分頁。
@@ -87,10 +96,11 @@ node scripts/build.mjs dist
 ## 5. 改版流程
 
 1. 改 `index.html`、`style.css`、`app.js`、`songs.js` 或 `song-lyrics.js`。
-2. 不用改快取版本字串：原始檔寫 `?v=dev`，建置時會依內容自動換成新的，手機不會讀到舊檔。
-3. 在 `CHANGELOG.md` 最上面加一段新版本，並把 `index.html` 頁尾的版本號（`class="build"`）改成一樣。
-4. 新增歌曲時，`songs.js` 的 `SONGS` 加一筆、`song-lyrics.js` 加歌詞，就會自動多一個獨立頁、歌詞檔，並列進網站地圖。
-5. commit 並推到 `main`，GitHub Actions 會自動發布。
+2. 跑 `node scripts/check-data.mjs` 確認資料沒有格式或邏輯錯誤。
+3. 不用改快取版本字串：原始檔寫 `?v=dev`，建置時會依內容自動換成新的，手機不會讀到舊檔。
+4. 在 `CHANGELOG.md` 最上面加一段新版本，並把 `index.html` 頁尾的版本號（`class="build"`）改成一樣。
+5. 新增歌曲時，`songs.js` 的 `SONGS` 加一筆、`song-lyrics.js` 加歌詞，就會自動多一個獨立頁、歌詞檔，並列進網站地圖。
+6. commit 並推到 `main`，GitHub Actions 會自動檢查並發布。
 
 ## 6. 資料來源與致謝
 

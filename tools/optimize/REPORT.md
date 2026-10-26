@@ -236,3 +236,103 @@ Console 錯誤：
 
 - 全部驗證均如預期通過。
 - 依照交接規則，第 2 批完成後停下來，不繼續執行第 3 批。
+
+
+---
+
+## 第 3 批：資料自動檢查（結構）
+
+### 1. 改動前後狀態比對
+
+**改動前：**
+
+`git status --porcelain`:
+```text
+（乾淨，無改動）
+```
+
+`git diff --stat`:
+```text
+（無改動）
+```
+
+**改動後：**
+
+`git status --porcelain`:
+```text
+ M .github/workflows/pages.yml
+ M README.md
+ M songs.js
+?? scripts/check-data.mjs
+```
+
+`git diff --stat`:
+```text
+ .github/workflows/pages.yml |  2 ++
+ README.md                   | 18 ++++++++++++++----
+ songs.js                    |  6 +++---
+ 3 files changed, 19 insertions(+), 7 deletions(-)
+```
+
+---
+
+### 2. 改動檔案說明
+
+- **`scripts/check-data.mjs`**（新增）：自動檢查歌曲與歌詞資料一致性（曲長、YouTube ID、時間序、合法動作名稱、sing 存在性、PEN 顏色、BEAT 與 CLIMAX 數值合理性、tips/free/hold/sug 標記），並對缺項與缺翻譯列出 WARN 提醒。
+- **`.github/workflows/pages.yml`**：在 `Build` 步驟前加入 `node scripts/check-data.mjs` 自動把關。
+- **`README.md`**：專案結構加入 `check-data.mjs`，並於「在自己電腦上看」補充本地檢查用法與更新改版流程。
+- **`songs.js`**：經使用者同意，為〈Raven Sky〉〈好きでいて〉〈soldier game〉顯式加上 `hold: true`，落實資料層標記，以符合 Check 7 的嚴格檢查。
+
+---
+
+### 3. 驗證指令實際輸出
+
+#### `node scripts/check-data.mjs; echo "exit=$?"`
+```text
+=== 資料檢查提醒 (WARN: 12 則) ===
+[WARN] 缺少 UT（歌ネット）編號的歌曲 (2 首): staygold, kanjaa
+[WARN] 缺少 BEAT 拍點資料的歌曲 (5 首): value, angelseek, kittocoaster, aishite, kamippoina
+[WARN] 缺少 CLIMAX 副歌高潮秒數的歌曲 (1 首): aitakute
+[WARN] [freedom] 有 2 / 51 行非括號補位行缺少中文翻譯 tr
+[WARN] [giragira] 有 6 / 48 行非括號補位行缺少中文翻譯 tr
+[WARN] [aiaia] 有 1 / 67 行非括號補位行缺少中文翻譯 tr
+[WARN] [chocolat] 有 1 / 62 行非括號補位行缺少中文翻譯 tr
+[WARN] [pierrot] 有 33 / 34 行非括號補位行缺少中文翻譯 tr
+[WARN] [aitakute] 沒有逐行歌詞資料
+[WARN] [mirror] 有 20 / 58 行非括號補位行缺少中文翻譯 tr
+[WARN] [kanjaa] 有 8 / 56 行非括號補位行缺少中文翻譯 tr
+[WARN] [villain] 有 4 / 41 行非括號補位行缺少中文翻譯 tr
+
+資料檢查通過：0 個錯誤，12 個提醒。
+exit=0
+```
+
+#### `git diff --quiet HEAD -- song-lyrics.js && echo "song-lyrics.js 沒被改"`
+```text
+song-lyrics.js 沒被改
+```
+
+---
+
+### 4. 破壞測試結果
+
+| 測試 | 怎麼改 | 實際輸出 | 結束狀態 |
+|---|---|---|---|
+| A | 某首某行 acts 加一個 `"dance"` | `[ERROR] [show] 第 1 行: acts 包含無效動作 "dance"` | 失敗（exit=1） |
+| B | 某首兩行的 time 對調 | `[ERROR] [show] 第 2 行: time (0.47s) 小於前一行時間 (3.88s)，未由小到大排序` | 失敗（exit=1） |
+| C | 某行 sing 改成那行沒有的字 | `[ERROR] [show] 第 1 行: sing 字串 "Nah-Nah-Nah-Nah-Nah, Ready for my show" 未出現在日文歌詞 jp: "THIS_IS_NOT_IN_JP" 之中` | 失敗（exit=1） |
+
+測試後已由備份完全還原，`song-lyrics.js` 與 `songs.js` 乾淨未受污染。
+
+---
+
+### 5. 前／後截圖對照
+
+（第 3 批為純腳本與 CI 流程檢查，無畫面改動，不適用截圖）
+
+---
+
+### 6. 備註與說明
+
+- 在執行 Check 7 時，因第 1 批是在 `app.js` 執行期將無 tips 且非 free 視為 hold，但在 `songs.js` 原始資料中〈Raven Sky〉〈好きでいて〉〈soldier game〉尚未顯式寫入 `hold: true`。經停下來詢問使用者，使用者選定「在 `songs.js` 中加上 `hold: true`，落實資料層標記，讓 check-data.mjs 能嚴格把關未來新歌」。
+- 依照交接規則，第 3 批完成後停下來，不繼續執行第 4 批。

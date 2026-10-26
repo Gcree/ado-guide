@@ -71,9 +71,9 @@
     { id: "kittocoaster", ja: "きっとコースター", zh: "一定是雲霄飛車", date: "2024-06-18", yt: "nV5SHldicJY", len: "3:02", acts: ["sing"], tips: ["副歌那句疊字由觀眾唱"] },
     { id: "lovemeforever", ja: "Love me forever!", zh: "Love me forever!", date: "2026-07-03", yt: "WSuAVkaSC38", len: "4:10", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
     { id: "kanjaa", ja: "患者A", zh: "患者A", date: "2026-10-24", yt: "JO66tA5Yngs", len: "4:49", hold: true, acts: ["call", "gesture"], tips: ["跟著喊『あっかんべー』並做吐舌手勢", "間奏與結尾跟著節拍拍手"] },
-    { id: "ravensky", ja: "Raven Sky", zh: "Raven Sky", date: "2026-10-16", yt: "7DBSMzbPQzc", len: "4:12" },
-    { id: "sukideite", ja: "好きでいて", zh: "請一直喜歡我", date: "2026-09-07", yt: "iTNwVheLpj8", len: "4:07" },
-    { id: "soldiergame", ja: "soldier game", zh: "soldier game", date: "2026-01-13", yt: "J3hzdBkd6bg", len: "3:42" },
+    { id: "ravensky", ja: "Raven Sky", zh: "Raven Sky", date: "2026-10-16", yt: "7DBSMzbPQzc", len: "4:12", hold: true },
+    { id: "sukideite", ja: "好きでいて", zh: "請一直喜歡我", date: "2026-09-07", yt: "iTNwVheLpj8", len: "4:07", hold: true },
+    { id: "soldiergame", ja: "soldier game", zh: "soldier game", date: "2026-01-13", yt: "J3hzdBkd6bg", len: "3:42", hold: true },
     // 翻唱
     { id: "ponpokorin", ja: "おどるポンポコリン", zh: "跳舞的嘭嘭可琳", date: "2026-01-11", yt: "TZYqDl19qLQ", len: "1:25", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true },
     { id: "catseye", ja: "CAT'S EYE", zh: "貓眼", date: "2025-12-26", yt: "8-Qekf_GBow", len: "3:05", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true },

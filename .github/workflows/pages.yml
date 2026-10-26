@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check data
+        run: node scripts/check-data.mjs
       - name: Build
         run: node scripts/build.mjs dist
       - uses: actions/configure-pages@v5
