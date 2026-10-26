@@ -127,11 +127,8 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .vstatus { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; background: #04060c; }
 .vstatus[hidden] { display: none; }
 .vstatus p { margin: 0; max-width: 36ch; color: var(--muted); font-size: 13px; }
-/* 練習工具選單要蓋在歌詞上，MV 區塊不能裁切；影片自己保留圓角 */
-.mv { overflow: visible; position: relative; }
-.mv:has(details[open]) { z-index: 6; }
 .screen { border-radius: var(--radius-card) var(--radius-card) 0 0; overflow: hidden; }
-.mvbar .vopt .view-opts { min-width: 200px; }
+#tools .view-opts { min-width: 200px; }
 .view-opts .sep { height: 1px; margin: 4px 6px; background: var(--line); }
 .view-opts button.do::after { display: none; }
 .view-opts button:disabled { opacity: .45; cursor: default; }
@@ -162,14 +159,16 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .pen i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
 .pen i.rb { background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a); box-shadow: none; }
 .pen b { color: var(--muted); font-weight: 500; }
-.mvlinks { display: flex; gap: 16px; margin-left: auto; }
-.mvlinks a { display: inline-block; padding: 4px 0; color: var(--muted); text-decoration: none; }
-.mvlinks a:hover { color: var(--text); }
 /* 歌曲頁不顯示網站頂欄，頂部是返回、上一首、歌名、下一首 */
 .on-song .bar { display: none; }
 .on-song .left, .on-song .lyrics { top: calc(env(safe-area-inset-top, 0px) + 16px); }
 .on-song .lyrics { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 32px); }
-.songbar { display: flex; align-items: center; gap: 8px; padding-top: 8px; }
+.songbar { display: flex; align-items: center; gap: 8px; padding-top: 8px; position: relative; z-index: 7; }
+/* 練習工具：右上角的圓鈕，寬螢幕多顯示文字；選單往下蓋在影片和歌詞上 */
+.songbar .vopt summary { height: 40px; padding: 0 16px 0 12px; gap: 8px; background: var(--surface); color: var(--text); font-size: 14px; }
+.songbar .vopt summary svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.songbar .vopt summary::after { display: none; }
+.songbar .vopt[open] summary { background: var(--raised); }
 .ib { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text); text-decoration: none; }
 .ib:hover { background: var(--raised); }
 .ib:not([href]) { visibility: hidden; }
@@ -260,7 +259,9 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .view-opts.to-right { right: auto; left: 0; }
 .view-opts.to-up { top: auto; bottom: calc(100% + 6px); }
 .view-opts button { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: none; color: var(--muted); border-radius: 8px; padding: 8px 10px; font-size: 14px; text-align: left; cursor: pointer; }
-.view-opts button:hover { background: var(--hover); }
+.view-opts button:hover, .view-opts a:hover { background: var(--hover); }
+.view-opts a { display: block; border-radius: 8px; padding: 8px 10px; color: var(--muted); font-size: 14px; text-decoration: none; }
+.view-opts .m-only { display: none; }
 .view-opts button::after { content: ""; width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--faint); }
 .view-opts button[aria-pressed="true"] { color: var(--text); }
 .view-opts button[aria-pressed="true"]::after { background: var(--accent); box-shadow: none; }
@@ -337,6 +338,12 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
 
 
 @media (max-width: 900px) {
+  /* 手機：影片下面不放提示框（現在的動作看歌詞顏色和大字提醒），歌詞標題也拿掉，歌詞區大一點；大字提醒開關移到練習工具 */
+  .cue, .lyrics-top h2 { display: none; }
+  .view-opts .m-only { display: flex; }
+  .lyrics-top .vopt { margin-left: auto; }
+  .songbar .vopt summary { width: 40px; padding: 0; justify-content: center; border-radius: 50%; }
+  .songbar .vopt summary .lbl { display: none; }
   .grid { grid-template-columns: 1fr; }
   .left { position: static; }
   .lyrics { position: static; height: 70dvh; max-height: none; }
@@ -354,7 +361,6 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   .cue.idle .next { grid-column: 1 / 3; }
   .lyrics { --ly-ja: 15px; --ly-zh: 13px; }
   .ln { padding: 8px 12px; }
-  .mvlinks { margin-left: 0; }
   .alert .card { gap: 6px; padding: 12px 16px 14px; border-radius: 18px; }
   .alert .words, .alert .big { font-size: clamp(24px, 7.5vw, 34px); }
 }
@@ -362,7 +368,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   .on-song main.col { padding-block: 0; }
   .on-song footer { display: none; }
   .on-song #song { height: 100dvh; padding: env(safe-area-inset-top, 0px) 0 max(8px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }
-  .on-song .grid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  .on-song .grid { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
   .on-song .left { gap: 8px; }
   .on-song .lyrics { flex: 1; min-height: 0; height: auto; }
 }
@@ -378,7 +384,6 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   .tools .seg button { flex: none; }
   .seg button { flex: none; }
   .mvbar { gap: 6px 12px; padding-inline: 14px; }
-  .mvlinks { gap: 12px; }
 }
 @media (orientation: landscape) and (max-height: 500px) {
   .on-song main.col { padding-block: 0; }
@@ -386,6 +391,11 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   .on-song #song { height: 100dvh; padding: 4px 0 max(4px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 6px; }
   .songbar { padding-top: 2px; }
   .songbar .ib { width: 34px; height: 34px; }
+  .cue, .lyrics-top h2 { display: none; }
+  .view-opts .m-only { display: flex; }
+  .lyrics-top .vopt { margin-left: auto; }
+  .songbar .vopt summary { width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 50%; }
+  .songbar .vopt summary .lbl { display: none; }
   .on-song .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: min(52vw, calc((100dvh - 200px) * 16 / 9)) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 8px; }
   .on-song .left { position: static; gap: 6px; min-height: 0; overflow-y: auto; align-self: stretch; }
   .on-song .lyrics { position: static; height: auto; max-height: none; min-height: 0; align-self: stretch; }

@@ -317,7 +317,7 @@
 
   // 播放：同 Vaundy 版，YouTube 播放器只建立一次，換歌用 cueVideoById 換影片
   // 直接點開檔案（file://）時瀏覽器不送來源網址，YouTube 會拒絕嵌入，所以改顯示提示
-  let player = null, ready = false, vid = "", slowTimer = 0, START = 0, AUTOPLAY = false;
+  let player = null, ready = false, vid = "", slowTimer = 0, START = 0, muteTimer = 0;
   const vstatus = document.getElementById("vstatus"), vmsg = document.getElementById("vmsg");
   // 長度以 YouTube 回報的為準，還沒載好才用資料裡的長度
   const DUR = () => { try { const d = ready && vid === S.yt && player.getDuration(); if (d) return d; } catch (e) {} return S ? S.dur : 1; };
@@ -347,7 +347,7 @@
       vid = S.yt;
       player = new YT.Player("ytp", {
         videoId: vid,
-        playerVars: { rel: 0, playsinline: 1, modestbranding: 1, autoplay: 0, start: START },
+        playerVars: { rel: 0, playsinline: 1, modestbranding: 1, autoplay: 1, start: START },
         events: {
           onReady: () => { ready = true; clearTimeout(slowTimer); videoMsg(""); applyRate(); START = 0; loadVideo(); },
           // 換影片後 YouTube 會把速度重設成 1，播放或載入完成時再套一次
@@ -358,10 +358,22 @@
       return;
     }
     if (!ready) return;
-    // 自動下一首用 load（會直接播），其他時候 cue（等使用者按播放）
-    if (vid !== S.yt) { vid = S.yt; player[AUTOPLAY ? "loadVideoById" : "cueVideoById"]({ videoId: S.yt, startSeconds: START }); }
-    else if (START) seek(START);
-    START = 0; AUTOPLAY = false;
+    // 打開歌曲就自動播放
+    if (vid !== S.yt) { vid = S.yt; player.loadVideoById({ videoId: S.yt, startSeconds: START }); }
+    else { if (START) seek(START); player.playVideo(); }
+    START = 0;
+    ensurePlaying();
+  }
+  // 瀏覽器不讓有聲音的影片自己播時（直接打開網址、還沒點過畫面，iPhone 常見），改成靜音播放並提醒
+  function ensurePlaying() {
+    clearTimeout(muteTimer);
+    muteTimer = setTimeout(() => {
+      if (!ready || songV.hidden) return;
+      const st = player.getPlayerState();
+      if (st === 1 || st === 2 || st === 3) return;  // 在播、使用者自己暫停了、或還在緩衝
+      player.mute(); player.playVideo();
+      toast("瀏覽器不讓影片自動出聲，先靜音播放；點影片的喇叭開聲音");
+    }, 3000);
   }
   if (location.protocol === "file:") {
     videoMsg("直接點開檔案時 YouTube 不允許嵌入播放。請改用資料夾裡的「開啟網站.command」，或放上 GitHub Pages 再看。");
@@ -447,8 +459,11 @@
         alBody = document.getElementById("alBody"), alHow = document.getElementById("alHow"), cueFrame = document.getElementById("cueFrame"), alertSw = document.getElementById("alertSw");
   const screenEl = document.getElementById("screen");
   let alertOn = store.get("alert-off") !== "1", alKey = "", alKind = "", alDots = [], alWords = [], alSing = [];
-  alertSw.setAttribute("aria-pressed", alertOn);
-  alertSw.addEventListener("click", () => { alertOn = !alertOn; alertSw.setAttribute("aria-pressed", alertOn); store.set("alert-off", alertOn ? "0" : "1"); });
+  // 大字提醒開關：電腦在提示框裡，手機在練習工具選單裡
+  const alertBtns = [alertSw, document.getElementById("alertTool")];
+  const paintAlert = () => alertBtns.forEach(b => b.setAttribute("aria-pressed", alertOn));
+  paintAlert();
+  alertBtns.forEach(b => b.addEventListener("click", () => { alertOn = !alertOn; paintAlert(); store.set("alert-off", alertOn ? "0" : "1"); }));
   const dotsHTML = (n, first) => `<div class="dots">${Array.from({ length: n }, (_, i) => `<i${first && !i ? ' class="first"' : ""}></i>`).join("")}</div>`;
   // 字卡內容：大合唱寫出要唱的字，喊聲寫出要喊的話，拍手是每拍亮的圓點，揮手是擺動的螢光棒，跳躍是彈起的圖示
   function cardFor(cue, l) {
@@ -616,7 +631,7 @@
   function ended() {
     if (!TOOL.autonext || !S) return;
     const seq = ordered(), nx = seq[seq.indexOf(S) + 1];
-    if (nx) { AUTOPLAY = true; location.hash = nx.id; }
+    if (nx) location.hash = nx.id;
   }
 
   // 拍點聲：在拍子上響一聲「喀」，小節第一拍高一點；聲音提前排好，不會跟著畫面掉格
