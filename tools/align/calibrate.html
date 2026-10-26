@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ado 歌詞時間校正 (Lyrics Calibration)</title>
+  <!-- Locked WaveSurfer 7.x CDN -->
+  <script src="https://unpkg.com/wavesurfer.js@7.8.14/dist/wavesurfer.min.js"></script>
+  <script src="https://unpkg.com/wavesurfer.js@7.8.14/dist/plugins/regions.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --accent: #f43f5e;
+      --review-bg: rgba(245, 158, 11, 0.18);
+      --review-border: #f59e0b;
+      --selected: #0284c7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .header-left, .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    h1 {
+      font-size: 1.15rem;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    select, button, input[type="number"], input[type="text"] {
+      background: #0f172a;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:hover {
+      border-color: var(--primary);
+    }
+    button.btn-primary {
+      background: #0284c7;
+      border-color: #0284c7;
+      color: #fff;
+      font-weight: 600;
+    }
+    button.btn-primary:hover {
+      background: #0369a1;
+    }
+    .timer-badge {
+      background: #022c22;
+      border: 1px solid #10b981;
+      color: #34d399;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.88rem;
+    }
+    .main-container {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+    .left-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      gap: 16px;
+      overflow-y: auto;
+    }
+    .right-panel {
+      width: 480px;
+      display: flex;
+      flex-direction: column;
+      background: #0b1120;
+    }
+    .waveform-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    #waveform {
+      width: 100%;
+      height: 128px;
+      background: #090d16;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .player-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .active-line-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .active-line-title {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .active-line-jp {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #38bdf8;
+    }
+    .line-timing-row {
+      display: flex;
+      gap: 16px;
+      font-family: monospace;
+      font-size: 0.95rem;
+      align-items: center;
+    }
+    .fine-tune-buttons {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .lines-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+    }
+    .lines-list {
+      flex: 1;
+      overflow-y: auto;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .line-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: background 0.15s;
+    }
+    .line-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .line-item.selected {
+      background: rgba(56, 189, 248, 0.15);
+      border-left: 4px solid var(--primary);
+    }
+    .line-item.is-review {
+      background: var(--review-bg);
+      border-left: 4px solid var(--review-border);
+    }
+    .line-item.is-review.selected {
+      border-left: 4px solid #f59e0b;
+      background: rgba(245, 158, 11, 0.28);
+    }
+    .line-item.is-skip {
+      opacity: 0.5;
+    }
+    .line-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    .line-text {
+      font-size: 0.95rem;
+      line-height: 1.35;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .badge-review {
+      background: #f59e0b;
+      color: #000;
+    }
+    .badge-skip {
+      background: #475569;
+      color: #cbd5e1;
+    }
+    .source-toggle {
+      display: inline-flex;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .source-toggle button {
+      border-radius: 0;
+      border: none;
+      background: #0f172a;
+    }
+    .source-toggle button.active {
+      background: #0284c7;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>🎵 Ado 校正頁</h1>
+      <select id="songSelect">
+        <option value="show">唱 (show)</option>
+        <option value="odo">踊 (odo)</option>
+        <option value="kokoro">心という名の不可解 (kokoro)</option>
+      </select>
+      <div class="source-toggle">
+        <button id="srcVocals" class="active">人聲 (Vocals)</button>
+        <button id="srcOriginal">原音 (Original)</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <label style="font-size:0.85rem; color:var(--text-muted);">🔊 音量:</label>
+        <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1" style="width: 70px; cursor:pointer;">
+        <span id="volLabel" style="font-family:monospace; font-size:0.8rem; width:35px;">100%</span>
+      </div>
+      <button id="btnTestSound" style="font-size:0.8rem; padding:4px 8px;" title="播放短嗶聲測試瀏覽器是否有聲音">🔔 測試音效</button>
+      <div class="timer-badge" id="audioStatusBadge" style="background:#1e1b4b; border-color:#6366f1; color:#c7d2fe; cursor:pointer;" title="點擊啟用音訊引擎">⏳ 初始化音訊...</div>
+      <div class="timer-badge" id="timerBadge">操作計時: 00:00 (閒置暫停)</div>
+    </div>
+    <div class="header-right">
+      <div style="display:flex; align-items:center; gap:4px;">
+        <label style="font-size:0.85rem; color:var(--text-muted);">整首 Offset:</label>
+        <input type="number" id="globalOffset" step="0.05" value="0.00" style="width: 75px;">
+        <button id="btnApplyOffset">推移全曲</button>
+      </div>
+      <button id="btnExport" class="btn-primary">💾 匯出 Corrected JSON</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div class="left-panel">
+      <div class="waveform-card">
+        <div id="waveform"></div>
+        <div class="player-controls">
+          <button id="btnPlayPause" class="btn-primary">▶ 播放 / 暫停 (Space)</button>
+          <button id="btnBack2s">⏪ -2s</button>
+          <button id="btnFwd2s">⏩ +2s</button>
+          <span style="font-family:monospace; font-size:1rem;" id="timeDisplay">00:00.00 / 00:00.00</span>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+            <label style="font-size:0.85rem; color:var(--text-muted);">縮放:</label>
+            <input type="range" id="zoomSlider" min="20" max="250" value="50" style="cursor:pointer;">
+          </div>
+        </div>
+      </div>
+
+      <div class="active-line-card" id="activeLineCard">
+        <div class="active-line-title" id="activeLineIndex">選擇一行進行微調</div>
+        <div class="active-line-jp" id="activeLineText">-- 請從右側清單點選歌詞 --</div>
+        <div class="line-timing-row">
+          <div>目前時間: <input type="number" id="inputCurrentTime" step="0.01" style="width:90px; font-weight:bold; font-size:1.05rem;"> 秒</div>
+          <div>舊時間: <span id="displayOldTime" style="color:var(--text-muted);">--</span></div>
+          <div>候選時間: <span id="displayCandTime" style="color:#38bdf8;">--</span></div>
+          <div>差值: <span id="displayDiffTime">--</span></div>
+        </div>
+        <div class="fine-tune-buttons">
+          <button id="btnPlayLine" class="btn-primary">▶ 從前 1 秒試聽</button>
+          <button id="btnSub025">-0.25s</button>
+          <button id="btnSub005">-0.05s</button>
+          <button id="btnAdd005">+0.05s</button>
+          <button id="btnAdd025">+0.25s</button>
+          <button id="btnUseCand">用候選</button>
+          <button id="btnUseOld">用舊的</button>
+        </div>
+      </div>
+
+      <div class="waveform-card" style="font-size:0.85rem; color:var(--text-muted); line-height:1.6;">
+        <h4 style="margin:0 0 6px 0; color:var(--text);">快速操作指南與快速鍵</h4>
+        <div>• <b>選行 / 試聽</b>：點擊右側歌詞，或用鍵盤 <kbd>↑</kbd> / <kbd>↓</kbd> 切換行；按 <kbd>R</kbd> 鍵從該句前 1 秒試聽，<kbd>Space</kbd> 播放/暫停。</div>
+        <div>• <b>微調時間</b>：按鈕 <kbd>±0.05s</kbd> / <kbd>±0.25s</kbd>（快速鍵 <kbd>[</kbd> / <kbd>]</kbd> 調 0.05s，<kbd>{</kbd> / <kbd>}</kbd> 調 0.25s）。</div>
+        <div>• <b>一鍵切換</b>：按鈕「用候選」(<kbd>C</kbd>)、「用舊的」(<kbd>O</kbd>)；也可直接拖動波形上的標籤。</div>
+        <div>• <b>全曲推移</b>：上方有「整首 Offset」輸入框，可整體微調再微調個別句。</div>
+        <div>• <b>聲音排查</b>：可按上方「🔔 測試音效」發出提示嗶聲，確認瀏覽器音效裝置運作正常。</div>
+        <div>• <b>校正完成</b>：點右上角「💾 匯出 Corrected JSON」，將下載的檔案放入 <code>tools/align/work/corrected/</code>。</div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="lines-header">
+        <span style="font-weight:600;">歌詞列表 (<span id="lineCount">0</span> 行)</span>
+        <div style="display:flex; gap:6px;">
+          <button id="btnAllCand" style="font-size:0.75rem; padding:4px 8px;">全套用候選</button>
+          <button id="btnAllOld" style="font-size:0.75rem; padding:4px 8px;">全還原舊值</button>
+        </div>
+      </div>
+      <ul class="lines-list" id="linesList"></ul>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    let songId = urlParams.get('song') || 'show';
+    document.getElementById('songSelect').value = songId;
+
+    let linesData = []; // [{ i, jp, old, cand, diff, score, flag, time }]
+    let selectedIndex = 0;
+    let currentSourceType = 'vocals'; // 'vocals' or 'original'
+
+    // Active Timer
+    let activeSeconds = 0;
+    let lastActivityTime = Date.now();
+
+    function recordActivity() {
+      lastActivityTime = Date.now();
+    }
+    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+      window.addEventListener(evt, recordActivity, { passive: true });
+    });
+
+    setInterval(() => {
+      const now = Date.now();
+      if (now - lastActivityTime < 60000) { // Idle under 60s
+        activeSeconds++;
+        const mins = String(Math.floor(activeSeconds / 60)).padStart(2, '0');
+        const secs = String(activeSeconds % 60).padStart(2, '0');
+        document.getElementById('timerBadge').textContent = `操作計時: ${mins}:${secs}`;
+      } else {
+        const mins = String(Math.floor(activeSeconds / 60)).padStart(2, '0');
+        const secs = String(activeSeconds % 60).padStart(2, '0');
+        document.getElementById('timerBadge').textContent = `操作計時: ${mins}:${secs} (已閒置暫停)`;
+      }
+    }, 1000);
+
+    // Audio URLs
+    function getAudioUrl(source) {
+      if (source === 'vocals') {
+        return `/tools/align/work/stems/htdemucs/${songId}/vocals.wav`;
+      } else {
+        return `/tools/align/work/audio/${songId}.wav`;
+      }
+    }
+
+    // Initialize WaveSurfer with WebAudio backend
+    const wsRegions = WaveSurfer.Regions.create();
+    const wavesurfer = WaveSurfer.create({
+      container: '#waveform',
+      waveColor: '#475569',
+      progressColor: '#38bdf8',
+      cursorColor: '#f43f5e',
+      cursorWidth: 2,
+      minPxPerSec: 50,
+      autoScroll: true,
+      backend: 'WebAudio', // Crucial: loads full buffer in memory, zero Range-request issues
+      plugins: [wsRegions]
+    });
+
+    // AudioContext unlocker & status helper
+    function getAudioContext() {
+      try {
+        const media = wavesurfer.getMediaElement();
+        if (media && media.audioContext) return media.audioContext;
+      } catch (e) {}
+      return null;
+    }
+
+    function updateAudioStatus() {
+      const badge = document.getElementById('audioStatusBadge');
+      const ctx = getAudioContext();
+      if (!badge) return;
+      if (!ctx) {
+        badge.textContent = '🔊 音訊就緒';
+        badge.style.borderColor = '#10b981';
+        badge.style.color = '#34d399';
+        return;
+      }
+      if (ctx.state === 'running') {
+        badge.textContent = '🔊 聲音已啟用';
+        badge.style.borderColor = '#10b981';
+        badge.style.color = '#34d399';
+      } else if (ctx.state === 'suspended') {
+        badge.textContent = '⚠️ 點此啟用聲音';
+        badge.style.borderColor = '#f59e0b';
+        badge.style.color = '#fbbf24';
+      } else {
+        badge.textContent = `🔊 狀態: ${ctx.state}`;
+      }
+    }
+
+    function resumeAudio() {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state !== 'running') {
+        ctx.resume().then(() => {
+          updateAudioStatus();
+        }).catch(e => console.warn('AudioContext resume failed:', e));
+      } else {
+        updateAudioStatus();
+      }
+    }
+
+    // Resume on user gestures
+    ['click', 'keydown', 'touchstart'].forEach(evt => {
+      window.addEventListener(evt, resumeAudio, { passive: true });
+    });
+    document.getElementById('audioStatusBadge').addEventListener('click', resumeAudio);
+
+    // Test Beep button
+    document.getElementById('btnTestSound').addEventListener('click', (e) => {
+      e.stopPropagation();
+      resumeAudio();
+      try {
+        const ctx = getAudioContext() || new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } catch (err) {
+        console.error('Test beep error:', err);
+      }
+    });
+
+    // Volume control
+    const volSlider = document.getElementById('volSlider');
+    const volLabel = document.getElementById('volLabel');
+    volSlider.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value);
+      wavesurfer.setVolume(v);
+      volLabel.textContent = `${Math.round(v * 100)}%`;
+    });
+
+    wavesurfer.on('loading', (percent) => {
+      const badge = document.getElementById('audioStatusBadge');
+      if (badge) badge.textContent = `⏳ 載入音訊: ${percent}%`;
+    });
+
+    wavesurfer.on('ready', () => {
+      wavesurfer.setVolume(parseFloat(volSlider.value));
+      updateAudioStatus();
+    });
+
+    wavesurfer.on('error', (err) => {
+      console.error('WaveSurfer error:', err);
+      const badge = document.getElementById('audioStatusBadge');
+      if (badge) {
+        badge.textContent = '❌ 音訊載入失敗';
+        badge.style.borderColor = '#ef4444';
+        badge.style.color = '#f87171';
+      }
+    });
+
+    function loadAudio(source) {
+      currentSourceType = source;
+      document.getElementById('srcVocals').classList.toggle('active', source === 'vocals');
+      document.getElementById('srcOriginal').classList.toggle('active', source === 'original');
+      const badge = document.getElementById('audioStatusBadge');
+      if (badge) badge.textContent = '⏳ 載入音訊中...';
+      wavesurfer.load(getAudioUrl(source));
+    }
+
+    document.getElementById('srcVocals').addEventListener('click', () => loadAudio('vocals'));
+    document.getElementById('srcOriginal').addEventListener('click', () => loadAudio('original'));
+    document.getElementById('songSelect').addEventListener('change', (e) => {
+      window.location.search = `?song=${e.target.value}`;
+    });
+
+    // Formatting
+    function formatTime(s) {
+      if (isNaN(s)) return '00:00.00';
+      const m = Math.floor(s / 60);
+      const rem = s % 60;
+      return `${String(m).padStart(2, '0')}:${rem.toFixed(2).padStart(5, '0')}`;
+    }
+
+    wavesurfer.on('timeupdate', (t) => {
+      document.getElementById('timeDisplay').textContent = 
+        `${formatTime(t)} / ${formatTime(wavesurfer.getDuration())}`;
+    });
+
+    async function togglePlay() {
+      resumeAudio();
+      try {
+        await wavesurfer.playPause();
+      } catch (err) {
+        console.warn('PlayPause error:', err);
+        const ctx = getAudioContext();
+        if (ctx) {
+          await ctx.resume();
+          await wavesurfer.playPause();
+        }
+      }
+    }
+
+    document.getElementById('btnPlayPause').addEventListener('click', togglePlay);
+    document.getElementById('btnBack2s').addEventListener('click', () => wavesurfer.setTime(Math.max(0, wavesurfer.getCurrentTime() - 2)));
+    document.getElementById('btnFwd2s').addEventListener('click', () => wavesurfer.setTime(Math.min(wavesurfer.getDuration(), wavesurfer.getCurrentTime() + 2)));
+    
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        if (selectedIndex < linesData.length - 1) {
+          selectLine(selectedIndex + 1);
+          playLine(selectedIndex);
+        }
+      } else if (e.code === 'ArrowUp') {
+        e.preventDefault();
+        if (selectedIndex > 0) {
+          selectLine(selectedIndex - 1);
+          playLine(selectedIndex);
+        }
+      } else if (e.key === '[' || e.key === ']') {
+        e.preventDefault();
+        const delta = e.key === ']' ? 0.05 : -0.05;
+        updateLineTime(selectedIndex, linesData[selectedIndex].time + delta);
+      } else if (e.key === '{' || e.key === '}') {
+        e.preventDefault();
+        const delta = e.key === '}' ? 0.25 : -0.25;
+        updateLineTime(selectedIndex, linesData[selectedIndex].time + delta);
+      } else if (e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        playLine(selectedIndex);
+      } else if (e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        const cand = linesData[selectedIndex].cand;
+        if (cand !== null && cand !== undefined) updateLineTime(selectedIndex, cand);
+      } else if (e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        updateLineTime(selectedIndex, linesData[selectedIndex].old);
+      }
+    });
+
+    document.getElementById('zoomSlider').addEventListener('input', (e) => {
+      wavesurfer.zoom(Number(e.target.value));
+    });
+
+    // Load Data
+    async function initData() {
+      loadAudio('vocals');
+      try {
+        const resp = await fetch(`/tools/align/work/aligned/${songId}.json`);
+        if (!resp.ok) {
+          throw new Error(`Failed to load aligned data: HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        linesData = data.map(item => ({
+          ...item,
+          time: (item.cand !== null && item.cand !== undefined) ? item.cand : item.old
+        }));
+        document.getElementById('lineCount').textContent = linesData.length;
+        renderList();
+        renderRegions();
+        selectLine(0);
+      } catch (err) {
+        console.error(err);
+        alert(`載入 aligned 資料失敗: ${err.message}\n請確認 Step 6 align.py 已執行完成。`);
+      }
+    }
+
+    function renderList() {
+      const container = document.getElementById('linesList');
+      container.innerHTML = '';
+      linesData.forEach((line, idx) => {
+        const li = document.createElement('li');
+        li.className = `line-item ${idx === selectedIndex ? 'selected' : ''}`;
+        if (line.flag === 'review') li.classList.add('is-review');
+        if (line.flag === 'skip') li.classList.add('is-skip');
+
+        const diffStr = line.cand !== null ? (line.cand - line.old >= 0 ? `+${(line.cand - line.old).toFixed(2)}` : (line.cand - line.old).toFixed(2)) : '--';
+        
+        li.innerHTML = `
+          <div class="line-meta">
+            <span>#${line.i} ${line.flag === 'review' ? '<span class="badge badge-review">Review</span>' : ''} ${line.flag === 'skip' ? '<span class="badge badge-skip">Skip</span>' : ''}</span>
+            <span>採: <b id="li-time-${idx}">${line.time.toFixed(2)}s</b> | 候: ${line.cand !== null ? line.cand.toFixed(2) + 's' : '--'} (${diffStr}s)</span>
+          </div>
+          <div class="line-text">${line.jp}</div>
+        `;
+        li.addEventListener('click', () => {
+          selectLine(idx);
+          playLine(idx);
+        });
+        container.appendChild(li);
+      });
+    }
+
+    function renderRegions() {
+      wsRegions.clearRegions();
+      linesData.forEach((line, idx) => {
+        const isReview = line.flag === 'review';
+        wsRegions.addRegion({
+          id: String(idx),
+          start: line.time,
+          end: line.time + 0.15,
+          color: isReview ? 'rgba(245, 158, 11, 0.45)' : 'rgba(56, 189, 248, 0.35)',
+          drag: true,
+          resize: false
+        });
+      });
+    }
+
+    wsRegions.on('region-updated', (region) => {
+      const idx = parseInt(region.id, 10);
+      if (!isNaN(idx) && linesData[idx]) {
+        updateLineTime(idx, region.start);
+      }
+    });
+
+    wsRegions.on('region-clicked', (region, e) => {
+      e.stopPropagation();
+      const idx = parseInt(region.id, 10);
+      selectLine(idx);
+    });
+
+    function selectLine(idx) {
+      if (idx < 0 || idx >= linesData.length) return;
+      selectedIndex = idx;
+      const line = linesData[idx];
+
+      // Update right panel selection
+      const items = document.querySelectorAll('.line-item');
+      items.forEach((item, i) => item.classList.toggle('selected', i === idx));
+      if (items[idx]) {
+        items[idx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+
+      // Update active line card
+      document.getElementById('activeLineIndex').textContent = `第 ${line.i} 行 ${line.flag === 'review' ? '[需人工確認]' : ''} ${line.flag === 'skip' ? '[補位跳過]' : ''}`;
+      document.getElementById('activeLineText').textContent = line.jp;
+      document.getElementById('inputCurrentTime').value = line.time.toFixed(2);
+      document.getElementById('displayOldTime').textContent = `${line.old.toFixed(2)}s`;
+      document.getElementById('displayCandTime').textContent = line.cand !== null ? `${line.cand.toFixed(2)}s` : '無';
+      const diff = line.cand !== null ? (line.cand - line.old).toFixed(2) : '--';
+      document.getElementById('displayDiffTime').textContent = diff !== '--' ? `${diff > 0 ? '+' : ''}${diff}s` : '--';
+    }
+
+    function updateLineTime(idx, newTime) {
+      newTime = Math.max(0, Math.round(newTime * 100) / 100);
+      linesData[idx].time = newTime;
+      const liTimeEl = document.getElementById(`li-time-${idx}`);
+      if (liTimeEl) liTimeEl.textContent = `${newTime.toFixed(2)}s`;
+      if (idx === selectedIndex) {
+        document.getElementById('inputCurrentTime').value = newTime.toFixed(2);
+      }
+      // Update region on waveform without firing recursive updated event
+      const regions = wsRegions.getRegions();
+      const r = regions.find(reg => reg.id === String(idx));
+      if (r && Math.abs(r.start - newTime) > 0.01) {
+        r.setOptions({ start: newTime, end: newTime + 0.15 });
+      }
+    }
+
+    async function playLine(idx) {
+      resumeAudio();
+      const line = linesData[idx];
+      const targetTime = Math.max(0, line.time - 1.0);
+      wavesurfer.setTime(targetTime);
+      try {
+        await wavesurfer.play();
+      } catch (err) {
+        console.warn('Play error:', err);
+        const ctx = getAudioContext();
+        if (ctx) {
+          await ctx.resume();
+          await wavesurfer.play();
+        }
+      }
+    }
+
+    document.getElementById('btnPlayLine').addEventListener('click', () => playLine(selectedIndex));
+
+    document.getElementById('btnSub025').addEventListener('click', () => updateLineTime(selectedIndex, linesData[selectedIndex].time - 0.25));
+    document.getElementById('btnSub005').addEventListener('click', () => updateLineTime(selectedIndex, linesData[selectedIndex].time - 0.05));
+    document.getElementById('btnAdd005').addEventListener('click', () => updateLineTime(selectedIndex, linesData[selectedIndex].time + 0.05));
+    document.getElementById('btnAdd025').addEventListener('click', () => updateLineTime(selectedIndex, linesData[selectedIndex].time + 0.25));
+    document.getElementById('btnUseCand').addEventListener('click', () => {
+      const cand = linesData[selectedIndex].cand;
+      if (cand !== null && cand !== undefined) updateLineTime(selectedIndex, cand);
+    });
+    document.getElementById('btnUseOld').addEventListener('click', () => {
+      updateLineTime(selectedIndex, linesData[selectedIndex].old);
+    });
+
+    document.getElementById('inputCurrentTime').addEventListener('change', (e) => {
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val)) updateLineTime(selectedIndex, val);
+    });
+
+    // Bulk actions
+    document.getElementById('btnAllCand').addEventListener('click', () => {
+      if (!confirm('確定要把所有行的時間都設為候選時間嗎？')) return;
+      linesData.forEach((l, idx) => {
+        if (l.cand !== null && l.cand !== undefined) updateLineTime(idx, l.cand);
+      });
+      renderRegions();
+    });
+
+    document.getElementById('btnAllOld').addEventListener('click', () => {
+      if (!confirm('確定要把所有行都還原成舊時間嗎？')) return;
+      linesData.forEach((l, idx) => updateLineTime(idx, l.old));
+      renderRegions();
+    });
+
+    document.getElementById('btnApplyOffset').addEventListener('click', () => {
+      const offset = parseFloat(document.getElementById('globalOffset').value);
+      if (isNaN(offset) || offset === 0) return;
+      if (!confirm(`確定要為整首歌的所有行推移 ${offset > 0 ? '+' : ''}${offset} 秒嗎？`)) return;
+      linesData.forEach((l, idx) => updateLineTime(idx, Math.max(0, l.time + offset)));
+      renderRegions();
+    });
+
+    // Export
+    document.getElementById('btnExport').addEventListener('click', () => {
+      const minutes = Math.round((activeSeconds / 60) * 10) / 10;
+      const exportPayload = {
+        id: songId,
+        minutes: minutes,
+        lines: linesData.map(l => ({
+          i: l.i,
+          jp: l.jp,
+          time: Math.round(l.time * 100) / 100
+        }))
+      };
+
+      const jsonStr = JSON.stringify(exportPayload, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = `${songId}.corrected.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(dlUrl);
+
+      alert(`已匯出 ${songId}.corrected.json (校正時間: ${minutes} 分鐘)！\n請將該檔案放至 tools/align/work/corrected/ 資料夾中。`);
+    });
+
+    initData();
+  </script>
+</body>
+</html>

@@ -28,7 +28,7 @@
     { id: "saikyo", ja: "私は最強", zh: "我是最強", date: "2022-06-22", yt: "sk1Z-Hqwwog", len: "4:30", acts: ["clap", "call"], tips: ["開頭的副歌拍手，依場次有時不拍", "間奏喊「ハイ！ハイ！」"] },
     { id: "aiaia", ja: "アイ・アイ・ア", zh: "AiAiA", date: "2026-03-20", yt: "_8CNByAq1n4", len: "4:20", acts: ["sing"], tips: ["副歌 Ado 唱完歌名，觀眾重複一次", "最後副歌連續四次的歌名也由觀眾重複"] },
     { id: "rockstar", ja: "ロックスター", zh: "搖滾巨星", date: "2025-04-09", yt: "hRJpiCZlLX8", len: "3:51", acts: ["clap", "sing", "call"], tips: ["前奏和間奏照固定節奏踏腳、拍手", "Ado 給信號後一起唱", "官方推薦這樣做到曲子結束；作者建議只有間奏照官方做，其他時候拍手就好", "最後副歌前喊「Hey」"] },
-    { id: "staygold", ja: "Stay Gold", zh: "Stay Gold", date: "2026-07-31", yt: "Tmz3mpOq8aE", len: "3:55", acts: ["wave", "call"], tips: ["副歌加「wow」", "跟著節拍搖螢光棒"], live: true, acts: ["sing"], tips: ["副歌的「wow wow」由觀眾唱"] },
+    { id: "staygold", ja: "Stay Gold", zh: "Stay Gold", date: "2026-07-31", yt: "Tmz3mpOq8aE", len: "3:55", live: true, acts: ["sing"], tips: ["副歌的「wow wow」由觀眾唱"] },
     { id: "episodex", ja: "Episode X", zh: "Episode X", date: "2024-12-06", yt: "9dKZeL2UbUM", len: "3:46", acts: ["sing"], tips: ["第二段 A 段的三個單字由觀眾唱"] },
     { id: "totmusica", ja: "Tot Musica", zh: "Tot Musica", date: "2022-08-17", yt: "V9_ZpqfqHFI", len: "3:22", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
     { id: "kira", ja: "綺羅", zh: "KIRA", date: "2026-04-27", yt: "qpcz3-iDUP8", len: "3:19", acts: ["call", "sing"], tips: ["間奏喊「ハイ！ハイ！」", "副歌前那一長句由觀眾唱"] },
@@ -92,8 +92,8 @@
   ];
   // 正版歌詞：歌ネット（uta-net.com）的歌曲頁編號
   const UT = {"show":343570,"usseewa":292534,"readymade":295824,"freedom":313113,"rule":356726,"ashura":309074,"mondaisaku":332973,"gyakkou":321128,"odo":301298,"shinjidai":319758,"giragira":297951,"kurakura":344008,"saikyo":320568,"aiaia":389756,"rockstar":371304,"episodex":364731,"totmusica":322907,"kira":392133,"monstruo":397076,"ibara":336879,"rebellion":324691,"chocolat":349160,"shoka":361947,"pierrot":303332,"aitakute":306065,"akuruhi":315407,"kokoro":313110,"utakata":322805,"sekai":322906,"kaze":322905,"missing":326032,"himawari":340373,"dignity":343573,"radio":344727,"unravel":350288,"hotaru":350286,"value":350381,"mirror":355040,"sakura":362390,"elf":367139,"hanataba":369630,"kazetowatashi":380660,"magic":381653,"angelseek":386914,"vivarium":388255,"haruni":392755,"kagakushu":313108,"hanabi":313112,"domestic":313114,"luckybruto":313111,"motherland":313109,"nukegara":357493,"zero":357492,"hellosignals":371303,"kittocoaster":363098,"lovemeforever":395819,"ravensky":400798,"sukideite":398715,"soldiergame":386267,"ponpokorin":385914,"catseye":380030,"kitaro":374762,"charles":371560,"jikkai":373551,"aishite":350293,"kazarijanai":350294,"kamippoina":350289,"kawaikute":350291,"tsumitobatsu":350292,"dryflower":350295,"villain":350290,"burikino":350287};
-  // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示
-  SONGS.forEach(s => { if (s.sug) s.hold = true; if (s.hold) { s.acts = []; s.tips = []; } });
+  // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示；沒有 tips 又不是 free 的歌也先視為 hold
+  SONGS.forEach(s => { if (s.sug || (!s.free && (!s.tips || !s.tips.length))) s.hold = true; if (s.hold) { s.acts = []; s.tips = []; } });
   SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = s.tips || []; s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
   // 推出順序：MV 在 YouTube 公開的日期（日本時間）；編號照這個順序
   SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => s.no = i + 1);
@@ -426,7 +426,6 @@
   function songCue() {
     if (S.free) return { acts: [], name: "自由跟著節奏", how: "沒有固定應援，跟著現場氣氛就好。" };
     if (S.hold) return { acts: [], name: "應援還在整理", how: "先熟悉旋律，跟著現場氣氛就好。" };
-    const acts = S.acts.filter(a => a !== "listen");
     return null;
   }
   function cueAt(t) {

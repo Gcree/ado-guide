@@ -5,3 +5,10 @@
 # 建置輸出（GitHub Actions 會自己建）
 dist/
 .playwright-mcp/
+
+# Align tool workdir & venv
+tools/align/work/
+tools/align/.venv/
+
+# Optimize tool workdir
+tools/optimize/work/
