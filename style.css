@@ -81,6 +81,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 
 /* 首頁：歌曲清單 */
 .tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.tools-row { display: contents; }
 .search { height: 40px; border-radius: 999px; border: 0; background: var(--ground); padding: 0 16px; min-width: 0; width: min(320px, 100%); color: var(--text); }
 .search::placeholder { color: var(--faint); }
 .seg { display: inline-flex; background: var(--ground); border-radius: 999px; padding: 3px; flex-wrap: wrap; }
@@ -152,7 +153,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .report .acts { display: flex; justify-content: flex-end; gap: 8px; }
 .cc { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); font-size: 13px; white-space: nowrap; }
 .cc select { background: var(--ground); color: var(--text); border: 0; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
-.mvbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 18px; font-size: 13px; }
+.mvbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 10px 18px; font-size: 13px; position: relative; z-index: 6; }
 .mvhint { color: var(--faint); margin-right: auto; }
 /* 這首的螢光棒顏色 */
 .pen { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); white-space: nowrap; }
@@ -265,6 +266,10 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .view-opts button::after { content: ""; width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--faint); }
 .view-opts button[aria-pressed="true"] { color: var(--text); }
 .view-opts button[aria-pressed="true"]::after { background: var(--accent); box-shadow: none; }
+.tips-opt { display: none; }
+.tips-opt .view-opts { min-width: 220px; max-width: min(320px, calc(100vw - 32px)); padding: 10px 14px; }
+.tips-opt .summary { margin: 0; padding-left: 1.2em; font-size: 13px; line-height: 1.6; color: var(--text); white-space: normal; }
+.tips-opt .summary li { margin: 6px 0; }
 /* 圖例：這首用到的動作 */
 #homeLegend { padding: 4px 0 16px; gap: 6px 16px; }
 #homeLegend svg { width: 16px; height: 16px; }
@@ -340,6 +345,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
 @media (max-width: 900px) {
   /* 手機：影片下面不放提示框（現在的動作看歌詞顏色和大字提醒），歌詞標題也拿掉，歌詞區大一點；大字提醒開關移到練習工具 */
   .cue, .lyrics-top h2 { display: none; }
+  .tips-opt:not([hidden]) { display: inline-block; }
   .view-opts .m-only { display: flex; }
   .lyrics-top .vopt { margin-left: auto; }
   .songbar .vopt summary { width: 40px; padding: 0; justify-content: center; border-radius: 50%; }
@@ -373,15 +379,30 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   .on-song .lyrics { flex: 1; min-height: 0; height: auto; }
 }
 @media (max-width: 600px) {
-  :root { --pad: 20px; }
-  .hero { padding-top: 20px; }
-  .lead { font-size: 16px; }
-  .panel { padding: 22px var(--pad); }
-  .panel > h2 { font-size: 22px; }
+  :root { --pad: 18px; }
+  main.col { padding-top: 4px; }
+  .hero { padding: 12px 0 8px; gap: 8px; }
+  .hero h1 { font-size: 21px; margin: 0; }
+  .lead { font-size: 14px; line-height: 1.45; }
+  .home { gap: 10px; }
+  .recent { gap: 6px; }
+  .recent h2 { font-size: 12px; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips a { height: 32px; padding: 0 12px; font-size: 13px; flex: none; }
+  .panel { padding: 12px var(--pad); }
+  .panel > h2 { font-size: 19px; margin: 0 0 2px; }
   .song { gap: 4px 10px; }
   .song .zh { display: block; margin: 0; }
-  .tools .seg { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; min-width: 0; }
-  .tools .seg button { flex: none; }
+  #homeLegend { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 0 6px; gap: 10px; scrollbar-width: none; }
+  #homeLegend::-webkit-scrollbar { display: none; }
+  #homeLegend span { flex: none; }
+  .tools { gap: 8px; margin-bottom: 8px; }
+  .tools .search { width: 100%; height: 38px; }
+  .tools-row { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; max-width: 100%; scrollbar-width: none; }
+  .tools-row::-webkit-scrollbar { display: none; }
+  .tools-row .seg { flex: none; flex-wrap: nowrap; }
+  .tools .seg button { flex: none; min-height: 44px; padding: 0 12px; box-sizing: border-box; }
   .seg button { flex: none; }
   .mvbar { gap: 6px 12px; padding-inline: 14px; }
 }

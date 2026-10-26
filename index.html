@@ -101,15 +101,17 @@
         <div class="legend" id="homeLegend" aria-label="圖示代表的動作"></div>
         <div class="tools">
           <input class="search" id="q" type="search" placeholder="搜尋歌名，日文或中文都可以" aria-label="搜尋歌曲">
-          <div class="seg" role="group" aria-label="篩選">
-            <button data-f="all" aria-pressed="true">全部</button>
-            <button data-f="cheer" aria-pressed="false" title="粉絲整理過固定應援的歌">有應援</button>
-            <button data-f="loose" aria-pressed="false" title="粉絲說沒有固定應援，或還查不到可靠的應援資料">沒有固定應援</button>
-            <button data-f="cover" aria-pressed="false" title="Ado 翻唱別人的歌">翻唱</button>
-          </div>
-          <div class="seg" role="group" aria-label="排序">
-            <button data-sort="date" aria-pressed="true">推出順序</button>
-            <button data-sort="cheer" aria-pressed="false">應援數量</button>
+          <div class="tools-row">
+            <div class="seg" role="group" aria-label="篩選">
+              <button data-f="all" aria-pressed="true">全部</button>
+              <button data-f="cheer" aria-pressed="false" title="粉絲整理過固定應援的歌">有應援</button>
+              <button data-f="loose" aria-pressed="false" title="粉絲說沒有固定應援，或還查不到可靠的應援資料">沒有固定應援</button>
+              <button data-f="cover" aria-pressed="false" title="Ado 翻唱別人的歌">翻唱</button>
+            </div>
+            <div class="seg" role="group" aria-label="排序">
+              <button data-sort="date" aria-pressed="true">推出順序</button>
+              <button data-sort="cheer" aria-pressed="false">應援數量</button>
+            </div>
           </div>
         </div>
         <p class="fdesc" id="fdesc"></p>
@@ -163,6 +165,12 @@
                 </select>
               </label>
               <span class="pen" id="pen"></span>
+              <details class="vopt tips-opt" id="tipsOpt" hidden>
+                <summary aria-label="這首重點">這首重點</summary>
+                <div class="view-opts" role="group" aria-label="這首重點">
+                  <ul class="summary" id="tipsSummary"></ul>
+                </div>
+              </details>
               <span class="mvhint">點歌詞跳到那句・空白鍵播放、← → 換句</span>
             </div>
           </section>

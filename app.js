@@ -326,6 +326,13 @@
     if (lyReady && !lyHave(s)) loadLyrics(s).then(() => { if (S === s && !songV.hidden) fillSong(); });
     loadSongData();
     renderLines();
+    const hasTips = TAGGED && s.tips && s.tips.length > 0 && !s.hold;
+    const tipsOpt = document.getElementById("tipsOpt");
+    if (tipsOpt) {
+      tipsOpt.hidden = !hasTips;
+      tipsOpt.open = false;
+      document.getElementById("tipsSummary").innerHTML = hasTips ? s.tips.map(t => `<li>${esc(t)}</li>`).join("") : "";
+    }
     document.getElementById("cueSummary").innerHTML = TAGGED ? s.tips.map(t => `<li>${esc(t)}</li>`).join("") : "";
     document.getElementById("cueIcon").innerHTML = `<use href="#${ACT[s.acts[0] || "listen"].icon}"/>`;
     cueBox.className = "cue";
@@ -512,11 +519,12 @@
   document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => setOpt(b.dataset.opt, !OPT[b.dataset.opt])));
   applyOpts();
   // 點選單外面就收起來
-  const menus = [document.getElementById("vopt"), document.getElementById("tools")];
+  const menus = [document.getElementById("vopt"), document.getElementById("tools"), document.getElementById("tipsOpt")].filter(Boolean);
   document.addEventListener("click", e => menus.forEach(m => { if (m.open && !m.contains(e.target)) m.open = false; }));
   // 窄螢幕上按鈕換行到左邊時選單往右展開，下面放不下時往上展開，才不會跑出畫面
   menus.forEach(m => m.addEventListener("toggle", () => {
     const box = m.querySelector(".view-opts");
+    if (!box) return;
     box.classList.remove("to-right", "to-up");
     box.style.maxHeight = "";
     if (!m.open) return;
