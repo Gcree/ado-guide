@@ -16,12 +16,10 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..")
 const out = path.resolve(process.argv[2] || path.join(root, "dist"));
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
 const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);
-const css = read("style.css"), app = read("app.js");
-const LYRICS = createRequire(import.meta.url)(path.join(root, "song-lyrics.js"));
-
-// 從 app.js 讀出歌單（和網頁用同一份資料）
-const start = app.indexOf("const SONGS = [");
-const SONGS = Function("return " + app.slice(start + "const SONGS = ".length, app.indexOf("];", start) + 1))();
+const css = read("style.css"), songsText = read("songs.js"), app = read("app.js");
+const require = createRequire(import.meta.url);
+const LYRICS = require(path.join(root, "song-lyrics.js"));
+const { SONGS } = require(path.join(root, "songs.js"));
 
 // 每首一個歌詞檔（沒有歌詞的歌也放一個空的，網頁就不會讀到 404）；index.json 記每首的應援數量（有動作、不是「安靜聽」的行數）
 const lyFiles = {}, lyIndex = {};
@@ -35,6 +33,7 @@ lyFiles["lyrics/index.json"] = JSON.stringify(lyIndex);
 const LYV = hash(Object.values(lyFiles).join("\n"));
 const src = read("index.html")
   .replace("style.css?v=dev", `style.css?v=${hash(css)}`)
+  .replace("songs.js?v=dev", `songs.js?v=${hash(songsText)}`)
   .replace("app.js?v=dev", `app.js?v=${hash(app)}`)
   .replace('<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-lyrics="${LYV}">`);
 
@@ -114,7 +113,7 @@ write("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="htt
 for (const [f, text] of Object.entries(lyFiles)) write(f, text);
 
 // 其他檔案原樣複製（song-lyrics.js 留著給還開著舊版網頁的人）
-for (const f of ["style.css", "app.js", "song-lyrics.js", "CHANGELOG.md", "manifest.webmanifest", "googlea6b361c7e6e7d11c.html"]) fs.copyFileSync(path.join(root, f), path.join(out, f));
+for (const f of ["style.css", "songs.js", "app.js", "song-lyrics.js", "CHANGELOG.md", "manifest.webmanifest", "googlea6b361c7e6e7d11c.html"]) fs.copyFileSync(path.join(root, f), path.join(out, f));
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
 console.log(`輸出到 ${out}：首頁＋${SONGS.length} 首歌頁、${Object.keys(lyIndex).length} 首歌詞檔、sitemap.xml、404.html`);

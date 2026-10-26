@@ -19,12 +19,13 @@
 
 ## 1. 專案結構
 
-平常只改下面前四個檔案，用 http(s) 開啟就能用；發布時 GitHub Actions 會另外建出每首歌的獨立頁，並把歌詞拆成每首一個小檔（打開哪首才下載哪首）。
+平常只改下面前五個檔案，用 http(s) 開啟就能用；發布時 GitHub Actions 會另外建出每首歌的獨立頁，並把歌詞拆成每首一個小檔（打開哪首才下載哪首）。
 
 ```text
 index.html                  ← 網站的版面（HTML）
 style.css                   ← 樣式：顏色、排版、手機版
-app.js                      ← 所有互動程式和資料表（歌單、螢光棒顏色、拍點…）
+app.js                      ← 所有互動程式（播放、歌詞捲動、搜尋、燈光效果）
+songs.js                    ← 歌曲資料表（歌單 SONGS、歌ネット編號 UT、螢光棒 PEN、拍點 BEAT、副歌高潮 CLIMAX）
 song-lyrics.js              ← 每首歌的同步日文歌詞、繁中翻譯與逐行應援動作
 CHANGELOG.md                ← 更新日誌；網站頁尾的「更新日誌」直接讀這個檔案
 manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示與顏色
@@ -36,17 +37,18 @@ google….html               ← Google Search Console 的擁有權驗證檔，�
 開啟網站.command             ← 在自己的 Mac 上看網站時點兩下（開一個本機伺服器）
 ```
 
-`app.js` 裡的資料表：
+資料表說明：
 
-| 名稱 | 內容 |
-| --- | --- |
-| `ACT` | 應援動作的名稱、圖示與說明（大合唱、拍手、揮手、跳躍、喊聲、手勢、安靜聽） |
-| `SONGS` | 歌單：歌名、MV、長度、整首應援重點；`hold: true` 表示應援和螢光棒顏色還沒確認，資料留著但畫面不顯示；`sug: true`（翻唱曲依曲風寫的建議）也一樣先不顯示 |
-| `UT` | 每首歌在 Uta-Net 的歌詞頁編號（「正版歌詞」連結） |
-| `PEN`／`PENC` | 每首歌的螢光棒顏色；開頭 `?` 是原文的預測，先不顯示，畫面當作沒指定 |
-| `BEAT` | 每首歌的 BPM、第一個小節的時間與拍點是否可靠（燈光與拍點聲用） |
-| `CLIMAX` | 副歌高潮噴彩帶的時間 |
-| `REPORT` | 回報表單：Google 表單「Ado 應援預習｜回報與意見回饋」的網址與各題的 entry 編號；改表單題目後要重新對編號，留空時改成複製文字 |
+| 檔案 | 名稱 | 內容 |
+| --- | --- | --- |
+| `app.js` | `ACT` | 應援動作的名稱、圖示與說明（大合唱、拍手、揮手、跳躍、喊聲、手勢、安靜聽） |
+| `app.js` | `PENC` | 螢光棒顏色的色碼與中文名稱 |
+| `app.js` | `REPORT` | 回報表單：Google 表單「Ado 應援預習｜回報與意見回饋」的網址與各題的 entry 編號；改表單題目後要重新對編號，留空時改成複製文字 |
+| `songs.js` | `SONGS` | 歌單：歌名、MV、長度、整首應援重點；`hold: true` 表示應援和螢光棒顏色還沒確認，資料留著但畫面不顯示；`sug: true`（翻唱曲依曲風寫的建議）也一樣先不顯示 |
+| `songs.js` | `UT` | 每首歌在 Uta-Net 的歌詞頁編號（「正版歌詞」連結） |
+| `songs.js` | `PEN` | 每首歌的螢光棒顏色；開頭 `?` 是原文的預測，先不顯示，畫面當作沒指定 |
+| `songs.js` | `BEAT` | 每首歌的 BPM、第一個小節的時間與拍點是否可靠（燈光與拍點聲用） |
+| `songs.js` | `CLIMAX` | 副歌高潮噴彩帶的時間 |
 
 `song-lyrics.js` 是唯一要改的歌詞檔，`lyrics/` 由建置自動產生，不用手動改。每一行是 `{ time, jp, tr, acts, sing, call }`：`time` 是 MV 秒數，`acts` 是這行的動作，`sing` 是觀眾要唱的字，`call` 是喊聲。
 
@@ -84,10 +86,10 @@ node scripts/build.mjs dist
 
 ## 5. 改版流程
 
-1. 改 `index.html`、`style.css`、`app.js` 或 `song-lyrics.js`。
+1. 改 `index.html`、`style.css`、`app.js`、`songs.js` 或 `song-lyrics.js`。
 2. 不用改快取版本字串：原始檔寫 `?v=dev`，建置時會依內容自動換成新的，手機不會讀到舊檔。
 3. 在 `CHANGELOG.md` 最上面加一段新版本，並把 `index.html` 頁尾的版本號（`class="build"`）改成一樣。
-4. 新增歌曲時，`app.js` 的 `SONGS` 加一筆、`song-lyrics.js` 加歌詞，就會自動多一個獨立頁、歌詞檔，並列進網站地圖。
+4. 新增歌曲時，`songs.js` 的 `SONGS` 加一筆、`song-lyrics.js` 加歌詞，就會自動多一個獨立頁、歌詞檔，並列進網站地圖。
 5. commit 並推到 `main`，GitHub Actions 會自動發布。
 
 ## 6. 資料來源與致謝
