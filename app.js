@@ -257,6 +257,134 @@
   }
   initLampDownload();
 
+  // ── 加入主畫面 Toast（PWA Install Toast） ──
+  const pwaToast = document.getElementById("pwaToast");
+  const pwaToastText = document.getElementById("pwaToastText");
+  const pwaActionBtn = document.getElementById("pwaActionBtn");
+  const pwaXBtn = document.getElementById("pwaXBtn");
+  const pwaInstallBtn = document.getElementById("pwaInstallBtn");
+  const toolInstallBtn = document.getElementById("toolInstallBtn");
+
+  let deferredInstallPrompt = null;
+  let pwaToastTimer = 0;
+  const isPWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+  window.addEventListener("beforeinstallprompt", ev => {
+    ev.preventDefault();
+    deferredInstallPrompt = ev;
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    hidePwaToast();
+    toast("✨ 已成功加入主畫面！");
+  });
+
+  function showPwaToast(autoDismiss = 8000) {
+    if (!pwaToast || isPWA) return;
+    clearTimeout(pwaToastTimer);
+    pwaToast.hidden = false;
+    pwaToastText.textContent = "將網站加到主畫面練習？";
+    pwaActionBtn.textContent = "加入主畫面";
+    pwaActionBtn.hidden = false;
+    pwaXBtn.hidden = false;
+
+    requestAnimationFrame(() => {
+      pwaToast.classList.add("show");
+    });
+
+    if (autoDismiss > 0) {
+      pwaToastTimer = setTimeout(() => hidePwaToast(false), autoDismiss);
+    }
+  }
+
+  function hidePwaToast(recordDismiss = false) {
+    if (!pwaToast) return;
+    clearTimeout(pwaToastTimer);
+    pwaToast.classList.remove("show");
+    setTimeout(() => {
+      if (!pwaToast.classList.contains("show")) pwaToast.hidden = true;
+    }, 240);
+    if (recordDismiss) {
+      store.set("install-dismissed", String(Date.now()));
+    }
+  }
+
+  function handlePwaInstall() {
+    clearTimeout(pwaToastTimer);
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || "");
+
+    if (pwaActionBtn.textContent === "知道了") {
+      hidePwaToast(true);
+      return;
+    }
+
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      deferredInstallPrompt.userChoice.then(choice => {
+        if (choice.outcome === "accepted") {
+          pwaToastText.textContent = "✨ 正在加入主畫面…";
+          pwaActionBtn.hidden = true;
+          pwaXBtn.hidden = true;
+          pwaToastTimer = setTimeout(() => hidePwaToast(true), 2000);
+        } else {
+          hidePwaToast(true);
+        }
+        deferredInstallPrompt = null;
+      });
+      return;
+    }
+
+    if (isIOS) {
+      pwaToastText.innerHTML = '請點下方 <b>⎋</b> 再選<b>「加入主畫面 ＋」</b>';
+      pwaActionBtn.textContent = "知道了";
+      pwaToastTimer = setTimeout(() => hidePwaToast(true), 6000);
+      return;
+    }
+
+    if (isPWA) {
+      pwaToastText.textContent = "目前已在主畫面 App 模式下開啟囉！";
+      pwaActionBtn.hidden = true;
+      pwaToastTimer = setTimeout(() => hidePwaToast(false), 2600);
+      return;
+    }
+
+    // 一般桌面瀏覽器
+    pwaToastText.textContent = "請點網址列右側 ⊕ 或選單選擇加入主畫面";
+    pwaActionBtn.hidden = true;
+    pwaToastTimer = setTimeout(() => hidePwaToast(true), 3500);
+  }
+
+  if (pwaActionBtn) {
+    pwaActionBtn.addEventListener("click", handlePwaInstall);
+  }
+  if (pwaXBtn) {
+    pwaXBtn.addEventListener("click", () => hidePwaToast(true));
+  }
+  if (pwaInstallBtn) {
+    pwaInstallBtn.addEventListener("click", () => {
+      if (isPWA) toast("目前已在主畫面 App 模式下開啟囉！");
+      else { showPwaToast(0); handlePwaInstall(); }
+    });
+  }
+  if (toolInstallBtn) {
+    toolInstallBtn.addEventListener("click", () => {
+      if (isPWA) toast("目前已在主畫面 App 模式下開啟囉！");
+      else { showPwaToast(0); handlePwaInstall(); }
+    });
+  }
+
+  // 第一次造訪或超過 7 天：載入 2.5 秒後主動提示 toast
+  if (!isPWA) {
+    const dismissedTime = parseInt(store.get("install-dismissed") || "0", 10);
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+    if (!dismissedTime || (Date.now() - dismissedTime > oneWeek)) {
+      setTimeout(() => {
+        showPwaToast(8000);
+      }, 2500);
+    }
+  }
+
   // ── 歌曲頁 ──
   const homeV = document.getElementById("home"), songV = document.getElementById("song");
   const box = document.getElementById("lines"), legend = document.getElementById("legend");

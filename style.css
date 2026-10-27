@@ -162,6 +162,15 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 /* 提示訊息：複製連結之類的結果，從下方浮出幾秒 */
 .toast { position: fixed; z-index: 30; left: 50%; bottom: max(24px, env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 12px); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; background: var(--paper); color: var(--on-paper); font-size: 14px; font-weight: 500; padding: 10px 18px; border-radius: 999px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* 加入主畫面提示 Toast（PWA Toast） */
+.pwa-toast { display: inline-flex; align-items: center; gap: 10px; padding: 6px 8px 6px 16px; white-space: nowrap; max-width: min(480px, calc(100vw - 28px)); box-sizing: border-box; }
+.pwa-toast.show { pointer-events: auto; }
+.pwa-toast-text { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pwa-toast-btn { height: 30px; padding: 0 12px; border-radius: 999px; border: 0; background: var(--on-paper); color: var(--paper); font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; flex: none; transition: opacity .15s, transform .1s; }
+.pwa-toast-btn:hover { opacity: .9; }
+.pwa-toast-btn:active { transform: scale(.96); }
+.pwa-toast-x { width: 24px; height: 24px; border-radius: 50%; border: 0; background: transparent; color: var(--on-paper); opacity: .5; display: grid; place-items: center; cursor: pointer; padding: 0; font-size: 13px; flex: none; transition: opacity .15s, background .15s; }
+.pwa-toast-x:hover { opacity: 1; background: rgba(0, 0, 0, .08); }
 /* 回報錯誤：表單還沒接上時，先讓人複製內容 */
 .report { border: 0; padding: 0; border-radius: var(--radius-card); background: var(--raised); color: var(--text); width: min(440px, calc(100% - 32px)); box-shadow: 0 24px 64px rgba(0, 0, 0, .6); }
 .report::backdrop { background: rgba(4, 6, 12, .7); }
