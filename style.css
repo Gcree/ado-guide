@@ -170,6 +170,78 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .songbar .vopt summary svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .songbar .vopt summary::after { display: none; }
 .songbar .vopt[open] summary { background: var(--raised); }
+/* 獨立手燈連動按鈕：頂部導覽列獨立顯示 */
+.lamp-btn, .songbar .lamp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  max-height: 40px;
+  padding: 0 14px 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  user-select: none;
+  box-sizing: border-box;
+  flex: none;
+}
+.lamp-btn:hover, .songbar .lamp-btn:hover {
+  background: var(--raised);
+  color: var(--text);
+  border-color: var(--faint);
+}
+.lamp-btn svg, .songbar .lamp-btn svg {
+  width: 18px;
+  height: 18px;
+  max-width: 18px;
+  max-height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+  transition: stroke 0.2s ease;
+}
+.lamp-btn[aria-pressed="true"], .songbar .lamp-btn[aria-pressed="true"] {
+  background: var(--raised);
+  color: var(--text);
+  border-color: var(--accent);
+}
+.lamp-btn[aria-pressed="true"] svg, .songbar .lamp-btn[aria-pressed="true"] svg {
+  stroke: var(--accent);
+}
+.lamp-btn .tool-sub, .songbar .lamp-btn .tool-sub {
+  font-size: 11.5px;
+  color: var(--faint);
+  font-weight: normal;
+  margin-left: 2px;
+}
+.lamp-btn[aria-pressed="true"] .tool-sub, .songbar .lamp-btn[aria-pressed="true"] .tool-sub {
+  color: var(--muted);
+}
+/* 手燈成功連動（linked）狀態：亮眼綠色呼吸光暈 */
+.lamp-btn.lamp-linked, .songbar .lamp-btn.lamp-linked {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  color: #10b981 !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25) !important;
+}
+.lamp-btn.lamp-linked svg, .songbar .lamp-btn.lamp-linked svg {
+  stroke: #10b981 !important;
+  filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.8));
+}
+.lamp-btn.lamp-linked .tool-sub, .songbar .lamp-btn.lamp-linked .tool-sub {
+  color: #10b981 !important;
+  font-weight: 600;
+}
 .ib { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text); text-decoration: none; }
 .ib:hover { background: var(--raised); }
 .ib:not([href]) { visibility: hidden; }
@@ -266,6 +338,44 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .view-opts button::after { content: ""; width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--faint); }
 .view-opts button[aria-pressed="true"] { color: var(--text); }
 .view-opts button[aria-pressed="true"]::after { background: var(--accent); box-shadow: none; }
+#tool-lamp.lamp-linked::after {
+  background: #10b981 !important;
+  box-shadow: 0 0 8px #10b981, 0 0 14px rgba(16, 185, 129, 0.6) !important;
+  animation: lamp-pulse 2s ease-in-out infinite;
+}
+@keyframes lamp-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.9); }
+}
+/* 手燈連動開關：只在電腦版支援，手機／平板隱藏 */
+@media (pointer: coarse) {
+  #tool-lamp, #lampLiveBadge { display: none !important; }
+}
+.view-opts .tool-sub { display: block; font-size: 11px; color: var(--faint); font-weight: normal; margin-top: 1px; }
+.view-opts button[aria-pressed="true"] .tool-sub { color: var(--muted); }
+.lamp-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 8px;
+  vertical-align: middle;
+  transition: opacity 0.25s, transform 0.25s;
+}
+.lamp-live-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
 .tips-opt { display: none; }
 .tips-opt .view-opts { min-width: 220px; max-width: min(320px, calc(100vw - 32px)); padding: 10px 14px; }
 .tips-opt .summary { margin: 0; padding-left: 1.2em; font-size: 13px; line-height: 1.6; color: var(--text); white-space: normal; }
@@ -350,6 +460,8 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   .lyrics-top .vopt { margin-left: auto; }
   .songbar .vopt summary { width: 40px; padding: 0; justify-content: center; border-radius: 50%; }
   .songbar .vopt summary .lbl { display: none; }
+  .songbar .lamp-btn { width: 40px; padding: 0; justify-content: center; border-radius: 50%; }
+  .songbar .lamp-btn .lamp-lbl, .songbar .lamp-btn .tool-sub { display: none; }
   .grid { grid-template-columns: 1fr; }
   .left { position: static; }
   .lyrics { position: static; height: 70dvh; max-height: none; }
@@ -417,6 +529,8 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   .lyrics-top .vopt { margin-left: auto; }
   .songbar .vopt summary { width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 50%; }
   .songbar .vopt summary .lbl { display: none; }
+  .songbar .lamp-btn { width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 50%; }
+  .songbar .lamp-btn .lamp-lbl, .songbar .lamp-btn .tool-sub { display: none; }
   .on-song .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: min(52vw, calc((100dvh - 200px) * 16 / 9)) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 8px; }
   .on-song .left { position: static; gap: 6px; min-height: 0; overflow-y: auto; align-self: stretch; }
   .on-song .lyrics { position: static; height: auto; max-height: none; min-height: 0; align-self: stretch; }

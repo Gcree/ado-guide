@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap">
-<link rel="stylesheet" href="style.css?v=dev">
+<link rel="stylesheet" href="style.css?v=1.13.0">
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -129,6 +129,12 @@
           <h1 id="sTitle" lang="ja"></h1>
           <a class="ib" id="nextSong" aria-label="下一首"><svg viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg></a>
         </div>
+        <!-- 獨立手燈連動按鈕（桌面版獨立顯示） -->
+        <button class="lamp-btn" data-tool="lamp" id="tool-lamp" aria-pressed="false" title="點擊切換與 PenlightSync 桌面 App 的手燈連動">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+          <span class="lamp-lbl">連動手燈</span>
+          <small class="tool-sub" id="tool-lamp-status"></small>
+        </button>
         <!-- 練習工具和外部連結收在右上角，影片和歌詞之間不放按鈕 -->
         <details class="vopt" id="tools">
           <summary aria-label="練習工具"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="lbl">練習工具</span></summary>
@@ -165,6 +171,7 @@
                 </select>
               </label>
               <span class="pen" id="pen"></span>
+              <span class="lamp-live-badge" id="lampLiveBadge" hidden title="已透過 PenlightSync 連動實體 Ado 手燈">手燈連動中</span>
               <details class="vopt tips-opt" id="tipsOpt" hidden>
                 <summary aria-label="這首重點">這首重點</summary>
                 <div class="view-opts" role="group" aria-label="這首重點">
@@ -215,7 +222,7 @@
   </main>
 
   <footer class="col">
-    <p class="credits-copy"><span class="m">Ado 應援預習</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.12.3</span></span></p>
+    <p class="credits-copy"><span class="m">Ado 應援預習</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.13.0</span></span></p>
     <nav class="credits-links" aria-label="專案連結">
       <a class="gh" href="https://github.com/Gcree/ado-guide" target="_blank" rel="noopener" aria-label="GitHub Repo" title="GitHub Repo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
       <a href="https://vaundy.tiaui.co/" target="_blank" rel="noopener">Inspired by Vaundy 台北場應援指南</a>

@@ -538,11 +538,22 @@
 
   // ── 練習工具 ──
   const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), 2600); }; })();
-  const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1" };
+  const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", lamp: store.get("tool-lamp") === "1" };
   const paintTools = () => document.querySelectorAll("[data-tool]").forEach(b => b.setAttribute("aria-pressed", TOOL[b.dataset.tool]));
   document.querySelectorAll("[data-tool]").forEach(b => b.addEventListener("click", () => {
-    const k = b.dataset.tool; TOOL[k] = !TOOL[k]; store.set("tool-" + k, TOOL[k] ? "1" : null); paintTools();
+    const k = b.dataset.tool;
+    if (k === "lamp" && TOOL.lamp && lampStatusText === "找不到 PenlightSync") {
+      toast("請先在電腦開啟 PenlightSync App，並在色彩頁將「取色來源」選為網站");
+      lampRetryCount = 0;
+      lampConnect();
+      return;
+    }
+    TOOL[k] = !TOOL[k]; store.set("tool-" + k, TOOL[k] ? "1" : null); paintTools();
     if (k === "click" && TOOL.click) clickCtx();
+    if (k === "lamp") {
+      if (TOOL.lamp) { lampRetryCount = 0; lampConnect(); }
+      else { lampDisconnect(true); }
+    }
   }));
   paintTools();
   // 上次就開著拍點聲：瀏覽器要等使用者點一下或按鍵才肯出聲，第一次互動時把聲音準備好
@@ -578,6 +589,200 @@
       tick(actx.currentTime + wait, b.known && bar === 0);
     }
   }
+
+  // ── 手燈連動（PenlightSync） ──
+  let lampWS = null, lampTimer = null, lampRetryCount = 0, lampHasConnected = false;
+  let lampLastSent = null, lampLastSentWallTime = 0, lampSeq = 0, lampStatusText = "";
+  const lampStatusEl = document.getElementById("tool-lamp-status");
+  const toolLampEl = document.getElementById("tool-lamp");
+  const lampLiveBadgeEl = document.getElementById("lampLiveBadge");
+
+  function setLampStatus(text, isLinked = false) {
+    lampStatusText = text;
+    if (lampStatusEl) lampStatusEl.textContent = text ? " " + text : "";
+    if (toolLampEl) {
+      if (isLinked) toolLampEl.classList.add("lamp-linked");
+      else toolLampEl.classList.remove("lamp-linked");
+    }
+    if (lampLiveBadgeEl) {
+      lampLiveBadgeEl.hidden = !isLinked;
+    }
+  }
+
+  function lampDisconnect(sendStop) {
+    if (lampTimer) { clearTimeout(lampTimer); lampTimer = null; }
+    lampRetryCount = 0;
+    if (lampWS) {
+      if (sendStop && lampWS.readyState === WebSocket.OPEN) {
+        try { lampWS.send(JSON.stringify({ v: 1, type: "stop" })); } catch (e) {}
+      }
+      try { lampWS.close(); } catch (e) {}
+      lampWS = null;
+    }
+    setLampStatus("", false);
+    lampLastSent = null;
+  }
+
+  function lampStop() {
+    if (lampWS && lampWS.readyState === WebSocket.OPEN) {
+      try { lampWS.send(JSON.stringify({ v: 1, type: "stop" })); } catch (e) {}
+    }
+    lampLastSent = null;
+  }
+
+  function lampConnect() {
+    if (!TOOL.lamp || matchMedia("(pointer: coarse)").matches) return;
+    if (lampWS && (lampWS.readyState === WebSocket.CONNECTING || lampWS.readyState === WebSocket.OPEN)) return;
+
+    setLampStatus("連線中…", false);
+    try {
+      const ws = new WebSocket("ws://127.0.0.1:51730/ado");
+      lampWS = ws;
+
+      ws.onopen = () => {
+        if (ws !== lampWS) return;
+        lampRetryCount = 0;
+        if (!lampHasConnected) {
+          lampHasConnected = true;
+          toast("已連上 PenlightSync");
+        }
+        lampLastSent = null;
+      };
+
+      ws.onmessage = ev => {
+        if (ws !== lampWS) return;
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg && msg.type === "hello") {
+            if (msg.lamp === "linked") {
+              const wasLinked = lampStatusText === "已連動";
+              setLampStatus("已連動", true);
+              if (!wasLinked) toast("✨ 已與 PenlightSync 手燈連動！");
+            } else if (msg.lamp === "connecting") {
+              setLampStatus("手燈連線中…", false);
+            } else {
+              setLampStatus("App 已開，手燈未連", false);
+            }
+          }
+        } catch (e) {}
+      };
+
+      ws.onerror = () => {
+        // 連線失敗時交由 onclose 處理重試，避免重送
+      };
+
+      ws.onclose = () => {
+        if (ws !== lampWS) return;
+        lampWS = null;
+        if (!TOOL.lamp) {
+          setLampStatus("", false);
+          return;
+        }
+        // 連不上就每 5 秒重試，最多試 1 分鐘（12 次）
+        if (lampRetryCount < 12) {
+          lampRetryCount++;
+          setLampStatus("連線中…", false);
+          lampTimer = setTimeout(lampConnect, 5000);
+        } else {
+          setLampStatus("找不到 PenlightSync", false);
+        }
+      };
+    } catch (e) {
+      if (!TOOL.lamp) return;
+      if (lampRetryCount < 12) {
+        lampRetryCount++;
+        setLampStatus("連線中…");
+        lampTimer = setTimeout(lampConnect, 5000);
+      } else {
+        setLampStatus("找不到 PenlightSync");
+      }
+    }
+  }
+
+  function currentCue(t) {
+    if (!TAGGED) return "free";
+    const li = lineAt(t);
+    if (li < 0) return "";
+    const c = cueAt(t);
+    if (!c) return "";
+    // 只有在整首歌為抒情歌（如夜明けと蛍、ドライフラワー），或該句明確標記為 listen 時，才送 listen
+    const isBallad = S && S.acts && S.acts.length === 1 && S.acts[0] === "listen";
+    if (c.acts && c.acts.length) {
+      if (c.acts.includes("listen")) return "listen";
+      return mainAct(c.acts) || "";
+    }
+    if (isBallad) return "listen";
+    return "";
+  }
+
+  function lampFrame(t, playing) {
+    if (!TOOL.lamp || !lampWS || lampWS.readyState !== WebSocket.OPEN) return;
+    if (!S || songV.hidden) return;
+
+    const nowWall = performance.now();
+    // 一秒最多 5 則（發送間隔至少 200ms）
+    if (nowWall - lampLastSentWallTime < 200) return;
+
+    const cue = currentCue(t);
+    let shouldSend = false;
+
+    if (!lampLastSent) {
+      shouldSend = true;
+    } else if (lampLastSent.song !== S.id) {
+      shouldSend = true;
+    } else if (lampLastSent.playing !== playing) {
+      shouldSend = true;
+    } else if (lampLastSent.rate !== RATE) {
+      shouldSend = true;
+    } else if (lampLastSent.cue !== cue) {
+      shouldSend = true;
+    } else {
+      // 預估影片秒數（真實經過秒數乘以播放速度）
+      const elapsedSec = (nowWall - lampLastSentWallTime) / 1000;
+      const predictedT = lampLastSent.playing ? (lampLastSent.t + elapsedSec * lampLastSent.rate) : lampLastSent.t;
+      if (Math.abs(t - predictedT) > 0.3) {
+        shouldSend = true; // 偵測到跳轉超過 0.3 秒
+      } else if (nowWall - lampLastSentWallTime >= 1000) {
+        shouldSend = true; // 每 1 秒心跳校時
+      }
+    }
+
+    if (shouldSend) {
+      const pen = penOf(S);
+      const bData = BEAT[S.id];
+      const beat = bData ? { bpm: bData[0], offset: bData[1], barKnown: Boolean(bData[2]) } : null;
+      const climax = CLIMAX[S.id] != null ? CLIMAX[S.id] : null;
+      const roundedT = Math.round(t * 100) / 100;
+
+      lampSeq++;
+      const payload = {
+        v: 1,
+        type: "state",
+        seq: lampSeq,
+        song: S.id,
+        title: S.zh || S.ja || S.id,
+        playing: Boolean(playing),
+        t: roundedT,
+        rate: RATE,
+        colors: pen.cols,
+        colorsSet: !pen.none,
+        beat,
+        climax,
+        cue
+      };
+
+      try {
+        lampWS.send(JSON.stringify(payload));
+        lampLastSent = { song: S.id, playing: Boolean(playing), rate: RATE, cue, t: roundedT };
+        lampLastSentWallTime = nowWall;
+      } catch (e) {}
+    }
+  }
+
+  if (TOOL.lamp && !matchMedia("(pointer: coarse)").matches) {
+    lampConnect();
+  }
+  addEventListener("pagehide", lampStop);
 
   // 分享目前時間：網址後面加 @秒數，打開就從那裡開始
   document.getElementById("shareBtn").addEventListener("click", async () => {
@@ -684,7 +889,7 @@
       document.body.classList.add("on-song");
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
     } else {
-      pause(); hideAlert(); document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援預習" : PAGE_TITLE;
+      lampStop(); pause(); hideAlert(); document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援預習" : PAGE_TITLE;
       renderRecent();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
@@ -808,6 +1013,7 @@
   function frame(ms) {
     const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
     clicks(t, playing);
+    lampFrame(t, playing);
     // 歌曲頁燈光換成這首的螢光棒顏色，回首頁換回藍白
     const want = S && !songV.hidden ? S : null;
     if (want !== penSong) { penSong = want; bg.pen(want && penOf(want).cols); idleDrawn = false; blasted = false; }
