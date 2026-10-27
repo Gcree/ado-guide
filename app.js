@@ -67,6 +67,7 @@
   const cueLabel = l => l.call || (l.sing.length ? `唱「${l.sing.join("」「")}」` : l.acts.map(a => ACT[a].name).join("、"));
   const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), 2600); }; })();
 
   // ── 首頁 ──
   const list = document.getElementById("songList"), q = document.getElementById("q"), countEl = document.getElementById("songCount");
@@ -125,6 +126,136 @@
   const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   document.getElementById("homeLegend").innerHTML = Object.keys(ACT).filter(a => usedActs.has(a))
     .map(a => `<span class="a-${a}">${icon(a)}${ACT[a].name}</span>`).join("");
+
+  // ── 首頁手燈下載按鈕（PenlightSync） ──
+  const lampDlBtn = document.getElementById("lampDlBtn");
+  const lampDlBadge = document.getElementById("lampDlBadge");
+  const lampDlMenu = document.getElementById("lampDlMenu");
+  const lampDlWinLink = document.getElementById("lampDlWinLink");
+  const lampDlMacLink = document.getElementById("lampDlMacLink");
+  const lampDlWinDesc = document.getElementById("lampDlWinDesc");
+  const lampDlMacDesc = document.getElementById("lampDlMacDesc");
+
+  const GITHUB_REPO_URL = "https://github.com/Gcree/penlight-sync";
+  const WIN_DL_LATEST = "https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-Windows-x64.zip";
+  const MAC_DL_LATEST = "https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-macOS.zip";
+
+  function detectClientOS() {
+    const ua = navigator.userAgent || "";
+    const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+    if (/iphone|ipad|ipod/i.test(ua)) return "ios";
+    if (/android/i.test(ua)) return "android";
+    if (/mac/i.test(platform) || /macintosh|mac os x/i.test(ua)) return "mac";
+    if (/win/i.test(platform) || /windows/i.test(ua)) return "win";
+    if (/linux/i.test(platform) || /linux/i.test(ua)) return "linux";
+    return "other";
+  }
+
+  function triggerDownload(url) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 200);
+  }
+
+  let latestReleaseData = null;
+
+  function initLampDownload() {
+    if (!lampDlBtn) return;
+    const clientOS = detectClientOS();
+
+    if (clientOS === "mac") {
+      lampDlBtn.href = MAC_DL_LATEST;
+      if (lampDlBadge) lampDlBadge.textContent = "macOS";
+      lampDlBtn.title = "點擊自動下載最新版 PenlightSync (macOS)";
+    } else if (clientOS === "win") {
+      lampDlBtn.href = WIN_DL_LATEST;
+      if (lampDlBadge) lampDlBadge.textContent = "Windows";
+      lampDlBtn.title = "點擊自動下載最新版 PenlightSync (Windows)";
+    } else {
+      lampDlBtn.href = GITHUB_REPO_URL;
+      if (lampDlBadge) lampDlBadge.textContent = "GitHub";
+      lampDlBtn.title = "前往 PenlightSync 的 GitHub 專案（支援電腦版）";
+    }
+
+    lampDlBtn.addEventListener("click", ev => {
+      const os = detectClientOS();
+      if (os === "mac" || os === "win") {
+        ev.preventDefault();
+        try {
+          const dlUrl = (os === "mac")
+            ? (lampDlMacLink ? lampDlMacLink.href : MAC_DL_LATEST)
+            : (lampDlWinLink ? lampDlWinLink.href : WIN_DL_LATEST);
+
+          triggerDownload(dlUrl);
+          const ver = latestReleaseData && latestReleaseData.tag_name ? ` ${latestReleaseData.tag_name}` : "";
+          const osName = os === "mac" ? "macOS" : "Windows";
+          toast(`✨ 已開始下載 PenlightSync ${osName} 版${ver}！`);
+        } catch (e) {
+          window.open(GITHUB_REPO_URL, "_blank", "noopener");
+        }
+      }
+    });
+
+    if (lampDlWinLink) {
+      lampDlWinLink.addEventListener("click", () => {
+        if (lampDlMenu) lampDlMenu.removeAttribute("open");
+        toast("✨ 已開始下載 PenlightSync Windows 版！");
+      });
+    }
+    if (lampDlMacLink) {
+      lampDlMacLink.addEventListener("click", () => {
+        if (lampDlMenu) lampDlMenu.removeAttribute("open");
+        toast("✨ 已開始下載 PenlightSync macOS 版！");
+      });
+    }
+
+    if (lampDlMenu) {
+      document.addEventListener("click", ev => {
+        if (lampDlMenu.open && !lampDlMenu.contains(ev.target)) {
+          lampDlMenu.removeAttribute("open");
+        }
+      });
+    }
+
+    fetch("https://api.github.com/repos/Gcree/penlight-sync/releases/latest")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        latestReleaseData = data;
+        const tag = data.tag_name || "";
+        const os = detectClientOS();
+
+        if (lampDlBadge) {
+          if (os === "mac") lampDlBadge.textContent = tag ? `macOS ・ ${tag}` : "macOS";
+          else if (os === "win") lampDlBadge.textContent = tag ? `Windows ・ ${tag}` : "Windows";
+          else lampDlBadge.textContent = tag ? `GitHub ・ ${tag}` : "GitHub";
+        }
+
+        if (Array.isArray(data.assets)) {
+          const winAsset = data.assets.find(a => /win/i.test(a.name));
+          const macAsset = data.assets.find(a => /mac/i.test(a.name));
+          if (winAsset) {
+            if (lampDlWinLink) lampDlWinLink.href = winAsset.browser_download_url;
+            if (lampDlWinDesc) {
+              const mb = Math.round(winAsset.size / (1024 * 1024));
+              lampDlWinDesc.textContent = `${tag} (${mb} MB)`;
+            }
+          }
+          if (macAsset) {
+            if (lampDlMacLink) lampDlMacLink.href = macAsset.browser_download_url;
+            if (lampDlMacDesc) {
+              const mb = (macAsset.size / (1024 * 1024)).toFixed(1);
+              lampDlMacDesc.textContent = `${tag} (${mb} MB)`;
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  }
+  initLampDownload();
 
   // ── 歌曲頁 ──
   const homeV = document.getElementById("home"), songV = document.getElementById("song");
@@ -537,7 +668,6 @@
   }));
 
   // ── 練習工具 ──
-  const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), 2600); }; })();
   const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", lamp: store.get("tool-lamp") === "1" };
   const paintTools = () => document.querySelectorAll("[data-tool]").forEach(b => b.setAttribute("aria-pressed", TOOL[b.dataset.tool]));
   document.querySelectorAll("[data-tool]").forEach(b => b.addEventListener("click", () => {
