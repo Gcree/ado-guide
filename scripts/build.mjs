@@ -383,8 +383,15 @@ for (let i = 0; i < SONGS.length; i++) {
       const cls = "ln" + (m ? " a-" + m : "") + (acts.includes("sing") ? " sing" : "");
       const ja = l.jp ? jaHTML(l.jp, sing) : `<span class="ph">日文歌詞（${fmt(l.time || 0)}）</span>`;
       const zh = l.tr ? esc(l.tr) : (l.jp ? "" : `<span class="ph">中譯</span>`);
-      const call = l.call && !(li && lines[li - 1].call === l.call) ? `<span class="call">${esc(l.call)}</span>` : "";
-      return `<div class="${cls}" tabindex="0"><div class="ja" lang="ja">${ja}</div>${zh ? `<div class="zh">${zh}</div>` : ""}<div class="acts">${acts.map(icon).join("")}</div>${call}</div>`;
+      let callHtml = "";
+      if (l.call && !(li && lines[li - 1].call === l.call)) {
+        if (l.call.includes("反拍")) {
+          callHtml = `<span class="call call-offbeat"><svg class="ico-clap"><use href="#i-clap"/></svg><span class="call-txt">反拍拍手</span><span class="call-rhythm"><b>空</b><i>拍</i><b>空</b><i>拍</i></span></span>`;
+        } else {
+          callHtml = `<span class="call">${esc(l.call)}</span>`;
+        }
+      }
+      return `<div class="${cls}" tabindex="0"><div class="ja" lang="ja">${ja}</div>${zh ? `<div class="zh">${zh}</div>` : ""}<div class="acts">${acts.map(icon).join("")}</div>${callHtml}</div>`;
     }).join("");
   }
 

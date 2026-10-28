@@ -485,8 +485,15 @@
       const ja = l.ja ? jaHTML(l.ja, l.sing) : `<span class="ph">日文歌詞（${fmt(l.t)}）</span>`;
       const zh = l.zh ? esc(l.zh) : (l.ja ? "" : `<span class="ph">中譯</span>`);
       // 喊聲標籤只放在同一句喊聲的第一行
-      const call = l.call && !(i && LINES[i - 1].call === l.call) ? `<span class="call">${esc(l.call)}</span>` : "";
-      el.innerHTML = `<div class="ja" lang="ja">${ja}</div>${zh ? `<div class="zh">${zh}</div>` : ""}<div class="acts">${l.acts.map(icon).join("")}</div>${call}`;
+      let callHtml = "";
+      if (l.call && !(i && LINES[i - 1].call === l.call)) {
+        if (l.call.includes("反拍")) {
+          callHtml = `<span class="call call-offbeat"><svg class="ico-clap"><use href="#i-clap"/></svg><span class="call-txt">反拍拍手</span><span class="call-rhythm"><b>空</b><i>拍</i><b>空</b><i>拍</i></span></span>`;
+        } else {
+          callHtml = `<span class="call">${esc(l.call)}</span>`;
+        }
+      }
+      el.innerHTML = `<div class="ja" lang="ja">${ja}</div>${zh ? `<div class="zh">${zh}</div>` : ""}<div class="acts">${l.acts.map(icon).join("")}</div>${callHtml}`;
       el.addEventListener("click", () => seek(l.t));
       el.addEventListener("keydown", e => { if (e.key === "Enter") seek(l.t); });
       box.appendChild(el);
@@ -793,15 +800,25 @@
   const al = document.getElementById("alert"), alIcon = document.getElementById("alIcon"), alName = document.getElementById("alName"),
         alBody = document.getElementById("alBody"), alHow = document.getElementById("alHow"), cueFrame = document.getElementById("cueFrame"), alertSw = document.getElementById("alertSw");
   const screenEl = document.getElementById("screen");
-  let alertOn = store.get("alert-off") !== "1", alKey = "", alKind = "", alDots = [], alWords = [], alSing = [];
+  let alertOn = store.get("alert-off") !== "1", alKey = "", alKind = "", alDots = [], alWords = [], alSing = [], alSteps = [];
   // 大字提醒開關：電腦在提示框裡，手機在練習工具選單裡
   const alertBtns = [alertSw, document.getElementById("alertTool")];
   const paintAlert = () => alertBtns.forEach(b => b.setAttribute("aria-pressed", alertOn));
   paintAlert();
   alertBtns.forEach(b => b.addEventListener("click", () => { alertOn = !alertOn; paintAlert(); store.set("alert-off", alertOn ? "0" : "1"); }));
   const dotsHTML = (n, first) => `<div class="dots">${Array.from({ length: n }, (_, i) => `<i${first && !i ? ' class="first"' : ""}></i>`).join("")}</div>`;
-  // 字卡內容：大合唱寫出要唱的字，喊聲寫出要喊的話，拍手是每拍亮的圓點，揮手是擺動的螢光棒，跳躍是彈起的圖示
+  // 字卡內容：大合唱寫出要唱的字，喊聲寫出要喊的話，拍手是每拍亮的圓點，揮手是擺動的螢光棒，跳躍是彈起的圖示；反拍拍手特製 4 拍視覺儀
   function cardFor(cue, l) {
+    const isOffbeat = (l.call && l.call.includes("反拍")) || (cue.name && cue.name.includes("反拍"));
+    if (isOffbeat) {
+      return {
+        act: "clap",
+        name: "反拍拍手（第 2、4 拍）",
+        kind: "offbeat",
+        body: `<div class="offbeat-meter"><div class="beat-step step-1"><span class="step-num">1</span><span class="step-txt">空</span></div><div class="beat-step target-clap step-2"><span class="step-num">2</span><span class="step-txt">拍！</span><svg class="step-ico"><use href="#i-clap"/></svg></div><div class="beat-step step-3"><span class="step-num">3</span><span class="step-txt">空</span></div><div class="beat-step target-clap step-4"><span class="step-num">4</span><span class="step-txt">拍！</span><svg class="step-ico"><use href="#i-clap"/></svg></div></div>`,
+        how: "口訣：一 [拍] 三 [拍]（空・拍・空・拍）"
+      };
+    }
     const act = l.sing.length ? "sing" : l.call ? (l.acts.includes("call") ? "call" : mainAct(l.acts)) : mainAct(l.acts);
     const extra = l.acts.filter(a => a !== act).map(a => ACT[a].name);
     const head = { act, name: ACT[act].name + (extra.length ? `<em>＋${extra.join("、")}</em>` : "") };
@@ -822,6 +839,7 @@
     alName.innerHTML = c.name; alBody.innerHTML = c.body; alHow.textContent = c.how;
     alDots = [...alBody.querySelectorAll(".dots i")];
     alWords = [...alBody.querySelectorAll(".k")];
+    alSteps = [...alBody.querySelectorAll(".beat-step")];
     placeCard();
   }
   function placeCard() {
@@ -865,6 +883,14 @@
     } else if (alKind === "dots") {
       const on = b ? (b.known ? b.bar : ((b.k % 4) + 4) % 4) : Math.floor((t - l.t) * 2) % 4;
       alDots.forEach((x, j) => x.classList.toggle("on", j === on && (!b || b.f < .5)));
+    } else if (alKind === "offbeat") {
+      const bar = b ? (b.known ? b.bar : ((b.k % 4) + 4) % 4) : Math.floor((t - l.t) * 2) % 4;
+      const hit = (!b || b.f < .45);
+      alSteps.forEach((x, j) => {
+        const isCurrent = j === bar;
+        x.classList.toggle("current", isCurrent);
+        x.classList.toggle("hit", isCurrent && (j === 1 || j === 3) && hit);
+      });
     } else if (alKind === "swing" && !reduce) {
       al.style.setProperty("--ang", (Math.cos(Math.PI * (b ? b.x : (t - l.t) * 2)) * 28).toFixed(1) + "deg");
     }
@@ -908,9 +934,17 @@
     if (started && cue) {
       const key = cue.name + cue.acts.join();
       if (key !== curKey) {
-        cueIcon.innerHTML = cue.acts.length ? `<use href="#${ACT[cue.acts[0]].icon}"/>` : "";
-        cueBox.className = "cue" + (cue.listen ? " idle" : cue.acts.length ? " a-" + mainAct(cue.acts) : "") + (playing ? " playing" : "") + (playing && alertOn ? " alerting" : "");
-        cueName.textContent = cue.name; cueHow.textContent = cue.how; curKey = key;
+        const isOffbeat = cue.name && cue.name.includes("反拍");
+        cueIcon.innerHTML = isOffbeat ? `<use href="#i-clap"/>` : (cue.acts.length ? `<use href="#${ACT[cue.acts[0]].icon}"/>` : "");
+        cueBox.className = "cue" + (cue.listen ? " idle" : isOffbeat ? " a-clap" : (cue.acts.length ? " a-" + mainAct(cue.acts) : "")) + (playing ? " playing" : "") + (playing && alertOn ? " alerting" : "");
+        if (isOffbeat) {
+          cueName.innerHTML = `<span class="cue-offbeat-title">反拍拍手</span><span class="cue-offbeat-pattern"><b>1空</b><b class="clap">2拍</b><b>3空</b><b class="clap">4拍</b></span>`;
+          cueHow.textContent = "第 2、4 拍拍手（口訣：空・拍・空・拍）";
+        } else {
+          cueName.textContent = cue.name;
+          cueHow.textContent = cue.how;
+        }
+        curKey = key;
       }
       const nx = nextChange(t);
       cueNext.innerHTML = nx ? (nx.t - t <= 5 ? `${Math.ceil(nx.t - t)} 秒後` : `下一個 ${fmt(nx.t)}`) + `<b class="a-${mainAct(nx.acts)}">${esc(nx.name)}</b>` : "";
