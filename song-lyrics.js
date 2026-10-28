@@ -4996,8 +4996,8 @@
     {
       "id": "staygold",
       "title": "Stay Gold",
-      "youtubeId": "Tmz3mpOq8aE",
-      "duration": 235,
+      "youtubeId": "YVXy5ahojZk",
+      "duration": 211,
       "lyrics": [
         {
           "time": 7.4,

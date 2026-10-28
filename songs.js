@@ -27,7 +27,7 @@
     { id: "saikyo", ja: "私は最強", zh: "我是最強", date: "2022-06-22", yt: "sk1Z-Hqwwog", len: "4:30", acts: ["clap", "call"], tips: ["開頭的副歌拍手，依場次有時不拍", "間奏喊「Hey! Hey!」"] },
     { id: "aiaia", ja: "アイ・アイ・ア", zh: "AiAiA", date: "2026-03-20", yt: "_8CNByAq1n4", len: "4:20", acts: ["sing"], tips: ["副歌 Ado 唱完歌名，觀眾重複一次", "最後副歌連續四次的歌名也由觀眾重複"] },
     { id: "rockstar", ja: "ロックスター", zh: "搖滾巨星", date: "2025-04-09", yt: "hRJpiCZlLX8", len: "3:51", acts: ["clap", "sing", "call"], tips: ["前奏和間奏照固定節奏踏腳、拍手", "Ado 給信號後一起唱", "官方推薦這樣做到曲子結束；作者建議只有間奏照官方做，其他時候拍手就好", "最後副歌前喊「Hey」"] },
-    { id: "staygold", ja: "Stay Gold", zh: "Stay Gold", date: "2026-07-31", yt: "Tmz3mpOq8aE", len: "3:55", live: true, acts: ["sing"], tips: ["副歌的「wow wow」由觀眾唱"] },
+    { id: "staygold", ja: "Stay Gold", zh: "Stay Gold", date: "2025-06-13", yt: "YVXy5ahojZk", len: "3:31", acts: ["sing"], tips: ["副歌的「wow wow」由觀眾唱"] },
     { id: "episodex", ja: "Episode X", zh: "Episode X", date: "2024-12-06", yt: "9dKZeL2UbUM", len: "3:46", acts: ["sing"], tips: ["第二段 A 段的三個單字由觀眾唱"] },
     { id: "totmusica", ja: "Tot Musica", zh: "Tot Musica", date: "2022-08-17", yt: "V9_ZpqfqHFI", len: "3:22", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
     { id: "kira", ja: "綺羅", zh: "KIRA", date: "2026-04-27", yt: "qpcz3-iDUP8", len: "3:19", acts: ["call", "sing"], tips: ["間奏喊「Hey! Hey!」", "副歌前那一長句由觀眾唱"] },
