@@ -638,47 +638,87 @@
   singPrev.addEventListener("click", () => { const t = singAt(-1, now()); if (t != null) seek(t); });
   singNext.addEventListener("click", () => { const t = singAt(1, now()); if (t != null) seek(t); });
 
+  function createPlayer(videoId, startPlaying = true) {
+    if (player || !window.YT || !YT.Player) return;
+    const origin = location.protocol.startsWith("http") ? location.origin : undefined;
+    player = new YT.Player("ytp", {
+      videoId: videoId,
+      playerVars: {
+        rel: 0,
+        playsinline: 1,
+        modestbranding: 1,
+        autoplay: startPlaying ? 1 : 0,
+        enablejsapi: 1,
+        iv_load_policy: 3,
+        start: START,
+        ...(origin ? { origin } : {})
+      },
+      events: {
+        onReady: () => {
+          ready = true;
+          clearTimeout(slowTimer);
+          videoMsg("");
+          applyRate();
+          if (startPlaying) {
+            try { player.unMute(); player.playVideo(); } catch (e) {}
+          }
+          START = 0;
+          if (S && vid !== S.yt) loadVideo();
+        },
+        // 換影片後 YouTube 會把速度重設成 1，播放或載入完成時再套一次
+        onStateChange: e => { if (e.data === 1 || e.data === 5) applyRate(); if (e.data === 0) ended(); },
+        onError: () => videoMsg("無法播放影片，請到 YouTube 觀看。")
+      }
+    });
+  }
+
   function loadVideo() {
     if (!S || songV.hidden || !window.YT || !YT.Player) return;
     if (!player) {
       vid = S.yt;
-      const origin = location.protocol.startsWith("http") ? location.origin : undefined;
-      player = new YT.Player("ytp", {
-        videoId: vid,
-        host: "https://www.youtube-nocookie.com",
-        playerVars: {
-          rel: 0,
-          playsinline: 1,
-          modestbranding: 1,
-          autoplay: 0,
-          enablejsapi: 1,
-          start: START,
-          ...(origin ? { origin } : {})
-        },
-        events: {
-          onReady: () => { ready = true; clearTimeout(slowTimer); videoMsg(""); applyRate(); START = 0; loadVideo(); },
-          // 換影片後 YouTube 會把速度重設成 1，播放或載入完成時再套一次
-          onStateChange: e => { if (e.data === 1 || e.data === 5) applyRate(); if (e.data === 0) ended(); },
-          onError: () => videoMsg("無法播放影片，請到 YouTube 觀看。")
-        }
-      });
+      createPlayer(vid, true);
       return;
     }
     if (!ready) return;
     // 打開歌曲或切歌播放
-    if (vid !== S.yt) { vid = S.yt; player.loadVideoById({ videoId: S.yt, startSeconds: START }); }
-    else { if (START) seek(START); player.playVideo(); }
+    if (vid !== S.yt) {
+      vid = S.yt;
+      try { player.unMute(); } catch (e) {}
+      player.loadVideoById({ videoId: S.yt, startSeconds: START });
+    } else {
+      if (START) seek(START);
+      try { player.unMute(); } catch (e) {}
+      player.playVideo();
+    }
     START = 0;
     ensurePlaying();
   }
 
+  // 取得點擊目標的歌曲 ID
+  function getSongIdFromEl(el) {
+    if (!el) return null;
+    if (el.dataset && el.dataset.id) return el.dataset.id;
+    const href = el.getAttribute("href") || "";
+    if (href.startsWith("#")) return href.slice(1).split("@")[0];
+    const m = href.match(/(?:^|\/)song\/([^\/]+)/);
+    return m ? m[1] : null;
+  }
+
   // 使用者手勢直接啟動播放，避免瀏覽器與 YouTube 判定為背景自動播放而插入廣告與強制靜音
   document.addEventListener("click", e => {
-    const a = e.target.closest("a[href^='#']");
+    const a = e.target.closest("a.song, a[href^='#'], #prevSong, #nextSong, #recentList a");
     if (!a) return;
-    const targetId = a.getAttribute("href").slice(1).split("@")[0];
-    const targetSong = BY[targetId];
-    if (targetSong && player && ready) {
+    const targetId = getSongIdFromEl(a);
+    const targetSong = targetId && BY[targetId];
+    if (!targetSong) return;
+
+    if (!player && window.YT && YT.Player) {
+      vid = targetSong.yt;
+      createPlayer(vid, true);
+      return;
+    }
+
+    if (player && ready) {
       try {
         player.unMute();
         if (vid !== targetSong.yt) {

@@ -4,6 +4,9 @@
 
 ## v1.15.2 — 2026-10-29
 
+- 優化 YouTube 播放器架構，徹底解決廣告突增與靜音問題：
+  - 移除強制 `youtube-nocookie.com` 節點：恢復標準 YouTube 網域，允許有 YouTube Premium 或已登入無廣告狀態的瀏覽器套用原有權限，並避免 nocookie 節點被 YouTube 頻繁插入訪客前置廣告。
+  - 修復使用者手勢播放權限（User Activation Gesture）：擴充點擊監聽選擇器（涵蓋 `a.song`、`#prevSong`、`#nextSong`、`#recentList` 等所有選歌入口），確保播放與載入始終在使用者點擊手勢的呼叫堆疊內同步發起，防止被 YouTube 判定為背景自動播放而強插廣告。
 - 強化首頁搜尋功能：全面補齊全站 76 首歌曲的官方英文歌名（`en`）與羅馬拼音（`ro`），搜尋列支援日文、中文、官方英文曲名及羅馬拼音多語系搜尋（如輸入「Backlight」、「New Genesis」、「I'm Invincible」、「Usseewa」等均可秒查）。
 - 更換〈Stay Gold〉主播放來源為官方《BEYBLADE X》動畫 MV（`YVXy5ahojZk`，時長 3:31），原 2025 埼玉超級競技場現場 LIVE 影片（`Tmz3mpOq8aE`）完整保留於「現場音源」選單供粉絲切換欣賞。
 - 深度審查與校正全站 76 首歌詞時間軸與應援標註（達成 0 錯誤、0 警告）：

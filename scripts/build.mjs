@@ -331,7 +331,7 @@ for (let i = 0; i < SONGS.length; i++) {
           "name": `Ado〈${s.ja}〉官方 MV`,
           "description": `Ado〈${s.ja}〉官方音樂錄影帶 MV`,
           "thumbnailUrl": `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg`,
-          "embedUrl": `https://www.youtube-nocookie.com/embed/${s.yt}`,
+          "embedUrl": `https://www.youtube.com/embed/${s.yt}`,
           "uploadDate": s.date
         }
       },
