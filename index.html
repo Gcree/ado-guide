@@ -3,9 +3,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Ado 應援預習</title>
-<meta name="description" content="非官方粉絲製作的 Ado 演唱會應援預習：看著 MV 跟歌詞，練哪裡拍手、哪裡大合唱。">
-<meta property="og:title" content="Ado 應援預習">
+<title>Ado 應援指南</title>
+<meta name="description" content="非官方粉絲製作的 Ado 演唱會應援指南：收錄 74 首歌曲教學，看著 MV 跟同步歌詞，練哪裡拍手、哪裡大合唱、哪裡喊聲，還有每首手燈推薦顏色與藍牙手燈連動。">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<meta name="author" content="Ado 粉絲社群 (非官方)">
+<meta name="keywords" content="Ado, 應援指南, Ado 演唱會, Ado 應援, Ado 手燈顏色, 螢光棒顏色, 同步歌詞, 大合唱, 唱, 吵死了, 新時代, 逆光, 踊">
+<meta property="og:title" content="Ado 應援指南">
 <meta property="og:description" content="看著 MV 跟歌詞，先在家練好 Ado 演唱會的應援。非官方粉絲製作。">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#070a12">
@@ -13,11 +16,13 @@
 <link rel="icon" href="assets/icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="dns-prefetch" href="https://www.youtube.com">
+<link rel="dns-prefetch" href="https://i.ytimg.com">
 <!-- build:seo（scripts/build.mjs 在這裡放網址、分享圖與結構化資料） -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap">
-<link rel="stylesheet" href="style.css?v=1.13.0">
+<link rel="stylesheet" href="style.css?v=1.14.0">
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -83,9 +88,9 @@
 <div class="shell">
   <header class="bar">
     <div class="col">
-      <a class="mark" href="#" aria-label="Ado 應援預習 首頁">
+      <a class="mark" href="./" aria-label="Ado 應援指南 首頁">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#5d9dfe"/><path d="M12 5.2c-2.3 0-3.7 1.7-3.7 4 0 1.6-.5 3.4-1.2 5.2-.5 1.3-.6 2.6-.2 3.6h10.2c.4-1 .3-2.3-.2-3.6-.7-1.8-1.2-3.6-1.2-5.2 0-2.3-1.4-4-3.7-4z" fill="#070a12"/></svg>
-        Ado 應援預習
+        Ado 應援指南
       </a>
       <span class="tag">非官方粉絲製作</span>
     </div>
@@ -95,7 +100,7 @@
     <!-- 首頁 -->
     <div class="view home" id="home">
       <section class="hero">
-        <h1>Ado 應援預習</h1>
+        <h1>Ado 應援指南</h1>
         <p class="lead">看著 MV 跟歌詞，先在家練好演唱會的應援。不照任何一場的歌單，不會暴雷。</p>
         <div class="hero-actions">
           <div class="lamp-dl-group" id="lampDlGroup">
@@ -156,12 +161,38 @@
         <ul class="songs" id="songList"></ul>
         <p class="count" id="songCount"></p>
       </section>
+
+      <section class="panel faq" id="faq" aria-labelledby="faqH">
+        <h2 id="faqH">Ado 演唱會應援指南與常見問答 (FAQ)</h2>
+        <div class="faq-list">
+          <details class="faq-item" open>
+            <summary>什麼是 Ado 應援指南？如何使用？</summary>
+            <p>這是一個非官方粉絲製作的 Ado 演唱會應援教學網站，收錄 74 首歌曲的現場應援、官方 MV 同步日中雙語歌詞與推薦螢光棒顏色。練習時看著 MV 與逐行滾動歌詞，能清楚知道哪裡拍手、哪裡大合唱、哪裡喊聲，且不依照任何特定單場歌單，進場前預習絕不暴雷。</p>
+          </details>
+          <details class="faq-item" open>
+            <summary>現場手燈（螢光棒）要調什麼顏色？沒有寫顏色的歌怎麼辦？</summary>
+            <p>Ado 演唱會中每首歌曲都有粉絲約定成俗或官方推薦的手燈顏色（例如〈唱〉為橘色與黃色、〈うっせぇわ〉為藍色與紅色、〈FREEDOM〉為白色與藍色）。如果歌曲未指定顏色、或現場來不及更換，請切換至 Ado 的代表色「<strong>藍色</strong>」（迷ったら青）。</p>
+          </details>
+          <details class="faq-item">
+            <summary>演唱會應援有哪些主要動作種類？</summary>
+            <p><strong>大合唱（sing）</strong>：跟著 Ado 一起開口唱；<br>
+            <strong>拍手（clap）</strong>：依鼓點或固定拍點擊掌（如 FREEDOM 前奏拍手）；<br>
+            <strong>喊聲（call）</strong>：在間奏呼喊「ハイ！ハイ！」給予現場回應；<br>
+            <strong>舉手揮動（wave）</strong>：跟著台上 Ado 動作舉起手燈左右擺動；<br>
+            <strong>安靜聽（listen）</strong>：抒情慢歌時請安靜聆聽 Ado 演唱，給予表演者與現場觀眾最佳的聆聽體驗。</p>
+          </details>
+          <details class="faq-item">
+            <summary>如何使用 PenlightSync 連動實體 Ado 官方手燈？</summary>
+            <p>點擊首頁上方的「下載手燈連動」，下載安裝由粉絲社群開發的 PenlightSync 桌面應用程式（支援 Windows 及 macOS），透過藍牙連接你的 Ado 官方手燈後，手燈顏色即可隨著本網站正在播放的歌曲即時自動變色！</p>
+          </details>
+        </div>
+      </section>
     </div>
 
     <!-- 歌曲頁 -->
     <div class="view" id="song" hidden>
       <nav class="songbar" aria-label="切換歌曲">
-        <a class="ib" href="#" aria-label="回歌曲清單"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>
+        <a class="ib" href="./" aria-label="回首頁歌曲清單"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>
         <div class="pick">
           <a class="ib" id="prevSong" aria-label="上一首"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></a>
           <h1 id="sTitle" lang="ja"></h1>
@@ -261,6 +292,14 @@
           <div class="legend" id="legend" aria-label="顏色代表的動作"></div>
           <div class="lyrics-scroll" id="lyScroll">
             <div id="lines"></div>
+            <section class="song-guide-card" id="songGuideCard" aria-label="歌曲應援速覽">
+              <h3 class="card-title">〈<span id="cardJa"></span>〉應援速覽</h3>
+              <dl class="card-dl">
+                <dt>推薦手燈</dt><dd id="cardPen"></dd>
+                <dt>應援重點</dt><dd id="cardTips"></dd>
+                <dt>官方 MV</dt><dd><a id="cardYt" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd>
+              </dl>
+            </section>
           </div>
         </section>
       </div>
@@ -270,9 +309,10 @@
   </main>
 
   <footer class="col">
-    <p class="credits-copy"><span class="m">Ado 應援預習</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.13.0</span></span></p>
+    <p class="credits-copy"><span class="m">Ado 應援指南</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.14.0</span></span></p>
     <nav class="credits-links" aria-label="專案連結">
       <a class="gh" href="https://github.com/Gcree/ado-guide" target="_blank" rel="noopener" aria-label="GitHub Repo" title="GitHub Repo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+      <a href="#faq">應援常見問答</a>
       <a href="https://vaundy.tiaui.co/" target="_blank" rel="noopener">Inspired by Vaundy 台北場應援指南</a>
       <a href="https://note.com/jun1217imokenp/n/nda2715681fcd" target="_blank" rel="noopener">Thanks to じゅん🌝ぴ for the chant notes.</a>
       <button type="button" id="pwaInstallBtn">加到主畫面</button>

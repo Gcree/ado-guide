@@ -85,7 +85,7 @@
       return true;
     });
     list.innerHTML = rows.map(s => `
-      <li><a class="song" href="#${s.id}">
+      <li><a class="song" href="song/${s.id}/" data-id="${s.id}">
         <span class="no">${String(s.no).padStart(2, "0")}</span>
         <div class="name"><span class="ja" lang="ja">${esc(s.ja)}</span>
           <div class="sub">${s.zh !== s.ja ? `<span class="zh">${esc(s.zh)}</span>` : ""}${s.cover ? '<span class="zh">翻唱</span>' : ""}${penDots(s)}<span>${s.len}</span>${lyReady && !s.lines ? '<span class="tagx">只有重點</span>' : ""}</div></div>
@@ -94,6 +94,17 @@
     countEl.textContent = rows.length ? (rows.length < SONGS.length ? `${rows.length} / ` : "共 ") + `${SONGS.length} 首` : "找不到符合的歌曲";
     document.getElementById("fdesc").textContent = FDESC[filter] || "";
   }
+  // 點擊歌曲清單：若為普通左鍵點擊則進行 SPA 即時切換，保持絲滑無換頁；若帶修飾鍵則允許瀏覽器開新分頁
+  list.addEventListener("click", ev => {
+    const a = ev.target.closest("a.song");
+    if (!a) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
+    const id = a.dataset.id;
+    if (id) {
+      ev.preventDefault();
+      location.hash = id;
+    }
+  });
   const FDESC = { cheer: "粉絲整理過固定應援的歌。", loose: "粉絲說沒有固定應援，或還查不到可靠的應援資料。跟著節奏自由搖就好。", cover: "Ado 翻唱別人的歌。" };
   // 螢光棒顏色的小圓點
   const penDots = s => `<span class="dots" aria-label="螢光棒：${penOf(s).keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、")}">${penOf(s).keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")}</span>`;
@@ -690,7 +701,7 @@
   function openSong(s, t = 0) {
     S = s; curKey = null; hideAlert(); START = t; remember(s.id);
     // 在這首自己的頁面（song/<id>/）時保留建置時寫好的完整標題，給搜尋引擎看
-    document.title = s.id === PAGE_SONG ? PAGE_TITLE : `${s.ja}｜Ado 應援預習`;
+    document.title = s.id === PAGE_SONG ? PAGE_TITLE : `${s.ja}｜Ado 應援指南`;
     const sub = s.zh !== s.ja ? s.zh : s.en;
     document.getElementById("sTitle").innerHTML = esc(s.ja) + (sub ? `<span lang="zh-Hant-TW">${esc(sub)}</span>` : "");
     ["ytLink", "ytLink2"].forEach(id => document.getElementById(id).href = `https://www.youtube.com/watch?v=${s.yt}`);
@@ -731,6 +742,18 @@
     document.getElementById("cueName").textContent = "按播放開始";
     document.getElementById("cueHow").textContent = !lyHave(s) ? "" : LINES.length ? "播放後，這裡會顯示現在要做的動作。" : "這首還沒有逐行時間軸，不會跳提示，照歌詞欄的重點練。";
     document.getElementById("cueNext").innerHTML = "";
+
+    // 同步更新歌曲應援速覽卡片（若存在於 DOM 中）
+    const cardJa = document.getElementById("cardJa");
+    if (cardJa) {
+      cardJa.textContent = s.ja + (s.zh !== s.ja ? `（${s.zh}）` : "");
+      const p = penOf(s);
+      const penText = p.keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、") + (p.none ? "（未指定，建議用代表色藍色）" : "");
+      document.getElementById("cardPen").textContent = penText;
+      document.getElementById("cardTips").textContent = s.tips && s.tips.length ? s.tips.join("；") : (s.free ? "沒有固定應援，自由跟著節奏搖手燈。" : "應援還在整理，先熟悉旋律。");
+      const cardYt = document.getElementById("cardYt");
+      if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${s.yt}`;
+    }
   }
   lyLoaded.then(() => { if (S && !songV.hidden) fillSong(); });
 
@@ -1315,13 +1338,13 @@
     const t = Math.floor(now()), at = t ? `#${S.id}@${t}` : "";
     const url = location.hostname.endsWith("github.io") ? new URL(`song/${S.id}/`, document.baseURI).href + at : `${location.origin}${location.pathname}${at || "#" + S.id}`;
     document.getElementById("tools").open = false;
-    const text = `${S.ja}${t ? " " + fmt(t) : ""}｜Ado 應援預習`;
+    const text = `${S.ja}${t ? " " + fmt(t) : ""}｜Ado 應援指南`;
     if (navigator.share && matchMedia("(pointer: coarse)").matches) { try { await navigator.share({ title: text, url }); return; } catch (e) { if (e.name === "AbortError") return; } }
     try { await navigator.clipboard.writeText(url); toast(`已複製連結${t ? "（從 " + fmt(t) + " 開始）" : ""}`); }
     catch (e) { prompt("複製這個連結：", url); }
   });
 
-  // 回報錯誤／意見回饋：開啟預先填好的 Google 表單（表單「Ado 應援預習｜回報與意見回饋」，帳號 kuti36.work）
+  // 回報錯誤／意見回饋：開啟預先填好的 Google 表單（表單「Ado 應援指南｜回報與意見回饋」，帳號 kuti36.work）
   // entry 是各題的編號；form 留空時改成複製文字
   const REPORT = { form: "https://docs.google.com/forms/d/e/1FAIpQLSd7f7-x0jHfDrObA4cD7D6HiAyZ2CN2BOiP1gTIffZYKW3XPg/viewform", entry: { song: "1258710218", time: "504224952", line: "1328755778", kind: "792721747", note: "1740176641" } };
   const dlg = document.getElementById("reportDlg"), rpKind = document.getElementById("rpKind"), rpNote = document.getElementById("rpNote");
@@ -1357,7 +1380,7 @@
       open(`${REPORT.form}?usp=pp_url&${q}`, "_blank", "noopener");
       return;
     }
-    const text = `【Ado 應援預習 回報】${d.song ? `\n歌曲：${d.song}\n時間：${d.time}\n這一句：${d.line}` : ""}\n問題：${d.kind}${d.note ? "\n說明：" + d.note : ""}`;
+    const text = `【Ado 應援指南 回報】${d.song ? `\n歌曲：${d.song}\n時間：${d.time}\n這一句：${d.line}` : ""}\n問題：${d.kind}${d.note ? "\n說明：" + d.note : ""}`;
     try { await navigator.clipboard.writeText(text); toast("已複製回報內容"); } catch (e) { prompt("複製這段內容：", text); }
   });
 
@@ -1421,7 +1444,7 @@
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
     } else {
       setImmersive(false);
-      lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援預習" : PAGE_TITLE;
+      lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援指南" : PAGE_TITLE;
       renderRecent();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
@@ -1429,6 +1452,26 @@
   }
   addEventListener("hashchange", route);
   route();
+
+  // 返回按鈕與 Logo 導航優化：在 SPA 模式下點擊清除 hash 平滑回首頁
+  const backBtn = document.querySelector(".songbar a.ib");
+  if (backBtn) {
+    backBtn.addEventListener("click", ev => {
+      if (!PAGE_SONG && location.hash) {
+        ev.preventDefault();
+        location.hash = "";
+      }
+    });
+  }
+  const markBtn = document.querySelector("header.bar a.mark");
+  if (markBtn) {
+    markBtn.addEventListener("click", ev => {
+      if (!PAGE_SONG && location.hash) {
+        ev.preventDefault();
+        location.hash = "";
+      }
+    });
+  }
 
   // ── 舞台燈光 ──
   const hex = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${Math.max(0, Math.min(1, a))})`; };

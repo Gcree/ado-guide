@@ -2,6 +2,14 @@
 
 依 Git 歷史整理，每個版本對應一次提交。網站頁尾的「更新日誌」直接讀這個檔案，新版本寫在最上面。
 
+## v1.14.0 — 2026-10-28
+
+- 網站正式更名為「Ado 應援指南」，定位更明確、資訊更全面。
+- 全面升級 Google SEO 最佳實踐與搜尋引擎友善度：首頁與 74 首歌曲獨立頁面全量靜態預渲染標題、歌詞、手燈顏色與應援重點，大幅提升爬取速度與索引涵蓋率。
+- 導入完整的 Schema.org 結構化資料（JSON-LD）：包含 WebSite、ItemList、MusicRecording、BreadcrumbList 及常見問題 FAQPage，爭取 Google 搜尋多樣化豐富搜尋結果（Rich Results）。
+- 導入針對 AI Agent 與大型語言模型（GEO - Generative Engine Optimization）的最佳化：新增 `robots.txt`、開放主流 AI 爬蟲，並依照 llms.txt 規範生成 `/llms.txt` 與 `/llms-full.txt` 完整知識庫，方便 AI Agent 與智慧搜尋即時取得精確無誤的應援資料。
+- 首頁與歌曲頁新增應援常見問答（FAQ）與快速速覽卡片。
+
 ## v1.13.0 — 2026-10-28
 
 - 歌詞動效升級：新增 Folia 風格的「字體波浪彈簧飛入（Glyph Spring In）」，切換歌詞時字詞自下方微旋轉波浪般依序彈射就位，中文翻譯同步滑入；可由「顯示」選單隨時開關「字體飛入」。

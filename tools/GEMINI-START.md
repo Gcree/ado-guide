@@ -1,7 +1,7 @@
 # 給 Gemini 的開場提示（複製下面整段貼上）
 
 ```text
-你在 ado-guide 這個 repo 工作（Ado 應援預習網站，純靜態網站）。
+你在 ado-guide 這個 repo 工作（Ado 應援指南網站，純靜態網站）。
 請照 tools/GEMINI-OPTIMIZE.md 做「第 1 批：修 bug、清掉沒用的程式」，只做這一批。
 
 開始前先完整讀過：

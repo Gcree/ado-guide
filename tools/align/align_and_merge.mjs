@@ -300,7 +300,7 @@ console.log("===================================================\n");
 
 // Write output
 const banner = `/**
- * Ado 應援預習 - 歌曲同步歌詞與中譯檔案 (Song Lyrics & Translations)
+ * Ado 應援指南 - 歌曲同步歌詞與中譯檔案 (Song Lyrics & Translations)
  * 格式參考自 Vaundy 應援指南 (vaundy.tiaui.co)
  * 每個歌曲包含 id, title, youtubeId, duration, lyrics: [{ time, jp, tr, acts, sing, call }]
  * 原創曲的逐行動作依 じゅん🌝ぴ 的 note（2024-04-26）標在原文寫的 MV 時間點；原文沒寫的歌不標

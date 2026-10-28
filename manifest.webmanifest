@@ -1,7 +1,7 @@
 {
-  "name": "Ado 應援預習",
-  "short_name": "Ado 應援",
-  "description": "非官方粉絲製作的 Ado 演唱會應援預習：看著 MV 跟歌詞，練哪裡拍手、哪裡大合唱。",
+  "name": "Ado 應援指南",
+  "short_name": "Ado 應援指南",
+  "description": "非官方粉絲製作的 Ado 演唱會應援指南：看著 MV 跟歌詞，練哪裡拍手、哪裡大合唱、手燈顏色與應援口號。",
   "lang": "zh-Hant-TW",
   "start_url": "./",
   "scope": "./",

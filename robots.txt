@@ -1,0 +1,41 @@
+# Robots.txt for Ado Fan Chant Guide (https://gcree.github.io/ado-guide/)
+User-agent: *
+Allow: /
+
+# Google Search & Google Extended (Gemini, Google AI Overviews)
+User-agent: Googlebot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+# OpenAI / ChatGPT Search & Agent
+User-agent: GPTBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+
+# Perplexity AI
+User-agent: PerplexityBot
+Allow: /
+
+# Anthropic / Claude
+User-agent: ClaudeBot
+Allow: /
+User-agent: anthropic-ai
+Allow: /
+
+# Applebot & Apple Intelligence
+User-agent: Applebot
+Allow: /
+User-agent: Applebot-Extended
+Allow: /
+
+# Microsoft Bing & Copilot
+User-agent: Bingbot
+Allow: /
+
+# Site Structure & Knowledge Graph for Crawlers & LLMs
+Sitemap: https://gcree.github.io/ado-guide/sitemap.xml
+# LLMs & AI Agents Context: https://gcree.github.io/ado-guide/llms.txt
