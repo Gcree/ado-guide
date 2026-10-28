@@ -61,9 +61,9 @@
   --on-paper: var(--color-slate-950);
 
   /* 應援動作色：在 --surface 上對比都在 4.5:1 以上；安靜聽用中性灰，不搶眼 */
-  --sing: #ffc857;
-  --clap: #ff9466;
-  --wave: #6fb2ff;
+  --sing: var(--primary);
+  --clap: var(--primary);
+  --wave: #ffd84a;
   --jump: #5fd68a;
   --call: #ff7aa8;
   --gesture: #bc9cff;
@@ -523,11 +523,11 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .ln[class*=" a-"]:not(.a-listen):not(.a-sing) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
 /* 「唱」不染整行，只染觀眾要唱的字 */
 .ln .sung { position: relative; display: inline-block; color: color-mix(in srgb, var(--sing) 75%, var(--muted)); transition: color .2s, text-shadow .2s; }
-.ln.now .sung { color: #fff; font-weight: 700; text-shadow: 0 0 8px rgba(255, 200, 87, .95), 0 0 20px rgba(255, 148, 102, .65), 0 0 35px rgba(255, 200, 87, .4); animation: chorus-glow-pulse 2.2s ease-in-out infinite alternate; }
-.karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: #fff !important; text-shadow: 0 0 10px rgba(255, 200, 87, 1), 0 0 24px rgba(255, 148, 102, .75), 0 0 40px rgba(255, 200, 87, .5); }
+.ln.now .sung { color: #fff; font-weight: 700; text-shadow: 0 0 8px rgba(2, 180, 245, .95), 0 0 20px rgba(45, 199, 255, .65), 0 0 35px rgba(2, 180, 245, .4); animation: chorus-glow-pulse 2.2s ease-in-out infinite alternate; }
+.karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: #fff !important; text-shadow: 0 0 10px rgba(2, 180, 245, 1), 0 0 24px rgba(45, 199, 255, .75), 0 0 40px rgba(2, 180, 245, .5); }
 @keyframes chorus-glow-pulse {
-  0% { text-shadow: 0 0 6px rgba(255, 200, 87, .8), 0 0 16px rgba(255, 148, 102, .5); transform: scale(1); }
-  100% { text-shadow: 0 0 12px rgba(255, 200, 87, 1), 0 0 28px rgba(255, 148, 102, .8), 0 0 45px rgba(255, 200, 87, .5); transform: scale(1.05); }
+  0% { text-shadow: 0 0 6px rgba(2, 180, 245, .8), 0 0 16px rgba(45, 199, 255, .5); transform: scale(1); }
+  100% { text-shadow: 0 0 12px rgba(2, 180, 245, 1), 0 0 28px rgba(45, 199, 255, .8), 0 0 45px rgba(2, 180, 245, .5); transform: scale(1.05); }
 }
 /* 合唱字型輪廓音波衝擊 (Glyph Shockwave) - 無幾何形狀，由字型筆劃輪廓自身向外擴散震撼 */
 .chorus-glyph-wave {
@@ -546,7 +546,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
   white-space: inherit;
   color: transparent !important;
   -webkit-text-stroke: 1.2px #fff;
-  filter: drop-shadow(0 0 6px var(--sing)) drop-shadow(0 0 16px rgba(255, 148, 102, .9));
+  filter: drop-shadow(0 0 6px var(--sing)) drop-shadow(0 0 16px rgba(45, 199, 255, .9));
   transform-origin: center center;
   animation: glyph-shockwave .75s cubic-bezier(.12, .85, .25, 1) forwards;
   will-change: transform, opacity, filter;
@@ -574,13 +574,13 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
   35% {
     opacity: .85;
     -webkit-text-stroke: 1.2px var(--sing);
-    filter: drop-shadow(0 0 8px var(--sing)) drop-shadow(0 0 18px rgba(255, 148, 102, .8));
+    filter: drop-shadow(0 0 8px var(--sing)) drop-shadow(0 0 18px rgba(45, 199, 255, .8));
   }
   100% {
     transform: scale(1.4) translateY(-3px);
     opacity: 0;
     -webkit-text-stroke: .7px var(--sing);
-    filter: blur(1.5px) drop-shadow(0 0 24px rgba(255, 200, 87, 0));
+    filter: blur(1.5px) drop-shadow(0 0 24px rgba(2, 180, 245, 0));
   }
 }
 /* 副歌高潮行氛圍激發 (Climax Surge) */
@@ -614,11 +614,12 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .ln rt { font-size: 11px; color: var(--faint); font-family: var(--font-ja); }
 .ln.now rt { color: var(--muted); }
 .hide-kana rt { display: none; }
-.karaoke .ln.now .ja { color: var(--muted); }
+.karaoke .ln.now .ja { color: var(--color-slate-400) !important; }
+.karaoke .ln.now .ja rt { color: var(--color-slate-400); }
 .karaoke .ln .k, .karaoke .ln rt { transition: color .08s linear; }
-.karaoke .ln.now .k.lit, .karaoke .ln.now .k.lit rt { color: var(--act, var(--accent)); }
+.karaoke .ln.now .k.lit, .karaoke .ln.now .k.lit rt { color: #fff; }
 .karaoke .ln.now.a-listen .k.lit, .karaoke .ln.now.a-listen .k.lit rt, .karaoke .ln.now.a-sing .k.lit, .karaoke .ln.now.a-sing .k.lit rt { color: var(--text); }
-.karaoke .ln.now .k.sung { color: color-mix(in srgb, var(--sing) 45%, var(--muted)); }
+.karaoke .ln.now .k.sung { color: var(--color-slate-400); }
 .karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: var(--sing); }
 .only-sing .ln:not(.sing) { display: none; }
 .size-s { --ly-k: .88; } .size-l { --ly-k: 1.15; }
@@ -769,9 +770,9 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
 .alert .how { color: var(--muted); font-size: 14px; }
 .alert .how:empty { display: none; }
 /* 大合唱：把要唱的字放大，唱到的字亮起來 */
-.alert .words { font-family: var(--font-ja); font-size: clamp(28px, 3.6vw, 44px); font-weight: 600; line-height: 1.3; color: color-mix(in srgb, var(--act) 35%, var(--faint)); text-wrap: balance; }
+.alert .words { font-family: var(--font-ja); font-size: clamp(28px, 3.6vw, 44px); font-weight: 600; line-height: 1.3; color: var(--color-slate-400); text-wrap: balance; }
 .alert .words .k { transition: color .08s linear; }
-.alert .words .k.lit { color: var(--act); }
+.alert .words .k.lit { color: var(--color-bahama-blue-400); }
 .alert .words rt { font-size: .32em; color: var(--muted); }
 /* 喊聲、手勢：大字，每拍跳一下 */
 .alert .big { font-family: var(--font-ja); font-size: clamp(28px, 3.6vw, 44px); font-weight: 700; line-height: 1.2; color: var(--act); transform: translateY(calc(var(--pulse, 0) * -6px)); }
@@ -1360,14 +1361,14 @@ body.no-lights .climax-surge {
 
 /* 第 2、4 拍（拍手目標拍） */
 .beat-step.target-clap {
-  border-color: color-mix(in srgb, var(--clap, #ff9466) 55%, transparent);
-  background: color-mix(in srgb, var(--clap, #ff9466) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--clap, var(--primary)) 55%, transparent);
+  background: color-mix(in srgb, var(--clap, var(--primary)) 12%, var(--surface));
 }
 .beat-step.target-clap .step-txt {
-  color: var(--clap, #ff9466);
+  color: var(--clap, var(--primary));
 }
 .beat-step.target-clap .step-ico {
-  stroke: var(--clap, #ff9466);
+  stroke: var(--clap, var(--primary));
 }
 
 /* 正在播到的這拍 (Current Beat) */
@@ -1381,10 +1382,10 @@ body.no-lights .climax-surge {
 
 /* 反拍拍下的那一瞬間 (Hit Flash) */
 .beat-step.target-clap.hit {
-  background: var(--clap, #ff9466) !important;
+  background: var(--clap, var(--primary)) !important;
   border-color: #fff !important;
   transform: scale(1.1) translateY(-2px);
-  box-shadow: 0 0 16px var(--clap, #ff9466), 0 4px 10px rgba(0, 0, 0, .4);
+  box-shadow: 0 0 16px var(--clap, var(--primary)), 0 4px 10px rgba(0, 0, 0, .4);
 }
 .beat-step.target-clap.hit .step-num,
 .beat-step.target-clap.hit .step-txt,
@@ -1419,7 +1420,7 @@ body.no-lights .climax-surge {
 .cue-offbeat-pattern b.clap {
   color: #070a12;
   font-weight: 700;
-  background: var(--clap, #ff9466);
+  background: var(--clap, var(--primary));
   border-radius: 4px;
 }
 
@@ -1428,11 +1429,11 @@ body.no-lights .climax-surge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: color-mix(in srgb, var(--clap, #ff9466) 16%, transparent);
-  color: var(--clap, #ff9466);
-  border: 1px solid color-mix(in srgb, var(--clap, #ff9466) 38%, transparent);
+  background: color-mix(in srgb, var(--clap, var(--primary)) 16%, transparent);
+  color: var(--clap, var(--primary));
+  border: 1px solid color-mix(in srgb, var(--clap, var(--primary)) 38%, transparent);
   padding: 3px 10px 3px 8px;
-  box-shadow: 0 2px 8px rgba(255, 148, 102, .15);
+  box-shadow: 0 2px 8px rgba(2, 180, 245, .15);
 }
 .call-offbeat .ico-clap {
   width: 14px;
@@ -1446,7 +1447,7 @@ body.no-lights .climax-surge {
   gap: 3px;
   margin-left: 4px;
   padding-left: 6px;
-  border-left: 1px solid color-mix(in srgb, var(--clap, #ff9466) 35%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--clap, var(--primary)) 35%, transparent);
   font-size: 11.5px;
   letter-spacing: 0.5px;
 }
@@ -1459,7 +1460,7 @@ body.no-lights .climax-surge {
   font-weight: 700;
   font-style: normal;
   color: #070a12;
-  background: var(--clap, #ff9466);
+  background: var(--clap, var(--primary));
   border-radius: 4px;
   padding: 1px 4px;
 }
