@@ -374,13 +374,15 @@
     });
   }
 
-  // 第一次造訪或超過 7 天：載入 2.5 秒後主動提示 toast
+  // 第一次造訪或超過 7 天：載入 2.5 秒後主動提示 toast（僅在首頁提示，不遮擋歌詞）
   if (!isPWA) {
     const dismissedTime = parseInt(store.get("install-dismissed") || "0", 10);
     const oneWeek = 7 * 24 * 60 * 60 * 1000;
     if (!dismissedTime || (Date.now() - dismissedTime > oneWeek)) {
       setTimeout(() => {
-        showPwaToast(8000);
+        if (!document.body.classList.contains("on-song")) {
+          showPwaToast(8000);
+        }
       }, 2500);
     }
   }
@@ -409,9 +411,13 @@
     const to = Math.max(0, Math.min(sc.scrollHeight - sc.clientHeight, sc.scrollTop + r.top - b.top - (sc.clientHeight - r.height) / 2));
     if (Math.abs(to - sc.scrollTop) >= 4) glide(to);
   }
-  // 自己滑歌詞時，自動捲動先停 3 秒，不跟手指搶
+  // 自己滑歌詞時，自動捲動先停 3 秒，不跟手指搶，並暫時解凍景深方便閱讀
+  let userScrollTimer = null;
   ["wheel", "touchmove"].forEach(ev => sc.addEventListener(ev, () => {
     holdUntil = performance.now() + 3000;
+    sc.classList.add("user-scrolling");
+    clearTimeout(userScrollTimer);
+    userScrollTimer = setTimeout(() => { sc.classList.remove("user-scrolling"); }, 1500);
     if (glideId !== null) { cancelAnimationFrame(glideId); glideId = null; }
   }, { passive: true }));
   // 底部留半個框的空白，最後幾行也能捲到中間
@@ -470,13 +476,138 @@
       el.addEventListener("keydown", e => { if (e.key === "Enter") seek(l.t); });
       box.appendChild(el);
     });
-    lineEls = [...box.querySelectorAll(".ln")]; curLine = -1;
+    lineEls = [...box.querySelectorAll(".ln")]; curLine = -1; box.classList.remove("has-now");
     const used = new Set(LINES.flatMap(l => l.acts));
     focusAct = "";
     legend.innerHTML = Object.keys(ACT).filter(a => used.has(a)).map(a => `<button class="a-${a}" data-act="${a}" aria-pressed="false" title="只亮出要${ACT[a].name}的句子"><i></i>${ACT[a].name}</button>`).join("");
     SING = LINES.filter((l, i) => l.acts.includes("sing") && !(i && LINES[i - 1].acts.includes("sing"))).map(l => l.t);
     singJump.hidden = !SING.length;
     sc.scrollTop = 0; holdUntil = 0; padEnd();
+    if (karaokeTiming && S && karaokeTiming.songId === S.id) {
+      applyKaraokeTimingToDom(S);
+    }
+  }
+
+  // ── 卡拉 OK 逐字時間整合 ──
+  let karaokeTiming = null;
+  let karaokeLoadSeq = 0;
+  let lastUpdateT = -1;
+  const karaokeBadge = document.getElementById("karaokeBadge");
+  const karaokeInfo = document.getElementById("karaokeInfo");
+
+  function setKaraokeStatus(state, label = "", detail = "") {
+    if (!karaokeBadge || !karaokeInfo) return;
+    if (!state) {
+      karaokeBadge.hidden = true;
+      karaokeInfo.hidden = true;
+      return;
+    }
+    karaokeBadge.hidden = false;
+    karaokeBadge.className = "karaoke-badge " + state;
+    karaokeBadge.textContent = label;
+    karaokeBadge.title = detail || label;
+
+    karaokeInfo.hidden = false;
+    karaokeInfo.textContent = detail || label;
+  }
+
+  function applyKaraokeTimingToDom(song) {
+    if (!song || !lineEls.length || !LINES.length) return;
+    const api = window.KARAOKE_SOURCES;
+    lineEls.forEach((el, i) => {
+      const lineData = LINES[i];
+      if (!lineData) return;
+      const timedLine = karaokeTiming && karaokeTiming.lines && karaokeTiming.lines[i];
+      const ks = el.querySelectorAll(".k");
+      if (!ks.length) return;
+
+      if (timedLine && timedLine.granularity === "word" && Array.isArray(timedLine.words) && timedLine.words.length && api && typeof api.mapUnitsToWords === "function") {
+        const units = api.extractUnits(lineData.ja || "");
+        const nextTime = LINES[i + 1] ? LINES[i + 1].t : lineData.t + 4;
+        const mapped = api.mapUnitsToWords(units, timedLine.words, lineData.t, nextTime);
+        const matchRatio = mapped.totalMeaningfulUnits > 0 ? (mapped.matchedUnits / mapped.totalMeaningfulUnits) : 0;
+        if (matchRatio >= 0.5) {
+          ks.forEach((k, ki) => {
+            const timing = mapped.timings[ki];
+            if (timing && Number.isFinite(timing.start)) {
+              k._kStart = timing.start;
+              k._kEnd = timing.end;
+              k.dataset.start = String(timing.start);
+              k.dataset.end = String(timing.end);
+            } else {
+              delete k._kStart;
+              delete k._kEnd;
+              delete k.dataset.start;
+              delete k.dataset.end;
+            }
+          });
+          el.dataset.karaokeSource = "word";
+          return;
+        }
+      }
+
+      ks.forEach(k => {
+        delete k._kStart;
+        delete k._kEnd;
+        delete k.dataset.start;
+        delete k.dataset.end;
+      });
+      el.dataset.karaokeSource = (timedLine && timedLine.granularity === "line") ? "line" : "fallback";
+    });
+  }
+
+  async function loadKaraokeTiming(song) {
+    if (!song) return;
+    const seq = ++karaokeLoadSeq;
+    karaokeTiming = null;
+    setKaraokeStatus("loading", "尋找時間碼…", "正在尋找開源歌詞逐字時間碼…");
+
+    const api = window.KARAOKE_SOURCES;
+    if (!api || typeof api.load !== "function" || typeof api.alignToLocalLyrics !== "function") {
+      setKaraokeStatus("fallback", "本地估算", "未載入歌詞來源模組，使用本地估算同步");
+      applyKaraokeTimingToDom(song);
+      return;
+    }
+
+    let timed = null;
+    try {
+      timed = await api.load(song, {
+        duration: DUR(),
+        onStatus: ev => {
+          if (seq !== karaokeLoadSeq || S !== song) return;
+          if (ev.state === "cache") setKaraokeStatus("loading", "讀取快取…", `已讀取本機快取（${ev.source}），正在對齊…`);
+          else if (ev.state === "fallback") setKaraokeStatus("loading", "切換來源…", `切換查詢：${ev.source}…`);
+          else if (ev.state === "offline") setKaraokeStatus("fallback", "離線模式", "目前離線且無快取，使用本地估算同步");
+        }
+      });
+    } catch (e) {
+      timed = null;
+    }
+
+    if (seq !== karaokeLoadSeq || S !== song) return;
+
+    if (!timed) {
+      setKaraokeStatus("fallback", "本地估算", "未找到外部可用時間碼，使用本地估算同步");
+      applyKaraokeTimingToDom(song);
+      return;
+    }
+
+    const aligned = api.alignToLocalLyrics(timed, LINES);
+    if (!aligned) {
+      setKaraokeStatus("fallback", "本地估算", "外部歌詞文字與本頁不符，使用本地估算同步");
+      applyKaraokeTimingToDom(song);
+      return;
+    }
+
+    aligned.songId = song.id;
+    karaokeTiming = aligned;
+    applyKaraokeTimingToDom(song);
+
+    const isWord = aligned.granularity === "word";
+    const pct = Math.round((aligned.matchedLines / Math.max(1, aligned.totalLines)) * 100);
+    const shortLabel = isWord ? `逐字 (${pct}%)` : `逐行 (${pct}%)`;
+    const detail = `來源：${aligned.source}\n粒度：${isWord ? "逐字 / 逐音節" : "逐行時間"}\n對齊：${aligned.matchedLines}/${aligned.totalLines} 行 (${pct}%)\n偏移：${aligned.offset >= 0 ? "+" : ""}${aligned.offset.toFixed(2)} 秒`;
+    setKaraokeStatus(isWord ? "ready" : "fallback", shortLabel, detail);
   }
 
   // 圖例：再點一次取消
@@ -578,6 +709,7 @@
     fillSong();
     document.getElementById("tool-click").disabled = !BEAT[s.id];
     loadVideo();
+    loadKaraokeTiming(s);
   }
   // 歌詞相關的部分：歌詞檔載好後會再跑一次
   function fillSong() {
@@ -585,6 +717,9 @@
     if (lyReady && !lyHave(s)) loadLyrics(s).then(() => { if (S === s && !songV.hidden) fillSong(); });
     loadSongData();
     renderLines();
+    if (karaokeTiming && S && karaokeTiming.songId === S.id) {
+      applyKaraokeTimingToDom(S);
+    }
     const hasTips = TAGGED && s.tips && s.tips.length > 0 && !s.hold;
     const tipsOpt = document.getElementById("tipsOpt");
     if (tipsOpt) {
@@ -714,6 +849,33 @@
     }
   }
 
+  // ── Folia 風格：字型輪廓音波衝擊 (Glyph Shockwave) ──
+  function spawnGlyphWave(targetEl) {
+    if (!targetEl || reduce) return;
+    const old = targetEl.querySelectorAll(".chorus-glyph-wave");
+    old.forEach(w => w.remove());
+
+    const wave = document.createElement("span");
+    wave.className = "chorus-glyph-wave";
+    wave.setAttribute("aria-hidden", "true");
+    wave.innerHTML = targetEl.innerHTML;
+    targetEl.appendChild(wave);
+    wave.addEventListener("animationend", () => wave.remove(), { once: true });
+  }
+
+  function triggerChorusRipples(lineEl, lineData, isClimax) {
+    if (!lineEl || reduce) return;
+    const sungEls = lineEl.querySelectorAll(".sung");
+    if (sungEls.length) {
+      sungEls.forEach((el, idx) => {
+        setTimeout(() => { spawnGlyphWave(el); }, idx * 90);
+      });
+    } else if (lineData && (lineData.acts.includes("sing") || isClimax)) {
+      const jaEl = lineEl.querySelector(".ja");
+      if (jaEl) spawnGlyphWave(jaEl);
+    }
+  }
+
   // 畫面更新
   const cueBox = document.querySelector(".cue"), cueIcon = document.getElementById("cueIcon"), cueName = document.getElementById("cueName"), cueHow = document.getElementById("cueHow"), cueNext = document.getElementById("cueNext");
   function update() {
@@ -744,29 +906,66 @@
     }
     const li = lineAt(t);
     if (started && li !== curLine && lineEls.length) {
-      lineEls.forEach((e, i) => { e.classList.toggle("now", i === li); e.classList.toggle("past", i < li); });
+      const cx = S && CLIMAX[S.id];
+      const isClimax = cx != null && (t >= cx - 2.5 && t <= cx + 28);
+      lineEls.forEach((e, i) => {
+        const isNow = i === li;
+        e.classList.toggle("now", isNow);
+        e.classList.toggle("past", i < li);
+        e.classList.toggle("climax-surge", isNow && isClimax);
+      });
+      box.classList.toggle("has-now", li >= 0);
       if (li >= 0 && OPT.scroll) centerLine(lineEls[li]);
+      if (li >= 0 && lineEls[li] && !reduce) {
+        triggerChorusRipples(lineEls[li], LINES[li], isClimax);
+      }
       curLine = li;
     }
     if (OPT.karaoke && li >= 0 && lineEls[li]) {
       const ks = lineEls[li].querySelectorAll(".k");
       if (ks.length) {
-        const end = LINES[li + 1] ? LINES[li + 1].t : DUR(), frac = Math.max(0, Math.min(1, (t - LINES[li].t) / Math.max(.5, (end - LINES[li].t) * .9)));
-        const lit = Math.round(frac * ks.length); ks.forEach((k, i) => k.classList.toggle("lit", i < lit));
+        const isWordTimed = lineEls[li].dataset.karaokeSource === "word";
+        if (isWordTimed) {
+          ks.forEach((k) => {
+            const start = k._kStart != null ? k._kStart : (k.dataset.start ? Number(k.dataset.start) : null);
+            const wasLit = k.classList.contains("lit");
+            const nowLit = start != null && Number.isFinite(start) && t >= start;
+            k.classList.toggle("lit", nowLit);
+            if (!wasLit && nowLit && k.classList.contains("sung") && !reduce && playing && Math.abs(t - lastUpdateT) < 0.35) {
+              spawnGlyphWave(k);
+            }
+          });
+        } else {
+          const end = LINES[li + 1] ? LINES[li + 1].t : DUR(), frac = Math.max(0, Math.min(1, (t - LINES[li].t) / Math.max(.5, (end - LINES[li].t) * .9)));
+          const lit = Math.round(frac * ks.length);
+          ks.forEach((k, i) => {
+            const wasLit = k.classList.contains("lit");
+            const nowLit = i < lit;
+            k.classList.toggle("lit", nowLit);
+            if (!wasLit && nowLit && k.classList.contains("sung") && !reduce && playing && Math.abs(t - lastUpdateT) < 0.35) {
+              spawnGlyphWave(k);
+            }
+          });
+        }
       }
     }
+    lastUpdateT = t;
     alerts(t, playing, cue);
     return cue;
   }
 
   // 語言切換
   // 歌詞顯示選項：預設值 → 記在這台裝置
-  const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true, size: "m" };
+  const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true, size: "m", blur: true };
   try { Object.assign(OPT, JSON.parse(store.get("view-opts") || "{}")); } catch (e) {}
   function applyOpts() {
     box.classList.toggle("hide-ja", !OPT.ja); box.classList.toggle("hide-kana", !OPT.kana); box.classList.toggle("hide-zh", !OPT.zh);
     box.classList.toggle("karaoke", OPT.karaoke); box.classList.toggle("only-sing", OPT.sing);
     box.classList.toggle("size-s", OPT.size === "s"); box.classList.toggle("size-l", OPT.size === "l");
+    box.classList.toggle("depth-focus", OPT.blur !== false);
+    if (!OPT.karaoke) {
+      box.querySelectorAll(".k.lit").forEach(k => k.classList.remove("lit"));
+    }
     document.querySelectorAll("[data-opt]").forEach(b => b.setAttribute("aria-pressed", !!OPT[b.dataset.opt]));
     document.querySelectorAll("[data-size]").forEach(b => b.setAttribute("aria-pressed", b.dataset.size === OPT.size));
     singOnly.setAttribute("aria-pressed", OPT.sing);
@@ -1145,9 +1344,10 @@
     if (s) {
       if (!homeV.hidden) listY = scrollY;
       document.body.classList.add("on-song");
+      hidePwaToast(false);
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
     } else {
-      lampStop(); pause(); hideAlert(); document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援預習" : PAGE_TITLE;
+      lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; setKaraokeStatus(null); document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援預習" : PAGE_TITLE;
       renderRecent();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);

@@ -230,6 +230,7 @@
         <section class="lyrics" aria-label="歌詞與應援">
           <div class="lyrics-top">
             <h2>歌詞與應援</h2>
+            <span class="karaoke-badge" id="karaokeBadge" title="逐字同步時間狀態" hidden></span>
             <div class="jump" id="singJump" role="group" aria-label="跳到大合唱段落">
               <button id="singPrev" aria-label="上一段大合唱">‹</button><button class="mid" id="singOnly" aria-pressed="false" title="只看大合唱的句子">大合唱</button><button id="singNext" aria-label="下一段大合唱">›</button>
             </div>
@@ -241,8 +242,10 @@
                 <button data-opt="zh" aria-pressed="true">中文</button>
                 <button data-opt="karaoke" aria-pressed="false">卡拉OK</button>
                 <button data-opt="scroll" aria-pressed="true">自動捲動</button>
+                <button data-opt="blur" aria-pressed="true">景深聚焦</button>
                 <div class="sep"></div>
                 <div class="row">字體<span class="seg" role="group" aria-label="歌詞字體大小"><button data-size="s" aria-pressed="false">小</button><button data-size="m" aria-pressed="true">中</button><button data-size="l" aria-pressed="false">大</button></span></div>
+                <div class="karaoke-info" id="karaokeInfo" hidden></div>
               </div>
             </details>
           </div>
@@ -272,4 +275,5 @@
 </div>
 
 <script src="songs.js?v=dev"></script>
+<script src="karaoke-sources.js?v=dev"></script>
 <script src="app.js?v=dev"></script>

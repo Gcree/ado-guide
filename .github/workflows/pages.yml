@@ -28,6 +28,8 @@ jobs:
           node-version: 22
       - name: Check data
         run: node scripts/check-data.mjs
+      - name: Test karaoke
+        run: node scripts/test-karaoke.mjs
       - name: Build
         run: node scripts/build.mjs dist
       - uses: actions/configure-pages@v5

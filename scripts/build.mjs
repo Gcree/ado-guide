@@ -16,7 +16,7 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..")
 const out = path.resolve(process.argv[2] || path.join(root, "dist"));
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
 const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);
-const css = read("style.css"), songsText = read("songs.js"), app = read("app.js");
+const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"), karaokeSrc = read("karaoke-sources.js");
 const require = createRequire(import.meta.url);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 const { SONGS } = require(path.join(root, "songs.js"));
@@ -34,6 +34,7 @@ const LYV = hash(Object.values(lyFiles).join("\n"));
 const src = read("index.html")
   .replace("style.css?v=dev", `style.css?v=${hash(css)}`)
   .replace("songs.js?v=dev", `songs.js?v=${hash(songsText)}`)
+  .replace("karaoke-sources.js?v=dev", `karaoke-sources.js?v=${hash(karaokeSrc)}`)
   .replace("app.js?v=dev", `app.js?v=${hash(app)}`)
   .replace('<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-lyrics="${LYV}">`);
 
@@ -113,7 +114,7 @@ write("sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="htt
 for (const [f, text] of Object.entries(lyFiles)) write(f, text);
 
 // 其他檔案原樣複製（song-lyrics.js 留著給還開著舊版網頁的人）
-for (const f of ["style.css", "songs.js", "app.js", "song-lyrics.js", "CHANGELOG.md", "manifest.webmanifest", "googlea6b361c7e6e7d11c.html"]) fs.copyFileSync(path.join(root, f), path.join(out, f));
+for (const f of ["style.css", "songs.js", "app.js", "karaoke-sources.js", "song-lyrics.js", "CHANGELOG.md", "manifest.webmanifest", "googlea6b361c7e6e7d11c.html"]) fs.copyFileSync(path.join(root, f), path.join(out, f));
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
 console.log(`輸出到 ${out}：首頁＋${SONGS.length} 首歌頁、${Object.keys(lyIndex).length} 首歌詞檔、sitemap.xml、404.html`);

@@ -310,14 +310,117 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .lyrics-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; position: relative; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .lyrics-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px 10px; }
 .lyrics-top h2 { margin: 0 auto 0 0; font-size: 17px; font-weight: 600; white-space: nowrap; }
+/* ── Folia 風格：莫奈 / Apple Music 景深視差與焦點光暈 (Depth Focus) ── */
+.depth-focus { perspective: 1000px; }
+.depth-focus .ln {
+  transition: transform .35s cubic-bezier(.2, .85, .3, 1), filter .35s ease, opacity .35s ease, background .2s ease, box-shadow .25s ease;
+  transform-origin: left center;
+  will-change: transform, filter, opacity;
+}
+.depth-focus.has-now .ln:not(.now) {
+  filter: blur(1.8px);
+  opacity: .38;
+  transform: scale(.985);
+}
+.depth-focus.has-now .ln.now {
+  filter: blur(0px) !important;
+  opacity: 1 !important;
+  transform: scale(1.03) translateX(3px);
+  box-shadow: inset 3.5px 0 0 var(--act, var(--text)), 0 4px 20px rgba(0, 0, 0, .3);
+  z-index: 2;
+}
+.depth-focus.has-now .ln.now .ja {
+  filter: drop-shadow(0 0 10px rgba(93, 157, 254, .25));
+}
+.lyrics-scroll:hover .depth-focus.has-now .ln:not(.now),
+.lyrics-scroll.user-scrolling .depth-focus.has-now .ln:not(.now) {
+  filter: blur(0px);
+  opacity: .72;
+  transform: scale(1);
+}
+.lyrics-scroll:hover .depth-focus.has-now .ln.now,
+.lyrics-scroll.user-scrolling .depth-focus.has-now .ln.now {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .depth-focus .ln { transform: none !important; transition: opacity .2s ease; }
+  .depth-focus.has-now .ln:not(.now) { filter: none !important; transform: none !important; opacity: .45; }
+  .depth-focus.has-now .ln.now { transform: none !important; }
+}
+
 /* 有動作的行，日文用該動作的顏色（淡），唱到時變全彩並在左邊加色條 */
 .ln { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: background .2s, box-shadow .2s; }
 .ln:hover { background: var(--hover); }
-.ln .ja { font-family: var(--font-ja); font-size: calc(var(--ly-ja, 17px) * var(--ly-k, 1)); line-height: 1.7; color: var(--muted); transition: color .2s; }
+.ln .ja { position: relative; font-family: var(--font-ja); font-size: calc(var(--ly-ja, 17px) * var(--ly-k, 1)); line-height: 1.7; color: var(--muted); transition: color .2s; }
 .ln[class*=" a-"]:not(.a-listen):not(.a-sing) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
 /* 「唱」不染整行，只染觀眾要唱的字 */
-.ln .sung { color: color-mix(in srgb, var(--sing) 75%, var(--muted)); }
-.ln.now .sung { color: var(--sing); }
+.ln .sung { position: relative; display: inline-block; color: color-mix(in srgb, var(--sing) 75%, var(--muted)); transition: color .2s, text-shadow .2s; }
+.ln.now .sung { color: #fff; font-weight: 700; text-shadow: 0 0 8px rgba(255, 200, 87, .95), 0 0 20px rgba(255, 148, 102, .65), 0 0 35px rgba(255, 200, 87, .4); animation: chorus-glow-pulse 2.2s ease-in-out infinite alternate; }
+.karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: #fff !important; text-shadow: 0 0 10px rgba(255, 200, 87, 1), 0 0 24px rgba(255, 148, 102, .75), 0 0 40px rgba(255, 200, 87, .5); }
+@keyframes chorus-glow-pulse {
+  0% { text-shadow: 0 0 6px rgba(255, 200, 87, .8), 0 0 16px rgba(255, 148, 102, .5); transform: scale(1); }
+  100% { text-shadow: 0 0 12px rgba(255, 200, 87, 1), 0 0 28px rgba(255, 148, 102, .8), 0 0 45px rgba(255, 200, 87, .5); transform: scale(1.05); }
+}
+/* 合唱字型輪廓音波衝擊 (Glyph Shockwave) - 無幾何形狀，由字型筆劃輪廓自身向外擴散震撼 */
+.chorus-glyph-wave {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  white-space: inherit;
+  color: transparent !important;
+  -webkit-text-stroke: 1.2px #fff;
+  filter: drop-shadow(0 0 6px var(--sing)) drop-shadow(0 0 16px rgba(255, 148, 102, .9));
+  transform-origin: center center;
+  animation: glyph-shockwave .75s cubic-bezier(.12, .85, .25, 1) forwards;
+  will-change: transform, opacity, filter;
+  z-index: 2;
+}
+.chorus-glyph-wave ruby,
+.chorus-glyph-wave rt,
+.chorus-glyph-wave span {
+  color: transparent !important;
+  -webkit-text-stroke: inherit;
+  font: inherit;
+}
+.chorus-glyph-wave rt {
+  -webkit-text-stroke: .8px var(--sing);
+  font-size: 11px;
+}
+@keyframes glyph-shockwave {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    -webkit-text-stroke: 1.5px #fff;
+    filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px var(--sing));
+  }
+  35% {
+    opacity: .85;
+    -webkit-text-stroke: 1.2px var(--sing);
+    filter: drop-shadow(0 0 8px var(--sing)) drop-shadow(0 0 18px rgba(255, 148, 102, .8));
+  }
+  100% {
+    transform: scale(1.4) translateY(-3px);
+    opacity: 0;
+    -webkit-text-stroke: .7px var(--sing);
+    filter: blur(1.5px) drop-shadow(0 0 24px rgba(255, 200, 87, 0));
+  }
+}
+/* 副歌高潮行氛圍激發 (Climax Surge) */
+.ln.now.climax-surge { background: color-mix(in srgb, var(--act, var(--sing)) 14%, var(--raised)); box-shadow: inset 4px 0 0 var(--sing), 0 0 24px color-mix(in srgb, var(--act, var(--sing)) 22%, transparent); transition: background .3s ease, box-shadow .3s ease; }
+.ln.now.climax-surge .ja { text-shadow: 0 0 12px color-mix(in srgb, var(--act, var(--sing)) 60%, transparent); }
+@media (prefers-reduced-motion: reduce) {
+  .ln.now .sung { animation: none; transform: none; }
+  .chorus-glyph-wave { display: none !important; }
+}
 .ln .zh { grid-column: 1; font-size: calc(var(--ly-zh, 14px) * var(--ly-k, 1)); color: var(--faint); }
 .ln .ph { color: var(--ph); }
 .ln .acts { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 6px; align-items: center; }
@@ -339,6 +442,12 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .karaoke .ln.now.a-listen .k.lit, .karaoke .ln.now.a-listen .k.lit rt, .karaoke .ln.now.a-sing .k.lit, .karaoke .ln.now.a-sing .k.lit rt { color: var(--text); }
 .karaoke .ln.now .k.sung { color: color-mix(in srgb, var(--sing) 45%, var(--muted)); }
 .karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: var(--sing); }
+.karaoke-badge { display: none; font-size: 11px; padding: 2px 7px; border-radius: 6px; background: var(--raised, rgba(255,255,255,0.06)); color: var(--muted); border: 1px solid var(--line, rgba(255,255,255,0.1)); cursor: default; user-select: none; transition: opacity .2s, border-color .2s; }
+.karaoke .karaoke-badge:not([hidden]) { display: inline-flex; align-items: center; gap: 4px; }
+.karaoke-badge.ready { color: var(--act, #45e394); border-color: color-mix(in srgb, var(--act, #45e394) 35%, transparent); }
+.karaoke-badge.fallback { color: var(--gold, #ecc17b); }
+.karaoke-badge.loading { color: var(--muted); opacity: .75; }
+.karaoke-info { font-size: 11px; color: var(--faint); padding: 6px 8px; line-height: 1.45; word-break: break-all; border-top: 1px solid var(--line); margin-top: 4px; }
 .only-sing .ln:not(.sing) { display: none; }
 .size-s { --ly-k: .88; } .size-l { --ly-k: 1.15; }
 /* 點圖例：只亮出有那個動作的句子 */
