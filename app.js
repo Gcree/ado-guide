@@ -492,24 +492,6 @@
   let karaokeTiming = null;
   let karaokeLoadSeq = 0;
   let lastUpdateT = -1;
-  const karaokeBadge = document.getElementById("karaokeBadge");
-  const karaokeInfo = document.getElementById("karaokeInfo");
-
-  function setKaraokeStatus(state, label = "", detail = "") {
-    if (!karaokeBadge || !karaokeInfo) return;
-    if (!state) {
-      karaokeBadge.hidden = true;
-      karaokeInfo.hidden = true;
-      return;
-    }
-    karaokeBadge.hidden = false;
-    karaokeBadge.className = "karaoke-badge " + state;
-    karaokeBadge.textContent = label;
-    karaokeBadge.title = detail || label;
-
-    karaokeInfo.hidden = false;
-    karaokeInfo.textContent = detail || label;
-  }
 
   function applyKaraokeTimingToDom(song) {
     if (!song || !lineEls.length || !LINES.length) return;
@@ -560,26 +542,16 @@
     if (!song) return;
     const seq = ++karaokeLoadSeq;
     karaokeTiming = null;
-    setKaraokeStatus("loading", "尋找時間碼…", "正在尋找開源歌詞逐字時間碼…");
 
     const api = window.KARAOKE_SOURCES;
     if (!api || typeof api.load !== "function" || typeof api.alignToLocalLyrics !== "function") {
-      setKaraokeStatus("fallback", "本地估算", "未載入歌詞來源模組，使用本地估算同步");
       applyKaraokeTimingToDom(song);
       return;
     }
 
     let timed = null;
     try {
-      timed = await api.load(song, {
-        duration: DUR(),
-        onStatus: ev => {
-          if (seq !== karaokeLoadSeq || S !== song) return;
-          if (ev.state === "cache") setKaraokeStatus("loading", "讀取快取…", `已讀取本機快取（${ev.source}），正在對齊…`);
-          else if (ev.state === "fallback") setKaraokeStatus("loading", "切換來源…", `切換查詢：${ev.source}…`);
-          else if (ev.state === "offline") setKaraokeStatus("fallback", "離線模式", "目前離線且無快取，使用本地估算同步");
-        }
-      });
+      timed = await api.load(song, { duration: DUR() });
     } catch (e) {
       timed = null;
     }
@@ -587,14 +559,12 @@
     if (seq !== karaokeLoadSeq || S !== song) return;
 
     if (!timed) {
-      setKaraokeStatus("fallback", "本地估算", "未找到外部可用時間碼，使用本地估算同步");
       applyKaraokeTimingToDom(song);
       return;
     }
 
     const aligned = api.alignToLocalLyrics(timed, LINES);
     if (!aligned) {
-      setKaraokeStatus("fallback", "本地估算", "外部歌詞文字與本頁不符，使用本地估算同步");
       applyKaraokeTimingToDom(song);
       return;
     }
@@ -602,12 +572,6 @@
     aligned.songId = song.id;
     karaokeTiming = aligned;
     applyKaraokeTimingToDom(song);
-
-    const isWord = aligned.granularity === "word";
-    const pct = Math.round((aligned.matchedLines / Math.max(1, aligned.totalLines)) * 100);
-    const shortLabel = isWord ? `逐字 (${pct}%)` : `逐行 (${pct}%)`;
-    const detail = `來源：${aligned.source}\n粒度：${isWord ? "逐字 / 逐音節" : "逐行時間"}\n對齊：${aligned.matchedLines}/${aligned.totalLines} 行 (${pct}%)\n偏移：${aligned.offset >= 0 ? "+" : ""}${aligned.offset.toFixed(2)} 秒`;
-    setKaraokeStatus(isWord ? "ready" : "fallback", shortLabel, detail);
   }
 
   // 圖例：再點一次取消
@@ -976,20 +940,21 @@
   document.querySelectorAll("[data-size]").forEach(b => b.addEventListener("click", () => setOpt("size", b.dataset.size)));
   document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => setOpt(b.dataset.opt, !OPT[b.dataset.opt])));
   applyOpts();
-  // 點選單外面就收起來
+  // 點選單外面就收起來（包含點擊手機底層遮罩）
   const menus = [document.getElementById("vopt"), document.getElementById("tools"), document.getElementById("tipsOpt")].filter(Boolean);
-  document.addEventListener("click", e => menus.forEach(m => { if (m.open && !m.contains(e.target)) m.open = false; }));
-  // 窄螢幕上按鈕換行到左邊時選單往右展開，下面放不下時往上展開，才不會跑出畫面
+  document.addEventListener("click", e => menus.forEach(m => { if (m.open && (!m.contains(e.target) || e.target === m)) m.open = false; }));
+  // 窄螢幕上按鈕換行到左邊時選單往右展開，下面放不下時往上展開，才不會跑出畫面（手機版 vopt 由 CSS 抽屜自適應）
   menus.forEach(m => m.addEventListener("toggle", () => {
     const box = m.querySelector(".view-opts");
     if (!box) return;
     box.classList.remove("to-right", "to-up");
     box.style.maxHeight = "";
     if (!m.open) return;
+    if (window.innerWidth <= 600 && m.id === "vopt") return;
     const r = box.getBoundingClientRect(), below = innerHeight - r.top - 8, above = m.getBoundingClientRect().top - 14;
     if (r.left < 8) box.classList.add("to-right");
     if (r.height > below) {
-      if (above > below) box.classList.add("to-up");
+      if (above > below && m.id !== "vopt") box.classList.add("to-up");
       if (r.height > Math.max(above, below)) box.style.maxHeight = Math.max(above, below) + "px";
     }
   }));
@@ -1347,7 +1312,7 @@
       hidePwaToast(false);
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
     } else {
-      lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; setKaraokeStatus(null); document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援預習" : PAGE_TITLE;
+      lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援預習" : PAGE_TITLE;
       renderRecent();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
