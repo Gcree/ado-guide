@@ -444,12 +444,16 @@
   }
   function lineAt(t) { let k = -1; LINES.forEach((l, i) => { if (t >= l.t) k = i; }); return k; }
 
-  // 假名：歌詞裡寫「漢字(かな)」就會標在漢字上方；每個字包成 .k 給卡拉OK用
+  // 假名：歌詞裡寫「漢字(かな)」就會標在漢字上方；每個字包成 .k 給卡拉OK與字體飛入動畫用
   // sung 是觀眾要唱的字，取最後一次出現的位置（Ado 先唱、觀眾接時，觀眾在後面）
   function jaHTML(txt, sung = []) {
     const out = [], re = /([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g, hit = new Set();
     sung.forEach(w => { const i = txt.lastIndexOf(w); if (i >= 0) for (let j = i; j < i + w.length; j++) hit.add(j); });
-    const k = (i, html) => out.push(`<span class="k${hit.has(i) ? " sung" : ""}">${html}</span>`);
+    let kIndex = 0;
+    const k = (i, html) => {
+      const rot = (((kIndex * 7) % 15) - 7).toFixed(1) + "deg";
+      out.push(`<span class="k${hit.has(i) ? " sung" : ""}" style="--i:${kIndex++};--rot:${rot}">${html}</span>`);
+    };
     const chars = (str, at) => { for (const c of str) { k(at, esc(c)); at += c.length; } };
     let last = 0, m;
     while ((m = re.exec(txt))) { chars(txt.slice(last, m.index), last); k(m.index, `<ruby>${esc(m[1])}<rt>${esc(m[2])}</rt></ruby>`); last = re.lastIndex; }
@@ -703,6 +707,7 @@
     document.getElementById("tool-click").disabled = !BEAT[s.id];
     loadVideo();
     loadKaraokeTiming(s);
+    updateAmbientColors(s);
   }
   // 歌詞相關的部分：歌詞檔載好後會再跑一次
   function fillSong() {
@@ -949,13 +954,14 @@
 
   // 語言切換
   // 歌詞顯示選項：預設值 → 記在這台裝置
-  const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true, size: "m", blur: true };
+  const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true, size: "m", blur: true, fly: true };
   try { Object.assign(OPT, JSON.parse(store.get("view-opts") || "{}")); } catch (e) {}
   function applyOpts() {
     box.classList.toggle("hide-ja", !OPT.ja); box.classList.toggle("hide-kana", !OPT.kana); box.classList.toggle("hide-zh", !OPT.zh);
     box.classList.toggle("karaoke", OPT.karaoke); box.classList.toggle("only-sing", OPT.sing);
     box.classList.toggle("size-s", OPT.size === "s"); box.classList.toggle("size-l", OPT.size === "l");
     box.classList.toggle("depth-focus", OPT.blur !== false);
+    box.classList.toggle("fly-in", OPT.fly !== false);
     if (!OPT.karaoke) {
       box.querySelectorAll(".k.lit").forEach(k => k.classList.remove("lit"));
     }
@@ -992,6 +998,72 @@
   // ── 練習工具 ──
   const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", lamp: store.get("tool-lamp") === "1" };
   const paintTools = () => document.querySelectorAll("[data-tool]").forEach(b => b.setAttribute("aria-pressed", TOOL[b.dataset.tool]));
+
+  // ── 沉浸模式 (Folia Immersive Stage) ──
+  const ambientMesh = document.getElementById("ambientMesh");
+  const toolImmersive = document.getElementById("tool-immersive");
+  const toolImmersiveMenuBtn = document.getElementById("toolImmersiveMenuBtn");
+  const songbar = document.querySelector(".songbar");
+  let isImmersive = false;
+  let songbarHideTimer = null;
+
+  function updateAmbientColors(s) {
+    if (!s || !ambientMesh) return;
+    const p = penOf(s);
+    const cols = p && p.cols && p.cols.length ? p.cols : ["#5d9dfe", "#ff4a5a"];
+    ambientMesh.style.setProperty("--mesh-c1", cols[0]);
+    ambientMesh.style.setProperty("--mesh-c2", cols[1] || cols[0]);
+  }
+
+  function resetSongbarAutohide() {
+    if (!isImmersive || !songbar) return;
+    songbar.classList.remove("autohide");
+    clearTimeout(songbarHideTimer);
+    songbarHideTimer = setTimeout(() => {
+      if (isImmersive) songbar.classList.add("autohide");
+    }, 3500);
+  }
+
+  function setImmersive(on) {
+    if (isImmersive === on) return;
+    isImmersive = on;
+    document.body.classList.toggle("immersive-mode", isImmersive);
+    if (toolImmersive) toolImmersive.setAttribute("aria-pressed", isImmersive);
+    if (isImmersive) {
+      updateAmbientColors(S);
+      toast("✨ 已開啟沉浸播放模式（按 Esc 或 F 退出）");
+      resetSongbarAutohide();
+      if (curLine >= 0 && lineEls[curLine]) {
+        setTimeout(() => centerLine(lineEls[curLine]), 80);
+      }
+    } else {
+      if (songbar) songbar.classList.remove("autohide");
+      clearTimeout(songbarHideTimer);
+      if (curLine >= 0 && lineEls[curLine]) {
+        setTimeout(() => centerLine(lineEls[curLine]), 80);
+      }
+    }
+  }
+
+  function toggleImmersive() {
+    if (!S || songV.hidden) return;
+    setImmersive(!isImmersive);
+  }
+
+  if (toolImmersive) toolImmersive.addEventListener("click", toggleImmersive);
+  if (toolImmersiveMenuBtn) {
+    toolImmersiveMenuBtn.addEventListener("click", () => {
+      toggleImmersive();
+      const toolsMenu = document.getElementById("tools");
+      if (toolsMenu) toolsMenu.open = false;
+    });
+  }
+
+  ["mousemove", "touchstart"].forEach(ev => {
+    document.addEventListener(ev, () => {
+      if (isImmersive) resetSongbarAutohide();
+    }, { passive: true });
+  });
   document.querySelectorAll("[data-tool]").forEach(b => b.addEventListener("click", () => {
     const k = b.dataset.tool;
     if (k === "lamp" && TOOL.lamp && lampStatusText === "找不到 PenlightSync") {
@@ -1318,7 +1390,13 @@
   addEventListener("keydown", e => {
     if (!S || songV.hidden || !ready || e.metaKey || e.ctrlKey || e.altKey || dlg.open || logDlg.open) return;
     if (e.target.closest("input, textarea, select, [contenteditable]")) return;
-    if (e.key === " " || e.key === "k") {
+    if (e.key === "f" || e.key === "F") {
+      e.preventDefault();
+      toggleImmersive();
+    } else if (e.key === "Escape" && isImmersive) {
+      e.preventDefault();
+      setImmersive(false);
+    } else if (e.key === " " || e.key === "k") {
       if (e.target.closest("button, summary, a") && e.key === " ") return;
       e.preventDefault(); isPlaying() ? pause() : player.playVideo();
     } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && LINES.length) {
@@ -1342,6 +1420,7 @@
       hidePwaToast(false);
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
     } else {
+      setImmersive(false);
       lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援預習" : PAGE_TITLE;
       renderRecent();
       const target = h && document.getElementById(h);
@@ -1484,6 +1563,9 @@
     if (playing && !reduce && b) { hit = beatPulse(b) * (b.down ? 1 : .5); beat = Math.max(0, Math.floor(b.k / 4)); }
     else if (playing && !reduce && l) hit = Math.exp(-(t - l.t) / .4) * (l.acts.length ? 1 : .65);
     const energy = playing && cue ? (cue.listen ? .2 : cue.beat ? 1 : .45) : .4;
+    if (isImmersive && ambientMesh) {
+      ambientMesh.style.setProperty("--beat-hit", (playing && !reduce) ? hit.toFixed(3) : "0");
+    }
     if (playing || !idleDrawn) { bg(stageT, energy, hit, cue && cue.listen, playing, beat); idleDrawn = !playing; }
     requestAnimationFrame(frame);
   }

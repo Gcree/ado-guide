@@ -250,6 +250,19 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .lamp-btn[aria-pressed="true"] svg, .songbar .lamp-btn[aria-pressed="true"] svg {
   stroke: var(--accent);
 }
+/* 沉浸模式按鈕切換 */
+.immersive-btn .ico-compress { display: none; }
+.immersive-btn[aria-pressed="true"] .ico-expand { display: none; }
+.immersive-btn[aria-pressed="true"] .ico-compress { display: block; }
+.immersive-btn[aria-pressed="true"] {
+  background: var(--raised);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(93, 157, 254, 0.35);
+}
+.immersive-btn[aria-pressed="true"] svg {
+  stroke: var(--accent);
+}
 .lamp-btn .tool-sub, .songbar .lamp-btn .tool-sub {
   font-size: 11.5px;
   color: var(--faint);
@@ -346,6 +359,57 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
   .depth-focus .ln { transform: none !important; transition: opacity .2s ease; }
   .depth-focus.has-now .ln:not(.now) { filter: none !important; transform: none !important; opacity: .45; }
   .depth-focus.has-now .ln.now { transform: none !important; }
+}
+
+/* ── Folia 風格：字體動態飛入 (Folia Typography Fly-in) ── */
+.fly-in .ln.now .ja .k {
+  display: inline-block;
+  white-space: pre-wrap;
+  will-change: transform, opacity, filter;
+  animation: folia-glyph-spring .5s cubic-bezier(.16, 1.08, .38, 1.15) both;
+  animation-delay: calc(var(--i, 0) * 24ms);
+}
+.fly-in .ln.now .ja .k.sung {
+  animation: folia-glyph-spring .5s cubic-bezier(.16, 1.08, .38, 1.15) both,
+             chorus-glow-pulse 2.2s ease-in-out infinite alternate .45s;
+}
+.fly-in .ln.now .zh {
+  will-change: transform, opacity;
+  animation: folia-zh-fade .45s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 80ms;
+}
+@keyframes folia-glyph-spring {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(.68) rotate(var(--rot, -6deg));
+    filter: blur(8px);
+  }
+  65% {
+    transform: translateY(-2px) scale(1.08) rotate(calc(var(--rot, -6deg) * -0.2));
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+    filter: blur(0);
+  }
+}
+@keyframes folia-zh-fade {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.immersive-mode .fly-in .ln.now .ja .k {
+  animation-duration: .55s;
+  animation-timing-function: cubic-bezier(.15, 1.15, .32, 1.18);
+  animation-delay: calc(var(--i, 0) * 26ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fly-in .ln.now .ja .k,
+  .fly-in .ln.now .zh {
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
 }
 
 /* 有動作的行，日文用該動作的顏色（淡），唱到時變全彩並在左邊加色條 */
@@ -713,3 +777,267 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   .alert .words, .alert .big { font-size: clamp(20px, 6.5vh, 28px); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } .alert * { animation: none !important; } }
+
+/* ── Folia 風格：全螢幕沉浸播放模式 (Immersive Stage Mode) ── */
+/* 1. 動態流光極光背景 (Ambient Light Mesh) 與 BPM 節奏閃爍 */
+.ambient-mesh {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity .8s ease;
+}
+.immersive-mode .ambient-mesh {
+  opacity: 1;
+}
+.ambient-mesh::before, .ambient-mesh::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: .38;
+  will-change: transform, opacity;
+  animation: ambient-drift 20s ease-in-out infinite alternate;
+}
+.ambient-mesh::before {
+  width: 75vw;
+  height: 75vw;
+  top: -25%;
+  left: -15%;
+  background: radial-gradient(circle, var(--mesh-c1, #5d9dfe) 0%, transparent 70%);
+}
+.ambient-mesh::after {
+  width: 65vw;
+  height: 65vw;
+  bottom: -20%;
+  right: -10%;
+  background: radial-gradient(circle, var(--mesh-c2, #ff4a5a) 0%, transparent 70%);
+  animation-duration: 26s;
+  animation-direction: alternate-reverse;
+}
+.immersive-mode .ambient-mesh::before,
+.immersive-mode .ambient-mesh::after {
+  opacity: calc(0.32 + var(--beat-hit, 0) * 0.35);
+}
+
+/* BPM 節拍中心光暈爆發層 */
+.ambient-beat-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--mesh-c1, #5d9dfe) 45%, transparent) 0%, color-mix(in srgb, var(--mesh-c2, #ff4a5a) 25%, transparent) 45%, transparent 75%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: opacity, transform;
+  transition: transform .06s linear;
+}
+.immersive-mode .ambient-beat-flash {
+  opacity: calc(var(--beat-hit, 0) * 0.85);
+  transform: scale(calc(1 + var(--beat-hit, 0) * 0.08));
+}
+
+@keyframes ambient-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(8%, 6%) scale(1.08); }
+  100% { transform: translate(-6%, 5%) scale(0.96); }
+}
+
+/* 2. 沉浸模式下的整體全螢幕覆蓋 */
+body.immersive-mode {
+  background: #04060c;
+  overflow: hidden !important;
+}
+body.immersive-mode .bar,
+body.immersive-mode footer,
+body.immersive-mode #home {
+  display: none !important;
+}
+
+body.immersive-mode #fx {
+  z-index: 2;
+  opacity: 0.85;
+  pointer-events: none;
+}
+body.immersive-mode #confetti {
+  z-index: 130;
+  pointer-events: none;
+}
+
+body.immersive-mode #song {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  width: 100vw;
+  height: 100dvh;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 頂部懸浮控制列：半透明磨砂玻璃膠囊，閒置 3 秒自動隱藏 */
+body.immersive-mode .songbar {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  left: max(24px, env(safe-area-inset-left, 0px));
+  right: max(24px, env(safe-area-inset-right, 0px));
+  z-index: 120;
+  background: rgba(14, 19, 34, .72);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  padding: 6px 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+  transition: opacity .35s ease, transform .35s ease;
+}
+
+body.immersive-mode .songbar.autohide {
+  opacity: 0;
+  transform: translateY(-14px);
+  pointer-events: none;
+}
+
+/* 舞台主區域：左右劇院式分欄 */
+body.immersive-mode .grid {
+  width: 100%;
+  height: 100%;
+  padding: calc(max(16px, env(safe-area-inset-top, 0px)) + 64px) max(32px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(32px, env(safe-area-inset-left, 0px));
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 36px;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+body.immersive-mode .left {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 580px;
+  justify-self: center;
+  width: 100%;
+}
+
+/* MV 卡片帶有環境光暈與磨砂深邃倒影，隨 BPM 節奏呼吸 */
+body.immersive-mode .mv {
+  background: rgba(14, 19, 34, .8);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, .7),
+              0 0 calc(35px + var(--beat-hit, 0) * 45px) color-mix(in srgb, var(--mesh-c1, rgba(93, 157, 254, .3)) calc(25% + var(--beat-hit, 0) * 45%), transparent);
+  border-radius: 22px;
+  overflow: hidden;
+  transition: box-shadow .08s linear;
+}
+
+/* 提示卡片 */
+body.immersive-mode .cue {
+  background: rgba(14, 19, 34, .72);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 18px;
+  padding: 12px 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .4);
+}
+
+body.immersive-mode .cue .now strong {
+  font-size: clamp(20px, 2.2vw, 28px);
+}
+
+/* 沉浸式歌詞列車 */
+body.immersive-mode .lyrics {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  height: 100%;
+  max-height: calc(100dvh - 120px);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body.immersive-mode .lyrics-top {
+  display: none;
+}
+
+body.immersive-mode .lyrics-scroll {
+  flex: 1;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
+}
+
+body.immersive-mode .ln {
+  padding: 16px 20px;
+  border-radius: 18px;
+}
+
+body.immersive-mode .ln .ja {
+  font-size: clamp(22px, 2.7vw, 38px);
+  line-height: 1.48;
+  letter-spacing: -.01em;
+}
+
+body.immersive-mode .ln .zh {
+  font-size: clamp(14px, 1.5vw, 19px);
+  margin-top: 6px;
+}
+
+body.immersive-mode .ln.now {
+  transform: scale(1.07) translateX(8px);
+  background: rgba(255, 255, 255, .08);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 4px 0 0 var(--act, var(--accent)), 0 8px 28px rgba(0, 0, 0, .45);
+}
+
+/* 手機垂直螢幕下的沉浸排版 */
+@media (max-width: 900px) {
+  body.immersive-mode .songbar {
+    left: 12px;
+    right: 12px;
+    padding: 4px 10px;
+  }
+  body.immersive-mode .grid {
+    display: flex;
+    flex-direction: column;
+    padding: calc(max(12px, env(safe-area-inset-top, 0px)) + 54px) 14px max(14px, env(safe-area-inset-bottom, 0px));
+    gap: 14px;
+    align-items: stretch;
+  }
+  body.immersive-mode .left {
+    position: static;
+    width: 100%;
+    max-width: none;
+    max-height: 28vh;
+  }
+  body.immersive-mode .mv {
+    border-radius: 16px;
+  }
+  body.immersive-mode .cue {
+    display: none;
+  }
+  body.immersive-mode .lyrics {
+    flex: 1;
+    width: 100%;
+    max-height: none;
+    height: auto;
+  }
+  body.immersive-mode .ln {
+    padding: 12px 14px;
+  }
+  body.immersive-mode .ln .ja {
+    font-size: clamp(19px, 5.2vw, 26px);
+  }
+  body.immersive-mode .ln .zh {
+    font-size: clamp(13px, 3.6vw, 15px);
+  }
+}
