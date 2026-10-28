@@ -34,7 +34,7 @@
     { id: "monstruo", ja: "モンストロ", zh: "Monstruo", date: "2026-08-07", yt: "4IKHox-DKrM", len: "3:14", acts: ["sing"], tips: ["副歌的英文短句由觀眾唱", "第二段 Ado 唱完日文後，觀眾接英文"] },
     { id: "ibara", ja: "いばら", zh: "荊棘", date: "2023-05-09", yt: "oy2WTnhVT2w", len: "4:20", acts: ["call"], tips: ["第二次副歌前和最後副歌前，Ado 問準備好了沒，用歡呼回應"] },
     { id: "rebellion", ja: "リベリオン", zh: "叛逆", date: "2022-09-19", yt: "0Y8e0LJf0i0", len: "2:59", acts: ["clap", "sing", "gesture"], tips: ["前奏一路拍手，拍到「Yeah」為止", "A 段的「Wowow」由觀眾唱", "副歌跟著 Ado 轉手臂", "副歌的「Shake it out out!」由觀眾唱", "副歌結尾的英文段和最後副歌後半那句，想唱再唱"] },
-    { id: "chocolat", ja: "ショコラカタブラ", zh: "Chocolat Cadabra", date: "2024-01-31", yt: "c5j7lpWprro", len: "3:21", acts: ["clap", "sing"], tips: ["開頭和副歌前，括號裡的短句拍手", "副歌的歌名由觀眾唱"] },
+    { id: "chocolat", ja: "ショコラカタブラ", zh: "Chocolat Cadabra", date: "2024-01-31", yt: "c5j7lpWprro", len: "3:21", acts: ["clap", "sing"], tips: ["開頭和副歌前的疊句段落隨音樂節奏持續拍手", "副歌的歌名由觀眾唱"] },
     { id: "shoka", ja: "初夏", zh: "初夏", date: "2024-10-14", yt: "GORsp0gc2Nc", len: "3:56", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
     // 以下：free＝粉絲說沒有固定應援；sug＝查不到現場資料，依曲風寫的建議
     { id: "pierrot", ja: "夜のピエロ", zh: "夜之小丑", date: "2021-06-14", yt: "cSgZxz3le7s", len: "3:20", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true },
