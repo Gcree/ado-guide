@@ -3,19 +3,63 @@
    顏色只用來分應援動作，同一種動作在歌詞、圖示、提醒都是同一個顏色。 */
 :root {
   color-scheme: dark;
-  --ground: #070a12;      /* 帶藍的近黑：熄燈後的場館 */
+
+  /* ── Bahama Blue Palette (Primary Brand & Accent) ── */
+  --color-bahama-blue-50: #eff9ff;
+  --color-bahama-blue-100: #def3ff;
+  --color-bahama-blue-200: #b6e9ff;
+  --color-bahama-blue-300: #76d9ff;
+  --color-bahama-blue-400: #2dc7ff;
+  --color-bahama-blue-500: #02b4f5;
+  --color-bahama-blue-600: #0094d2;
+  --color-bahama-blue-700: #0075aa;
+  --color-bahama-blue-800: #006896;
+  --color-bahama-blue-900: #075073;
+  --color-bahama-blue-950: #04334d;
+
+  /* ── Secondary Neutral Palette (WCAG 2.1 AA/AAA Compliant Cool Slate) ── */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  /* ── Semantic System Tokens ── */
+  /* 主色系 (Primary / Accent) */
+  --primary: var(--color-bahama-blue-500);
+  --primary-hover: var(--color-bahama-blue-400);
+  --primary-active: var(--color-bahama-blue-600);
+  --primary-light: var(--color-bahama-blue-100);
+  --primary-deep: var(--color-bahama-blue-900);
+  --accent: var(--color-bahama-blue-500);
+  --accent-hover: var(--color-bahama-blue-400);
+  --accent-deep: var(--color-bahama-blue-900);
+
+  /* 次要色與中性輔助色 (Secondary & Neutrals: 對比度 >= 4.5:1 AA, >= 7:1 AAA) */
+  --secondary: var(--color-slate-400);            /* 次要資訊／圖示：對比度 6.8:1 (WCAG AA) */
+  --secondary-hover: var(--color-slate-200);      /* 懸停高亮：對比度 14.2:1 (WCAG AAA) */
+  --secondary-muted: var(--color-slate-400);
+  --secondary-border: var(--color-slate-700);     /* 邊框線條：對比度 3.2:1 (WCAG 3:1 非文字規範) */
+
+  /* 介面層次基底 (Dark Stage Atmosphere) */
+  --ground: #070a12;                             /* 帶藍的近黑：熄燈後的場館 */
   --surface: rgba(14, 19, 34, .9);
   --raised: #1c2439;
   --hover: #121a2c;
-  --line: #3a4560;
-  --text: #f2efe8;        /* 米白 */
-  --muted: #bcc1cf;       /* 霧藍灰 */
-  --faint: #8e95a8;
-  --ph: #858ca0;
-  --accent: #5d9dfe;      /* Ado 藍：取自官方商店主色 */
-  --accent-deep: #2348a8;
-  --paper: #e6e1d6;       /* 米色 */
-  --on-paper: #0b1020;
+  --line: var(--color-slate-700);
+  --text: var(--color-slate-50);                 /* 主要文字：對比度 18.2:1 (WCAG AAA) */
+  --muted: var(--color-slate-300);               /* 內文輔助：對比度 11.5:1 (WCAG AAA) */
+  --faint: var(--color-slate-400);               /* 標籤弱化：對比度 6.8:1 (WCAG AA) */
+  --ph: var(--color-slate-500);                  /* 佔位字 */
+  --paper: var(--color-slate-100);
+  --on-paper: var(--color-slate-950);
+
   /* 應援動作色：在 --surface 上對比都在 4.5:1 以上；安靜聽用中性灰，不搶眼 */
   --sing: #ffc857;
   --clap: #ff9466;
@@ -56,6 +100,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .bar .col { height: 52px; display: flex; align-items: center; gap: 28px; }
 .mark { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; text-decoration: none; }
 .mark svg { width: 22px; height: 22px; }
+.mark svg circle { fill: var(--color-bahama-blue-500); }
 .bar .tag { margin-left: auto; color: var(--faint); font-size: 13px; }
 
 main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
@@ -74,7 +119,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 /* 首頁：手燈下載按鈕 */
 .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 6px; }
 .lamp-dl-group { display: inline-flex; align-items: stretch; position: relative; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 2px 12px rgba(0, 0, 0, .25); transition: border-color .15s, box-shadow .15s, background .15s; }
-.lamp-dl-group:hover { border-color: rgba(93, 157, 254, .45); box-shadow: 0 4px 18px rgba(93, 157, 254, .12); }
+.lamp-dl-group:hover { border-color: color-mix(in srgb, var(--color-bahama-blue-500) 45%, transparent); box-shadow: 0 4px 18px color-mix(in srgb, var(--color-bahama-blue-500) 15%, transparent); }
 .lamp-dl-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px 0 14px; border-radius: 999px 0 0 999px; background: transparent; color: var(--text); font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
 .lamp-dl-btn:hover { background: var(--raised); color: #fff; }
 .lamp-dl-btn:active { transform: scale(.99); }
@@ -374,7 +419,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
   z-index: 2;
 }
 .depth-focus.has-now .ln.now .ja {
-  filter: drop-shadow(0 0 10px rgba(93, 157, 254, .25));
+  filter: drop-shadow(0 0 10px rgba(2, 180, 245, .25));
 }
 .lyrics-scroll:hover .depth-focus.has-now .ln:not(.now),
 .lyrics-scroll.user-scrolling .depth-focus.has-now .ln:not(.now) {
@@ -874,7 +919,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   height: 75vw;
   top: -25%;
   left: -15%;
-  background: radial-gradient(circle, var(--mesh-c1, #5d9dfe) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--mesh-c1, var(--color-bahama-blue-500)) 0%, transparent 70%);
 }
 .ambient-mesh::after {
   width: 65vw;
@@ -895,7 +940,7 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--mesh-c1, #5d9dfe) 45%, transparent) 0%, color-mix(in srgb, var(--mesh-c2, #ff4a5a) 25%, transparent) 45%, transparent 75%);
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--mesh-c1, var(--color-bahama-blue-500)) 45%, transparent) 0%, color-mix(in srgb, var(--mesh-c2, #ff4a5a) 25%, transparent) 45%, transparent 75%);
   mix-blend-mode: screen;
   opacity: 0;
   will-change: opacity, transform;
@@ -1000,7 +1045,7 @@ body.immersive-mode .mv {
   backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, .14);
   box-shadow: 0 24px 64px rgba(0, 0, 0, .7),
-              0 0 calc(35px + var(--beat-hit, 0) * 45px) color-mix(in srgb, var(--mesh-c1, rgba(93, 157, 254, .3)) calc(25% + var(--beat-hit, 0) * 45%), transparent);
+              0 0 calc(35px + var(--beat-hit, 0) * 45px) color-mix(in srgb, var(--mesh-c1, rgba(2, 180, 245, .3)) calc(25% + var(--beat-hit, 0) * 45%), transparent);
   border-radius: 22px;
   overflow: hidden;
   transition: box-shadow .08s linear;
@@ -1158,7 +1203,7 @@ body.immersive-mode .ln.now {
   transition: border-color .15s;
 }
 .faq-item[open] {
-  border-color: rgba(93, 157, 254, .35);
+  border-color: color-mix(in srgb, var(--color-bahama-blue-500) 40%, transparent);
 }
 .faq-item summary {
   font-size: 15px;

@@ -1476,7 +1476,7 @@
 
   // ── 舞台燈光 ──
   const hex = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${Math.max(0, Math.min(1, a))})`; };
-  const BLUE = "#5d9dfe", DEEP = "#2348a8", IVORY = "#f2efe8";
+  const BLUE = "#02b4f5", DEEP = "#075073", IVORY = "#f8fafc";
   function stage(cv, o) {
     const ctx = cv.getContext("2d"); let W = 0, H = 0;
     const size = () => { const d = Math.min(2, devicePixelRatio || 1), r = cv.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
