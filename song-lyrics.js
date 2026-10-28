@@ -2975,7 +2975,8 @@
             "sing"
           ],
           "sing": [
-            "Alright"
+            "Alright",
+            "Don’t Mind"
           ]
         },
         {
@@ -3095,7 +3096,7 @@
           "acts": [
             "call"
           ],
-          "call": "接「ない」"
+          "call": "なーい"
         },
         {
           "time": 122.5,
@@ -3104,7 +3105,7 @@
           "acts": [
             "call"
           ],
-          "call": "接「ない」"
+          "call": "ないなーい"
         },
         {
           "time": 124.4,
