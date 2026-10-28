@@ -940,21 +940,22 @@
   document.querySelectorAll("[data-size]").forEach(b => b.addEventListener("click", () => setOpt("size", b.dataset.size)));
   document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => setOpt(b.dataset.opt, !OPT[b.dataset.opt])));
   applyOpts();
-  // 點選單外面就收起來（包含點擊手機底層遮罩）
+  // 點選單外面就收起來
   const menus = [document.getElementById("vopt"), document.getElementById("tools"), document.getElementById("tipsOpt")].filter(Boolean);
-  document.addEventListener("click", e => menus.forEach(m => { if (m.open && (!m.contains(e.target) || e.target === m)) m.open = false; }));
-  // 窄螢幕上按鈕換行到左邊時選單往右展開，下面放不下時往上展開，才不會跑出畫面（手機版 vopt 由 CSS 抽屜自適應）
+  document.addEventListener("click", e => menus.forEach(m => { if (m.open && !m.contains(e.target)) m.open = false; }));
+  // 窄螢幕上按鈕換行到左邊時選單往右展開，下面放不下時往上展開（#vopt 在歌詞頂部，順向往下展開至歌詞區）
   menus.forEach(m => m.addEventListener("toggle", () => {
     const box = m.querySelector(".view-opts");
     if (!box) return;
     box.classList.remove("to-right", "to-up");
     box.style.maxHeight = "";
     if (!m.open) return;
-    if (window.innerWidth <= 600 && m.id === "vopt") return;
-    const r = box.getBoundingClientRect(), below = innerHeight - r.top - 8, above = m.getBoundingClientRect().top - 14;
+    const r = box.getBoundingClientRect();
     if (r.left < 8) box.classList.add("to-right");
+    if (m.id === "vopt") return;
+    const below = innerHeight - r.top - 8, above = m.getBoundingClientRect().top - 14;
     if (r.height > below) {
-      if (above > below && m.id !== "vopt") box.classList.add("to-up");
+      if (above > below) box.classList.add("to-up");
       if (r.height > Math.max(above, below)) box.style.maxHeight = Math.max(above, below) + "px";
     }
   }));
