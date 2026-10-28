@@ -613,9 +613,19 @@
     if (!S || songV.hidden || !window.YT || !YT.Player) return;
     if (!player) {
       vid = S.yt;
+      const origin = location.protocol.startsWith("http") ? location.origin : undefined;
       player = new YT.Player("ytp", {
         videoId: vid,
-        playerVars: { rel: 0, playsinline: 1, modestbranding: 1, autoplay: 1, start: START },
+        host: "https://www.youtube-nocookie.com",
+        playerVars: {
+          rel: 0,
+          playsinline: 1,
+          modestbranding: 1,
+          autoplay: 0,
+          enablejsapi: 1,
+          start: START,
+          ...(origin ? { origin } : {})
+        },
         events: {
           onReady: () => { ready = true; clearTimeout(slowTimer); videoMsg(""); applyRate(); START = 0; loadVideo(); },
           // 換影片後 YouTube 會把速度重設成 1，播放或載入完成時再套一次
@@ -626,12 +636,31 @@
       return;
     }
     if (!ready) return;
-    // 打開歌曲就自動播放
+    // 打開歌曲或切歌播放
     if (vid !== S.yt) { vid = S.yt; player.loadVideoById({ videoId: S.yt, startSeconds: START }); }
     else { if (START) seek(START); player.playVideo(); }
     START = 0;
     ensurePlaying();
   }
+
+  // 使用者手勢直接啟動播放，避免瀏覽器與 YouTube 判定為背景自動播放而插入廣告與強制靜音
+  document.addEventListener("click", e => {
+    const a = e.target.closest("a[href^='#']");
+    if (!a) return;
+    const targetId = a.getAttribute("href").slice(1).split("@")[0];
+    const targetSong = BY[targetId];
+    if (targetSong && player && ready) {
+      try {
+        player.unMute();
+        if (vid !== targetSong.yt) {
+          vid = targetSong.yt;
+          player.loadVideoById({ videoId: targetSong.yt, startSeconds: 0 });
+        } else {
+          player.playVideo();
+        }
+      } catch (err) {}
+    }
+  });
   // 瀏覽器不讓有聲音的影片自己播時（直接打開網址、還沒點過畫面，iPhone 常見），改成靜音播放並提醒
   function ensurePlaying() {
     clearTimeout(muteTimer);
