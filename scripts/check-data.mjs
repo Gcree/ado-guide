@@ -8,7 +8,7 @@ import { createRequire } from "node:module";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const require = createRequire(import.meta.url);
 
-const { SONGS, UT, PEN, BEAT, CLIMAX } = require(path.join(root, "songs.js"));
+const { SONGS, UT, PEN, BEAT, CLIMAX, LIVES } = require(path.join(root, "songs.js"));
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 
 const parseLen = str => str.split(":").reduce((a, b) => a * 60 + +b, 0);
@@ -169,7 +169,24 @@ for (const s of SONGS) {
   }
 }
 
-// 8. WARN 提醒（不使檢查失敗）
+// 8. LIVES 檢查
+if (LIVES) {
+  for (const [id, tracks] of Object.entries(LIVES)) {
+    if (!songsMap.has(id)) {
+      error(`[${id}] 在 LIVES 表中存在，但不在 songs.js 歌單中`);
+    }
+    if (!Array.isArray(tracks) || tracks.length === 0) {
+      error(`[${id}] LIVES 項目必須為非空陣列`);
+    }
+    for (const t of tracks) {
+      if (!t.concert || !t.yt) {
+        error(`[${id}] LIVES 項目缺少 concert 或 yt: ${JSON.stringify(t)}`);
+      }
+    }
+  }
+}
+
+// 9. WARN 提醒（不使檢查失敗）
 const missingUT = SONGS.filter(s => !UT[s.id]).map(s => s.id);
 if (missingUT.length) {
   warn(`缺少 UT（歌ネット）編號的歌曲 (${missingUT.length} 首): ${missingUT.join(", ")}`);

@@ -19,7 +19,7 @@ const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);
 const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"), karaokeSrc = read("karaoke-sources.js");
 const require = createRequire(import.meta.url);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
-const { SONGS, UT, PEN } = require(path.join(root, "songs.js"));
+const { SONGS, UT, PEN, LIVES = {} } = require(path.join(root, "songs.js"));
 
 const PENC = {
   青: ["藍", "#5d9dfe"],
@@ -354,7 +354,15 @@ for (let i = 0; i < SONGS.length; i++) {
               "@type": "Answer",
               "text": tips.length ? tips.join("；") : (s.free ? "這首歌沒有固定應援，現場自由跟著節奏搖手燈即可。" : "這首歌應援資料整理中，先熟悉旋律並跟隨現場氣氛。")
             }
-          }
+          },
+          ...(((LIVES && LIVES[s.id]) || s.lives || []).length ? [{
+            "@type": "Question",
+            "name": `Ado〈${s.ja}〉有演唱會現場音源可以聽嗎？`,
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": `有，Ado 官方已釋出〈${s.ja}〉在歷年演唱會（${((LIVES && LIVES[s.id]) || s.lives || []).map(l => l.concert).join("、")}）的官方現場音源。`
+            }
+          }] : [])
         ]
       }
     ]
@@ -400,7 +408,10 @@ for (let i = 0; i < SONGS.length; i++) {
     ? "沒有固定應援，跟著現場氣氛就好。"
     : (s.hold ? "先熟悉旋律，跟著現場氣氛就好。" : (lines.length ? "播放後，這裡會顯示現在要做的動作。" : "這首還沒有逐行時間軸，照歌詞欄的重點練。"));
 
-  const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="歌曲應援速覽"><h3 class="card-title">〈<span id="cardJa">${esc(s.ja)}${s.zh !== s.ja ? `（${esc(s.zh)}）` : ""}</span>〉應援速覽</h3><dl class="card-dl"><dt>推薦手燈</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>應援重點</dt><dd id="cardTips">${esc(tips.length ? tips.join("；") : (s.free ? "沒有固定應援，自由跟著節奏搖手燈。" : "應援還在整理，先熟悉旋律。"))}</dd><dt>官方 MV</dt><dd><a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd></dl></section>`;
+  const lives = (LIVES && LIVES[s.id]) || s.lives || [];
+  const liveRows = lives.length ? `<dt id="cardLiveDt">現場音源</dt><dd id="cardLiveDd">${lives.map(l => `<a href="https://www.youtube.com/watch?v=${l.yt}" class="live-chip" target="_blank" rel="noopener">${esc(l.concert)} ↗</a>`).join(" ")}</dd>` : `<dt id="cardLiveDt" hidden>現場音源</dt><dd id="cardLiveDd" hidden></dd>`;
+
+  const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="歌曲應援速覽"><h3 class="card-title">〈<span id="cardJa">${esc(s.ja)}${s.zh !== s.ja ? `（${esc(s.zh)}）` : ""}</span>〉應援速覽</h3><dl class="card-dl"><dt>推薦手燈</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>應援重點</dt><dd id="cardTips">${esc(tips.length ? tips.join("；") : (s.free ? "沒有固定應援，自由跟著節奏搖手燈。" : "應援還在整理，先熟悉旋律。"))}</dd><dt>官方 MV</dt><dd><a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd>${liveRows}</dl></section>`;
 
   // 轉換歌曲頁面的 HTML：預設展示歌曲 view，隱藏 home view，並將標題、螢光棒、歌詞填入靜態標籤
   songHtml = songHtml
@@ -418,6 +429,14 @@ for (let i = 0; i < SONGS.length; i++) {
     songHtml = songHtml
       .replace('<details class="vopt tips-opt" id="tipsOpt" hidden>', '<details class="vopt tips-opt" id="tipsOpt">')
       .replace('<ul class="summary" id="tipsSummary"></ul>', `<ul class="summary" id="tipsSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`);
+  }
+
+  if (lives.length > 0) {
+    const liveListHtml = lives.map(l => `<li><a href="https://www.youtube.com/watch?v=${l.yt}" target="_blank" rel="noopener"><span>${esc(l.concert)}</span><svg class="ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></li>`).join("");
+    songHtml = songHtml
+      .replace('<details class="vopt live-opt" id="liveOpt" hidden>', '<details class="vopt live-opt" id="liveOpt">')
+      .replace('<ul class="live-menu-list" id="liveList"></ul>', `<ul class="live-menu-list" id="liveList">${liveListHtml}</ul>`)
+      .replace('<a id="liveLink" target="_blank" rel="noopener" hidden>', `<a id="liveLink" href="https://www.youtube.com/watch?v=${lives[0].yt}" target="_blank" rel="noopener">現場音源（${esc(lives[0].concert)}）↗`);
   }
 
   // 上一首／下一首連結預渲染
@@ -483,12 +502,14 @@ function generateLlmsTxt() {
 
   for (const s of SONGS) {
     const pen = penOf(s);
+    const lives = (LIVES && LIVES[s.id]) || s.lives || [];
     const tips = s.tips.length ? s.tips.join("；") : (s.free ? "沒有固定應援，自由跟著節奏搖手燈。" : "應援資料整理中，先熟悉旋律。");
     lines.push(
       `### [${s.ja}${s.zh !== s.ja ? `（${s.zh}）` : ""}](${SITE}song/${s.id}/)`,
       `- **發行日期**：${s.date}`,
       `- **推薦手燈顏色**：${pen.text}`,
       `- **官方 MV**：https://www.youtube.com/watch?v=${s.yt} (${s.len})`,
+      ...(lives.length ? [`- **官方現場音源**：${lives.map(l => `${l.concert} (https://www.youtube.com/watch?v=${l.yt})`).join("、")}`] : []),
       `- **應援重點**：${tips}`,
       ``
     );
@@ -523,6 +544,7 @@ function generateLlmsFullTxt() {
       `- 應援動作：${s.acts.map(a => ACT_MAP[a]?.name || a).join("、") || "自由跟隨節奏"}`,
       `- 應援重點指南：${tips}`,
       `- 官方 MV 連結：https://www.youtube.com/watch?v=${s.yt}`,
+      ...(((LIVES && LIVES[s.id]) || s.lives || []).length ? [`- 官方現場音源：${((LIVES && LIVES[s.id]) || s.lives || []).map(l => `${l.concert} (https://www.youtube.com/watch?v=${l.yt})`).join("、")}`] : []),
       `- 正版歌詞連結：${s.ut}`,
       ``
     );

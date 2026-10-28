@@ -149,6 +149,7 @@
               <button data-f="all" aria-pressed="true">全部</button>
               <button data-f="cheer" aria-pressed="false" title="粉絲整理過固定應援的歌">有應援</button>
               <button data-f="loose" aria-pressed="false" title="粉絲說沒有固定應援，或還查不到可靠的應援資料">沒有固定應援</button>
+              <button data-f="live" aria-pressed="false" title="Ado 官方有釋出歷年演唱會現場音源的歌">有現場版本</button>
               <button data-f="cover" aria-pressed="false" title="Ado 翻唱別人的歌">翻唱</button>
             </div>
             <div class="seg" role="group" aria-label="排序">
@@ -225,6 +226,7 @@
             <button class="do" id="toolInstallBtn">加到主畫面</button>
             <div class="sep"></div>
             <a id="ytLink" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a>
+            <a id="liveLink" target="_blank" rel="noopener" hidden>現場音源 ↗</a>
             <a id="lyLink" target="_blank" rel="noopener">正版歌詞 ↗</a>
           </div>
         </details>
@@ -254,6 +256,13 @@
                 <summary aria-label="這首重點">這首重點</summary>
                 <div class="view-opts" role="group" aria-label="這首重點">
                   <ul class="summary" id="tipsSummary"></ul>
+                </div>
+              </details>
+              <details class="vopt live-opt" id="liveOpt" hidden>
+                <summary aria-label="現場演唱會音源">現場音源</summary>
+                <div class="view-opts" role="group" aria-label="現場演唱會音源版本">
+                  <div class="live-menu-title">歷年演唱會現場音源</div>
+                  <ul class="live-menu-list" id="liveList"></ul>
                 </div>
               </details>
               <span class="mvhint">點歌詞跳到那句・空白鍵播放、← → 換句</span>
@@ -300,6 +309,7 @@
                 <dt>推薦手燈</dt><dd id="cardPen"></dd>
                 <dt>應援重點</dt><dd id="cardTips"></dd>
                 <dt>官方 MV</dt><dd><a id="cardYt" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd>
+                <dt id="cardLiveDt" hidden>現場音源</dt><dd id="cardLiveDd" hidden></dd>
               </dl>
             </section>
           </div>
@@ -311,7 +321,7 @@
   </main>
 
   <footer class="col">
-    <p class="credits-copy"><span class="m">Ado 應援指南</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.14.1</span></span></p>
+    <p class="credits-copy"><span class="m">Ado 應援指南</span><span class="sep">・</span><span class="m">ADO FAN CHANT GUIDE（非官方粉絲製作）<span class="build">v1.15.0</span></span></p>
     <nav class="credits-links" aria-label="專案連結">
       <a class="gh" href="https://github.com/Gcree/ado-guide" target="_blank" rel="noopener" aria-label="GitHub Repo" title="GitHub Repo"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
       <a href="#faq">應援常見問答</a>

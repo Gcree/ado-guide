@@ -10,7 +10,7 @@
     listen:  { name: "安靜聽",   icon: "i-listen",  how: "留給 Ado 唱" }
   };
 
-  const { SONGS, UT, PEN, BEAT, CLIMAX } = window.ADO_SONGS;
+  const { SONGS, UT, PEN, BEAT, CLIMAX, LIVES = {} } = window.ADO_SONGS;
   // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示；沒有 tips 又不是 free 的歌也先視為 hold
   SONGS.forEach(s => { if (s.sug || (!s.free && (!s.tips || !s.tips.length))) s.hold = true; if (s.hold) { s.acts = []; s.tips = []; } });
   SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = s.tips || []; s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
@@ -81,6 +81,7 @@
       if (term && ![s.ja, s.zh, s.en || ""].some(x => x.toLowerCase().includes(term))) return false;
       if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
       if (filter === "loose") return !!(s.free || s.hold);
+      if (filter === "live") return !!(s.lives && s.lives.length > 0);
       if (filter === "cover") return !!s.cover;
       return true;
     });
@@ -105,7 +106,7 @@
       location.hash = id;
     }
   });
-  const FDESC = { cheer: "粉絲整理過固定應援的歌。", loose: "粉絲說沒有固定應援，或還查不到可靠的應援資料。跟著節奏自由搖就好。", cover: "Ado 翻唱別人的歌。" };
+  const FDESC = { cheer: "粉絲整理過固定應援的歌。", loose: "粉絲說沒有固定應援，或還查不到可靠的應援資料。跟著節奏自由搖就好。", live: "Ado 官方已釋出歷年演唱會現場音源的歌曲（點進歌曲可查看場次與連結）。", cover: "Ado 翻唱別人的歌。" };
   // 螢光棒顏色的小圓點
   const penDots = s => `<span class="dots" aria-label="螢光棒：${penOf(s).keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、")}">${penOf(s).keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")}</span>`;
   q.addEventListener("input", renderList);
@@ -713,6 +714,28 @@
     document.getElementById("sTitle").innerHTML = esc(s.ja) + (sub ? `<span lang="zh-Hant-TW">${esc(sub)}</span>` : "");
     ["ytLink", "ytLink2"].forEach(id => document.getElementById(id).href = `https://www.youtube.com/watch?v=${s.yt}`);
     document.getElementById("lyLink").href = s.ut;
+    const lives = (LIVES && LIVES[s.id]) || s.lives || [];
+    const liveOpt = document.getElementById("liveOpt");
+    if (liveOpt) {
+      liveOpt.hidden = lives.length === 0;
+      liveOpt.open = false;
+      const liveList = document.getElementById("liveList");
+      if (liveList) {
+        liveList.innerHTML = lives.map(l =>
+          `<li><a href="https://www.youtube.com/watch?v=${l.yt}" target="_blank" rel="noopener"><span>${esc(l.concert)}</span><svg class="ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></li>`
+        ).join("");
+      }
+    }
+    const liveLink = document.getElementById("liveLink");
+    if (liveLink) {
+      if (lives.length > 0) {
+        liveLink.hidden = false;
+        liveLink.href = `https://www.youtube.com/watch?v=${lives[0].yt}`;
+        liveLink.textContent = `現場音源（${lives[0].concert}）↗`;
+      } else {
+        liveLink.hidden = true;
+      }
+    }
     const p = penOf(s);
     document.getElementById("pen").innerHTML = "螢光棒" + p.keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")
       + `<b>${p.keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、")}${p.none ? "（沒指定）" : ""}</b>`;
@@ -760,6 +783,20 @@
       document.getElementById("cardTips").textContent = s.tips && s.tips.length ? s.tips.join("；") : (s.free ? "沒有固定應援，自由跟著節奏搖手燈。" : "應援還在整理，先熟悉旋律。");
       const cardYt = document.getElementById("cardYt");
       if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${s.yt}`;
+      const cardLiveDt = document.getElementById("cardLiveDt");
+      const cardLiveDd = document.getElementById("cardLiveDd");
+      if (cardLiveDt && cardLiveDd) {
+        const lives = (LIVES && LIVES[s.id]) || s.lives || [];
+        if (lives.length > 0) {
+          cardLiveDt.hidden = false;
+          cardLiveDd.hidden = false;
+          cardLiveDd.innerHTML = lives.map(l => `<a href="https://www.youtube.com/watch?v=${l.yt}" class="live-chip" target="_blank" rel="noopener">${esc(l.concert)} ↗</a>`).join(" ");
+        } else {
+          cardLiveDt.hidden = true;
+          cardLiveDd.hidden = true;
+          cardLiveDd.innerHTML = "";
+        }
+      }
     }
   }
   lyLoaded.then(() => { if (S && !songV.hidden) fillSong(); });
@@ -1035,7 +1072,7 @@
   document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => setOpt(b.dataset.opt, !OPT[b.dataset.opt])));
   applyOpts();
   // 點選單外面就收起來
-  const menus = [document.getElementById("vopt"), document.getElementById("tools"), document.getElementById("tipsOpt")].filter(Boolean);
+  const menus = [document.getElementById("vopt"), document.getElementById("tools"), document.getElementById("tipsOpt"), document.getElementById("liveOpt")].filter(Boolean);
   document.addEventListener("click", e => menus.forEach(m => { if (m.open && !m.contains(e.target)) m.open = false; }));
   // 窄螢幕上按鈕換行到左邊時選單往右展開，下面放不下時往上展開（#vopt 在歌詞頂部，順向往下展開至歌詞區）
   menus.forEach(m => m.addEventListener("toggle", () => {
