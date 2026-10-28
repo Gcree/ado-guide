@@ -815,7 +815,7 @@
         act: "clap",
         name: "反拍拍手（第 2、4 拍）",
         kind: "offbeat",
-        body: `<div class="offbeat-meter"><div class="beat-step step-1"><span class="step-num">1</span><span class="step-txt">空</span></div><div class="beat-step target-clap step-2"><span class="step-num">2</span><span class="step-txt">拍！</span><svg class="step-ico"><use href="#i-clap"/></svg></div><div class="beat-step step-3"><span class="step-num">3</span><span class="step-txt">空</span></div><div class="beat-step target-clap step-4"><span class="step-num">4</span><span class="step-txt">拍！</span><svg class="step-ico"><use href="#i-clap"/></svg></div></div>`,
+        body: `<div class="offbeat-meter"><div class="beat-step step-1"><span class="step-num">1</span><span class="step-txt">空</span><span class="step-sub">—</span></div><div class="beat-step target-clap step-2"><span class="step-num">2</span><span class="step-txt">拍！</span><svg class="step-ico" viewBox="0 0 24 24"><use href="#i-clap"/></svg></div><div class="beat-step step-3"><span class="step-num">3</span><span class="step-txt">空</span><span class="step-sub">—</span></div><div class="beat-step target-clap step-4"><span class="step-num">4</span><span class="step-txt">拍！</span><svg class="step-ico" viewBox="0 0 24 24"><use href="#i-clap"/></svg></div></div>`,
         how: "口訣：一 [拍] 三 [拍]（空・拍・空・拍）"
       };
     }
@@ -843,10 +843,11 @@
     placeCard();
   }
   function placeCard() {
-    const r = screenEl.getBoundingClientRect(), c = cueBox.getBoundingClientRect();
+    const mv = document.querySelector(".mv");
+    const r = (mv || screenEl).getBoundingClientRect(), c = cueBox.getBoundingClientRect();
     al.style.setProperty("--al-left", Math.round(r.left + r.width / 2) + "px");
     al.style.setProperty("--al-max", Math.round(r.width - 16) + "px");
-    const top = c.height ? c.top : r.bottom + 8;
+    const top = c.height > 0 ? (c.top + 40) : (r.bottom + 12);
     al.style.setProperty("--al-top", Math.round(Math.max(8, Math.min(top, innerHeight - al.offsetHeight - 12))) + "px");
   }
   addEventListener("resize", () => { if (alKey) placeCard(); });

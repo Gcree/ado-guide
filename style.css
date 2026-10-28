@@ -361,6 +361,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .summary { grid-column: 1 / -1; margin: 6px 0 0; padding: 0 0 0 18px; color: var(--muted); }
 .summary li { margin: 2px 0; }
 .cue.playing .summary, .cue.playing.alerting .how { display: none; }
+.cue.playing.alerting .now, .cue.playing.alerting .next { opacity: 0; visibility: hidden; }
 .switch { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 0; }
 .switch i { width: 30px; height: 18px; border-radius: 999px; background: var(--raised); position: relative; transition: background .15s; }
 .switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--faint); transition: transform .15s, background .15s; }
@@ -760,8 +761,8 @@ footer.col { position: relative; z-index: 1; padding-block: 8px 40px; color: var
   box-shadow: inset 0 0 0 2px var(--c1, var(--accent)), inset 0 0 120px 4px color-mix(in srgb, var(--c1, var(--accent)) 45%, transparent), inset 0 -80px 160px -40px color-mix(in srgb, var(--c2, var(--accent)) 65%, transparent); }
 .alert { position: fixed; z-index: 20; left: var(--al-left, 50%); top: var(--al-top, auto); bottom: auto; width: max-content; max-width: min(640px, var(--al-max, calc(100% - 24px))); opacity: 0; transform: translate(-50%, 14px); pointer-events: none; transition: opacity .2s, transform .2s; }
 .alert.show { opacity: 1; transform: translate(-50%, 0); }
-.alert .card { display: grid; justify-items: center; gap: 10px; padding: 16px 24px 20px; border-radius: 24px; text-align: center; background: color-mix(in srgb, var(--raised) 94%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-  box-shadow: 0 0 0 2px var(--act, var(--accent)), 0 0 56px color-mix(in srgb, var(--act, var(--accent)) 35%, transparent), 0 18px 48px rgba(0, 0, 0, .5); transform: scale(calc(1 + var(--pulse, 0) * .03)); }
+.alert .card { display: grid; justify-items: center; gap: 8px; padding: 12px 20px 14px; border-radius: 20px; text-align: center; background: color-mix(in srgb, var(--raised) 92%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, .15); box-shadow: 0 12px 36px rgba(0, 0, 0, .55), 0 0 0 1px color-mix(in srgb, var(--act, var(--accent)) 40%, transparent); transform: scale(calc(1 + var(--pulse, 0) * .02)); }
 .alert .ahead { display: inline-flex; align-items: center; gap: 8px; color: var(--act, var(--text)); font-size: 15px; font-weight: 600; }
 .alert .ahead svg { width: 22px; height: 22px; }
 .alert .ahead em { font-style: normal; font-weight: 500; color: var(--muted); }
@@ -1308,18 +1309,18 @@ body.no-lights .climax-surge {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 8px 4px;
-  margin-top: 4px;
+  gap: 8px;
+  padding: 4px 2px;
+  margin-top: 2px;
 }
 .beat-step {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 58px;
-  height: 64px;
-  border-radius: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
   background: var(--surface);
   border: 1.5px solid var(--line);
   position: relative;
@@ -1327,24 +1328,34 @@ body.no-lights .climax-surge {
   user-select: none;
 }
 .beat-step .step-num {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--faint);
   line-height: 1;
-  margin-bottom: 3px;
 }
 .beat-step .step-txt {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--muted);
   line-height: 1.2;
 }
+.beat-step .step-sub {
+  font-size: 11px;
+  color: var(--faint);
+  line-height: 1;
+  margin-top: 1px;
+}
 .beat-step .step-ico {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
+  fill: none;
   stroke: currentColor;
-  margin-top: 2px;
-  opacity: 0.9;
+  margin-top: 1px;
+}
+.beat-step .step-ico .ico,
+.beat-step .step-ico path {
+  stroke: currentColor !important;
+  stroke-width: 2;
 }
 
 /* 第 2、4 拍（拍手目標拍） */
@@ -1372,15 +1383,18 @@ body.no-lights .climax-surge {
 .beat-step.target-clap.hit {
   background: var(--clap, #ff9466) !important;
   border-color: #fff !important;
-  transform: scale(1.15) translateY(-3px);
-  box-shadow: 0 0 24px var(--clap, #ff9466), 0 6px 16px rgba(0, 0, 0, .45);
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 0 16px var(--clap, #ff9466), 0 4px 10px rgba(0, 0, 0, .4);
 }
 .beat-step.target-clap.hit .step-num,
-.beat-step.target-clap.hit .step-txt {
+.beat-step.target-clap.hit .step-txt,
+.beat-step.target-clap.hit .step-sub {
   color: #070a12 !important;
   font-weight: 800;
 }
-.beat-step.target-clap.hit .step-ico {
+.beat-step.target-clap.hit .step-ico,
+.beat-step.target-clap.hit .step-ico .ico,
+.beat-step.target-clap.hit .step-ico path {
   stroke: #070a12 !important;
 }
 
