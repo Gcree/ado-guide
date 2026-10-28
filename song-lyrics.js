@@ -1722,7 +1722,7 @@
             "wave",
             "call"
           ],
-          "call": "ハイ！ハイ！"
+          "call": "Hey! Hey!"
         },
         {
           "time": 20.65,
@@ -1857,7 +1857,7 @@
             "wave",
             "call"
           ],
-          "call": "ハイ！ハイ！"
+          "call": "Hey! Hey!"
         },
         {
           "time": 87.5,
@@ -2058,7 +2058,7 @@
             "wave",
             "call"
           ],
-          "call": "ハイ！ハイ！"
+          "call": "Hey! Hey!"
         }
       ]
     },
