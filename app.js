@@ -1201,6 +1201,358 @@
     });
   }
 
+  // ── 歌詞子母畫面小窗 (Lyrics Picture-in-Picture) ──
+  const stripFurigana = s => (s || "").replace(/([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g, "$1");
+  const toolPipBtn = document.getElementById("toolPipBtn");
+  const toolPipMenuBtn = document.getElementById("toolPipMenuBtn");
+  let pipWin = null;
+  let canvasPip = null;
+  let isPipActive = false;
+  let lastPipLine = -2;
+  let lastPipPlayState = null;
+  let lastPipSongId = "";
+
+  const PIP_STYLES = `
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #080c18; color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden; user-select: none;
+    }
+    .pip-shell {
+      display: flex; flex-direction: column; justify-content: space-between;
+      height: 100vh; padding: 10px 14px;
+      background: radial-gradient(circle at 50% 0%, rgba(2, 180, 245, 0.15), transparent 75%), #080c18;
+    }
+    .pip-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0;
+    }
+    .pip-title {
+      font-size: 13px; font-weight: 600; color: #02b4f5;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
+    }
+    .pip-controls {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .pip-btn {
+      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f1f5f9; border-radius: 50%; width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 13px; padding: 0; transition: background .15s, border-color .15s;
+    }
+    .pip-btn:hover {
+      background: rgba(2, 180, 245, 0.25); border-color: #02b4f5; color: #fff;
+    }
+    .pip-body {
+      flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; margin: 4px 0;
+    }
+    .pip-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+      width: fit-content; margin-bottom: 4px;
+    }
+    .pip-badge.a-sing { background: rgba(2, 180, 245, 0.2); color: #2dc7ff; border: 1px solid rgba(2, 180, 245, 0.4); }
+    .pip-badge.a-clap { background: rgba(2, 180, 245, 0.2); color: #2dc7ff; border: 1px solid rgba(2, 180, 245, 0.4); }
+    .pip-badge.a-wave { background: rgba(255, 216, 74, 0.2); color: #ffd84a; border: 1px solid rgba(255, 216, 74, 0.4); }
+    .pip-badge.a-call { background: rgba(255, 122, 184, 0.2); color: #ff7ab8; border: 1px solid rgba(255, 122, 184, 0.4); }
+    .pip-badge.a-jump { background: rgba(78, 224, 138, 0.2); color: #4ee08a; border: 1px solid rgba(78, 224, 138, 0.4); }
+    .pip-badge.a-gesture { background: rgba(255, 154, 60, 0.2); color: #ff9a3c; border: 1px solid rgba(255, 154, 60, 0.4); }
+    .pip-ja {
+      font-size: 18px; font-weight: 700; line-height: 1.35; color: #ffffff;
+      margin-bottom: 3px; word-break: break-word; text-shadow: 0 0 12px rgba(2, 180, 245, 0.35);
+    }
+    .pip-ja ruby { ruby-position: over; }
+    .pip-ja rt { font-size: 10px; color: #94a3b8; font-weight: normal; }
+    .pip-ja .k.sung { color: #2dc7ff; text-shadow: 0 0 10px rgba(45, 199, 255, 0.6); }
+    .pip-tr {
+      font-size: 13px; color: #94a3b8; line-height: 1.4; word-break: break-word;
+    }
+    .pip-footer {
+      font-size: 11.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.08); flex-shrink: 0;
+    }
+    .pip-next-lbl { font-weight: 600; color: #475569; margin-right: 6px; }
+  `;
+
+  function updatePipButtonStates(active) {
+    isPipActive = active;
+    [toolPipBtn, toolPipMenuBtn].forEach(b => {
+      if (b) b.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
+  async function openDocPip() {
+    if (pipWin && !pipWin.closed) {
+      pipWin.close();
+      pipWin = null;
+      updatePipButtonStates(false);
+      return;
+    }
+
+    try {
+      pipWin = await window.documentPictureInPicture.requestWindow({
+        width: 440,
+        height: 220
+      });
+    } catch (err) {
+      console.warn("documentPictureInPicture failed, falling back to Canvas PiP:", err);
+      return openCanvasPip();
+    }
+
+    updatePipButtonStates(true);
+    lastPipLine = -2;
+    lastPipPlayState = null;
+    lastPipSongId = "";
+
+    pipWin.addEventListener("pagehide", () => {
+      pipWin = null;
+      updatePipButtonStates(false);
+    });
+
+    const doc = pipWin.document;
+    doc.title = `歌詞小窗｜${S ? S.ja : "Ado 應援指南"}`;
+
+    const style = doc.createElement("style");
+    style.textContent = PIP_STYLES;
+    doc.head.appendChild(style);
+
+    doc.body.innerHTML = `
+      <div class="pip-shell">
+        <header class="pip-header">
+          <span class="pip-title" id="pipTitle">${esc(S ? `Ado〈${S.ja}〉` : "Ado 應援指南")}</span>
+          <div class="pip-controls">
+            <button class="pip-btn" id="pipPrev" title="上一首">‹</button>
+            <button class="pip-btn" id="pipPlay" title="播放/暫停">⏸</button>
+            <button class="pip-btn" id="pipNext" title="下一首">›</button>
+          </div>
+        </header>
+        <main class="pip-body">
+          <div class="pip-badge" id="pipBadge" hidden></div>
+          <div class="pip-ja" id="pipJa">等待播放…</div>
+          <div class="pip-tr" id="pipTr"></div>
+        </main>
+        <footer class="pip-footer" id="pipNextRow" hidden>
+          <span class="pip-next-lbl">下一句</span>
+          <span id="pipNext"></span>
+        </footer>
+      </div>
+    `;
+
+    doc.getElementById("pipPrev").addEventListener("click", () => {
+      const prev = document.getElementById("prevSong");
+      if (prev && prev.getAttribute("href")) prev.click();
+    });
+    doc.getElementById("pipPlay").addEventListener("click", () => {
+      if (isPlaying()) pause(); else if (player && ready) player.playVideo();
+    });
+    doc.getElementById("pipNext").addEventListener("click", () => {
+      const next = document.getElementById("nextSong");
+      if (next && next.getAttribute("href")) next.click();
+    });
+
+    updatePip();
+  }
+
+  async function openCanvasPip() {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture().catch(() => {});
+      updatePipButtonStates(false);
+      return;
+    }
+
+    if (!document.pictureInPictureEnabled) {
+      toast("您的瀏覽器不支援子母畫面 (Picture-in-Picture) 功能");
+      return;
+    }
+
+    if (!canvasPip) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 360;
+      const ctx = canvas.getContext("2d");
+      const video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = canvas.captureStream(25);
+      canvasPip = { canvas, ctx, video };
+
+      video.addEventListener("leavepictureinpicture", () => {
+        updatePipButtonStates(false);
+      });
+    }
+
+    lastPipLine = -2;
+    renderCanvasPip(isPlaying(), curLine >= 0 ? LINES[curLine] : null, curLine >= 0 && curLine + 1 < LINES.length ? LINES[curLine + 1] : null);
+
+    try {
+      await canvasPip.video.play();
+      await canvasPip.video.requestPictureInPicture();
+      updatePipButtonStates(true);
+    } catch (err) {
+      console.warn("Canvas PiP request failed:", err);
+      toast("無法開啟子母畫面，請先播放影片後再試");
+    }
+  }
+
+  function togglePip() {
+    if (!S || songV.hidden) return;
+    if (window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === "function") {
+      openDocPip();
+    } else {
+      openCanvasPip();
+    }
+  }
+
+  function renderCanvasPip(playing, l, nextL) {
+    if (!canvasPip) return;
+    const { canvas, ctx } = canvasPip;
+    const w = canvas.width, h = canvas.height;
+
+    const grad = ctx.createRadialGradient(w / 2, 0, 10, w / 2, h / 2, w / 2);
+    grad.addColorStop(0, "#101d36");
+    grad.addColorStop(1, "#070b14");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.fillStyle = "#02b4f5";
+    ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(S ? `Ado〈${S.ja}〉` : "Ado 應援指南", 24, 38);
+
+    ctx.fillStyle = "#64748b";
+    ctx.font = "15px sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(playing ? "正在播放 ⏸" : "已暫停 ▶", w - 24, 38);
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(24, 52);
+    ctx.lineTo(w - 24, 52);
+    ctx.stroke();
+
+    let curY = 96;
+    if (l && l.acts && l.acts.length) {
+      const act = mainAct(l.acts);
+      const badgeText = l.call ? `【${l.call}】` : `【${ACT[act]?.name || act}】`;
+      ctx.fillStyle = act === "wave" ? "#ffd84a" : (act === "call" ? "#ff7ab8" : "#2dc7ff");
+      ctx.font = "bold 16px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(badgeText, 24, curY);
+      curY += 34;
+    } else {
+      curY += 10;
+    }
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "left";
+    const curJp = l ? stripFurigana(l.jp) : (S ? `〈${S.ja}〉` : "等待播放…");
+    ctx.fillText(curJp, 24, curY, w - 48);
+
+    if (l && l.tr) {
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "17px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillText(l.tr, 24, curY + 34, w - 48);
+    }
+
+    if (nextL && nextL.jp) {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+      ctx.beginPath();
+      ctx.moveTo(24, h - 54);
+      ctx.lineTo(w - 24, h - 54);
+      ctx.stroke();
+
+      ctx.fillStyle = "#475569";
+      ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillText("下一句", 24, h - 24);
+
+      ctx.fillStyle = "#64748b";
+      ctx.font = "14px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillText(stripFurigana(nextL.jp), 74, h - 24, w - 100);
+    }
+  }
+
+  function updatePip() {
+    if (!isPipActive) return;
+    const playing = isPlaying();
+    const l = curLine >= 0 ? LINES[curLine] : null;
+    const nextL = (curLine >= 0 && curLine + 1 < LINES.length) ? LINES[curLine + 1] : null;
+
+    if (pipWin && !pipWin.closed) {
+      const doc = pipWin.document;
+      if (S && lastPipSongId !== S.id) {
+        lastPipSongId = S.id;
+        const titleEl = doc.getElementById("pipTitle");
+        if (titleEl) titleEl.textContent = `Ado〈${S.ja}〉`;
+        doc.title = `歌詞小窗｜${S.ja}`;
+      }
+
+      const playBtn = doc.getElementById("pipPlay");
+      if (playBtn && lastPipPlayState !== playing) {
+        playBtn.textContent = playing ? "⏸" : "▶";
+        playBtn.title = playing ? "暫停" : "播放";
+        lastPipPlayState = playing;
+      }
+
+      if (lastPipLine !== curLine) {
+        lastPipLine = curLine;
+        const jaEl = doc.getElementById("pipJa");
+        const trEl = doc.getElementById("pipTr");
+        const badgeEl = doc.getElementById("pipBadge");
+        const nextEl = doc.getElementById("pipNext");
+        const nextRow = doc.getElementById("pipNextRow");
+
+        if (l) {
+          if (jaEl) jaEl.innerHTML = l.jp ? jaHTML(l.jp, l.sing) : "";
+          if (trEl) trEl.textContent = l.tr || "";
+          if (badgeEl) {
+            const act = mainAct(l.acts);
+            if (act && ACT[act]) {
+              badgeEl.className = `pip-badge a-${act}`;
+              badgeEl.textContent = l.call ? `【${l.call}】` : `【${ACT[act].name}】`;
+              badgeEl.hidden = false;
+            } else {
+              badgeEl.hidden = true;
+            }
+          }
+        } else {
+          if (jaEl) jaEl.innerHTML = S ? `〈${esc(S.ja)}〉` : "等待播放…";
+          if (trEl) trEl.textContent = "點擊播放開始預習應援";
+          if (badgeEl) badgeEl.hidden = true;
+        }
+
+        if (nextEl && nextRow) {
+          if (nextL && nextL.jp) {
+            nextEl.textContent = stripFurigana(nextL.jp);
+            nextRow.hidden = false;
+          } else {
+            nextRow.hidden = true;
+          }
+        }
+      }
+    }
+
+    if (canvasPip && document.pictureInPictureElement === canvasPip.video) {
+      if (lastPipLine !== curLine || lastPipPlayState !== playing || (S && lastPipSongId !== S.id)) {
+        lastPipLine = curLine;
+        lastPipPlayState = playing;
+        if (S) lastPipSongId = S.id;
+        renderCanvasPip(playing, l, nextL);
+      }
+    }
+  }
+
+  if (toolPipBtn) toolPipBtn.addEventListener("click", togglePip);
+  if (toolPipMenuBtn) {
+    toolPipMenuBtn.addEventListener("click", () => {
+      togglePip();
+      const toolsMenu = document.getElementById("tools");
+      if (toolsMenu) toolsMenu.open = false;
+    });
+  }
+
   ["mousemove", "touchstart"].forEach(ev => {
     document.addEventListener(ev, () => {
       if (isImmersive) resetSongbarAutohide();
@@ -1535,6 +1887,9 @@
     if (e.key === "f" || e.key === "F") {
       e.preventDefault();
       toggleImmersive();
+    } else if (e.key === "p" || e.key === "P") {
+      e.preventDefault();
+      togglePip();
     } else if (e.key === "Escape" && isImmersive) {
       e.preventDefault();
       setImmersive(false);
@@ -1742,6 +2097,7 @@
         idleDrawn = true;
       }
     }
+    updatePip();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
