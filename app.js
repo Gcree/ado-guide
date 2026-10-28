@@ -1201,7 +1201,7 @@
     });
   }
 
-  // ── 歌詞子母畫面小窗 (Lyrics Picture-in-Picture) ──
+  // ── 歌詞子母畫面小窗 (Lyrics Document Picture-in-Picture & Fallback) ──
   const stripFurigana = s => (s || "").replace(/([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g, "$1");
   const toolPipBtn = document.getElementById("toolPipBtn");
   const toolPipMenuBtn = document.getElementById("toolPipMenuBtn");
@@ -1210,70 +1210,145 @@
   let isPipActive = false;
   let lastPipLine = -2;
   let lastPipPlayState = null;
-  let lastPipSongId = "";
+  let lastPipSongNo = -1;
 
   const PIP_STYLES = `
-    * { box-sizing: border-box; }
     html, body {
-      margin: 0; padding: 0; width: 100%; height: 100%;
-      background: #080c18; color: #f1f5f9;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      overflow: hidden; user-select: none;
+      width: 100%; height: 100%; margin: 0; overflow: hidden;
+      background: var(--ground, #04060c); color: var(--text, #f8fafc);
+      font-family: var(--font, system-ui, -apple-system, sans-serif);
+      user-select: none;
     }
-    .pip-shell {
-      display: flex; flex-direction: column; justify-content: space-between;
-      height: 100vh; padding: 10px 14px;
-      background: radial-gradient(circle at 50% 0%, rgba(2, 180, 245, 0.15), transparent 75%), #080c18;
+    [hidden] { display: none !important; }
+    .document-pip {
+      box-sizing: border-box; position: relative;
+      display: flex !important; flex-direction: column; gap: 0;
+      width: 100%; height: 100%; min-height: 100%; padding: 0;
+      overflow: hidden; background: var(--ground, #04060c);
+      color: var(--text, #f8fafc);
     }
-    .pip-header {
-      display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0;
+    .document-pip .pip-progress {
+      position: absolute; inset: 0 0 auto; z-index: 2; height: 3px;
+      overflow: hidden; background: var(--surface, #121829);
+      pointer-events: none;
     }
-    .pip-title {
-      font-size: 13px; font-weight: 600; color: #02b4f5;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
+    .document-pip .pip-progress-fill {
+      position: absolute; inset: 0 auto 0 0; width: 100%;
+      background: var(--accent, #02b4f5);
+      transform: scaleX(0); transform-origin: left center;
+      transition: transform .1s linear;
+      box-shadow: 0 0 8px var(--accent, #02b4f5);
     }
-    .pip-controls {
-      display: flex; align-items: center; gap: 6px;
+    .document-pip .pip-controls {
+      flex: none; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px;
+      align-items: center; gap: 8px; min-width: 0; min-height: 64px;
+      padding: 12px 18px 4px; box-sizing: border-box;
     }
-    .pip-btn {
-      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15);
-      color: #f1f5f9; border-radius: 50%; width: 28px; height: 28px;
+    .document-pip .pip-track-controls {
+      display: flex; align-items: center; min-width: 0; height: 44px;
+      overflow: hidden; border-radius: 999px;
+      background: var(--surface, #121829);
+      border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+    }
+    .document-pip .pip-song-label {
+      flex: 1 1 auto; min-width: 0; height: 44px; display: flex;
+      align-items: center; justify-content: center; gap: 8px; padding: 0 6px;
+    }
+    .document-pip .pip-song-number {
+      flex: none; color: var(--accent, #02b4f5); font-size: 13px;
+      font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .document-pip .pip-title {
+      min-width: 0; overflow: hidden; color: var(--text, #f8fafc);
+      font-size: 14.5px; font-weight: 600; line-height: 1.35;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .document-pip .pip-action {
+      width: 44px; min-width: 44px; height: 44px; min-height: 44px;
       display: inline-flex; align-items: center; justify-content: center;
-      cursor: pointer; font-size: 13px; padding: 0; transition: background .15s, border-color .15s;
+      padding: 0; border: 0; border-radius: 50%;
+      background: var(--surface, #121829);
+      border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+      color: var(--text, #f8fafc); font: inherit; cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
     }
-    .pip-btn:hover {
-      background: rgba(2, 180, 245, 0.25); border-color: #02b4f5; color: #fff;
+    .document-pip .pip-controls > .pip-action { flex: none; }
+    .document-pip .pip-track-controls .pip-action {
+      width: 36px; min-width: 36px; height: 36px; min-height: 36px;
+      margin: 4px; background: transparent; border: 0;
+      color: var(--muted, #94a3b8);
     }
-    .pip-body {
-      flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; margin: 4px 0;
+    .document-pip .pip-action:hover {
+      background: var(--raised, #1a2238); color: var(--accent, #02b4f5);
+      border-color: var(--accent, #02b4f5);
     }
-    .pip-badge {
-      display: inline-flex; align-items: center; gap: 4px;
-      font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
-      width: fit-content; margin-bottom: 4px;
+    .document-pip .pip-action svg {
+      flex: none; width: 18px; height: 18px; fill: none;
+      stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
     }
-    .pip-badge.a-sing { background: rgba(2, 180, 245, 0.2); color: #2dc7ff; border: 1px solid rgba(2, 180, 245, 0.4); }
-    .pip-badge.a-clap { background: rgba(2, 180, 245, 0.2); color: #2dc7ff; border: 1px solid rgba(2, 180, 245, 0.4); }
-    .pip-badge.a-wave { background: rgba(255, 216, 74, 0.2); color: #ffd84a; border: 1px solid rgba(255, 216, 74, 0.4); }
-    .pip-badge.a-call { background: rgba(255, 122, 184, 0.2); color: #ff7ab8; border: 1px solid rgba(255, 122, 184, 0.4); }
-    .pip-badge.a-jump { background: rgba(78, 224, 138, 0.2); color: #4ee08a; border: 1px solid rgba(78, 224, 138, 0.4); }
-    .pip-badge.a-gesture { background: rgba(255, 154, 60, 0.2); color: #ff9a3c; border: 1px solid rgba(255, 154, 60, 0.4); }
-    .pip-ja {
-      font-size: 18px; font-weight: 700; line-height: 1.35; color: #ffffff;
-      margin-bottom: 3px; word-break: break-word; text-shadow: 0 0 12px rgba(2, 180, 245, 0.35);
+    .document-pip .pip-lyrics {
+      flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center;
+      min-height: 0; overflow: hidden; padding: 0 18px 8px;
     }
-    .pip-ja ruby { ruby-position: over; }
-    .pip-ja rt { font-size: 10px; color: #94a3b8; font-weight: normal; }
-    .pip-ja .k.sung { color: #2dc7ff; text-shadow: 0 0 10px rgba(45, 199, 255, 0.6); }
-    .pip-tr {
-      font-size: 13px; color: #94a3b8; line-height: 1.4; word-break: break-word;
+    .document-pip .pip-line-group { min-width: 0; }
+    .document-pip .pip-current-line, .document-pip .pip-next-line { min-width: 0; }
+    .document-pip .pip-empty {
+      margin: 0; padding: 12px 9px; border-radius: 8px;
+      color: var(--muted, #94a3b8); font-size: 13.5px; line-height: 1.45; text-align: center;
     }
-    .pip-footer {
-      font-size: 11.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.08); flex-shrink: 0;
+    .document-pip .ln {
+      width: 100%; box-sizing: border-box; display: flex; flex-direction: column;
+      align-items: flex-start; gap: 3px; margin: 0; padding: 6px 12px;
+      border-radius: 10px; background: transparent; color: var(--text, #f8fafc);
+      cursor: default; pointer-events: none; text-align: left;
+      border-left: 3px solid transparent;
     }
-    .pip-next-lbl { font-weight: 600; color: #475569; margin-right: 6px; }
+    .document-pip .pip-current-line .ln {
+      min-height: 52px; border-left: 3px solid var(--accent, #02b4f5);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .document-pip .pip-current-line .ja {
+      font-size: clamp(15px, 3.8vw, 19px); font-weight: 700; line-height: 1.35; color: #fff;
+    }
+    .document-pip .pip-current-line .ja ruby { ruby-position: over; }
+    .document-pip .pip-current-line .ja rt { font-size: 10px; color: var(--faint, #64748b); font-weight: normal; }
+    .document-pip .pip-current-line .zh {
+      font-size: clamp(12px, 2.8vw, 14px); color: var(--muted, #94a3b8); line-height: 1.3;
+    }
+    .document-pip .pip-next-line { margin-top: 4px; opacity: .52; }
+    .document-pip .pip-next-line .ln { padding: 4px 12px; }
+    .document-pip .pip-next-line .ja {
+      font-size: clamp(11.5px, 2.7vw, 13.5px); line-height: 1.3; color: var(--muted, #94a3b8);
+    }
+    .document-pip .pip-next-line .zh {
+      font-size: clamp(10.5px, 2.4vw, 12px); color: var(--faint, #64748b); line-height: 1.3;
+    }
+    .document-pip .acts { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+    .document-pip .acts svg { width: 14px; height: 14px; }
+    .document-pip .call { font-size: 11px; padding: 1px 6px; border-radius: 999px; margin-left: 6px; }
   `;
+
+  function copyStylesToPip(targetDoc) {
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(l => {
+      const s = targetDoc.createElement("link");
+      s.rel = "stylesheet";
+      s.href = l.href;
+      targetDoc.head.appendChild(s);
+    });
+    document.querySelectorAll("style").forEach(st => {
+      targetDoc.head.appendChild(st.cloneNode(true));
+    });
+    const extra = targetDoc.createElement("style");
+    extra.textContent = PIP_STYLES;
+    targetDoc.head.appendChild(extra);
+  }
+
+  function copySvgIconsToPip(targetDoc) {
+    const sprite = document.querySelector("body > svg");
+    if (sprite) {
+      targetDoc.body.appendChild(sprite.cloneNode(true));
+    }
+  }
 
   function updatePipButtonStates(active) {
     isPipActive = active;
@@ -1292,8 +1367,8 @@
 
     try {
       pipWin = await window.documentPictureInPicture.requestWindow({
-        width: 440,
-        height: 220
+        width: 450,
+        height: 225
       });
     } catch (err) {
       console.warn("documentPictureInPicture failed, falling back to Canvas PiP:", err);
@@ -1303,7 +1378,7 @@
     updatePipButtonStates(true);
     lastPipLine = -2;
     lastPipPlayState = null;
-    lastPipSongId = "";
+    lastPipSongNo = -1;
 
     pipWin.addEventListener("pagehide", () => {
       pipWin = null;
@@ -1311,44 +1386,63 @@
     });
 
     const doc = pipWin.document;
+    doc.documentElement.lang = "zh-Hant-TW";
     doc.title = `歌詞小窗｜${S ? S.ja : "Ado 應援指南"}`;
 
-    const style = doc.createElement("style");
-    style.textContent = PIP_STYLES;
-    doc.head.appendChild(style);
+    copyStylesToPip(doc);
+    copySvgIconsToPip(doc);
 
-    doc.body.innerHTML = `
-      <div class="pip-shell">
-        <header class="pip-header">
-          <span class="pip-title" id="pipTitle">${esc(S ? `Ado〈${S.ja}〉` : "Ado 應援指南")}</span>
-          <div class="pip-controls">
-            <button class="pip-btn" id="pipPrev" title="上一首">‹</button>
-            <button class="pip-btn" id="pipPlay" title="播放/暫停">⏸</button>
-            <button class="pip-btn" id="pipNext" title="下一首">›</button>
-          </div>
-        </header>
-        <main class="pip-body">
-          <div class="pip-badge" id="pipBadge" hidden></div>
-          <div class="pip-ja" id="pipJa">等待播放…</div>
-          <div class="pip-tr" id="pipTr"></div>
-        </main>
-        <footer class="pip-footer" id="pipNextRow" hidden>
-          <span class="pip-next-lbl">下一句</span>
-          <span id="pipNext"></span>
-        </footer>
+    const mainEl = doc.createElement("main");
+    mainEl.className = "document-pip song-page";
+    mainEl.innerHTML = `
+      <div class="pip-progress" role="progressbar" aria-label="播放進度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <span class="pip-progress-fill"></span>
       </div>
+      <header class="pip-controls" aria-label="字幕窗控制">
+        <button type="button" class="pip-action pip-return" title="返回主頁" aria-label="返回主頁">
+          <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </button>
+        <div class="pip-track-controls" role="group" aria-label="切換歌曲">
+          <button type="button" class="pip-action pip-prev" title="上一首" aria-label="上一首">
+            <svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg>
+          </button>
+          <div class="pip-song-label" aria-live="polite">
+            <span class="pip-song-number"></span>
+            <span class="pip-title"></span>
+          </div>
+          <button type="button" class="pip-action pip-next" title="下一首" aria-label="下一首">
+            <svg viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <button type="button" class="pip-action pip-play" title="播放" aria-label="播放主頁影片">
+          <svg class="icon-play" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <svg class="icon-pause" viewBox="0 0 24 24" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+      </header>
+      <section class="pip-lyrics" aria-label="同步歌詞">
+        <div class="pip-line-group pip-current-group">
+          <div class="pip-current-line"></div>
+        </div>
+        <div class="pip-line-group pip-next-group">
+          <div class="pip-next-line"></div>
+        </div>
+      </section>
     `;
+    doc.body.appendChild(mainEl);
 
-    doc.getElementById("pipPrev").addEventListener("click", () => {
+    doc.querySelector(".pip-return").addEventListener("click", () => {
+      try { window.focus(); } catch (e) {}
+    });
+    doc.querySelector(".pip-prev").addEventListener("click", () => {
       const prev = document.getElementById("prevSong");
       if (prev && prev.getAttribute("href")) prev.click();
     });
-    doc.getElementById("pipPlay").addEventListener("click", () => {
-      if (isPlaying()) pause(); else if (player && ready) player.playVideo();
-    });
-    doc.getElementById("pipNext").addEventListener("click", () => {
+    doc.querySelector(".pip-next").addEventListener("click", () => {
       const next = document.getElementById("nextSong");
       if (next && next.getAttribute("href")) next.click();
+    });
+    doc.querySelector(".pip-play").addEventListener("click", () => {
+      if (isPlaying()) pause(); else if (player && ready) player.playVideo();
     });
 
     updatePip();
@@ -1477,68 +1571,86 @@
   function updatePip() {
     if (!isPipActive) return;
     const playing = isPlaying();
+    const t = now();
+    const dur = DUR();
+    const progress = dur > 0 ? Math.max(0, Math.min(1, t / dur)) : 0;
     const l = curLine >= 0 ? LINES[curLine] : null;
     const nextL = (curLine >= 0 && curLine + 1 < LINES.length) ? LINES[curLine + 1] : null;
 
     if (pipWin && !pipWin.closed) {
       const doc = pipWin.document;
-      if (S && lastPipSongId !== S.id) {
-        lastPipSongId = S.id;
-        const titleEl = doc.getElementById("pipTitle");
-        if (titleEl) titleEl.textContent = `Ado〈${S.ja}〉`;
+
+      // Progress bar
+      const fill = doc.querySelector(".pip-progress-fill");
+      if (fill) fill.style.transform = `scaleX(${progress})`;
+
+      // Song header & title
+      if (S && lastPipSongNo !== S.no) {
+        lastPipSongNo = S.no;
+        const noEl = doc.querySelector(".pip-song-number");
+        const titleEl = doc.querySelector(".pip-title");
+        if (noEl) noEl.textContent = String(S.no).padStart(2, "0");
+        if (titleEl) titleEl.textContent = S.ja;
         doc.title = `歌詞小窗｜${S.ja}`;
       }
 
-      const playBtn = doc.getElementById("pipPlay");
-      if (playBtn && lastPipPlayState !== playing) {
-        playBtn.textContent = playing ? "⏸" : "▶";
-        playBtn.title = playing ? "暫停" : "播放";
+      // Play/Pause button
+      if (lastPipPlayState !== playing) {
         lastPipPlayState = playing;
+        const playBtn = doc.querySelector(".pip-play");
+        if (playBtn) {
+          const playSvg = playBtn.querySelector(".icon-play");
+          const pauseSvg = playBtn.querySelector(".icon-pause");
+          if (playSvg) playSvg.style.display = playing ? "none" : "";
+          if (pauseSvg) pauseSvg.style.display = playing ? "" : "none";
+          playBtn.setAttribute("title", playing ? "暫停" : "播放");
+          playBtn.setAttribute("aria-label", playing ? "暫停主頁影片" : "播放主頁影片");
+        }
       }
 
+      // Current Line & Next Line
       if (lastPipLine !== curLine) {
         lastPipLine = curLine;
-        const jaEl = doc.getElementById("pipJa");
-        const trEl = doc.getElementById("pipTr");
-        const badgeEl = doc.getElementById("pipBadge");
-        const nextEl = doc.getElementById("pipNext");
-        const nextRow = doc.getElementById("pipNextRow");
+        const curContainer = doc.querySelector(".pip-current-line");
+        const nextContainer = doc.querySelector(".pip-next-line");
+        const nextGroup = doc.querySelector(".pip-next-group");
 
-        if (l) {
-          if (jaEl) jaEl.innerHTML = l.jp ? jaHTML(l.jp, l.sing) : "";
-          if (trEl) trEl.textContent = l.tr || "";
-          if (badgeEl) {
-            const act = mainAct(l.acts);
-            if (act && ACT[act]) {
-              badgeEl.className = `pip-badge a-${act}`;
-              badgeEl.textContent = l.call ? `【${l.call}】` : `【${ACT[act].name}】`;
-              badgeEl.hidden = false;
-            } else {
-              badgeEl.hidden = true;
-            }
+        if (curContainer) {
+          if (curLine >= 0 && lineEls[curLine]) {
+            curContainer.innerHTML = lineEls[curLine].outerHTML;
+          } else {
+            curContainer.innerHTML = `<p class="pip-empty">${S ? `〈${esc(S.ja)}〉等待播放…` : "等待同步…"}</p>`;
           }
-        } else {
-          if (jaEl) jaEl.innerHTML = S ? `〈${esc(S.ja)}〉` : "等待播放…";
-          if (trEl) trEl.textContent = "點擊播放開始預習應援";
-          if (badgeEl) badgeEl.hidden = true;
         }
 
-        if (nextEl && nextRow) {
-          if (nextL && nextL.jp) {
-            nextEl.textContent = stripFurigana(nextL.jp);
-            nextRow.hidden = false;
+        if (nextContainer && nextGroup) {
+          if (curLine >= 0 && curLine + 1 < lineEls.length && lineEls[curLine + 1]) {
+            nextContainer.innerHTML = lineEls[curLine + 1].outerHTML;
+            nextGroup.hidden = false;
           } else {
-            nextRow.hidden = true;
+            nextContainer.innerHTML = "";
+            nextGroup.hidden = true;
           }
+        }
+      }
+
+      // 卡拉OK逐字點亮即時同步至子母小窗
+      if (OPT.karaoke && curLine >= 0 && lineEls[curLine]) {
+        const curKs = doc.querySelectorAll(".pip-current-line .k");
+        const origKs = lineEls[curLine].querySelectorAll(".k");
+        if (curKs.length && origKs && curKs.length === origKs.length) {
+          curKs.forEach((k, idx) => {
+            k.classList.toggle("lit", origKs[idx].classList.contains("lit"));
+          });
         }
       }
     }
 
     if (canvasPip && document.pictureInPictureElement === canvasPip.video) {
-      if (lastPipLine !== curLine || lastPipPlayState !== playing || (S && lastPipSongId !== S.id)) {
+      if (lastPipLine !== curLine || lastPipPlayState !== playing || (S && lastPipSongNo !== S.no)) {
         lastPipLine = curLine;
         lastPipPlayState = playing;
-        if (S) lastPipSongId = S.id;
+        if (S) lastPipSongNo = S.no;
         renderCanvasPip(playing, l, nextL);
       }
     }
