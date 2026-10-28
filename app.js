@@ -977,7 +977,7 @@
 
   // 語言切換
   // 歌詞顯示選項：預設值 → 記在這台裝置
-  const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true, size: "m", blur: true, fly: true };
+  const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true, size: "m", blur: true, fly: true, light: true };
   try { Object.assign(OPT, JSON.parse(store.get("view-opts") || "{}")); } catch (e) {}
   function applyOpts() {
     box.classList.toggle("hide-ja", !OPT.ja); box.classList.toggle("hide-kana", !OPT.kana); box.classList.toggle("hide-zh", !OPT.zh);
@@ -985,6 +985,7 @@
     box.classList.toggle("size-s", OPT.size === "s"); box.classList.toggle("size-l", OPT.size === "l");
     box.classList.toggle("depth-focus", OPT.blur !== false);
     box.classList.toggle("fly-in", OPT.fly !== false);
+    document.body.classList.toggle("no-lights", OPT.light === false);
     if (!OPT.karaoke) {
       box.querySelectorAll(".k.lit").forEach(k => k.classList.remove("lit"));
     }
@@ -993,7 +994,7 @@
     singOnly.setAttribute("aria-pressed", OPT.sing);
   }
   const singOnly = document.getElementById("singOnly");
-  const setOpt = (k, v) => { OPT[k] = v; store.set("view-opts", JSON.stringify(OPT)); applyOpts(); holdUntil = 0; if (OPT.scroll && lineEls[curLine]) centerLine(lineEls[curLine]); };
+  const setOpt = (k, v) => { OPT[k] = v; store.set("view-opts", JSON.stringify(OPT)); applyOpts(); holdUntil = 0; if (k === "light") idleDrawn = false; if (OPT.scroll && lineEls[curLine]) centerLine(lineEls[curLine]); };
   singOnly.addEventListener("click", () => setOpt("sing", !OPT.sing));
   document.querySelectorAll("[data-size]").forEach(b => b.addEventListener("click", () => setOpt("size", b.dataset.size)));
   document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => setOpt(b.dataset.opt, !OPT[b.dataset.opt])));
@@ -1596,20 +1597,33 @@
     const cx = want && CLIMAX[want.id];
     if (cx != null) {
       if (t < cx - .3) blasted = false;
-      else if (playing && !blasted && t >= cx - .05 && t < cx + .8) { blasted = true; blast(penOf(want).cols); }
+      else if (playing && !blasted && t >= cx - .05 && t < cx + .8 && OPT.light !== false) { blasted = true; blast(penOf(want).cols); }
     }
-    if (playing) stageT += Math.min(.1, (ms - lastMs) / 1000);
-    lastMs = ms;
-    // 每拍亮一下再退，小節第一拍最亮；這首沒有拍點資料時，改在每句歌詞開頭亮
-    const li = lineAt(t), l = LINES[li], b = beatAt(t);
-    let hit = 0, beat = Math.max(0, li);
-    if (playing && !reduce && b) { hit = beatPulse(b) * (b.down ? 1 : .5); beat = Math.max(0, Math.floor(b.k / 4)); }
-    else if (playing && !reduce && l) hit = Math.exp(-(t - l.t) / .4) * (l.acts.length ? 1 : .65);
-    const energy = playing && cue ? (cue.listen ? .2 : cue.beat ? 1 : .45) : .4;
-    if (isImmersive && ambientMesh) {
-      ambientMesh.style.setProperty("--beat-hit", (playing && !reduce) ? hit.toFixed(3) : "0");
+    if (OPT.light !== false) {
+      if (playing) stageT += Math.min(.1, (ms - lastMs) / 1000);
+      lastMs = ms;
+      // 每拍亮一下再退，小節第一拍最亮；這首沒有拍點資料時，改在每句歌詞開頭亮
+      const li = lineAt(t), l = LINES[li], b = beatAt(t);
+      let hit = 0, beat = Math.max(0, li);
+      if (playing && !reduce && b) { hit = beatPulse(b) * (b.down ? 1 : .5); beat = Math.max(0, Math.floor(b.k / 4)); }
+      else if (playing && !reduce && l) hit = Math.exp(-(t - l.t) / .4) * (l.acts.length ? 1 : .65);
+      const energy = playing && cue ? (cue.listen ? .2 : cue.beat ? 1 : .45) : .4;
+      if (isImmersive && ambientMesh) {
+        ambientMesh.style.setProperty("--beat-hit", (playing && !reduce) ? hit.toFixed(3) : "0");
+      }
+      if (playing || !idleDrawn) { bg(stageT, energy, hit, cue && cue.listen, playing, beat); idleDrawn = !playing; }
+    } else {
+      lastMs = ms;
+      if (!idleDrawn) {
+        const cv = document.getElementById("fx");
+        if (cv) {
+          const ctx = cv.getContext("2d");
+          if (ctx) ctx.clearRect(0, 0, cv.width, cv.height);
+        }
+        if (ambientMesh) ambientMesh.style.setProperty("--beat-hit", "0");
+        idleDrawn = true;
+      }
     }
-    if (playing || !idleDrawn) { bg(stageT, energy, hit, cue && cue.listen, playing, beat); idleDrawn = !playing; }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

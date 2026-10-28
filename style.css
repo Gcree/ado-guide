@@ -32,8 +32,12 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { background: var(--ground); }
+html, body { background: var(--ground); max-width: 100%; overflow-x: hidden; }
 body { margin: 0; color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+
+.shell { width: 100%; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
+main.col { width: 100%; max-width: 1180px; box-sizing: border-box; }
+.view { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 a { color: inherit; }
 button, textarea, input { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
@@ -143,7 +147,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 /* 首頁：動作說明 */
 
 /* 歌曲頁 */
-.grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--gap); align-items: start; }
+.grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--gap); align-items: start; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .left { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 68px); display: grid; gap: var(--gap); }
 .mv { background: var(--surface); border-radius: var(--radius-card); overflow: hidden; }
 .screen { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: #04060c; }
@@ -318,13 +322,40 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .switch[aria-pressed="true"] i { background: var(--accent-deep); }
 .switch[aria-pressed="true"] i::after { transform: translateX(12px); background: var(--text); }
 
-.lyrics { background: var(--surface); border-radius: var(--radius-card); padding: 12px 8px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 68px); display: flex; flex-direction: column; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 76px); }
+.lyrics {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  padding: 12px 8px;
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 0px) + 68px);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 76px);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
 /* 歌詞自己捲，MV 和頁面不動 */
-.lyrics-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; position: relative; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
-.lyrics-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px 10px; }
+.lyrics-scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  box-sizing: border-box;
+}
+.lyrics-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px 10px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .lyrics-top h2 { margin: 0 auto 0 0; font-size: 17px; font-weight: 600; white-space: nowrap; }
 /* ── Folia 風格：莫奈 / Apple Music 景深視差與焦點光暈 (Depth Focus) ── */
-.depth-focus { perspective: 1000px; }
+.depth-focus { perspective: 1000px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .depth-focus .ln {
   transition: transform .35s cubic-bezier(.2, .85, .3, 1), filter .35s ease, opacity .35s ease, background .2s ease, box-shadow .25s ease;
   transform-origin: left center;
@@ -338,7 +369,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .depth-focus.has-now .ln.now {
   filter: blur(0px) !important;
   opacity: 1 !important;
-  transform: scale(1.03) translateX(3px);
+  transform: scale(1.015);
   box-shadow: inset 3.5px 0 0 var(--act, var(--text)), 0 4px 20px rgba(0, 0, 0, .3);
   z-index: 2;
 }
@@ -365,6 +396,8 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 .fly-in .ln.now .ja .k {
   display: inline-block;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
   will-change: transform, opacity, filter;
   animation: folia-glyph-spring .5s cubic-bezier(.16, 1.08, .38, 1.15) both;
   animation-delay: calc(var(--i, 0) * 24ms);
@@ -413,9 +446,34 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 }
 
 /* 有動作的行，日文用該動作的顏色（淡），唱到時變全彩並在左邊加色條 */
-.ln { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: background .2s, box-shadow .2s; }
+.ln {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background .2s, box-shadow .2s;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  position: relative;
+}
 .ln:hover { background: var(--hover); }
-.ln .ja { position: relative; font-family: var(--font-ja); font-size: calc(var(--ly-ja, 17px) * var(--ly-k, 1)); line-height: 1.7; color: var(--muted); transition: color .2s; }
+.ln .ja {
+  position: relative;
+  font-family: var(--font-ja);
+  font-size: calc(var(--ly-ja, 17px) * var(--ly-k, 1));
+  line-height: 1.7;
+  color: var(--muted);
+  transition: color .2s;
+  min-width: 0;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
+}
 .ln[class*=" a-"]:not(.a-listen):not(.a-sing) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
 /* 「唱」不染整行，只染觀眾要唱的字 */
 .ln .sung { position: relative; display: inline-block; color: color-mix(in srgb, var(--sing) 75%, var(--muted)); transition: color .2s, text-shadow .2s; }
@@ -447,6 +505,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
   animation: glyph-shockwave .75s cubic-bezier(.12, .85, .25, 1) forwards;
   will-change: transform, opacity, filter;
   z-index: 2;
+  overflow: hidden;
 }
 .chorus-glyph-wave ruby,
 .chorus-glyph-wave rt,
@@ -485,7 +544,16 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
   .ln.now .sung { animation: none; transform: none; }
   .chorus-glyph-wave { display: none !important; }
 }
-.ln .zh { grid-column: 1; font-size: calc(var(--ly-zh, 14px) * var(--ly-k, 1)); color: var(--faint); }
+.ln .zh {
+  grid-column: 1;
+  font-size: calc(var(--ly-zh, 14px) * var(--ly-k, 1));
+  color: var(--faint);
+  min-width: 0;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
+}
 .ln .ph { color: var(--ph); }
 .ln .acts { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 6px; align-items: center; }
 .ln .acts svg { width: 18px; height: 18px; }
@@ -963,6 +1031,11 @@ body.immersive-mode .lyrics {
   padding: 0;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 body.immersive-mode .lyrics-top {
@@ -973,26 +1046,47 @@ body.immersive-mode .lyrics-scroll {
   flex: 1;
   mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 body.immersive-mode .ln {
   padding: 16px 20px;
   border-radius: 18px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 body.immersive-mode .ln .ja {
   font-size: clamp(22px, 2.7vw, 38px);
   line-height: 1.48;
   letter-spacing: -.01em;
+  min-width: 0;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
 }
 
 body.immersive-mode .ln .zh {
   font-size: clamp(14px, 1.5vw, 19px);
   margin-top: 6px;
+  min-width: 0;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
 }
 
 body.immersive-mode .ln.now {
-  transform: scale(1.07) translateX(8px);
+  transform: scale(1.02);
   background: rgba(255, 255, 255, .08);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
@@ -1106,6 +1200,11 @@ body.immersive-mode .ln.now {
   background: var(--raised);
   border: 1px solid var(--line);
   border-radius: 14px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .song-guide-card .card-title {
   margin: 0 0 12px;
@@ -1115,7 +1214,7 @@ body.immersive-mode .ln.now {
 }
 .song-guide-card .card-dl {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: 8px 16px;
   margin: 0;
   font-size: 13.5px;
@@ -1129,6 +1228,9 @@ body.immersive-mode .ln.now {
 .song-guide-card dd {
   margin: 0;
   color: var(--muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .song-guide-card dd a {
   color: var(--accent);
@@ -1137,4 +1239,23 @@ body.immersive-mode .ln.now {
 .song-guide-card dd a:hover {
   text-decoration: underline;
 }
+
+/* ── 舞台燈光效果開關 (Light Effects Toggle) ── */
+body.no-lights #fx,
+body.no-lights #confetti,
+body.no-lights .ambient-mesh,
+body.no-lights .ambient-beat-flash,
+body.no-lights .cueframe {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+body.no-lights .chorus-glyph-wave {
+  display: none !important;
+}
+body.no-lights .climax-surge {
+  box-shadow: inset 4px 0 0 var(--sing) !important;
+  background: var(--raised) !important;
+}
+
 
