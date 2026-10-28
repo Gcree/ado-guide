@@ -77,8 +77,14 @@
   // free：粉絲說沒有固定應援；hold（含 sug）：還查不到可靠的應援資料
   function renderList() {
     const term = q.value.trim().toLowerCase();
+    const cleanTerm = term.replace(/[\s\-_'’"!?！？()（）/]/g, "");
     const rows = ordered().filter(s => {
-      if (term && ![s.ja, s.zh, s.en || ""].some(x => x.toLowerCase().includes(term))) return false;
+      if (term) {
+        const pool = [s.ja, s.zh, s.en || "", s.ro || "", s.id];
+        const matchPlain = pool.some(x => x.toLowerCase().includes(term));
+        const matchClean = cleanTerm ? pool.some(x => x.toLowerCase().replace(/[\s\-_'’"!?！？()（）/]/g, "").includes(cleanTerm)) : false;
+        if (!matchPlain && !matchClean) return false;
+      }
       if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
       if (filter === "loose") return !!(s.free || s.hold);
       if (filter === "live") return !!(s.lives && s.lives.length > 0);
