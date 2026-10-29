@@ -11,6 +11,8 @@ const SITE = "https://gcree.github.io/ado-guide/";
 const NAME = "Ado 應援指南";
 // Google Search Console 的 HTML 標記驗證碼（只放在首頁）；另外根目錄的 googlea6b361c7e6e7d11c.html 是 HTML 檔案驗證，兩個都不要刪
 const GSC_VERIFY = "YLXviPdOfiLpoPdirdp39Tf7T0PrqSdDVMpdkZnxveg";
+// Google Analytics 4 評估 ID（若有 ID 請替換成自己的 G-XXXXXXXXXX，留空 "" 則不載入 GA）
+const GA_ID = "G-HF9BLBHBL4";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const out = path.resolve(process.argv[2] || path.join(root, "dist"));
@@ -122,6 +124,17 @@ lyFiles["lyrics/index.json"] = JSON.stringify(lyIndex);
 
 // 版本字串：內容變了才換，瀏覽器才會抓新的（原始檔寫 ?v=dev）
 const LYV = hash(Object.values(lyFiles).join("\n"));
+const gaScript = GA_ID ? [
+  `<!-- Google tag (gtag.js) -->`,
+  `<script async src="https://www.googletagmanager.com/gtag/js?id=${GA_ID}"></script>`,
+  `<script>`,
+  `  window.dataLayer = window.dataLayer || [];`,
+  `  function gtag(){dataLayer.push(arguments);}`,
+  `  gtag('js', new Date());`,
+  `  gtag('config', '${GA_ID}');`,
+  `</script>`
+].join("\n") : "";
+
 const src = read("index.html")
   .replace("style.css?v=dev", `style.css?v=${hash(css)}`)
   .replace("songs.js?v=dev", `songs.js?v=${hash(songsText)}`)
@@ -149,6 +162,7 @@ function page({ url, title, desc, ld, base, song, extra = "" }) {
       `<meta name="twitter:description" content="${esc(desc)}">`,
       `<meta name="twitter:image" content="${SITE}assets/og.jpg">`,
       `<script type="application/ld+json">${json(ld)}</script>`,
+      gaScript,
       extra
     ].filter(Boolean).join("\n"));
   if (base) html = html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n<base href="${base}">`);
@@ -222,7 +236,7 @@ const homeLd = {
           "name": "什麼是 Ado 應援指南？如何使用？",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Ado 應援指南是非官方粉絲製作的演唱會應援教學網站，收錄 74 首歌曲教學。包含官方 MV 同步歌詞、哪裡拍手、哪裡大合唱、哪裡喊聲，以及每首曲目的手燈推薦顏色與 PenlightSync 藍牙手燈連動功能。不照特定場次歌單，安心不暴雷。"
+            "text": `Ado 應援指南是非官方粉絲製作的演唱會應援教學網站，收錄 ${SONGS.length} 首歌曲教學。包含官方 MV 同步歌詞、哪裡拍手、哪裡大合唱、哪裡喊聲，以及每首曲目的手燈推薦顏色與 PenlightSync 藍牙手燈連動功能。不照特定場次歌單，安心不暴雷。`
           }
         },
         {
@@ -265,7 +279,8 @@ let homeHtml = page({
 homeHtml = homeHtml
   .replace('<ul class="songs" id="songList"></ul>', `<ul class="songs" id="songList">${homeSongListHtml}</ul>`)
   .replace('<p class="count" id="songCount"></p>', `<p class="count" id="songCount">共 ${SONGS.length} 首</p>`)
-  .replace('<div class="legend" id="homeLegend" aria-label="圖示代表的動作"></div>', `<div class="legend" id="homeLegend" aria-label="圖示代表的動作">${homeLegendHtml}</div>`);
+  .replace('<div class="legend" id="homeLegend" aria-label="圖示代表的動作"></div>', `<div class="legend" id="homeLegend" aria-label="圖示代表的動作">${homeLegendHtml}</div>`)
+  .replace(/收錄 \d+ 首歌曲/g, `收錄 ${SONGS.length} 首歌曲`);
 
 write("index.html", homeHtml);
 
@@ -436,7 +451,7 @@ for (let i = 0; i < SONGS.length; i++) {
     songHtml = songHtml
       .replace('<details class="vopt live-opt" id="liveOpt" hidden>', '<details class="vopt live-opt" id="liveOpt">')
       .replace('<ul class="live-menu-list" id="liveList"></ul>', `<ul class="live-menu-list" id="liveList">${liveListHtml}</ul>`)
-      .replace('<a id="liveLink" target="_blank" rel="noopener" hidden>', `<a id="liveLink" href="https://www.youtube.com/watch?v=${lives[0].yt}" target="_blank" rel="noopener">現場音源（${esc(lives[0].concert)}）↗`);
+      .replace('<a id="liveLink" target="_blank" rel="noopener" hidden>現場音源 ↗</a>', `<a id="liveLink" href="https://www.youtube.com/watch?v=${lives[0].yt}" target="_blank" rel="noopener">現場音源（${esc(lives[0].concert)}）↗</a>`);
   }
 
   // 上一首／下一首連結預渲染

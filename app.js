@@ -2019,7 +2019,7 @@
 
   // ── 路由：#歌曲 id 開歌曲頁，其他回首頁 ──
   // 回清單時捲回離開前的位置
-  let listY = 0;
+  let listY = 0, isInitialRoute = true;
   function route() {
     // 每首歌的獨立頁（song/<id>/）沒有 # 時直接開那首
     const h = location.hash.slice(1) || PAGE_SONG, [id, at] = h.split("@"), s = BY[id];
@@ -2028,13 +2028,28 @@
       document.body.classList.add("on-song");
       hidePwaToast(false);
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
+      if (!isInitialRoute && typeof gtag === "function") {
+        gtag("event", "page_view", {
+          page_title: document.title,
+          page_location: location.href,
+          song_id: s.id,
+          song_name: s.ja
+        });
+      }
     } else {
       setImmersive(false);
       lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援指南" : PAGE_TITLE;
       renderRecent();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
+      if (!isInitialRoute && typeof gtag === "function") {
+        gtag("event", "page_view", {
+          page_title: document.title,
+          page_location: location.href
+        });
+      }
     }
+    isInitialRoute = false;
   }
   addEventListener("hashchange", route);
   route();
