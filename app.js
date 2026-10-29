@@ -1510,12 +1510,12 @@
     ctx.fillRect(0, 0, w, h);
 
     ctx.fillStyle = "#02b4f5";
-    ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.font = 'bold 20px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = "left";
     ctx.fillText(S ? `Ado〈${S.ja}〉` : "Ado 應援指南", 24, 38);
 
     ctx.fillStyle = "#64748b";
-    ctx.font = "15px sans-serif";
+    ctx.font = '15px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", sans-serif';
     ctx.textAlign = "right";
     ctx.fillText(playing ? "正在播放 ⏸" : "已暫停 ▶", w - 24, 38);
 
@@ -1531,7 +1531,7 @@
       const act = mainAct(l.acts);
       const badgeText = l.call ? `【${l.call}】` : `【${ACT[act]?.name || act}】`;
       ctx.fillStyle = act === "wave" ? "#ffd84a" : (act === "call" ? "#ff7ab8" : "#2dc7ff");
-      ctx.font = "bold 16px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.font = 'bold 16px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = "left";
       ctx.fillText(badgeText, 24, curY);
       curY += 34;
@@ -1540,14 +1540,14 @@
     }
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.font = 'bold 26px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = "left";
     const curJp = l ? stripFurigana(l.jp) : (S ? `〈${S.ja}〉` : "等待播放…");
     ctx.fillText(curJp, 24, curY, w - 48);
 
     if (l && l.tr) {
       ctx.fillStyle = "#94a3b8";
-      ctx.font = "17px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.font = '17px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText(l.tr, 24, curY + 34, w - 48);
     }
 
@@ -1559,11 +1559,11 @@
       ctx.stroke();
 
       ctx.fillStyle = "#475569";
-      ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.font = 'bold 13px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText("下一句", 24, h - 24);
 
       ctx.fillStyle = "#64748b";
-      ctx.font = "14px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.font = '14px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText(stripFurigana(nextL.jp), 74, h - 24, w - 100);
     }
   }
