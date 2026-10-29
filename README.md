@@ -99,9 +99,8 @@ node scripts/check-data.mjs
 
 - **每首歌一頁**：`song/<id>/` 有自己的標題、說明、canonical 與結構化資料（schema.org 的 WebPage／MusicRecording），打開會直接進那首歌。網站內切歌仍用 `#<id>`，搜尋引擎收錄的是獨立頁。
 - **網站地圖**：`sitemap.xml` 列出首頁和所有歌曲頁，已提交到 Google Search Console。新增歌曲後不用另外提交，Google 會再讀。
-- **Google Search Console**：帳號 kuti36.work，資源是「網址前置字元」`https://gcree.github.io/ado-guide/`，用首頁的 HTML 標記（`scripts/build.mjs` 的 `GSC_VERIFY`）和根目錄的 `googlea6b361c7e6e7d11c.html` 驗證，兩個都不要刪，刪了會失去擁有權。
-- **分享預覽**：所有頁面共用 `assets/og.jpg`（1200×630）；正式網站的「分享目前時間」會分享那首歌的獨立頁。
-- 因為網站在 `/ado-guide/` 子路徑，`robots.txt` 必須放在網域根目錄才有效，這裡不放。
+- **Google Search Console**：帳號 kuti36.work，建議在 GSC 新增「網址前置字元」`https://ado.kuti.cc/`（首頁 HTML 標記與根目錄的 `googlea6b361c7e6e7d11c.html` 驗證檔均已具備，可秒通過驗證），並提交 `https://ado.kuti.cc/sitemap.xml`。
+- **網站爬蟲（robots.txt）**：現已綁定自訂獨立網域，`robots.txt` 位於網域根目錄 `https://ado.kuti.cc/robots.txt`，能被所有搜尋引擎與 AI 爬蟲完整讀取。
 
 ## 5. 改版流程
 

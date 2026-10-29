@@ -7,7 +7,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 
-const SITE = "https://gcree.github.io/ado-guide/";
+const SITE = "https://ado.kuti.cc/";
 const NAME = "Ado 應援指南";
 // Google Search Console 的 HTML 標記驗證碼（只放在首頁）；另外根目錄的 googlea6b361c7e6e7d11c.html 是 HTML 檔案驗證，兩個都不要刪
 const GSC_VERIFY = "YLXviPdOfiLpoPdirdp39Tf7T0PrqSdDVMpdkZnxveg";
@@ -603,6 +603,10 @@ for (const f of [
   const srcPath = path.join(root, f);
   if (fs.existsSync(srcPath)) fs.copyFileSync(srcPath, path.join(out, f));
 }
+if (fs.existsSync(path.join(root, "assets/favicon.ico"))) {
+  fs.copyFileSync(path.join(root, "assets/favicon.ico"), path.join(out, "favicon.ico"));
+}
+write("CNAME", "ado.kuti.cc\n");
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
 console.log(`輸出到 ${out}：首頁＋${SONGS.length} 首歌頁、${Object.keys(lyIndex).length} 首歌詞檔、sitemap.xml、robots.txt、llms.txt、llms-full.txt、404.html`);
