@@ -1742,7 +1742,7 @@ button.pop-item > span { flex: 1 1 auto; }
 
 /* 歌曲列：縮圖＋歌名＋動作圖示；沒有分隔線，靠留白分開 */
 .songs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.songs.collapsed li:nth-child(n+9) { display: none; }
+.songs.collapsed li:nth-child(n+13) { display: none; }
 .song { display: flex; align-items: center; gap: 14px; margin-inline: -8px; padding-inline: 8px; border-radius: 12px; color: var(--text); text-decoration: none; -webkit-tap-highlight-color: transparent; transition: background-color var(--dur-hover) var(--ease); }
 .song .thumb { flex: none; width: 80px; height: 45px; border-radius: 6px; object-fit: cover; background: var(--card); transition: var(--tr-press); }
 .song-main { flex: 1 1 auto; min-width: 0; min-height: 80px; padding: 14px 0; display: flex; align-items: center; gap: 12px; }
@@ -1761,6 +1761,10 @@ button.pop-item > span { flex: 1 1 auto; }
 .home .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: var(--dot-ring); }
 .home .dots i.rb { background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a); }
 .empty-note { margin: 0; padding: 32px 0; color: var(--faint); text-align: center; }
+/* 清單底部：目前列到第幾首＋再看下一批 */
+.list-more { display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 8px; }
+.list-more[hidden] { display: none; }
+.list-progress { margin: 0; color: var(--faint); font-size: 14px; font-variant-numeric: tabular-nums; }
 
 /* 常見問題：卡片，點開往下展開 */
 .faq-list { display: flex; flex-direction: column; gap: 8px; }
@@ -1991,13 +1995,10 @@ body.immersive-mode {
 .faq-item[open] p { animation: reveal-down var(--dur-base) var(--ease-out); }
 @keyframes reveal-down { from { opacity: 0; transform: translateY(-6px); } }
 
-/* 歌曲清單：換篩選或排序時整份淡入上移；按「看全部」時新露出的列依序進場（每列 25ms，總長封頂 200ms） */
+/* 歌曲清單：換篩選或排序時整份淡入上移；按「再看 12 首」時新露出的那批依序進場（每列 20ms，12 列總長 220ms） */
 .songs.swap { animation: list-swap var(--dur-base) var(--ease-out); }
 @keyframes list-swap { from { opacity: 0; transform: translateY(8px); } }
-.songs.grow li:nth-child(n+9) { animation: list-swap var(--dur-base) var(--ease-out) both; animation-delay: 200ms; }
-.songs.grow li:nth-child(9) { animation-delay: 0ms; } .songs.grow li:nth-child(10) { animation-delay: 25ms; } .songs.grow li:nth-child(11) { animation-delay: 50ms; }
-.songs.grow li:nth-child(12) { animation-delay: 75ms; } .songs.grow li:nth-child(13) { animation-delay: 100ms; } .songs.grow li:nth-child(14) { animation-delay: 125ms; }
-.songs.grow li:nth-child(15) { animation-delay: 150ms; } .songs.grow li:nth-child(16) { animation-delay: 175ms; }
+.songs li.fresh { animation: list-swap var(--dur-base) var(--ease-out) both; animation-delay: calc(var(--k, 0) * 20ms); }
 
 /* 首頁主視覺：第一次打開時文字由上而下依序浮出（每層 70ms），唱片由 app.js 從後往前放進架子；從歌曲頁回來不再播 */
 html:not(.seen) .hero-copy > * { animation: hero-rise var(--dur-page) var(--ease-out) both; }

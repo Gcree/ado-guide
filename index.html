@@ -203,10 +203,14 @@
         </div>
         <div class="list-tools">
           <div class="home-legend" id="homeLegend" aria-label="圖示代表的動作"></div>
-          <button type="button" class="pill-btn" id="moreBtn" aria-controls="songList" aria-expanded="false">看全部歌曲</button>
         </div>
         <ul class="songs collapsed" id="songList"></ul>
         <p class="empty-note" id="songEmpty" hidden></p>
+        <!-- 清單看到底才接著列下一批：每按一次多 12 首 -->
+        <div class="list-more" id="listMore">
+          <p class="list-progress" id="listProgress" aria-live="polite">已列出 12／76 首</p>
+          <button type="button" class="pill-btn" id="moreBtn" aria-controls="songList">再看 12 首</button>
+        </div>
       </section>
 
       <!-- 常見問題 -->

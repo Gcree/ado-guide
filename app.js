@@ -80,11 +80,14 @@
   // ── 首頁 ──
   const homeEl = document.getElementById("home");
   const list = document.getElementById("songList"), q = document.getElementById("q"), barQ = document.getElementById("barQ"), countEl = document.getElementById("songCount");
-  const moreBtn = document.getElementById("moreBtn"), emptyEl = document.getElementById("songEmpty");
+  const moreBtn = document.getElementById("moreBtn"), emptyEl = document.getElementById("songEmpty"), listMore = document.getElementById("listMore");
   const sortBtn = document.getElementById("sortBtn"), sortLabel = document.getElementById("sortLabel");
-  let filter = "all", sort = store.get("list-sort") === "cheer" ? "cheer" : "date", showAll = false;
-  // 清單先只露 8 首，按「看全部」才展開；76 首的連結都在 HTML 裡，搜尋引擎照樣看得到
-  const LIMIT = 8;
+  const listProgress = document.getElementById("listProgress");
+  // 清單先只露 12 首，看到底按「再看 12 首」才接著列下一批；76 首的連結都在 HTML 裡，搜尋引擎照樣看得到
+  const LIMIT = 12, STEP = 12;
+  // 列到第幾首記在這個分頁裡：重新整理、或從別頁按上一頁回來，清單長度不變，瀏覽器才捲得回原位
+  const shownKey = "list-shown", session = { get: k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} } };
+  let filter = "all", sort = store.get("list-sort") === "cheer" ? "cheer" : "date", shown = Math.max(LIMIT, +session.get(shownKey) || 0);
   // 目前排序下的歌曲順序；切換上一首、下一首也照這個
   const ordered = () => sort === "cheer" ? [...SONGS].sort((a, b) => b.cheer - a.cheer || a.no - b.no) : SONGS;
   const thumb = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
@@ -109,11 +112,16 @@
       return true;
     });
     list.innerHTML = rows.map(rowHtml).join("");
-    const plain = !term && filter === "all", more = rows.length > LIMIT;
-    list.classList.toggle("collapsed", more && !showAll);
-    moreBtn.hidden = !more;
-    moreBtn.textContent = showAll ? "收合" : plain ? `看全部 ${SONGS.length} 首` : `再看 ${rows.length - LIMIT} 首`;
-    moreBtn.setAttribute("aria-expanded", String(more && showAll));
+    const plain = !term && filter === "all", total = rows.length;
+    // 還沒輪到的歌先藏起來（hidden），還在 HTML 裡
+    [...list.children].forEach((li, i) => li.hidden = i >= shown);
+    list.classList.remove("collapsed");
+    const rest = Math.max(0, total - shown);
+    if (plain) session.set(shownKey, shown);
+    listMore.hidden = total <= LIMIT;
+    listProgress.textContent = rest ? `已列出 ${shown}／${total} 首` : `${total} 首都列出來了`;
+    // 列完了換成「收合」，帶回清單開頭
+    moreBtn.textContent = rest ? `再看 ${Math.min(STEP, rest)} 首` : "收合清單";
     countEl.textContent = plain ? `${SONGS.length} 首` : `${rows.length} 首符合`;
     emptyEl.hidden = rows.length > 0;
     if (!rows.length) emptyEl.textContent = term ? `找不到「${q.value.trim()}」。換個寫法試試，日文或中文都可以。` : "這個分類目前沒有歌。";
@@ -134,7 +142,7 @@
   function onSearch(src) {
     const other = src === q ? barQ : q;
     if (other.value !== src.value) other.value = src.value;
-    showAll = false;
+    shown = LIMIT;
     renderList();
   }
   q.addEventListener("input", () => onSearch(q));
@@ -144,7 +152,7 @@
     if (r.top > innerHeight * .6 || r.bottom < 120) songsSec.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   });
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
-    filter = b.dataset.f; showAll = false;
+    filter = b.dataset.f; shown = LIMIT;
     document.querySelectorAll("[data-f]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
     renderList(); replay(list, "swap");
   }));
@@ -157,12 +165,20 @@
     sort = sort === "cheer" ? "date" : "cheer"; store.set("list-sort", sort === "cheer" ? "cheer" : null);
     syncSort(); renderList(); replay(list, "swap");
   });
-  moreBtn.addEventListener("click", () => {
-    showAll = !showAll;
+  moreBtn.addEventListener("click", e => {
+    const before = shown, total = list.children.length;
+    if (before >= total) {
+      shown = LIMIT; renderList();
+      // 收合時清單變短，把畫面帶回清單開頭，不然會停在頁尾
+      if (songsSec.getBoundingClientRect().top < 0) songsSec.scrollIntoView({ block: "start" });
+      return;
+    }
+    shown = Math.min(total, before + STEP);
     renderList();
-    if (showAll) replay(list, "grow", 700);
-    // 收合時清單變短，把畫面帶回清單開頭，不然會停在頁尾
-    if (!showAll && songsSec.getBoundingClientRect().top < 0) songsSec.scrollIntoView({ block: "start" });
+    // 新露出的這一批依序進場；用鍵盤按的，焦點移到這批第一首
+    const fresh = [...list.children].slice(before, shown);
+    if (!reduce) fresh.forEach((li, i) => { li.style.setProperty("--k", i); li.classList.add("fresh"); });
+    if (e.detail === 0 && fresh[0]) fresh[0].querySelector("a").focus();
   });
   syncSort();
   renderList();
@@ -179,6 +195,8 @@
   let shelfTick = 0;
   function measureShelf() {
     shelfTick = 0;
+    // 在歌曲頁時首頁是隱藏的，量到的寬度是 0：別把切換鈕藏起來，不然回首頁那一格清單會往下掉、捲動位置對不上
+    if (!shelf.clientWidth) return;
     const max = shelf.scrollWidth - shelf.clientWidth;
     const frac = shelf.scrollWidth ? Math.min(1, shelf.clientWidth / shelf.scrollWidth) : 1;
     const pos = max > 0 ? shelf.scrollLeft / max : 0;
