@@ -257,7 +257,6 @@ homeHtml = homeHtml
   .replace('<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${SONGS.length} 首</span>`)
   .replace('<button type="button" class="pill-btn" id="moreBtn" aria-controls="songList" aria-expanded="false">看全部歌曲</button>', `<button type="button" class="pill-btn" id="moreBtn" aria-controls="songList" aria-expanded="false">看全部 ${SONGS.length} 首</button>`)
   .replace('<span id="factSongs">76</span>', `<span id="factSongs">${SONGS.length}</span>`)
-  .replace('<span id="factActs">6</span>', `<span id="factActs">${usedActs.size}</span>`)
   .replace('<div class="home-legend" id="homeLegend" aria-label="圖示代表的動作"></div>', `<div class="home-legend" id="homeLegend" aria-label="圖示代表的動作">${homeLegendHtml}</div>`)
   .replace(/收錄 \d+ 首歌曲/g, `收錄 ${SONGS.length} 首歌曲`);
 

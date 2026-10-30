@@ -145,24 +145,28 @@
   <main class="col" id="main">
     <!-- 首頁 -->
     <div class="view home" id="home">
-      <!-- 主視覺：置中的大字、搜尋和三個重點數字 -->
+      <!-- 主視覺：左邊標題和搜尋；右邊是 MV 插圖做成的唱片架（CSS 3D），內容由 app.js 隨機抽 -->
       <section class="hero" aria-labelledby="heroH">
-        <svg class="hero-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#02b4f5"/><path d="M12 5.2c-2.3 0-3.7 1.7-3.7 4 0 1.6-.5 3.4-1.2 5.2-.5 1.3-.6 2.6-.2 3.6h10.2c.4-1 .3-2.3-.2-3.6-.7-1.8-1.2-3.6-1.2-5.2 0-2.3-1.4-4-3.7-4z" fill="#070a12"/></svg>
-        <h1 id="heroH">Ado&nbsp;應援指南</h1>
-        <p class="lead">跟著 MV 看歌詞，句子亮起顏色就是要應援的地方。</p>
-        <label class="field lg" id="heroSearch">
-          <svg class="field-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input id="q" type="search" placeholder="歌名，日文、中文、英文都可以" aria-label="搜尋歌曲" autocomplete="off" enterkeyhint="search">
-        </label>
-        <div class="hero-links">
-          <a class="tint-link" href="song/show/" data-id="show">從<span lang="ja">〈唱〉</span>開始練<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
-          <a class="tint-link" id="resumeLink" hidden>繼續練<span lang="ja">〈<span id="resumeName"></span>〉</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
+        <div class="hero-copy">
+          <h1 id="heroH">Ado<br> 應援指南</h1>
+          <p class="hero-sub">看 MV，跟著亮起的歌詞一起應援</p>
+          <p class="lead">句子亮起顏色就是要應援的地方。拍手、喊聲、大合唱，<span id="factSongs">76</span> 首都標好了。</p>
+          <label class="field lg" id="heroSearch">
+            <svg class="field-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="q" type="search" placeholder="歌名，日文、中文、英文都可以" aria-label="搜尋歌曲" autocomplete="off" enterkeyhint="search">
+          </label>
+          <div class="hero-links">
+            <a class="tint-link" href="song/show/" data-id="show">從<span lang="ja">〈唱〉</span>開始練<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
+            <a class="tint-link" id="resumeLink" hidden>繼續練<span lang="ja">〈<span id="resumeName"></span>〉</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
+          </div>
         </div>
-        <dl class="facts">
-          <div><dt>收錄歌曲</dt><dd><span id="factSongs">76</span> 首</dd></div>
-          <div><dt>應援動作</dt><dd><span id="factActs">6</span> 種</dd></div>
-          <div><dt>手燈顏色</dt><dd>因場次而異</dd></div>
-        </dl>
+        <div class="crate-stage" id="crateStage">
+          <ul class="crate" id="crate" aria-label="隨機抽出的幾首歌"></ul>
+          <div class="crate-foot">
+            <p class="crate-now" id="crateNow"></p>
+            <button type="button" class="shuffle" id="shuffle"><span>換一疊</span><span class="shuffle-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 0 1-13.7 5.6M4 12a8 8 0 0 1 13.7-5.6"/><path d="M17.7 3.2v3.4h-3.4M6.3 20.8v-3.4h3.4"/></svg></span></button>
+          </div>
+        </div>
       </section>
 
       <!-- 書架：先練這幾首，橫向滑動 -->

@@ -209,12 +209,11 @@
     resumeName.textContent = BY[id].ja;
   }
   const remember = id => store.set("recent", JSON.stringify([id, ...recentIds().filter(x => x !== id)].slice(0, 3)));
-  // 圖示說明：只列清單裡用得到的動作；主視覺的數字也照實際資料
+  // 圖示說明：只列清單裡用得到的動作；主視覺說明裡的歌曲數也照實際資料
   const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   document.getElementById("homeLegend").innerHTML = Object.keys(ACT).filter(a => usedActs.has(a))
     .map(a => `<span class="a-${a}">${icon(a)}${ACT[a].name}</span>`).join("");
   document.getElementById("factSongs").textContent = SONGS.length;
-  document.getElementById("factActs").textContent = usedActs.size;
 
   // ── 頂欄：一往下捲就變半透明；首頁大搜尋框捲到頂欄後面，小搜尋框才出現 ──
   const bar = document.getElementById("bar"), heroSearch = document.getElementById("heroSearch");
@@ -809,7 +808,8 @@
     // 在這首自己的頁面（song/<id>/）時保留建置時寫好的完整標題，給搜尋引擎看
     document.title = s.id === PAGE_SONG ? PAGE_TITLE : `${s.ja}｜Ado 應援指南`;
     const sub = s.zh !== s.ja ? s.zh : s.en;
-    document.getElementById("sTitle").innerHTML = esc(s.ja) + (sub ? `<span lang="zh-Hant-TW">${esc(sub)}</span>` : "");
+    // 歌名前的小唱片：首頁唱片架飛過來的落點，播放時會轉
+    document.getElementById("sTitle").innerHTML = (window.ADO_CD ? `<span class="sdisc" aria-hidden="true">${window.ADO_CD(s)}</span>` : "") + esc(s.ja) + (sub ? `<span lang="zh-Hant-TW">${esc(sub)}</span>` : "");
     ["ytLink", "ytLink2"].forEach(id => document.getElementById(id).href = `https://www.youtube.com/watch?v=${s.yt}`);
     document.getElementById("lyLink").href = s.ut;
     const lives = s.lives;
@@ -1065,6 +1065,7 @@
   function update() {
     if (!S || songV.hidden) return null;
     const t = now(), playing = isPlaying();
+    document.getElementById("sTitle").classList.toggle("spinning", playing);
     if (SING.length) { singPrev.disabled = singAt(-1, t) == null; singNext.disabled = singAt(1, t) == null; }
     const started = playing || t > 0, cue = cueAt(t);
     cueBox.classList.toggle("playing", playing); cueBox.classList.toggle("alerting", playing && alertOn);
@@ -2131,13 +2132,244 @@
     } else {
       setImmersive(false);
       lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援指南" : PAGE_TITLE;
-      renderRecent();
+      renderRecent(); crateShow();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
       trackView(null);
     }
   }
-  addEventListener("hashchange", () => transition(route));
+  // 唱片架點下去時自己做轉場（CD 和封面飛過去），這次換頁不用交叉淡化
+  let quietNav = false, crateShow = () => {};
+  addEventListener("hashchange", () => { if (quietNav) { quietNav = false; route(); } else transition(route); });
+
+  // ── 首頁主視覺的唱片架：每次隨機抽 3～5 首 MV，插圖做成 CD 封套；滑過 CD 浮出，點了 CD 和封面飛去那首的頁面 ──
+  {
+    // 縮圖是 16:9，封套是正方形：數字是裁切的水平位置（0 最左、100 最右），逐首看過縮圖決定。
+    // 踊、ロックスター、エルフ 的縮圖以大字為主或角色太小，裁成正方形不好看，先不放；還沒確認螢光棒色（hold）的也不放
+    const FX = { show: 55, usseewa: 45, readymade: 40, gyakkou: 50, shinjidai: 55, giragira: 35, kurakura: 58, saikyo: 55, aiaia: 50, totmusica: 50, kira: 40, ibara: 45, rebellion: 50, chocolat: 62, ashura: 45, kokoro: 50, himawari: 50, dignity: 55, hibana: 50, magic: 50, kanjaa: 65 };
+    const POOL = Object.keys(FX).map(id => BY[id]).filter(s => s && !s.hold);
+    const hero = document.querySelector(".hero"), stage = document.getElementById("crateStage"), crate = document.getElementById("crate");
+    const crateNow = document.getElementById("crateNow"), shuffleBtn = document.getElementById("shuffle");
+    // 觸控與否要即時判斷：平板接上滑鼠、或視窗縮放時會變
+    const touchMQ = matchMedia("(hover: none)");
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const idle = () => `從 ${POOL.length} 首 MV 抽出 ${crate.children.length} 張`;
+    // CD 和側帶用的兩個顏色：螢光棒的前兩色；彩色的用粉紅＋水藍
+    const inks = s => {
+      const { keys } = penOf(s), cs = keys.filter(k => k !== "彩").map(k => PENC[k][1]), rb = keys.includes("彩");
+      return [cs[0] || (rb ? "#ff7ab8" : "#5fd4ff"), cs[1] || (rb ? "#5fd4ff" : "#c9d3e3")];
+    };
+    const obiDots = s => penOf(s).keys.map(k => `<span style="background:${k === "彩" ? "conic-gradient(#ff4a5a, #ffd84a, #4ee08a, #5fd4ff, #a374ff, #ff4a5a)" : PENC[k][1]}"></span>`).join("");
+    const art = s => {
+      const i = new Image();
+      i.alt = ""; i.decoding = "async";
+      i.src = `https://i.ytimg.com/vi/${s.yt}/maxresdefault.jpg`;
+      // 沒有高解析縮圖時 YouTube 回 120×90 的灰圖，改用中尺寸
+      i.onload = () => { if (i.naturalWidth < 200) i.src = `https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg`; };
+      return i;
+    };
+    let moldN = 0;
+    // CD 本體；歌曲頁標題旁的小唱片也用這個
+    window.ADO_CD = s => {
+      const [p1, p2] = inks(s), id = `cd-mold-${++moldN}`;
+      return `<span class="cd" style="--p1:${p1};--p2:${p2}"><span class="cd-face"></span><span class="cd-rain"></span><span class="cd-spin"><svg class="cd-mold" viewBox="0 0 100 100" aria-hidden="true">`
+        + `<path id="${id}" d="M50 50m-10.6 0a10.6 10.6 0 1 1 21.2 0a10.6 10.6 0 1 1 -21.2 0" fill="none"/><text><textPath href="#${id}">ADO · ${esc(s.ja)} · 応援 ·</textPath></text></svg></span></span>`;
+    };
+
+    // 由前左下往後右上排，越後面越深；隨機只在小範圍抖動，構圖不會散
+    function layout(n) {
+      const probe = document.createElement("li");
+      probe.className = "rec"; probe.style.visibility = "hidden"; crate.append(probe);
+      const unit = probe.offsetWidth; probe.remove();
+      // 每張往右的距離不超過舞台剩下的寬度，手機上整疊也不會超出螢幕；桌機可以往右溢出一點，但不超出視窗（平板橫放時兩側留白很少）
+      const room = innerWidth > 900 ? Math.min(stage.clientWidth * 1.3, innerWidth - stage.getBoundingClientRect().left - 24) : stage.clientWidth;
+      const step = Math.min((n > 4 ? .36 : .46) * unit, (room - unit * 1.1) / (n - 1));
+      return Array.from({ length: n }, (_, i) => ({ x: i * step + rnd(-6, 6), y: -i * (n > 4 ? .07 : .1) * unit + rnd(-8, 8), z: -i * .62 * unit, r: rnd(-3.5, 3.5) }));
+    }
+    function deal() {
+      const n = 3 + Math.floor(Math.random() * 3), picks = [...POOL].sort(() => Math.random() - .5).slice(0, n), pos = layout(n);
+      crate.innerHTML = "";
+      // 最前面那張先放進 DOM，Tab 順序從前面開始；後面的用 z-index 壓在下面
+      picks.forEach((s, i) => {
+        const li = document.createElement("li"), p = pos[i], [p1, p2] = inks(s);
+        li.className = "rec is-out"; li.style.zIndex = String(10 - i);
+        Object.entries({ "--x": p.x + "px", "--y": p.y + "px", "--z": p.z + "px", "--r": p.r + "deg", "--i": i, "--fx": FX[s.id] + "%", "--p1": p1, "--p2": p2 }).forEach(([k, v]) => li.style.setProperty(k, v));
+        li.innerHTML = `<a href="song/${s.id}/" data-crate="${s.id}" aria-label="${esc(s.ja)}，打開應援頁"><span class="floor"></span><span class="float"><span class="jacket">${window.ADO_CD(s)}`
+          + `<span class="tray"></span><span class="sleeve"><span class="obi" aria-hidden="true"><i>Ado</i><u></u><b lang="ja">${esc(s.ja)}</b><s>${obiDots(s)}</s></span></span>`
+          + `<span class="spine"></span><span class="lip"></span></span></span></a>`;
+        const img = art(s);
+        // 右側斷面用同一張插圖的右緣，載入後才知道最後用的是哪個尺寸
+        img.addEventListener("load", () => li.style.setProperty("--art", `url("${img.currentSrc}")`));
+        li.querySelector(".sleeve").prepend(img);
+        li._song = s;
+        crate.append(li);
+        setTimeout(() => li.classList.remove("is-out"), reduce ? 0 : 80 + (n - i) * 90);
+      });
+      crateNow.textContent = idle();
+      startCycle();
+    }
+
+    // 選中一張：前面的往前倒（像翻唱片箱），選中的抽高；背後的光和下面那行字換成這首的螢光棒色
+    function setOn(li) {
+      const recs = [...crate.children], k = recs.indexOf(li);
+      recs.forEach((x, i) => { x.classList.toggle("is-on", x === li); x.classList.toggle("is-deep", x === li && k > 0); x.classList.toggle("is-lean", k > 0 && i < k); });
+      crate.classList.toggle("has-on", !!li);
+      if (!li) { hero.style.removeProperty("--glow"); crateNow.textContent = idle(); return; }
+      const s = li._song;
+      hero.style.setProperty("--glow", inks(s)[0]);
+      crateNow.innerHTML = `${penDots(s)}螢光棒 · <b lang="ja">${esc(s.ja)}</b>`;
+    }
+
+    // 手機沒有滑過：唱片架在畫面裡時，每隔幾秒輪流讓一張的 CD 浮出，點了直接進歌曲頁
+    let cycle = 0, inView = true, busy = false;
+    function startCycle() {
+      clearInterval(cycle);
+      if (!touchMQ.matches || reduce || busy) return setOn(null);
+      const recs = [...crate.children];
+      let k = 0;
+      setOn(recs[0]);
+      if (inView) cycle = setInterval(() => !homeV.hidden && setOn(recs[++k % recs.length]), 3200);
+    }
+    touchMQ.addEventListener("change", startCycle);
+    new IntersectionObserver(([e]) => { inView = e.isIntersecting; if (touchMQ.matches) inView ? startCycle() : clearInterval(cycle); }).observe(stage);
+
+    // 滑過：整個唱片架只聽一組事件。離開後稍等一下才收回，滑到隔壁那張時不會先閃回原狀
+    let leaveT = 0;
+    crate.addEventListener("pointerover", e => {
+      const li = e.target.closest(".rec");
+      if (!li || busy || e.pointerType === "touch") return;
+      clearTimeout(leaveT);
+      if (!li.classList.contains("is-on")) setOn(li);
+    });
+    crate.addEventListener("pointerleave", e => { if (e.pointerType === "touch") return; clearTimeout(leaveT); leaveT = setTimeout(() => !busy && setOn(null), 140); });
+    crate.addEventListener("focusin", e => { const li = e.target.closest(".rec"); if (li && !busy) setOn(li); });
+    crate.addEventListener("focusout", e => { if (!crate.contains(e.relatedTarget) && !busy && !touchMQ.matches) setOn(null); });
+    // 指標視差：整個架子微微轉向游標，封套和 CD 的反光也跟著走
+    if (!reduce) {
+      stage.addEventListener("pointermove", e => {
+        if (e.pointerType === "touch") return;
+        const r = stage.getBoundingClientRect();
+        crate.style.setProperty("--px", ((e.clientX - r.left) / r.width - .5).toFixed(3));
+        crate.style.setProperty("--py", ((e.clientY - r.top) / r.height - .5).toFixed(3));
+      });
+      stage.addEventListener("pointerleave", () => { crate.style.setProperty("--px", 0); crate.style.setProperty("--py", 0); });
+    }
+
+    shuffleBtn.addEventListener("click", () => {
+      if (busy) return;
+      shuffleBtn.classList.add("turning"); setTimeout(() => shuffleBtn.classList.remove("turning"), 600);
+      clearInterval(cycle); setOn(null);
+      [...crate.children].forEach((li, i) => setTimeout(() => li.classList.add("is-out"), reduce ? 0 : i * 60));
+      setTimeout(deal, reduce ? 0 : 520);
+    });
+
+    // 點擊：那張轉正抽出 → 首頁淡掉 → 換到歌曲頁 → CD 弧線飛到歌名旁變成小唱片，封面展開成 16:9 的 MV 畫面
+    crate.addEventListener("click", e => {
+      const a = e.target.closest("a[data-crate]");
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      // detail 是 0：用鍵盤按 Enter，落地後把焦點交給歌曲頁的返回鍵
+      fly(a.parentElement, e.detail === 0);
+    });
+    // 飛行替身放在一層 .crate 裡，封套、側帶、反光、CD 直接套唱片架原本的樣式，交接那一格看起來完全一樣。
+    // 只動 transform／opacity／clip-path，交給合成器跑：歌曲頁在背後建播放器、排歌詞時也不會掉格
+    const box = (el, r) => (Object.assign(el.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" }), el);
+    const div = (cls, html = "") => Object.assign(document.createElement("div"), { className: cls, innerHTML: html });
+    const move = (from, to) => `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${to.width / from.width})`;
+    const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // 節奏（毫秒）：抽出 260 → 首頁淡出 200 後換頁 → 第一段共 340 → 第二段 600 → 落地 160，約 1.2 秒到定位。
+    // 第一段結尾保留速度、第二段帶速度起步，中間不會停住；CD 水平慢、垂直快，走成一道弧線
+    const T = { pull: 260, fade: 200, up: 340, fly: 600, land: 160 };
+    const EASE = { up: "cubic-bezier(.35, 0, .65, .85)", fly: "cubic-bezier(.25, .35, .2, 1)", flyX: "cubic-bezier(.4, .2, .2, 1)", flyY: "cubic-bezier(.15, .5, .2, 1)" };
+    function reset() {
+      crate.classList.remove("pulling");
+      [...crate.children].forEach(x => { x.classList.remove("is-pull"); x.style.visibility = ""; });
+      busy = false;
+      startCycle();
+    }
+    async function fly(li, kb) {
+      if (busy) return;
+      const s = li._song;
+      if (reduce) { location.hash = s.id; return; }
+      busy = true; clearInterval(cycle); clearTimeout(leaveT);
+      setOn(li);
+      crate.classList.add("pulling"); li.classList.add("is-pull");
+      // 抽出的轉場快結束就起飛，不停在原地等
+      await wait(T.pull);
+      const cd = li.querySelector(".cd"), sleeve = li.querySelector(".sleeve"), fx = FX[s.id];
+      const dr = cd.getBoundingClientRect(), sr = sleeve.getBoundingClientRect();
+      const layer = div("crate crate-fly");
+      ["--p1", "--p2", "--fx"].forEach(k => layer.style.setProperty(k, li.style.getPropertyValue(k)));
+      layer.style.setProperty("--px", crate.style.getPropertyValue("--px") || 0);
+      document.body.append(layer);
+
+      // 第一段（還在首頁）：CD 往上抽出、封面微微浮起，首頁和頂欄淡掉。這段不需要知道終點，先交給合成器跑
+      const gSq = box(div("fly-g"), sr);
+      gSq.style.setProperty("--s", sr.width + "px");
+      gSq.append(sleeve.cloneNode(true));
+      // CD 分兩層：外層只管水平、內層管垂直和縮放，兩個方向用不同的曲線就是弧線。
+      // CD 一路都在封面後面，跟它在封套裡的位置一致；飛到歌名旁時已經在影片框上方，不會被蓋住
+      const gCd = box(div("fly-g", `<div class="fly-y">${cd.outerHTML}</div>`), dr), gCdY = gCd.firstElementChild;
+      layer.append(gCd, gSq);
+      li.style.visibility = "hidden";
+      const lift = { left: dr.left + dr.width * .1, top: dr.top - dr.height * .5, width: dr.width * .8 };
+      const up = { left: sr.left - sr.width * .02, top: sr.top - sr.height * .04, width: sr.width * 1.04 };
+      const legUp = { duration: T.up, easing: EASE.up, fill: "forwards" };
+      const t0 = performance.now();
+      gCdY.animate([{ transform: "none" }, { transform: `translateY(${lift.top - dr.top}px) scale(.8)` }], legUp);
+      gCd.animate([{ transform: "none" }, { transform: `translateX(${lift.left - dr.left}px)` }], legUp);
+      gSq.animate([{ transform: "none" }, { transform: move(sr, up) }], legUp);
+      const bar = document.getElementById("bar");
+      const fades = [homeV, bar].map(el => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: T.fade, easing: "cubic-bezier(.3, 0, 1, 1)", fill: "forwards" }));
+      // 等首頁淡完才換頁；換頁那一下主執行緒很忙，第一段還在合成器上跑，畫面不會停
+      await Promise.all(fades.map(f => f.finished));
+      const routed = new Promise(r => addEventListener("hashchange", r, { once: true }));
+      quietNav = true;
+      location.hash = s.id;
+      await routed;
+      fades.forEach(f => f.cancel());
+      const left = Math.max(0, T.up - (performance.now() - t0));
+      // 歌曲頁（連同背景的舞台燈）先藏著，第二段開始才淡入
+      [songV, document.getElementById("fx")].forEach(el => el && el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, delay: left + 60, easing: "cubic-bezier(.05, .7, .1, 1)", fill: "backwards" }));
+      const screen = document.getElementById("screen"), mini = document.querySelector("#sTitle .sdisc");
+      const fr = screen.getBoundingClientRect(), mr = mini ? mini.getBoundingClientRect() : { left: fr.left + fr.width / 2, top: fr.top, width: 1, height: 1 };
+      [screen, mini].forEach(x => x && (x.style.visibility = "hidden"));
+      await wait(left);
+
+      // 第二段：封面換成終點大小的 16:9 畫面，先裁成剛才那塊正方形（上面疊著同一張封套，側帶和反光都在），
+      // 一邊展開一邊讓封套淡掉；CD 弧線飛到歌名旁縮成小唱片
+      const k = up.width / fr.height, ox = (fr.width - fr.height) * fx / 100, radius = parseFloat(getComputedStyle(screen).borderTopLeftRadius) || 0;
+      const gArt = box(div("fly-g fly-art", `<img src="${sleeve.querySelector("img").currentSrc || sleeve.querySelector("img").src}" alt="">`), fr);
+      const cover = div("fly-cover");
+      Object.assign(cover.style, { left: ox + "px", width: fr.height + "px" });
+      cover.style.setProperty("--s", fr.height + "px");
+      cover.append(sleeve.cloneNode(true));
+      gArt.append(cover);
+      gSq.replaceWith(gArt);
+      const legFly = { duration: T.fly, fill: "forwards" };
+      gArt.animate([
+        { transform: move(fr, { left: up.left - k * ox, top: up.top, width: fr.width * k }), clipPath: `inset(0 ${fr.width - ox - fr.height}px 0 ${ox}px round ${3 / k}px)` },
+        { transform: "none", clipPath: `inset(0 0 0 0 round ${radius}px)` }
+      ], { ...legFly, easing: EASE.fly });
+      cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: T.fly * .4, easing: "ease-out", fill: "forwards" });
+      gCd.animate([{ transform: `translateX(${lift.left - dr.left}px)` }, { transform: `translateX(${mr.left - dr.left}px)` }], { ...legFly, easing: EASE.flyX });
+      gCdY.animate([{ transform: `translateY(${lift.top - dr.top}px) scale(.8)` }, { transform: `translateY(${mr.top - dr.top}px) scale(${mr.width / dr.width})` }], { ...legFly, easing: EASE.flyY });
+      await wait(T.fly);
+      // 落地：底下的播放器和小唱片露出來，替身淡掉，不會硬切
+      [screen, mini].forEach(x => x && (x.style.visibility = ""));
+      layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: T.land, easing: "ease-out", fill: "forwards" }).finished.then(() => layer.remove());
+      if (kb) document.querySelector(".songbar a.ib")?.focus({ preventScroll: true });
+      reset();
+    }
+
+    // 直接打開歌曲頁時首頁是隱藏的，量不到唱片大小：等回到首頁再發牌
+    let dealt = false;
+    crateShow = () => { if (!dealt) { dealt = true; deal(); } };
+    // 換了視窗大小，重新排（間距跟著唱片大小算）
+    let rw = innerWidth;
+    addEventListener("resize", () => { if (Math.abs(innerWidth - rw) < 40 || busy) return; rw = innerWidth; if (homeV.hidden) dealt = false; else deal(); });
+  }
   route();
 
   // 返回按鈕與 Logo 導航優化：在 SPA 模式下點擊清除 hash 平滑回首頁
