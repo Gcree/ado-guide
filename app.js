@@ -70,10 +70,20 @@
   const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), 2600); }; })();
 
   // ── 首頁 ──
-  const list = document.getElementById("songList"), q = document.getElementById("q"), countEl = document.getElementById("songCount");
-  let filter = "all", sort = store.get("list-sort") === "cheer" ? "cheer" : "date";
+  const homeEl = document.getElementById("home");
+  const list = document.getElementById("songList"), q = document.getElementById("q"), barQ = document.getElementById("barQ"), countEl = document.getElementById("songCount");
+  const moreBtn = document.getElementById("moreBtn"), emptyEl = document.getElementById("songEmpty");
+  const sortBtn = document.getElementById("sortBtn"), sortLabel = document.getElementById("sortLabel");
+  let filter = "all", sort = store.get("list-sort") === "cheer" ? "cheer" : "date", showAll = false;
+  // 清單先只露 8 首，按「看全部」才展開；76 首的連結都在 HTML 裡，搜尋引擎照樣看得到
+  const LIMIT = 8;
   // 目前排序下的歌曲順序；切換上一首、下一首也照這個
   const ordered = () => sort === "cheer" ? [...SONGS].sort((a, b) => b.cheer - a.cheer || a.no - b.no) : SONGS;
+  const thumb = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
+  // 歌名下面那行：中文名（和日文一樣時用英文名）、是不是翻唱
+  const subOf = s => [s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : ""), s.cover ? "翻唱" : ""].filter(Boolean).join("・");
+  const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
+  const rowHtml = s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? '<span class="free">自由搖</span>' : ""}${sort === "cheer" && s.cheer ? `<span class="cnt">${s.cheer} 句</span>` : ""}</span></span></a></li>`;
   // free：粉絲說沒有固定應援；hold（含 sug）：還查不到可靠的應援資料
   function renderList() {
     const term = q.value.trim().toLowerCase();
@@ -86,194 +96,220 @@
         if (!matchPlain && !matchClean) return false;
       }
       if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
-      if (filter === "loose") return !!(s.free || s.hold);
       if (filter === "live") return !!(s.lives && s.lives.length > 0);
       if (filter === "cover") return !!s.cover;
       return true;
     });
-    list.innerHTML = rows.map(s => `
-      <li><a class="song" href="song/${s.id}/" data-id="${s.id}">
-        <span class="no">${String(s.no).padStart(2, "0")}</span>
-        <div class="name"><span class="ja" lang="ja">${esc(s.ja)}</span>
-          <div class="sub">${s.zh !== s.ja ? `<span class="zh">${esc(s.zh)}</span>` : ""}${s.cover ? '<span class="zh">翻唱</span>' : ""}${penDots(s)}<span>${s.len}</span>${lyReady && !s.lines ? '<span class="tagx">只有重點</span>' : ""}</div></div>
-        <div class="acts">${s.acts.filter(a => a !== "listen").map(icon).join("")}${sort === "cheer" && s.cheer ? `<span class="cnt">${s.cheer} 句</span>` : ""}</div>
-      </a></li>`).join("");
-    countEl.textContent = rows.length ? (rows.length < SONGS.length ? `${rows.length} / ` : "共 ") + `${SONGS.length} 首` : "找不到符合的歌曲";
-    document.getElementById("fdesc").textContent = FDESC[filter] || "";
+    list.innerHTML = rows.map(rowHtml).join("");
+    const plain = !term && filter === "all", more = rows.length > LIMIT;
+    list.classList.toggle("collapsed", more && !showAll);
+    moreBtn.hidden = !more;
+    moreBtn.textContent = showAll ? "收合" : plain ? `看全部 ${SONGS.length} 首` : `再看 ${rows.length - LIMIT} 首`;
+    moreBtn.setAttribute("aria-expanded", String(more && showAll));
+    countEl.textContent = plain ? `${SONGS.length} 首` : `${rows.length} 首符合`;
+    emptyEl.hidden = rows.length > 0;
+    if (!rows.length) emptyEl.textContent = term ? `找不到「${q.value.trim()}」。換個寫法試試，日文或中文都可以。` : "這個分類目前沒有歌。";
   }
-  // 點擊歌曲清單：若為普通左鍵點擊則進行 SPA 即時切換，保持絲滑無換頁；若帶修飾鍵則允許瀏覽器開新分頁
-  list.addEventListener("click", ev => {
-    const a = ev.target.closest("a.song");
-    if (!a) return;
-    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
-    const id = a.dataset.id;
-    if (id) {
+  // 首頁上所有歌曲連結（清單、書架、主視覺）：普通左鍵點擊用 SPA 即時切換；帶修飾鍵就讓瀏覽器開新分頁
+  homeEl.addEventListener("click", ev => {
+    const a = ev.target.closest("a[data-id]");
+    if (!a || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
+    if (BY[a.dataset.id]) {
       ev.preventDefault();
-      location.hash = id;
+      location.hash = a.dataset.id;
     }
   });
-  const FDESC = { cheer: "粉絲整理過固定應援的歌。", loose: "粉絲說沒有固定應援，或還查不到可靠的應援資料。跟著節奏自由搖就好。", live: "Ado 官方已釋出歷年演唱會現場音源的歌曲（點進歌曲可查看場次與連結）。", cover: "Ado 翻唱別人的歌。" };
   // 螢光棒顏色的小圓點
   const penDots = s => `<span class="dots" aria-label="螢光棒：${penOf(s).keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、")}">${penOf(s).keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")}</span>`;
-  q.addEventListener("input", renderList);
+  // 兩個搜尋框（主視覺、頂欄）內容同步；在頂欄打字時，清單不在眼前就捲過去
+  const songsSec = document.getElementById("songs");
+  function onSearch(src) {
+    const other = src === q ? barQ : q;
+    if (other.value !== src.value) other.value = src.value;
+    showAll = false;
+    renderList();
+  }
+  q.addEventListener("input", () => onSearch(q));
+  barQ.addEventListener("input", () => {
+    onSearch(barQ);
+    const r = songsSec.getBoundingClientRect();
+    if (r.top > innerHeight * .6 || r.bottom < 120) songsSec.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  });
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
-    filter = b.dataset.f;
-    document.querySelectorAll("[data-f]").forEach(x => x.setAttribute("aria-pressed", x === b));
+    filter = b.dataset.f; showAll = false;
+    document.querySelectorAll("[data-f]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
     renderList();
   }));
-  document.querySelectorAll("[data-sort]").forEach(b => {
-    b.setAttribute("aria-pressed", b.dataset.sort === sort);
-    b.addEventListener("click", () => {
-      sort = b.dataset.sort; store.set("list-sort", sort === "cheer" ? "cheer" : null);
-      document.querySelectorAll("[data-sort]").forEach(x => x.setAttribute("aria-pressed", x === b));
-      renderList();
-    });
+  const SORT_NAME = { date: "推出順序", cheer: "動作多的在前" };
+  function syncSort() {
+    sortLabel.textContent = SORT_NAME[sort];
+    sortBtn.setAttribute("aria-label", `排序：${SORT_NAME[sort]}（點一下切換）`);
+  }
+  sortBtn.addEventListener("click", () => {
+    sort = sort === "cheer" ? "date" : "cheer"; store.set("list-sort", sort === "cheer" ? "cheer" : null);
+    syncSort(); renderList();
   });
+  moreBtn.addEventListener("click", () => {
+    showAll = !showAll;
+    renderList();
+    // 收合時清單變短，把畫面帶回清單開頭，不然會停在頁尾
+    if (!showAll && songsSec.getBoundingClientRect().top < 0) songsSec.scrollIntoView({ block: "start" });
+  });
+  syncSort();
   renderList();
   lyLoaded.then(renderList);
-  // 最近看過：最多 3 首，記在這台裝置
-  const recentEl = document.getElementById("recent"), recentList = document.getElementById("recentList");
+
+  // 書架：推薦先練的 6 首，6 種應援動作全包；下方進度條跟著捲動走，箭頭到底就停用
+  const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].filter(id => BY[id]);
+  const shelf = document.getElementById("shelf"), shelfNav = document.getElementById("shelfNav"), shelfThumb = document.getElementById("shelfThumb");
+  const shelfPrev = document.getElementById("shelfPrev"), shelfNext = document.getElementById("shelfNext");
+  shelf.innerHTML = STARTERS.map(id => {
+    const s = BY[id];
+    return `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`;
+  }).join("");
+  let shelfTick = 0;
+  function measureShelf() {
+    shelfTick = 0;
+    const max = shelf.scrollWidth - shelf.clientWidth;
+    const frac = shelf.scrollWidth ? Math.min(1, shelf.clientWidth / shelf.scrollWidth) : 1;
+    const pos = max > 0 ? shelf.scrollLeft / max : 0;
+    shelfNav.hidden = max <= 1;
+    shelfThumb.style.width = `${frac * 100}%`;
+    shelfThumb.style.left = `${pos * (1 - frac) * 100}%`;
+    // 按到底那顆會停用；鍵盤焦點如果在它上面，移到另一顆，不要掉到頁面最上面
+    const had = document.activeElement;
+    shelfPrev.disabled = pos <= .01;
+    shelfNext.disabled = pos >= .99;
+    if (had === shelfPrev && shelfPrev.disabled) shelfNext.focus();
+    else if (had === shelfNext && shelfNext.disabled) shelfPrev.focus();
+  }
+  shelf.addEventListener("scroll", () => { if (!shelfTick) shelfTick = requestAnimationFrame(measureShelf); }, { passive: true });
+  if (window.ResizeObserver) new ResizeObserver(() => measureShelf()).observe(shelf);
+  [[shelfPrev, -1], [shelfNext, 1]].forEach(([b, dir]) => b.addEventListener("click", () => shelf.scrollBy({ left: dir * shelf.clientWidth * .8, behavior: reduce ? "auto" : "smooth" })));
+  measureShelf();
+
+  // 最近看過：記最多 3 首在這台裝置；主視覺顯示「繼續練〈最近那首〉」
+  const resumeLink = document.getElementById("resumeLink"), resumeName = document.getElementById("resumeName");
   const recentIds = () => { try { return JSON.parse(store.get("recent") || "[]").filter(id => BY[id]); } catch (e) { return []; } };
   function renderRecent() {
-    const ids = recentIds();
-    recentEl.hidden = !ids.length;
-    recentList.innerHTML = ids.map(id => `<a href="#${id}">${penDots(BY[id])}${esc(BY[id].ja)}</a>`).join("");
+    const id = recentIds()[0];
+    resumeLink.hidden = !id;
+    if (!id) return;
+    resumeLink.href = `song/${id}/`;
+    resumeLink.dataset.id = id;
+    resumeName.textContent = BY[id].ja;
   }
   const remember = id => store.set("recent", JSON.stringify([id, ...recentIds().filter(x => x !== id)].slice(0, 3)));
-  // 圖示說明：只列清單裡用得到的動作
+  // 圖示說明：只列清單裡用得到的動作；主視覺的數字也照實際資料
   const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   document.getElementById("homeLegend").innerHTML = Object.keys(ACT).filter(a => usedActs.has(a))
     .map(a => `<span class="a-${a}">${icon(a)}${ACT[a].name}</span>`).join("");
+  document.getElementById("factSongs").textContent = SONGS.length;
+  document.getElementById("factActs").textContent = usedActs.size;
 
-  // ── 首頁手燈下載按鈕（PenlightSync） ──
-  const lampDlBtn = document.getElementById("lampDlBtn");
-  const lampDlBadge = document.getElementById("lampDlBadge");
-  const lampDlMenu = document.getElementById("lampDlMenu");
-  const lampDlWinLink = document.getElementById("lampDlWinLink");
-  const lampDlMacLink = document.getElementById("lampDlMacLink");
-  const lampDlWinDesc = document.getElementById("lampDlWinDesc");
-  const lampDlMacDesc = document.getElementById("lampDlMacDesc");
-
-  const GITHUB_REPO_URL = "https://github.com/Gcree/penlight-sync";
-  const WIN_DL_LATEST = "https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-Windows-x64.zip";
-  const MAC_DL_LATEST = "https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-macOS.zip";
-
-  function detectClientOS() {
-    const ua = navigator.userAgent || "";
-    const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
-    if (/iphone|ipad|ipod/i.test(ua)) return "ios";
-    if (/android/i.test(ua)) return "android";
-    if (/mac/i.test(platform) || /macintosh|mac os x/i.test(ua)) return "mac";
-    if (/win/i.test(platform) || /windows/i.test(ua)) return "win";
-    if (/linux/i.test(platform) || /linux/i.test(ua)) return "linux";
-    return "other";
+  // ── 頂欄：一往下捲就變半透明；首頁大搜尋框捲到頂欄後面，小搜尋框才出現 ──
+  const bar = document.getElementById("bar"), heroSearch = document.getElementById("heroSearch");
+  let barTick = 0;
+  function syncBar() {
+    barTick = 0;
+    bar.classList.toggle("is-stuck", scrollY > 4);
+    bar.classList.toggle("has-search", !homeEl.hidden && heroSearch.getBoundingClientRect().bottom < bar.offsetHeight);
   }
+  addEventListener("scroll", () => { if (!barTick) barTick = requestAnimationFrame(syncBar); }, { passive: true });
+  syncBar();
 
-  function triggerDownload(url) {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => a.remove(), 200);
-  }
-
-  let latestReleaseData = null;
-
-  function initLampDownload() {
-    if (!lampDlBtn) return;
-    const clientOS = detectClientOS();
-
-    if (clientOS === "mac") {
-      lampDlBtn.href = MAC_DL_LATEST;
-      if (lampDlBadge) lampDlBadge.textContent = "macOS";
-      lampDlBtn.title = "點擊自動下載最新版 PenlightSync (macOS)";
-    } else if (clientOS === "win") {
-      lampDlBtn.href = WIN_DL_LATEST;
-      if (lampDlBadge) lampDlBadge.textContent = "Windows";
-      lampDlBtn.title = "點擊自動下載最新版 PenlightSync (Windows)";
-    } else {
-      lampDlBtn.href = GITHUB_REPO_URL;
-      if (lampDlBadge) lampDlBadge.textContent = "GitHub";
-      lampDlBtn.title = "前往 PenlightSync 的 GitHub 專案（支援電腦版）";
-    }
-
-    lampDlBtn.addEventListener("click", ev => {
-      const os = detectClientOS();
-      if (os === "mac" || os === "win") {
-        ev.preventDefault();
-        try {
-          const dlUrl = (os === "mac")
-            ? (lampDlMacLink ? lampDlMacLink.href : MAC_DL_LATEST)
-            : (lampDlWinLink ? lampDlWinLink.href : WIN_DL_LATEST);
-
-          triggerDownload(dlUrl);
-          const ver = latestReleaseData && latestReleaseData.tag_name ? ` ${latestReleaseData.tag_name}` : "";
-          const osName = os === "mac" ? "macOS" : "Windows";
-          toast(`✨ 已開始下載 PenlightSync ${osName} 版${ver}！`);
-        } catch (e) {
-          window.open(GITHUB_REPO_URL, "_blank", "noopener");
-        }
-      }
+  // ── 頂欄選單（手燈 App、外觀）：點外面、按 Esc 或打開另一個就關；方向鍵在項目間移動 ──
+  const barMenus = [["lampBtn", "lampPop"], ["themeBtn", "themePop"]].map(([b, p]) => ({ btn: document.getElementById(b), pop: document.getElementById(p) }));
+  const menuItems = m => [...m.pop.querySelectorAll('[role^="menuitem"]')];
+  function closeMenus(except) {
+    barMenus.forEach(m => {
+      if (m === except || m.pop.hidden) return;
+      m.pop.hidden = true;
+      m.btn.setAttribute("aria-expanded", "false");
     });
-
-    if (lampDlWinLink) {
-      lampDlWinLink.addEventListener("click", () => {
-        if (lampDlMenu) lampDlMenu.removeAttribute("open");
-        toast("✨ 已開始下載 PenlightSync Windows 版！");
-      });
-    }
-    if (lampDlMacLink) {
-      lampDlMacLink.addEventListener("click", () => {
-        if (lampDlMenu) lampDlMenu.removeAttribute("open");
-        toast("✨ 已開始下載 PenlightSync macOS 版！");
-      });
-    }
-
-    if (lampDlMenu) {
-      document.addEventListener("click", ev => {
-        if (lampDlMenu.open && !lampDlMenu.contains(ev.target)) {
-          lampDlMenu.removeAttribute("open");
-        }
-      });
-    }
-
-    fetch("https://api.github.com/repos/Gcree/penlight-sync/releases/latest")
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (!data) return;
-        latestReleaseData = data;
-        const tag = data.tag_name || "";
-        const os = detectClientOS();
-
-        if (lampDlBadge) {
-          if (os === "mac") lampDlBadge.textContent = tag ? `macOS ・ ${tag}` : "macOS";
-          else if (os === "win") lampDlBadge.textContent = tag ? `Windows ・ ${tag}` : "Windows";
-          else lampDlBadge.textContent = tag ? `GitHub ・ ${tag}` : "GitHub";
-        }
-
-        if (Array.isArray(data.assets)) {
-          const winAsset = data.assets.find(a => /win/i.test(a.name));
-          const macAsset = data.assets.find(a => /mac/i.test(a.name));
-          if (winAsset) {
-            if (lampDlWinLink) lampDlWinLink.href = winAsset.browser_download_url;
-            if (lampDlWinDesc) {
-              const mb = Math.round(winAsset.size / (1024 * 1024));
-              lampDlWinDesc.textContent = `${tag} (${mb} MB)`;
-            }
-          }
-          if (macAsset) {
-            if (lampDlMacLink) lampDlMacLink.href = macAsset.browser_download_url;
-            if (lampDlMacDesc) {
-              const mb = (macAsset.size / (1024 * 1024)).toFixed(1);
-              lampDlMacDesc.textContent = `${tag} (${mb} MB)`;
-            }
-          }
-        }
-      })
-      .catch(() => {});
   }
-  initLampDownload();
+  barMenus.forEach(m => {
+    m.btn.addEventListener("click", ev => {
+      const open = m.pop.hidden;
+      closeMenus(m);
+      m.pop.hidden = !open;
+      m.btn.setAttribute("aria-expanded", String(open));
+      // 用鍵盤打開（click 的 detail 是 0）時，焦點直接移到目前選中的項目，沒有就第一個
+      if (open && ev.detail === 0) (m.pop.querySelector('[aria-checked="true"]') || menuItems(m)[0]).focus();
+    });
+    m.pop.addEventListener("keydown", ev => {
+      const items = menuItems(m), i = items.indexOf(document.activeElement);
+      if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+        ev.preventDefault();
+        items[(i + (ev.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+      } else if (ev.key === "Home" || ev.key === "End") {
+        ev.preventDefault();
+        items[ev.key === "Home" ? 0 : items.length - 1].focus();
+      } else if (ev.key === "Tab") closeMenus();
+    });
+    m.pop.addEventListener("click", ev => {
+      if (!ev.target.closest('[role^="menuitem"]')) return;
+      closeMenus();
+      if (ev.detail === 0) m.btn.focus();
+    });
+  });
+  document.addEventListener("click", ev => { if (!ev.target.closest(".menu")) closeMenus(); });
+  document.addEventListener("keydown", ev => {
+    const m = ev.key === "Escape" && barMenus.find(x => !x.pop.hidden);
+    if (!m) return;
+    closeMenus();
+    m.btn.focus();
+  });
+
+  // ── 外觀：淺色／深色／跟隨系統，記在這台裝置（head 裡的小段程式已經先套過一次） ──
+  const themeBtn = document.getElementById("themeBtn"), themeIco = document.getElementById("themeIco");
+  const THEME_ICON = {
+    light: "M12 7.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 1 0 0-9zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+    dark: "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z",
+    system: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 3v18"
+  };
+  const THEME_NAME = { light: "淺色", dark: "深色", system: "跟隨系統" };
+  const sysLight = matchMedia("(prefers-color-scheme: light)");
+  const themePref = () => { const p = store.get("theme"); return p === "light" || p === "dark" ? p : "system"; };
+  // 手機瀏覽器頂端的顏色跟著頁面底色；沉浸模式一律深色
+  function syncThemeColor() {
+    const light = document.documentElement.dataset.theme === "light" && !document.body.classList.contains("immersive-mode");
+    document.querySelector('meta[name="theme-color"]').content = light ? "#ffffff" : "#070a12";
+  }
+  function applyTheme() {
+    const p = themePref();
+    document.documentElement.dataset.theme = p === "light" || (p === "system" && sysLight.matches) ? "light" : "dark";
+    themeIco.setAttribute("d", THEME_ICON[p]);
+    themeBtn.setAttribute("aria-label", `外觀：${THEME_NAME[p]}`);
+    document.querySelectorAll("[data-theme-pick]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.themePick === p)));
+    syncThemeColor();
+  }
+  document.querySelectorAll("[data-theme-pick]").forEach(b => b.addEventListener("click", () => {
+    store.set("theme", b.dataset.themePick === "system" ? null : b.dataset.themePick);
+    applyTheme();
+  }));
+  if (sysLight.addEventListener) sysLight.addEventListener("change", applyTheme);
+  applyTheme();
+
+  // ── 手燈 App 下載（PenlightSync）：抓最新版本，把下載連結、版本和檔案大小填進選單 ──
+  const lampDlWinLink = document.getElementById("lampDlWinLink"), lampDlMacLink = document.getElementById("lampDlMacLink");
+  const lampDlWinDesc = document.getElementById("lampDlWinDesc"), lampDlMacDesc = document.getElementById("lampDlMacDesc");
+  [[lampDlWinLink, "Windows"], [lampDlMacLink, "macOS"]].forEach(([a, os]) => a.addEventListener("click", () => toast(`✨ 已開始下載 PenlightSync ${os} 版！`)));
+  fetch("https://api.github.com/repos/Gcree/penlight-sync/releases/latest")
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data || !Array.isArray(data.assets)) return;
+      const tag = data.tag_name || "";
+      const fill = (re, link, desc) => {
+        const asset = data.assets.find(a => re.test(a.name));
+        if (!asset) return;
+        link.href = asset.browser_download_url;
+        desc.textContent = `${tag ? `${tag}・` : ""}${(asset.size / 1048576).toFixed(1)} MB`;
+      };
+      fill(/win/i, lampDlWinLink, lampDlWinDesc);
+      fill(/mac/i, lampDlMacLink, lampDlMacDesc);
+    })
+    .catch(() => {});
 
   // ── 加入主畫面 Toast（PWA Install Toast） ──
   const pwaToast = document.getElementById("pwaToast");
@@ -713,7 +749,7 @@
 
   // 使用者手勢直接啟動播放，避免瀏覽器與 YouTube 判定為背景自動播放而插入廣告與強制靜音
   document.addEventListener("click", e => {
-    const a = e.target.closest("a.song, a[href^='#'], #prevSong, #nextSong, #recentList a");
+    const a = e.target.closest("a[data-id], a[href^='#'], #prevSong, #nextSong");
     if (!a) return;
     const targetId = getSongIdFromEl(a);
     const targetSong = targetId && BY[targetId];
@@ -1128,6 +1164,14 @@
   // 點選單外面就收起來
   const menus = [document.getElementById("vopt"), document.getElementById("tools"), document.getElementById("tipsOpt"), document.getElementById("liveOpt")].filter(Boolean);
   document.addEventListener("click", e => menus.forEach(m => { if (m.open && !m.contains(e.target)) m.open = false; }));
+  // 按 Esc 也收起來，焦點回到選單按鈕；這一下不再拿去關沉浸模式
+  document.addEventListener("keydown", e => {
+    const m = e.key === "Escape" && menus.find(x => x.open);
+    if (!m) return;
+    e.stopImmediatePropagation();
+    m.open = false;
+    m.querySelector("summary").focus();
+  }, true);
   // 窄螢幕上按鈕換行到左邊時選單往右展開，下面放不下時往上展開（#vopt 在歌詞頂部，順向往下展開至歌詞區）
   menus.forEach(m => m.addEventListener("toggle", () => {
     const box = m.querySelector(".view-opts");
@@ -1178,6 +1222,7 @@
     if (isImmersive === on) return;
     isImmersive = on;
     document.body.classList.toggle("immersive-mode", isImmersive);
+    syncThemeColor();
     if (toolImmersive) toolImmersive.setAttribute("aria-pressed", isImmersive);
     if (isImmersive) {
       updateAmbientColors(S);
@@ -2068,13 +2113,13 @@
     const h = location.hash.slice(1) || PAGE_SONG, [id, at] = h.split("@"), s = BY[id];
     if (s) {
       if (!homeV.hidden) listY = scrollY;
-      document.body.classList.add("on-song");
+      document.body.classList.add("on-song"); document.documentElement.classList.add("on-song"); syncThemeColor();
       hidePwaToast(false);
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
       trackView(s);
     } else {
       setImmersive(false);
-      lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援指南" : PAGE_TITLE;
+      lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援指南" : PAGE_TITLE;
       renderRecent();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);

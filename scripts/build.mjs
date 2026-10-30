@@ -188,14 +188,13 @@ const homeLegendHtml = Object.keys(ACT_MAP)
   .map(a => `<span class="a-${a}">${icon(a)}${ACT_MAP[a].name}</span>`)
   .join("");
 
-const homeSongListHtml = SONGS.map(s => {
-  const sub = s.zh !== s.ja ? `<span class="zh">${esc(s.zh)}</span>` : "";
-  const cover = s.cover ? '<span class="zh">翻唱</span>' : "";
-  const dots = penDots(s);
-  const tagx = !lyIndex[s.id] ? '<span class="tagx">只有重點</span>' : "";
-  const acts = s.acts.filter(a => a !== "listen").map(icon).join("");
-  return `<li><a class="song" href="song/${s.id}/" data-id="${s.id}"><span class="no">${String(s.no).padStart(2, "0")}</span><div class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><div class="sub">${sub}${cover}${dots}<span>${s.len}</span>${tagx}</div></div><div class="acts">${acts}</div></a></li>`;
-}).join("");
+// 首頁的列、書架卡片：和 app.js 的 rowHtml、書架模板同一個樣子，JS 載入後會再畫一次
+const thumbHtml = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
+const subOf = s => [s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : ""), s.cover ? "翻唱" : ""].filter(Boolean).join("・");
+const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
+const homeSongListHtml = SONGS.map(s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? '<span class="free">自由搖</span>' : ""}</span></span></a></li>`).join("");
+const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].map(id => SONGS.find(s => s.id === id)).filter(Boolean);
+const homeShelfHtml = STARTERS.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
 
 const homeLd = {
   "@context": "https://schema.org",
@@ -235,39 +234,11 @@ const homeLd = {
       "@type": "FAQPage",
       "@id": `${SITE}#faq`,
       "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "什麼是 Ado 應援指南？如何使用？",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": `Ado 應援指南是非官方粉絲製作的演唱會應援教學網站，收錄 ${SONGS.length} 首歌曲教學。包含官方 MV 同步歌詞、哪裡拍手、哪裡大合唱、哪裡喊聲，以及每首曲目的手燈推薦顏色與 PenlightSync 藍牙手燈連動功能。不照特定場次歌單，安心不暴雷。`
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "參加 Ado 演唱會手燈要調什麼顏色？沒有寫顏色的歌怎麼辦？",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Ado 演唱會各曲目有不同的粉絲推薦螢光棒顏色，例如〈唱〉為橘黃色、〈うっせぇわ〉為藍紅色、〈FREEDOM〉為白藍色、〈新時代〉為彩桃色。如果不確定手燈顏色或現場來不及切換，切換為 Ado 的代表色「藍色」（迷ったら青）即可。"
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "演唱會應援有哪些主要動作種類？",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "大合唱（sing）：跟隨 Ado 一起引吭高歌；拍手（clap）：隨鼓點或特定節奏擊掌；喊聲（call）：在間奏呼喊「Hey! Hey!」給予現場回應；舉手揮動（wave）：隨台上動作左右揮手燈；安靜聽（listen）：抒情曲目靜心欣賞 Ado 演唱。"
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "如何使用 PenlightSync 連動實體 Ado 官方手燈？",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "點擊首頁上方的「下載手燈連動」，下載安裝由社群開發的 PenlightSync 桌面應用程式（支援 Windows 及 macOS），透過藍牙連接 Ado 官方手燈後，手燈顏色即可隨著網站正在播放的歌曲即時自動變色。"
-          }
-        }
-      ]
+        ["怎麼用？", "挑一首歌，MV 和歌詞會一起播。句子亮起顏色就跟著做，每種顏色代表什麼動作，歌詞上方的圖例有寫。點歌詞能跳到那一句，空白鍵播放。"],
+        ["手燈要調什麼顏色？", "歌名旁的小圓點就是推薦顏色。沒寫的話，切成 Ado 的藍色就對了。"],
+        ["會暴雷嗎？", "不會啦。歌照推出順序排，跟任何一場的歌單都沒關係。"],
+        ["手燈 App 怎麼用？", "點右上角的「手燈 App」下載 PenlightSync（Windows、macOS）。用藍牙連上 Ado 官方手燈，再打開歌曲頁的「連動手燈」，播哪首歌，手燈就換成那首的顏色。"]
+      ].map(([name, text]) => ({ "@type": "Question", name, "acceptedAnswer": { "@type": "Answer", text } }))
     }
   ]
 };
@@ -281,9 +252,13 @@ let homeHtml = page({
 });
 
 homeHtml = homeHtml
-  .replace('<ul class="songs" id="songList"></ul>', `<ul class="songs" id="songList">${homeSongListHtml}</ul>`)
-  .replace('<p class="count" id="songCount"></p>', `<p class="count" id="songCount">共 ${SONGS.length} 首</p>`)
-  .replace('<div class="legend" id="homeLegend" aria-label="圖示代表的動作"></div>', `<div class="legend" id="homeLegend" aria-label="圖示代表的動作">${homeLegendHtml}</div>`)
+  .replace('<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`)
+  .replace('<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`)
+  .replace('<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${SONGS.length} 首</span>`)
+  .replace('<button type="button" class="pill-btn" id="moreBtn" aria-controls="songList" aria-expanded="false">看全部歌曲</button>', `<button type="button" class="pill-btn" id="moreBtn" aria-controls="songList" aria-expanded="false">看全部 ${SONGS.length} 首</button>`)
+  .replace('<span id="factSongs">76</span>', `<span id="factSongs">${SONGS.length}</span>`)
+  .replace('<span id="factActs">6</span>', `<span id="factActs">${usedActs.size}</span>`)
+  .replace('<div class="home-legend" id="homeLegend" aria-label="圖示代表的動作"></div>', `<div class="home-legend" id="homeLegend" aria-label="圖示代表的動作">${homeLegendHtml}</div>`)
   .replace(/收錄 \d+ 首歌曲/g, `收錄 ${SONGS.length} 首歌曲`);
 
 write("index.html", homeHtml);
