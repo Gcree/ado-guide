@@ -67,6 +67,14 @@
   const cueLabel = l => l.call || (l.sing.length ? `唱「${l.sing.join("」「")}」` : l.acts.map(a => ACT[a].name).join("、"));
   const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // 重播一次 CSS 進場動畫：拿掉 class、強迫重排、再加回去；播完就收掉，下次重畫不會又播
+  const replay = (el, cls, ms = 500) => { if (!el || reduce) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); clearTimeout(el._replay); el._replay = setTimeout(() => el.classList.remove(cls), ms); };
+  // 換頁、換主題時新舊畫面交叉淡化；不支援或減少動態就直接換
+  const transition = (fn, cls) => {
+    if (reduce || !document.startViewTransition) return fn();
+    if (cls) document.documentElement.classList.add(cls);
+    document.startViewTransition(fn).finished.finally(() => cls && document.documentElement.classList.remove(cls));
+  };
   const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), 2600); }; })();
 
   // ── 首頁 ──
@@ -138,7 +146,7 @@
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
     filter = b.dataset.f; showAll = false;
     document.querySelectorAll("[data-f]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
-    renderList();
+    renderList(); replay(list, "swap");
   }));
   const SORT_NAME = { date: "推出順序", cheer: "動作多的在前" };
   function syncSort() {
@@ -147,11 +155,12 @@
   }
   sortBtn.addEventListener("click", () => {
     sort = sort === "cheer" ? "date" : "cheer"; store.set("list-sort", sort === "cheer" ? "cheer" : null);
-    syncSort(); renderList();
+    syncSort(); renderList(); replay(list, "swap");
   });
   moreBtn.addEventListener("click", () => {
     showAll = !showAll;
     renderList();
+    if (showAll) replay(list, "grow", 700);
     // 收合時清單變短，把畫面帶回清單開頭，不然會停在頁尾
     if (!showAll && songsSec.getBoundingClientRect().top < 0) songsSec.scrollIntoView({ block: "start" });
   });
@@ -286,7 +295,7 @@
   }
   document.querySelectorAll("[data-theme-pick]").forEach(b => b.addEventListener("click", () => {
     store.set("theme", b.dataset.themePick === "system" ? null : b.dataset.themePick);
-    applyTheme();
+    transition(applyTheme, "vt-theme");
   }));
   if (sysLight.addEventListener) sysLight.addEventListener("change", applyTheme);
   applyTheme();
@@ -1072,6 +1081,7 @@
           cueName.textContent = cue.name;
           cueHow.textContent = cue.how;
         }
+        if (curKey) replay(cueName.parentElement, "swap", 400);
         curKey = key;
       }
       const nx = nextChange(t);
@@ -2113,6 +2123,7 @@
     const h = location.hash.slice(1) || PAGE_SONG, [id, at] = h.split("@"), s = BY[id];
     if (s) {
       if (!homeV.hidden) listY = scrollY;
+      document.documentElement.classList.add("seen");
       document.body.classList.add("on-song"); document.documentElement.classList.add("on-song"); syncThemeColor();
       hidePwaToast(false);
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
@@ -2126,7 +2137,7 @@
       trackView(null);
     }
   }
-  addEventListener("hashchange", route);
+  addEventListener("hashchange", () => transition(route));
   route();
 
   // 返回按鈕與 Logo 導航優化：在 SPA 模式下點擊清除 hash 平滑回首頁
