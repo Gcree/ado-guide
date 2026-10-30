@@ -177,11 +177,18 @@ if (LIVES) {
     }
     if (!Array.isArray(tracks) || tracks.length === 0) {
       error(`[${id}] LIVES 項目必須為非空陣列`);
+      continue;
     }
+    const seen = new Set();
     for (const t of tracks) {
-      if (!t.concert || !t.yt) {
+      if (!t || !t.concert || !t.yt) {
         error(`[${id}] LIVES 項目缺少 concert 或 yt: ${JSON.stringify(t)}`);
+        continue;
       }
+      if (!/^[\w-]{11}$/.test(t.yt)) error(`[${id}] LIVES 的 YouTube ID 格式不對（應為 11 碼）: ${t.yt}`);
+      if (seen.has(t.yt)) error(`[${id}] LIVES 有重複的影片: ${t.yt}`);
+      seen.add(t.yt);
+      if (songsMap.get(id)?.yt === t.yt) warn(`[${id}] LIVES 的 ${t.yt} 和主播放影片相同，現場音源選單會重複`);
     }
   }
 }

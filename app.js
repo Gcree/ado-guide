@@ -10,7 +10,7 @@
     listen:  { name: "安靜聽",   icon: "i-listen",  how: "留給 Ado 唱" }
   };
 
-  const { SONGS, UT, PEN, BEAT, CLIMAX, LIVES = {} } = window.ADO_SONGS;
+  const { SONGS, UT, PEN, BEAT, CLIMAX } = window.ADO_SONGS;
   // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示；沒有 tips 又不是 free 的歌也先視為 hold
   SONGS.forEach(s => { if (s.sug || (!s.free && (!s.tips || !s.tips.length))) s.hold = true; if (s.hold) { s.acts = []; s.tips = []; } });
   SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = s.tips || []; s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
@@ -80,7 +80,7 @@
     const cleanTerm = term.replace(/[\s\-_'’"!?！？()（）/]/g, "");
     const rows = ordered().filter(s => {
       if (term) {
-        const pool = [s.ja, s.zh, s.en || "", s.ro || "", s.id];
+        const pool = [s.ja, s.zh, s.en || "", s.ro || "", s.id, ...(s.alias || [])];
         const matchPlain = pool.some(x => x.toLowerCase().includes(term));
         const matchClean = cleanTerm ? pool.some(x => x.toLowerCase().replace(/[\s\-_'’"!?！？()（）/]/g, "").includes(cleanTerm)) : false;
         if (!matchPlain && !matchClean) return false;
@@ -641,6 +641,7 @@
   function createPlayer(videoId, startPlaying = true) {
     if (player || !window.YT || !YT.Player) return;
     const origin = location.protocol.startsWith("http") ? location.origin : undefined;
+    const startAt = START;
     player = new YT.Player("ytp", {
       videoId: videoId,
       playerVars: {
@@ -659,11 +660,17 @@
           clearTimeout(slowTimer);
           videoMsg("");
           applyRate();
+          // 等播放器的期間已經回首頁：不要在背景出聲
+          if (!S || songV.hidden) { try { player.pauseVideo(); } catch (e) {} START = 0; return; }
+          // 等播放器的期間換了歌：交給 loadVideo 換片
+          if (vid !== S.yt) { loadVideo(); return; }
           if (startPlaying) {
+            // 點連結時播放器先建好，之後才知道網址上的 @秒數
+            if (START && START !== startAt) seek(START);
             try { player.unMute(); player.playVideo(); } catch (e) {}
+            ensurePlaying();
           }
           START = 0;
-          if (S && vid !== S.yt) loadVideo();
         },
         // 換影片後 YouTube 會把速度重設成 1，播放或載入完成時再套一次
         onStateChange: e => { if (e.data === 1 || e.data === 5) applyRate(); if (e.data === 0) ended(); },
@@ -760,7 +767,7 @@
     document.getElementById("sTitle").innerHTML = esc(s.ja) + (sub ? `<span lang="zh-Hant-TW">${esc(sub)}</span>` : "");
     ["ytLink", "ytLink2"].forEach(id => document.getElementById(id).href = `https://www.youtube.com/watch?v=${s.yt}`);
     document.getElementById("lyLink").href = s.ut;
-    const lives = (LIVES && LIVES[s.id]) || s.lives || [];
+    const lives = s.lives;
     const liveOpt = document.getElementById("liveOpt");
     if (liveOpt) {
       liveOpt.hidden = lives.length === 0;
@@ -795,6 +802,7 @@
     loadVideo();
     loadKaraokeTiming(s);
     updateAmbientColors(s);
+    if (!hasDocPip()) prepCanvasPip();
   }
   // 歌詞相關的部分：歌詞檔載好後會再跑一次
   function fillSong() {
@@ -832,7 +840,7 @@
       const cardLiveDt = document.getElementById("cardLiveDt");
       const cardLiveDd = document.getElementById("cardLiveDd");
       if (cardLiveDt && cardLiveDd) {
-        const lives = (LIVES && LIVES[s.id]) || s.lives || [];
+        const lives = s.lives;
         if (lives.length > 0) {
           cardLiveDt.hidden = false;
           cardLiveDd.hidden = false;
@@ -1211,6 +1219,7 @@
   let lastPipLine = -2;
   let lastPipPlayState = null;
   let lastPipSongNo = -1;
+  let lastPipLines = null;
 
   const PIP_STYLES = `
     html, body {
@@ -1371,8 +1380,18 @@
         height: 225
       });
     } catch (err) {
-      console.warn("documentPictureInPicture failed, falling back to Canvas PiP:", err);
-      return openCanvasPip();
+      pipWin = null;
+      // requestWindow 失敗通常已用掉這次點擊的授權，授權還在才試備援，不然備援一定被擋
+      if (navigator.userActivation && navigator.userActivation.isActive) {
+        console.warn("documentPictureInPicture failed, falling back to Canvas PiP:", err);
+        return openCanvasPip();
+      }
+      // 這台瀏覽器的新式小窗不能用：之後改走畫布備援，先把影片準備好讓下一次點擊直接成功
+      console.warn("documentPictureInPicture failed:", err);
+      docPipFailed = true;
+      prepCanvasPip();
+      toast(document.pictureInPictureEnabled ? "無法開啟歌詞小窗，請再按一次" : "您的瀏覽器不支援子母畫面 (Picture-in-Picture) 功能");
+      return;
     }
 
     updatePipButtonStates(true);
@@ -1460,38 +1479,47 @@
       return;
     }
 
-    if (!canvasPip) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 640;
-      canvas.height = 360;
-      const ctx = canvas.getContext("2d");
-      const video = document.createElement("video");
-      video.muted = true;
-      video.playsInline = true;
-      video.srcObject = canvas.captureStream(25);
-      canvasPip = { canvas, ctx, video };
-
-      video.addEventListener("leavepictureinpicture", () => {
-        updatePipButtonStates(false);
-      });
-    }
-
+    prepCanvasPip();
     lastPipLine = -2;
     renderCanvasPip(isPlaying(), curLine >= 0 ? LINES[curLine] : null, curLine >= 0 && curLine + 1 < LINES.length ? LINES[curLine + 1] : null);
 
+    // 先送出 PiP 請求再做其他 await，不然點擊的授權會在等待中失效
     try {
-      await canvasPip.video.play();
-      await canvasPip.video.requestPictureInPicture();
+      const req = canvasPip.video.requestPictureInPicture();
+      canvasPip.video.play().catch(() => {});
+      await req;
       updatePipButtonStates(true);
     } catch (err) {
       console.warn("Canvas PiP request failed:", err);
-      toast("無法開啟子母畫面，請先播放影片後再試");
+      toast("無法開啟歌詞小窗，請再按一次");
     }
   }
 
+  // 沒有 Document PiP 的瀏覽器改用畫布影片：開歌曲時先把影片準備好，按下按鈕才能立刻進子母畫面
+  function prepCanvasPip() {
+    if (canvasPip || !document.pictureInPictureEnabled) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext("2d");
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute("aria-hidden", "true");
+    video.style.cssText = "position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none";
+    video.srcObject = canvas.captureStream(25);
+    document.body.appendChild(video);
+    canvasPip = { canvas, ctx, video };
+    video.addEventListener("leavepictureinpicture", () => updatePipButtonStates(false));
+    renderCanvasPip(false, null, null);
+    video.play().catch(() => {});
+  }
+  let docPipFailed = false;
+  const hasDocPip = () => !docPipFailed && !!(window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === "function");
+
   function togglePip() {
     if (!S || songV.hidden) return;
-    if (window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === "function") {
+    if (hasDocPip()) {
       openDocPip();
     } else {
       openCanvasPip();
@@ -1570,6 +1598,8 @@
 
   function updatePip() {
     if (!isPipActive) return;
+    // 換歌或歌詞檔晚到時，就算行號一樣也要重畫，不然會留著上一首的文字
+    if (lastPipLines !== LINES || (S && lastPipSongNo !== S.no)) { lastPipLines = LINES; lastPipLine = -2; }
     const playing = isPlaying();
     const t = now();
     const dur = DUR();
@@ -2019,7 +2049,20 @@
 
   // ── 路由：#歌曲 id 開歌曲頁，其他回首頁 ──
   // 回清單時捲回離開前的位置
-  let listY = 0, isInitialRoute = true;
+  let listY = 0, lastView = null;
+  // GA 換頁：只在真的換到另一首歌或回首頁時記一次（跳秒數 @t、首頁錨點 #faq 不算），第一次進站由 gtag config 自己記
+  function trackView(s) {
+    const view = s ? s.id : "";
+    if (view === lastView) return;
+    const first = lastView === null;
+    lastView = view;
+    if (first || typeof gtag !== "function") return;
+    gtag("event", "page_view", {
+      page_title: document.title,
+      page_location: location.href.split("@")[0],
+      ...(s ? { song_id: s.id, song_name: s.ja } : {})
+    });
+  }
   function route() {
     // 每首歌的獨立頁（song/<id>/）沒有 # 時直接開那首
     const h = location.hash.slice(1) || PAGE_SONG, [id, at] = h.split("@"), s = BY[id];
@@ -2028,28 +2071,15 @@
       document.body.classList.add("on-song");
       hidePwaToast(false);
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
-      if (!isInitialRoute && typeof gtag === "function") {
-        gtag("event", "page_view", {
-          page_title: document.title,
-          page_location: location.href,
-          song_id: s.id,
-          song_name: s.ja
-        });
-      }
+      trackView(s);
     } else {
       setImmersive(false);
       lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? "Ado 應援指南" : PAGE_TITLE;
       renderRecent();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
-      if (!isInitialRoute && typeof gtag === "function") {
-        gtag("event", "page_view", {
-          page_title: document.title,
-          page_location: location.href
-        });
-      }
+      trackView(null);
     }
-    isInitialRoute = false;
   }
   addEventListener("hashchange", route);
   route();

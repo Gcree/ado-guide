@@ -149,12 +149,21 @@
     hellosignals: [{ concert: "モナ・リザの横顔 (2024)", yt: "mWHB35eYMt0" }, { concert: "心臓 (2024)", yt: "Teu10PNyXWc" }],
     charles: [{ concert: "Hibana (2025)", yt: "Z_F6qd34i5w" }],
     hibana: [{ concert: "Hibana (2025) LIVE 映像", yt: "JsZASL6V0QU" }, { concert: "Hibana (2025)", yt: "6NFgH53zn3I" }],
-    aishite: [{ concert: "Hibana (2025)", yt: "fl_uG9TgVgs" }, { concert: "心臓 (2024)", yt: "BA4uftKOTaE" }, { concert: "Wish (2024)", yt: "HmkbBdD8044" }],
+    aishite: [{ concert: "Hibana (2025)", yt: "fl_uG9TgVgs" }, { concert: "心臓 (2024)", yt: "BA4uftKOTaE" }],
     kazarijanai: [{ concert: "マーズ (2023)", yt: "ky61bFLd0V4" }],
     tsumitobatsu: [{ concert: "カムパネルラ (2022)", yt: "nlg5SNNhl6A" }],
     villain: [{ concert: "マーズ (2023)", yt: "xxb6mZmJWCc" }],
     burikino: [{ concert: "マーズ (2023)", yt: "vmAd98XYzNI" }]
   };
-  SONGS.forEach(s => { s.lives = LIVES[s.id] || []; });
+  // 搜尋別名：v1.17.0 歌名改成官方譯名或英文後，粉絲習慣的舊中文名稱留在這裡給搜尋用，畫面不顯示
+  const ALIAS = {
+    ashura: ["阿修羅醬"], saikyo: ["我是最強"], kurakura: ["暈眩"], rockstar: ["搖滾巨星"], rebellion: ["叛逆"],
+    pierrot: ["夜之小丑"], aitakute: ["好想見你"], utakata: ["泡影搖籃曲"], sekai: ["世界的延續"], kaze: ["風的去向"],
+    missing: ["下落不明"], hotaru: ["黎明與螢火蟲"], sakura: ["櫻花晴日與時光機"], elf: ["精靈"], hanataba: ["給我的花束"],
+    kazetowatashi: ["風與我的故事"], haruni: ["於春日起舞"], kittocoaster: ["一定是雲霄飛車"], sukideite: ["請一直喜歡我"],
+    ponpokorin: ["跳舞的嘭嘭可琳"], catseye: ["貓眼"], charles: ["夏爾"], hibana: ["火花"], aishite: ["愛我愛我愛我"],
+    kazarijanai: ["眼淚不是裝飾品"], kamippoina: ["像神一樣呢"], kawaikute: ["可愛真是抱歉"], dryflower: ["乾燥花"], burikino: ["鐵皮之舞"]
+  };
+  SONGS.forEach(s => { s.lives = LIVES[s.id] || []; s.alias = ALIAS[s.id] || []; });
   return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES };
 });
