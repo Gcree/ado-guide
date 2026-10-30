@@ -1513,7 +1513,7 @@ button.pop-item > span { flex: 1 1 auto; }
 .tint-link:active { opacity: .55; }
 
 /* ── 唱片架：MV 插圖做成的 CD 塑膠套，CSS 3D 排出消失點；滑過時前面的往前倒、選中的抽起來、CD 從上緣浮出 ── */
-.crate-stage { position: relative; height: clamp(440px, 46vw, 600px); perspective: 1150px; perspective-origin: 92% 26%; }
+.crate-stage { position: relative; height: clamp(440px, 46vw, 600px); perspective: 1150px; perspective-origin: 92% 26%; touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
 /* 後排唱片在架子平面後方，架子本身不能接滑鼠，不然會擋住後排 */
 .crate { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; transform-style: preserve-3d;
   transform: rotateX(calc(var(--py, 0) * -4deg)) rotateY(calc(var(--px, 0) * 6deg)); transition: transform 1200ms var(--ease); }
@@ -1618,8 +1618,12 @@ button.pop-item > span { flex: 1 1 auto; }
 /* 唱片架的檯面邊：左邊是目前的螢光棒色，右邊換一疊 */
 .crate-foot { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .crate-now { margin: 0; min-width: 0; display: flex; align-items: center; gap: 8px; color: var(--faint); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.crate-now b { color: var(--text); font-family: var(--font-ja); font-weight: 700; }
+.crate-now b { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-family: var(--font-ja); font-weight: 700; }
 .crate-now .dots { display: inline-flex; gap: 3px; flex: none; }
+/* 手機的操作提示：跟在歌名後面，淡一點 */
+.crate-hint { flex: none; color: var(--faint); font-size: 12px; animation: hint-in var(--dur-base) var(--ease-out); }
+.crate-hint::before { content: "·"; margin: 0 6px; }
+@keyframes hint-in { from { opacity: 0; transform: translateX(-4px); } }
 .shuffle { flex: none; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--muted); font: inherit; font-size: 14px; transition: var(--tr-color); }
 .shuffle-ico { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); transition: background-color var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease), transform var(--dur-base) var(--ease-spring); }
 .shuffle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform 600ms var(--ease); }

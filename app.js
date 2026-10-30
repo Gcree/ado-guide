@@ -2229,28 +2229,75 @@
     }
 
     // 選中一張：前面的往前倒（像翻唱片箱），選中的抽高；背後的光和下面那行字換成這首的螢光棒色
-    function setOn(li) {
+    // hint：手機上下面那行要不要多一句操作提示（"tap" 選到了、再點打開；"swipe" 自動輪播中、可以滑）
+    function setOn(li, hint) {
       const recs = [...crate.children], k = recs.indexOf(li);
       recs.forEach((x, i) => { x.classList.toggle("is-on", x === li); x.classList.toggle("is-deep", x === li && k > 0); x.classList.toggle("is-lean", k > 0 && i < k); });
       crate.classList.toggle("has-on", !!li);
       if (!li) { hero.style.removeProperty("--glow"); crateNow.textContent = idle(); return; }
       const s = li._song;
       hero.style.setProperty("--glow", inks(s)[0]);
-      crateNow.innerHTML = `${penDots(s)}螢光棒 · <b lang="ja">${esc(s.ja)}</b>`;
+      crateNow.innerHTML = `${penDots(s)}${hint ? "" : "螢光棒 · "}<b lang="ja">${esc(s.ja)}</b>${hint === "tap" ? '<span class="crate-hint">再點一下打開</span>' : hint === "swipe" ? '<span class="crate-hint">左右滑動翻唱片</span>' : ""}`;
     }
 
-    // 手機沒有滑過：唱片架在畫面裡時，每隔幾秒輪流讓一張的 CD 浮出，點了直接進歌曲頁
-    let cycle = 0, inView = true, busy = false;
+    // 手機沒有滑過：唱片架在畫面裡時每隔幾秒輪流讓一張的 CD 浮出；手指一碰就停，放開 6 秒沒動才接著輪
+    let cycle = 0, resumeT = 0, inView = true, busy = false;
     function startCycle() {
-      clearInterval(cycle);
+      clearInterval(cycle); clearTimeout(resumeT);
       if (!touchMQ.matches || reduce || busy) return setOn(null);
-      const recs = [...crate.children];
-      let k = 0;
-      setOn(recs[0]);
-      if (inView) cycle = setInterval(() => !homeV.hidden && setOn(recs[++k % recs.length]), 3200);
+      const recs = [...crate.children], cur = crate.querySelector(".rec.is-on");
+      let k = Math.max(0, recs.indexOf(cur));
+      setOn(recs[k], "swipe");
+      if (inView) cycle = setInterval(() => !homeV.hidden && setOn(recs[++k % recs.length], "swipe"), 3200);
     }
+    const holdCycle = () => { clearInterval(cycle); clearTimeout(resumeT); resumeT = setTimeout(() => !busy && inView && startCycle(), 6000); };
     touchMQ.addEventListener("change", startCycle);
-    new IntersectionObserver(([e]) => { inView = e.isIntersecting; if (touchMQ.matches) inView ? startCycle() : clearInterval(cycle); }).observe(stage);
+    new IntersectionObserver(([e]) => { inView = e.isIntersecting; if (touchMQ.matches) inView ? startCycle() : (clearInterval(cycle), clearTimeout(resumeT)); }).observe(stage);
+
+    // 手機的「翻唱片」：手指在唱片架上左右滑，滑到哪張就抽起哪張，整個架子和反光跟著手指轉；
+    // 上下滑照常捲動頁面（touch-action: pan-y）。點一下先選起來，再點一下才打開
+    let drag = null, lastPointer = "mouse", wasOn = false, swallowClick = false;
+    const recUnder = x => {
+      // 用每張封套的水平中心找最近的一張；前面的往左、後面的往右，跟手指方向一致
+      let best = null, d = Infinity;
+      for (const li of crate.children) {
+        const r = li.querySelector(".sleeve").getBoundingClientRect(), c = Math.abs(r.left + r.width / 2 - x);
+        if (c < d) { d = c; best = li; }
+      }
+      return best;
+    };
+    stage.addEventListener("pointerdown", e => {
+      lastPointer = e.pointerType;
+      if (e.pointerType !== "touch" || busy) return;
+      const li = e.target.closest(".rec");
+      wasOn = !!li && li.classList.contains("is-on");
+      drag = { x: e.clientX, y: e.clientY, on: false };
+      holdCycle();
+    });
+    stage.addEventListener("pointermove", e => {
+      if (!drag || e.pointerType !== "touch") return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.on) {
+        if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy)) return;
+        drag.on = true;
+      }
+      const r = stage.getBoundingClientRect();
+      if (!reduce) crate.style.setProperty("--px", Math.max(-.5, Math.min(.5, (e.clientX - r.left) / r.width - .5)).toFixed(3));
+      const li = recUnder(e.clientX);
+      if (li && !li.classList.contains("is-on")) {
+        setOn(li, "tap");
+        // 換到下一張時輕輕震一下（只有支援的 Android 瀏覽器會震）
+        if (navigator.vibrate && navigator.userActivation?.hasBeenActive !== false) navigator.vibrate(6);
+      }
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      if (drag.on) { swallowClick = true; setTimeout(() => swallowClick = false, 350); crate.style.setProperty("--px", 0); }
+      drag = null;
+      holdCycle();
+    };
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", () => { if (drag) { drag.on = false; endDrag(); } });
 
     // 滑過：整個唱片架只聽一組事件。離開後稍等一下才收回，滑到隔壁那張時不會先閃回原狀
     let leaveT = 0;
@@ -2261,7 +2308,7 @@
       if (!li.classList.contains("is-on")) setOn(li);
     });
     crate.addEventListener("pointerleave", e => { if (e.pointerType === "touch") return; clearTimeout(leaveT); leaveT = setTimeout(() => !busy && setOn(null), 140); });
-    crate.addEventListener("focusin", e => { const li = e.target.closest(".rec"); if (li && !busy) setOn(li); });
+    crate.addEventListener("focusin", e => { const li = e.target.closest(".rec"); if (li && !busy && lastPointer !== "touch") setOn(li); });
     crate.addEventListener("focusout", e => { if (!crate.contains(e.relatedTarget) && !busy && !touchMQ.matches) setOn(null); });
     // 指標視差：整個架子微微轉向游標，封套和 CD 的反光也跟著走
     if (!reduce) {
@@ -2287,6 +2334,9 @@
       const a = e.target.closest("a[data-crate]");
       if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
       e.preventDefault();
+      if (swallowClick) return;
+      // 手指點：還沒選起來的那張先抽起來，再點一下才打開（滑鼠滑過時已經選好了，點了直接打開）
+      if (lastPointer === "touch" && e.detail !== 0 && !wasOn) { setOn(a.parentElement, "tap"); holdCycle(); return; }
       // detail 是 0：用鍵盤按 Enter，落地後把焦點交給歌曲頁的返回鍵
       fly(a.parentElement, e.detail === 0);
     });
