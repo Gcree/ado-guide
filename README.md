@@ -1,6 +1,6 @@
 # Ado 應援指南
 
-[![Ado 應援指南](assets/og.jpg)](https://gcree.github.io/ado-guide/)
+[![Ado 應援指南：看 MV，跟著亮起的歌詞一起應援](assets/og.jpg)](https://ado.kuti.cc/)
 
 非官方粉絲製作的 Ado 演唱會應援指南網站。看著官方 MV，跟著歌詞知道哪裡拍手、哪裡喊、哪裡跟著唱、哪裡安靜聽。不照任何一場的歌單，不會暴雷。
 

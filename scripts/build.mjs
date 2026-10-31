@@ -18,6 +18,8 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..")
 const out = path.resolve(process.argv[2] || path.join(root, "dist"));
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
 const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);
+// 分享預覽圖加上內容雜湊，換圖後 LINE／Facebook／X 會重新抓，不會一直顯示舊圖
+const OG_IMG = `${SITE}assets/og.jpg?v=${createHash("sha1").update(fs.readFileSync(path.join(root, "assets/og.jpg"))).digest("hex").slice(0, 8)}`;
 const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"), karaokeSrc = read("karaoke-sources.js");
 const require = createRequire(import.meta.url);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
@@ -158,13 +160,14 @@ function page({ url, title, desc, ld, base, song, extra = "" }) {
       `<meta property="og:url" content="${url}">`,
       `<meta property="og:site_name" content="${NAME}">`,
       `<meta property="og:locale" content="zh_TW">`,
-      `<meta property="og:image" content="${SITE}assets/og.jpg">`,
+      `<meta property="og:image" content="${OG_IMG}">`,
+      `<meta property="og:image:alt" content="${NAME}：看 MV，跟著亮起的歌詞一起應援">`,
       `<meta property="og:image:width" content="1200">`,
       `<meta property="og:image:height" content="630">`,
       `<meta name="twitter:card" content="summary_large_image">`,
       `<meta name="twitter:title" content="${esc(title)}">`,
       `<meta name="twitter:description" content="${esc(desc)}">`,
-      `<meta name="twitter:image" content="${SITE}assets/og.jpg">`,
+      `<meta name="twitter:image" content="${OG_IMG}">`,
       `<script type="application/ld+json">${json(ld)}</script>`,
       gaScript,
       extra
