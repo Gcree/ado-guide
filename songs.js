@@ -29,7 +29,7 @@
     { id: "rockstar", ja: "ロックスター", zh: "ROCKSTAR", en: "ROCKSTAR", ro: "ROCKSTAR", date: "2025-04-09", yt: "hRJpiCZlLX8", len: "3:51", acts: ["clap", "sing", "call"], tips: ["前奏和間奏照固定節奏踏腳、拍手", "Ado 給信號後一起唱", "官方推薦這樣做到曲子結束；作者建議只有間奏照官方做，其他時候拍手就好", "最後副歌前喊「Hey」"]  },
     { id: "staygold", ja: "Stay Gold", zh: "Stay Gold", en: "Stay Gold", ro: "Stay Gold", date: "2025-06-13", yt: "YVXy5ahojZk", len: "3:31", acts: ["sing"], tips: ["副歌的「wow wow」由觀眾唱"]  },
     { id: "episodex", ja: "Episode X", zh: "Episode X", en: "Episode X", ro: "Episode X", date: "2024-12-06", yt: "9dKZeL2UbUM", len: "3:46", acts: ["sing"], tips: ["第二段 A 段的三個單字由觀眾唱"]  },
-    { id: "totmusica", ja: "Tot Musica", zh: "Tot Musica", en: "Tot Musica", ro: "Tot Musica", date: "2022-08-17", yt: "V9_ZpqfqHFI", len: "3:22", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
+    { id: "totmusica", ja: "Tot Musica", zh: "消逝之歌", en: "Tot Musica", ro: "Tot Musica", date: "2022-08-17", yt: "V9_ZpqfqHFI", len: "3:22", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "kira", ja: "綺羅", zh: "綺羅", en: "KIRA", ro: "Kira", date: "2026-04-27", yt: "qpcz3-iDUP8", len: "3:19", acts: ["call", "sing"], tips: ["間奏喊「Hey! Hey!」", "副歌前那一長句由觀眾唱"]  },
     { id: "monstruo", ja: "モンストロ", zh: "Monstruo", en: "Monstruo", ro: "Monstruo", date: "2026-08-07", yt: "4IKHox-DKrM", len: "3:14", acts: ["sing"], tips: ["副歌的英文短句由觀眾唱", "第二段 Ado 唱完日文後，觀眾接英文"]  },
     { id: "ibara", ja: "いばら", zh: "荊棘", en: "Ibara", ro: "Ibara", date: "2023-05-09", yt: "oy2WTnhVT2w", len: "4:20", acts: ["call"], tips: ["第二次副歌前和最後副歌前，Ado 問準備好了沒，用歡呼回應"]  },
@@ -41,9 +41,9 @@
     { id: "aitakute", ja: "会いたくて", zh: "好想你", en: "Aitakute", ro: "Aitakute", date: "2021-08-12", yt: "jTVSU-Lr1ew", len: "4:48", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "akuruhi", ja: "永遠のあくる日", zh: "永遠的翌日", en: "Eien no Akuruhi", ro: "Eien no Akuruhi", date: "2022-03-14", yt: "ZHAnZTVF_10", len: "4:07", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "kokoro", ja: "心という名の不可解", zh: "名為心的不可解", en: "KokoroToIuNaNoFukakai", ro: "Kokoro to Iu Na no Fukakai", date: "2022-01-17", yt: "BMb5IetESGE", len: "4:30", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
-    { id: "utakata", ja: "ウタカタララバイ", zh: "泡沫拉拉歌", en: "Fleeting Lullaby", ro: "Utakata Lullaby", date: "2022-08-06", yt: "hyV1AJiFNyo", len: "3:13", acts: ["call", "sing"], tips: ["副歌有兩個地方跟著喊", "第二段饒舌段喊「Hey」", "結尾那句英文由觀眾唱"]  },
-    { id: "sekai", ja: "世界のつづき", zh: "世界的續篇", en: "The World's Continuation", ro: "Sekai no Tsuzuki", date: "2022-08-10", yt: "b3GCfyNKeLs", len: "4:55", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
-    { id: "kaze", ja: "風のゆくえ", zh: "風的行方", en: "Where the Wind Blows", ro: "Kaze no Yukue", date: "2022-08-24", yt: "YO-rXgQKlF8", len: "4:47", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
+    { id: "utakata", ja: "ウタカタララバイ", zh: "泡影搖籃曲", en: "Fleeting Lullaby", ro: "Utakata Lullaby", date: "2022-08-06", yt: "hyV1AJiFNyo", len: "3:13", acts: ["call", "sing"], tips: ["副歌有兩個地方跟著喊", "第二段饒舌段喊「Hey」", "結尾那句英文由觀眾唱"]  },
+    { id: "sekai", ja: "世界のつづき", zh: "世界的延續", en: "The World's Continuation", ro: "Sekai no Tsuzuki", date: "2022-08-10", yt: "b3GCfyNKeLs", len: "4:55", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
+    { id: "kaze", ja: "風のゆくえ", zh: "風之去向", en: "Where the Wind Blows", ro: "Kaze no Yukue", date: "2022-08-24", yt: "YO-rXgQKlF8", len: "4:47", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "missing", ja: "行方知れず", zh: "行蹤不明", en: "Missing", ro: "Yukue Shirezu", date: "2022-10-10", yt: "VQtmqpSE64w", len: "3:16", acts: ["call"], tips: ["間奏喊「Hey! Hey!」"]  },
     { id: "himawari", ja: "向日葵", zh: "向日葵", en: "Himawari", ro: "Himawari", date: "2023-07-11", yt: "aOKa-5AHCtU", len: "4:19", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "dignity", ja: "DIGNITY", zh: "DIGNITY", en: "DIGNITY", ro: "DIGNITY", date: "2023-09-28", yt: "Q9X0J_tLHwY", len: "4:13", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
@@ -52,9 +52,9 @@
     { id: "hotaru", ja: "夜明けと蛍", zh: "Dawn and Firefly", en: "Dawn and Firefly", ro: "Yoake to Hotaru", date: "2023-12-12", yt: "1T6b26DTQy4", len: "5:09", acts: ["listen"], tips: ["抒情歌，安靜聽"], sug: true, cover: true  },
     { id: "value", ja: "Value", zh: "Value", en: "Value", ro: "Value", date: "2024-02-23", yt: "5iAQF_q6FSk", len: "3:13", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "mirror", ja: "MIRROR", zh: "MIRROR", en: "MIRROR", ro: "MIRROR", date: "2024-05-31", yt: "zsBBWBEZkFQ", len: "3:00", acts: ["sing"], tips: ["第二次副歌和最後副歌後半，「NE! NE! NE!」和「もう一回！」由觀眾唱"]  },
-    { id: "sakura", ja: "桜日和とタイムマシン with 初音ミク", zh: "Sakura Biyori and Time Machine with Hatsune Miku", en: "Sakura Biyori and Time Machine with Hatsune Miku", ro: "Sakura Biyori to Time Machine", date: "2024-10-24", yt: "nIWZfhpnq6M", len: "5:30", acts: ["call"], tips: ["間奏喊「Hey! Hey!」"]  },
+    { id: "sakura", ja: "桜日和とタイムマシン with 初音ミク", zh: "櫻日和與時光機 with 初音未來", en: "Sakura Biyori and Time Machine with Hatsune Miku", ro: "Sakura Biyori to Time Machine", date: "2024-10-24", yt: "nIWZfhpnq6M", len: "5:30", acts: ["call"], tips: ["間奏喊「Hey! Hey!」"]  },
     { id: "elf", ja: "エルフ", zh: "Elf", en: "Elf", ro: "Elf", date: "2025-01-24", yt: "SbxR25brgoE", len: "4:23", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
-    { id: "hanataba", ja: "わたしに花束", zh: "Bouquet for Me", en: "Bouquet for Me", ro: "Watashi ni Hanataba", date: "2025-04-06", yt: "_RAffg8JQ6g", len: "3:47", acts: ["call"], tips: ["間奏喊「Hey! Hey!」"]  },
+    { id: "hanataba", ja: "わたしに花束", zh: "獻給自己的花束", en: "Bouquet for Me", ro: "Watashi ni Hanataba", date: "2025-04-06", yt: "_RAffg8JQ6g", len: "3:47", acts: ["call"], tips: ["間奏喊「Hey! Hey!」"]  },
     { id: "kazetowatashi", ja: "風と私の物語", zh: "Kaze to Watashi no Monogatari", en: "Kaze to Watashi no Monogatari", ro: "Kaze to Watashi no Monogatari", date: "2025-09-26", yt: "oAuKa5NOzWE", len: "5:53", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "magic", ja: "MAGIC", zh: "MAGIC", en: "MAGIC", ro: "MAGIC", date: "2025-10-31", yt: "l0WArCNh6G0", len: "2:52", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "angelseek", ja: "エンゼルシーク", zh: "Angelseek", en: "Angelseek", ro: "Angelseek", date: "2026-02-09", yt: "aGSmxr-dUq0", len: "3:50", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
@@ -63,7 +63,7 @@
     { id: "kagakushu", ja: "過学習", zh: "過度學習", en: "Overlearning", ro: "Kagakushu", date: "2022-03-06", yt: "55W2LxbQoHc", len: "3:35", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "hanabi", ja: "花火", zh: "煙火", en: "Fireworks", ro: "Hanabi", date: "2022-01-26", yt: "5_-TcIOxm60", len: "3:36", acts: ["clap"], tips: ["副歌和間奏以外一直拍手", "B 段第一句先停拍，下一句再接著拍"]  },
     { id: "domestic", ja: "ドメスティックでバイオレンス", zh: "家庭暴力", en: "Domestic De Violence", ro: "Domestic de Violence", date: "2022-03-26", yt: "iRMYLKIWyUk", len: "2:37", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
-    { id: "luckybruto", ja: "ラッキー・ブルート", zh: "Lucky・Bruto", en: "Lucky Bruto", ro: "Lucky Bruto", date: "2022-05-08", yt: "u-G_zzhLSy8", len: "3:28", acts: ["sing"], tips: ["副歌裡的「ヘイミスター」由觀眾唱", "結尾的「ダダダン」「バババン」由觀眾唱"]  },
+    { id: "luckybruto", ja: "ラッキー・ブルート", zh: "Lucky Bruto", en: "Lucky Bruto", ro: "Lucky Bruto", date: "2022-05-08", yt: "u-G_zzhLSy8", len: "3:28", acts: ["sing"], tips: ["副歌裡的「ヘイミスター」由觀眾唱", "結尾的「ダダダン」「バババン」由觀眾唱"]  },
     { id: "motherland", ja: "マザーランド", zh: "Motherland", en: "Motherland", ro: "Motherland", date: "2022-05-08", yt: "_wZfYtYwxro", len: "4:21", acts: ["clap"], tips: ["副歌和 C 段以外一直拍手，樂團會帶", "安靜下來的那段副歌，改在第 2、4 拍反拍拍手（口訣：空・拍・空・拍）"]  },
     { id: "nukegara", ja: "抜け空", zh: "空殼", en: "Nukegara", ro: "Nukegara", date: "2024-12-30", yt: "JpnqXqy-XMg", len: "3:09", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "zero", ja: "0", zh: "0", en: "0", ro: "Zero", date: "2025-10-24", yt: "8vm3Tkv43jw", len: "3:01", acts: ["clap"], tips: ["B 段整段拍手"]  },
@@ -82,7 +82,7 @@
     { id: "charles", ja: "シャルル", zh: "Charles", en: "Charles", ro: "Charles", date: "2025-04-16", yt: "trIiMhTDKxo", len: "3:45", acts: ["wave"], tips: ["副歌舉手跟著搖"], sug: true, cover: true  },
     { id: "hibana", ja: "ヒバナ", zh: "HIBANA", en: "HIBANA", ro: "Hibana", date: "2025-04-25", yt: "EFsSYiNl2AQ", len: "3:25", acts: ["wave", "clap"], tips: ["跟著節拍拍手、搖螢光棒"], sug: true, cover: true  },
     { id: "jikkai", ja: "十戒（1984）", zh: "Jikkai (1984)", en: "Jikkai (1984)", ro: "Jikkai", date: "2025-05-01", yt: "BFVn0ZQwGpk", len: "3:33", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true  },
-    { id: "aishite", ja: "愛して愛して愛して", zh: "Aishite Aishite Aishite", en: "Aishite Aishite Aishite", ro: "Aishite Aishite Aishite", date: "2024-06-07", yt: "HmkbBdD8044", len: "4:16", acts: ["clap", "wave"], tips: ["跟著節拍拍手，副歌舉手"], sug: true, cover: true, live: true  },
+    { id: "aishite", ja: "愛して愛して愛して", zh: "愛我愛我愛我", en: "Aishite Aishite Aishite", ro: "Aishite Aishite Aishite", date: "2024-06-07", yt: "HmkbBdD8044", len: "4:16", acts: ["clap", "wave"], tips: ["跟著節拍拍手，副歌舉手"], sug: true, cover: true, live: true  },
     { id: "kazarijanai", ja: "飾りじゃないのよ涙は", zh: "Kazari janai no yo Namida wa", en: "Kazari Ja Nai no yo Namida wa", ro: "Kazari janai no yo Namida wa", date: "2023-12-12", yt: "Mtfkq7doqWw", len: "4:13", acts: ["wave"], tips: ["跟著節奏輕輕搖"], sug: true, cover: true  },
     { id: "kamippoina", ja: "神っぽいな", zh: "God-ish", en: "God-ish", ro: "Kamippoina", date: "2022-07-24", yt: "7i_nc5GGIsI", len: "3:25", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true  },
     { id: "kawaikute", ja: "可愛くてごめん", zh: "Kawaikute Gomen", en: "Kawaikute Gomen", ro: "Kawaikute Gomen", date: "2023-12-12", yt: "axOhZD3boe8", len: "3:40", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true  },
@@ -157,13 +157,12 @@
   };
   // 搜尋別名：v1.17.0 歌名改成官方譯名或英文後，粉絲習慣的舊中文名稱留在這裡給搜尋用，畫面不顯示
   const ALIAS = {
-    usseewa: ["煩死了"],
-    ashura: ["阿修羅醬"], saikyo: ["我是最強"], kurakura: ["暈眩"], rockstar: ["搖滾巨星"], rebellion: ["叛逆"],
-    pierrot: ["夜之小丑"], aitakute: ["好想見你"], utakata: ["泡影搖籃曲"], sekai: ["世界的延續"], kaze: ["風的去向"],
+    usseewa: ["煩死了"], ashura: ["阿修羅醬"], saikyo: ["我是最強"], kurakura: ["暈眩"], rockstar: ["搖滾巨星"], rebellion: ["叛逆"],
+    pierrot: ["夜之小丑"], aitakute: ["好想見你"], utakata: ["泡沫拉拉歌"], sekai: ["世界的續篇"], kaze: ["風的行方", "風的去向"],
     missing: ["下落不明"], hotaru: ["黎明與螢火蟲"], sakura: ["櫻花晴日與時光機"], elf: ["精靈"], hanataba: ["給我的花束"],
     kazetowatashi: ["風與我的故事"], haruni: ["於春日起舞"], kittocoaster: ["一定是雲霄飛車"], sukideite: ["請一直喜歡我"],
-    ponpokorin: ["跳舞的嘭嘭可琳"], catseye: ["貓眼"], charles: ["夏爾"], hibana: ["火花"], aishite: ["愛我愛我愛我"],
-    kazarijanai: ["眼淚不是裝飾品"], kamippoina: ["像神一樣呢"], kawaikute: ["可愛真是抱歉"], dryflower: ["乾燥花"], burikino: ["鐵皮之舞"]
+    ponpokorin: ["跳舞的嘭嘭可琳"], catseye: ["貓眼"], charles: ["夏爾"], hibana: ["火花"], kazarijanai: ["眼淚不是裝飾品"],
+    kamippoina: ["像神一樣呢"], kawaikute: ["可愛真是抱歉"], dryflower: ["乾燥花"], burikino: ["鐵皮之舞"]
   };
   // 出處：動畫、電影、活動的主題曲（只寫確定的）；歌曲頁和搜尋結果會顯示，大家常用作品名找歌
   const TIE = {

@@ -81,19 +81,14 @@ const json = o => JSON.stringify(o).replace(/</g, "\\u003c");
 // ── 搜尋結果上看到的文字：標題和描述直接寫出答案（手燈什麼色、哪裡要唱），像 Threads 貼文一樣「內容就是標題」 ──
 // 歌名以外大家會拿來搜的名字：中文譯名＋別名（例如〈うっせぇわ〉新聞多寫「煩死了」）
 const otherNames = s => [...new Set([s.zh !== s.ja ? s.zh : "", ...(s.alias || [])].filter(Boolean))];
-const namePart = s => { const n = otherNames(s); return n.length ? n.slice(0, 2).join("／") : (s.en && s.en !== s.ja ? s.en : ""); };
+// 標題、描述用的歌名：只用台灣環球的官方中文曲名（songs.js 的 zh）；沒有官方中文的用讀音或英文。別名只放在「也叫」和站內搜尋
+const namePart = s => (s.zh && s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : ""));
 const penWords = (p, sep) => p.keys.map(k => (k === "彩" ? "彩色" : PENC[k][0])).join(sep);
-// 標題只放歌名和「應援教學」：Google 大約顯示 30 個中文字，太長會被截成「…」；手燈顏色、動作放在描述
-// 有中文名就只放中文名（英文、羅馬拼音搜的人少）；放不下就少放一個，最後只剩歌名
+// 標題只放歌名和「應援教學」，手燈顏色、動作放在描述；超過 32 字（Google 大約顯示 30 個中文字）就只放日文歌名
 const TITLE_MAX = 32;
 function songTitle(s) {
-  const all = otherNames(s).length ? otherNames(s) : [s.en && s.en !== s.ja ? s.en : ""].filter(Boolean);
-  const cjk = all.filter(x => /[\u3400-\u9fff]/.test(x));
-  const names = (cjk.length ? cjk : all).slice(0, 2);
-  for (let k = names.length; k >= 0; k--) {
-    const t = `Ado〈${s.ja}〉${k ? names.slice(0, k).join("／") + " " : ""}應援教學`;
-    if (t.length <= TITLE_MAX || !k) return t;
-  }
+  const n = namePart(s), full = `Ado〈${s.ja}〉${n ? n + " " : ""}應援教學`;
+  return full.length <= TITLE_MAX ? full : `Ado〈${s.ja}〉應援教學`;
 }
 function songDesc(s, p, tips) {
   const n = namePart(s);
