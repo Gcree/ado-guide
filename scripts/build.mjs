@@ -9,6 +9,8 @@ import { createHash } from "node:crypto";
 
 const SITE = "https://ado.kuti.cc/";
 const NAME = "Ado 應援指南";
+// 站長的 Threads：結構化資料的 sameAs 和頁尾連結都用這個，讓 Google 知道網站和帳號是同一個來源
+const THREADS = "https://www.threads.com/@kiut._no";
 // Google Search Console 的 HTML 標記驗證碼（只放在首頁）；另外根目錄的 googlea6b361c7e6e7d11c.html 是 HTML 檔案驗證，兩個都不要刪
 const GSC_VERIFY = "YLXviPdOfiLpoPdirdp39Tf7T0PrqSdDVMpdkZnxveg";
 // Google Analytics 4 評估 ID（若有 ID 請替換成自己的 G-XXXXXXXXXX，留空 "" 則不載入 GA）
@@ -77,16 +79,21 @@ const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 const json = o => JSON.stringify(o).replace(/</g, "\\u003c");
 
 // ── 搜尋結果上看到的文字：標題和描述直接寫出答案（手燈什麼色、哪裡要唱），像 Threads 貼文一樣「內容就是標題」 ──
-const ACT_SHORT = { sing: "大合唱", clap: "拍手", wave: "揮手", jump: "跳躍", call: "喊聲", gesture: "手勢" };
 // 歌名以外大家會拿來搜的名字：中文譯名＋別名（例如〈うっせぇわ〉新聞多寫「煩死了」）
 const otherNames = s => [...new Set([s.zh !== s.ja ? s.zh : "", ...(s.alias || [])].filter(Boolean))];
 const namePart = s => { const n = otherNames(s); return n.length ? n.slice(0, 2).join("／") : (s.en && s.en !== s.ja ? s.en : ""); };
 const penWords = (p, sep) => p.keys.map(k => (k === "彩" ? "彩色" : PENC[k][0])).join(sep);
-function songTitle(s, p) {
-  const acts = s.hold ? [] : s.acts.filter(a => ACT_SHORT[a]).map(a => ACT_SHORT[a]).slice(0, 3);
-  const what = acts.length ? acts.join("・") : (s.free ? "自由搖" : "同步歌詞");
-  const n = namePart(s);
-  return `Ado〈${s.ja}〉${n ? n + " " : ""}應援教學｜${p.none ? "" : `手燈${penWords(p, "、")}・`}${what}`;
+// 標題只放歌名和「應援教學」：Google 大約顯示 30 個中文字，太長會被截成「…」；手燈顏色、動作放在描述
+// 有中文名就只放中文名（英文、羅馬拼音搜的人少）；放不下就少放一個，最後只剩歌名
+const TITLE_MAX = 32;
+function songTitle(s) {
+  const all = otherNames(s).length ? otherNames(s) : [s.en && s.en !== s.ja ? s.en : ""].filter(Boolean);
+  const cjk = all.filter(x => /[\u3400-\u9fff]/.test(x));
+  const names = (cjk.length ? cjk : all).slice(0, 2);
+  for (let k = names.length; k >= 0; k--) {
+    const t = `Ado〈${s.ja}〉${k ? names.slice(0, k).join("／") + " " : ""}應援教學`;
+    if (t.length <= TITLE_MAX || !k) return t;
+  }
 }
 function songDesc(s, p, tips) {
   const n = namePart(s);
@@ -233,6 +240,7 @@ const homeLd = {
       "url": SITE,
       "inLanguage": "zh-Hant-TW",
       "description": `非官方粉絲製作的 Ado 演唱會應援指南：收錄 ${SONGS.length} 首歌曲教學，看著 MV 跟同步歌詞，練哪裡拍手、哪裡大合唱、哪裡喊聲，還有每首手燈推薦顏色與藍牙手燈連動。`,
+      "publisher": { "@id": `${SITE}#author` },
       "about": {
         "@type": "MusicGroup",
         "name": "Ado",
@@ -242,6 +250,13 @@ const homeLd = {
           "https://www.instagram.com/ado1024sweetadream/"
         ]
       }
+    },
+    {
+      "@type": "Person",
+      "@id": `${SITE}#author`,
+      "name": "Kuti",
+      "url": SITE,
+      "sameAs": [THREADS, "https://github.com/Gcree"]
     },
     {
       "@type": "ItemList",
@@ -266,7 +281,7 @@ const homeLd = {
 };
 let homeHtml = page({
   url: SITE,
-  title: `Ado 演唱會應援教學：${SONGS.length} 首歌的手燈顏色、大合唱與喊聲｜${NAME}`,
+  title: `Ado 演唱會應援教學｜${SONGS.length} 首歌的手燈顏色與大合唱`,
   desc: `第一次去 Ado 演唱會也不慌：${SONGS.length} 首歌各有一頁，跟著官方 MV 和日中同步歌詞，哪裡拍手、哪裡大合唱、哪裡喊「Hey!」、手燈切什麼顏色都標好了。非官方粉絲製作，不照任何場次歌單，不暴雷。`,
   ld: homeLd,
   extra: GSC_VERIFY && `<meta name="google-site-verification" content="${GSC_VERIFY}">`
@@ -299,7 +314,7 @@ for (let i = 0; i < SONGS.length; i++) {
   const url = `${SITE}song/${s.id}/`;
   urls.push(url);
 
-  const pageTitle = songTitle(s, pen);
+  const pageTitle = songTitle(s);
 
   const songLd = {
     "@context": "https://schema.org",
@@ -312,6 +327,7 @@ for (let i = 0; i < SONGS.length; i++) {
         "description": desc,
         "inLanguage": "zh-Hant-TW",
         "isPartOf": { "@type": "WebSite", "@id": `${SITE}#website` },
+        "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS] },
         "breadcrumb": { "@id": `${url}#breadcrumb` }
       },
       {
