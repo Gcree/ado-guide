@@ -157,6 +157,7 @@
   };
   // 搜尋別名：v1.17.0 歌名改成官方譯名或英文後，粉絲習慣的舊中文名稱留在這裡給搜尋用，畫面不顯示
   const ALIAS = {
+    usseewa: ["煩死了"],
     ashura: ["阿修羅醬"], saikyo: ["我是最強"], kurakura: ["暈眩"], rockstar: ["搖滾巨星"], rebellion: ["叛逆"],
     pierrot: ["夜之小丑"], aitakute: ["好想見你"], utakata: ["泡影搖籃曲"], sekai: ["世界的延續"], kaze: ["風的去向"],
     missing: ["下落不明"], hotaru: ["黎明與螢火蟲"], sakura: ["櫻花晴日與時光機"], elf: ["精靈"], hanataba: ["給我的花束"],
@@ -164,6 +165,12 @@
     ponpokorin: ["跳舞的嘭嘭可琳"], catseye: ["貓眼"], charles: ["夏爾"], hibana: ["火花"], aishite: ["愛我愛我愛我"],
     kazarijanai: ["眼淚不是裝飾品"], kamippoina: ["像神一樣呢"], kawaikute: ["可愛真是抱歉"], dryflower: ["乾燥花"], burikino: ["鐵皮之舞"]
   };
-  SONGS.forEach(s => { s.lives = LIVES[s.id] || []; s.alias = ALIAS[s.id] || []; });
+  // 出處：動畫、電影、活動的主題曲（只寫確定的）；歌曲頁和搜尋結果會顯示，大家常用作品名找歌
+  const TIE = {
+    shinjidai: "《航海王劇場版：紅髮歌姬》主題曲", saikyo: "《航海王劇場版：紅髮歌姬》插曲", gyakkou: "《航海王劇場版：紅髮歌姬》插曲",
+    utakata: "《航海王劇場版：紅髮歌姬》插曲", totmusica: "《航海王劇場版：紅髮歌姬》插曲", sekai: "《航海王劇場版：紅髮歌姬》插曲",
+    kaze: "《航海王劇場版：紅髮歌姬》插曲", kurakura: "《SPY×FAMILY 間諜家家酒》片頭曲", show: "日本環球影城 2023 萬聖節主題曲"
+  };
+  SONGS.forEach(s => { s.lives = LIVES[s.id] || []; s.alias = ALIAS[s.id] || []; s.tie = TIE[s.id] || ""; });
   return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES };
 });

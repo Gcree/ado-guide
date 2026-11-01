@@ -897,6 +897,11 @@
       const p = penOf(s);
       const penText = p.keys.map(k => k === "彩" ? "彩色" : PENC[k][0]).join("、") + (p.none ? "（未指定，建議用代表色藍色）" : "");
       document.getElementById("cardPen").textContent = penText;
+      const aka = [...new Set([s.zh !== s.ja ? s.zh : "", ...(s.alias || []), s.en && s.en !== s.ja ? s.en : ""].filter(Boolean))].join("・");
+      [["cardAka", aka], ["cardTie", s.tie || ""]].forEach(([k, v]) => {
+        const dt = document.getElementById(k + "Dt"), dd = document.getElementById(k + "Dd");
+        if (dt && dd) { dd.textContent = v; dt.hidden = dd.hidden = !v; }
+      });
       document.getElementById("cardTips").textContent = s.tips && s.tips.length ? s.tips.join("；") : (s.free ? "沒有固定應援，自由跟著節奏搖手燈。" : "應援還在整理，先熟悉旋律。");
       const cardYt = document.getElementById("cardYt");
       if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${s.yt}`;
