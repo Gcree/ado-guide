@@ -76,6 +76,26 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 const json = o => JSON.stringify(o).replace(/</g, "\\u003c");
 
+// ── 搜尋結果上看到的文字：標題和描述直接寫出答案（手燈什麼色、哪裡要唱），像 Threads 貼文一樣「內容就是標題」 ──
+const ACT_SHORT = { sing: "大合唱", clap: "拍手", wave: "揮手", jump: "跳躍", call: "喊聲", gesture: "手勢" };
+// 歌名以外大家會拿來搜的名字：中文譯名＋別名（例如〈うっせぇわ〉新聞多寫「煩死了」）
+const otherNames = s => [...new Set([s.zh !== s.ja ? s.zh : "", ...(s.alias || [])].filter(Boolean))];
+const namePart = s => { const n = otherNames(s); return n.length ? n.slice(0, 2).join("／") : (s.en && s.en !== s.ja ? s.en : ""); };
+const penWords = (p, sep) => p.keys.map(k => (k === "彩" ? "彩色" : PENC[k][0])).join(sep);
+function songTitle(s, p) {
+  const acts = s.hold ? [] : s.acts.filter(a => ACT_SHORT[a]).map(a => ACT_SHORT[a]).slice(0, 3);
+  const what = acts.length ? acts.join("・") : (s.free ? "自由搖" : "同步歌詞");
+  const n = namePart(s);
+  return `Ado〈${s.ja}〉${n ? n + " " : ""}應援教學｜${p.none ? "" : `手燈${penWords(p, "、")}・`}${what}`;
+}
+function songDesc(s, p, tips) {
+  const n = namePart(s);
+  const pen = p.none ? "手燈沒有指定，切 Ado 的代表色藍色；" : `手燈切${penWords(p, "、")}；`;
+  const how = tips.length ? tips.slice(0, 2).join("，") + "。" : (s.free ? "沒有固定應援，跟著節奏搖手燈就好。" : "應援還在整理，先熟悉旋律。");
+  return cut(`〈${s.ja}〉${n ? `（${n}）` : ""}${s.tie ? `是${s.tie}。` : ""}演唱會怎麼應援？${pen}${how}跟著官方 MV 和日中同步歌詞，先在家練一遍。`, 130);
+}
+
+
 function isoDuration(lenStr) {
   const [m, s] = lenStr.split(":").map(Number);
   return `PT${m}M${s}S`;
@@ -199,6 +219,9 @@ const homeSongListHtml = SONGS.map(s => `<li><a class="song" href="song/${s.id}/
 const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].map(id => SONGS.find(s => s.id === id)).filter(Boolean);
 const homeShelfHtml = STARTERS.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
 
+const FAQ = [...read("index.html").matchAll(/<details class="faq-item">\s*<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)]
+  .map(m => m.slice(1).map(t => t.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()));
+if (!FAQ.length) throw new Error("index.html 找不到常見問題（details.faq-item）");
 const homeLd = {
   "@context": "https://schema.org",
   "@graph": [
@@ -236,20 +259,15 @@ const homeLd = {
     {
       "@type": "FAQPage",
       "@id": `${SITE}#faq`,
-      "mainEntity": [
-        ["怎麼用？", "挑一首歌，MV 和歌詞會一起播。句子亮起顏色就跟著做，每種顏色代表什麼動作，歌詞上方的圖例有寫。點歌詞能跳到那一句，空白鍵播放。"],
-        ["手燈要調什麼顏色？", "歌名旁的小圓點就是推薦顏色。沒寫的話，切成 Ado 的藍色就對了。"],
-        ["會暴雷嗎？", "不會啦。歌照推出順序排，跟任何一場的歌單都沒關係。"],
-        ["手燈 App 怎麼用？", "點右上角的「手燈 App」下載 PenlightSync（Windows、macOS）。用藍牙連上 Ado 官方手燈，再打開歌曲頁的「連動手燈」，播哪首歌，手燈就換成那首的顏色。"]
-      ].map(([name, text]) => ({ "@type": "Question", name, "acceptedAnswer": { "@type": "Answer", text } }))
+      // 跟首頁看得到的常見問題同一份文字（結構化資料要和畫面一致）
+      "mainEntity": FAQ.map(([name, text]) => ({ "@type": "Question", name, "acceptedAnswer": { "@type": "Answer", text } }))
     }
   ]
 };
-
 let homeHtml = page({
   url: SITE,
-  title: `${NAME}｜Ado 演唱會應援教學・同步歌詞・手燈顏色・大合唱預習`,
-  desc: `非官方粉絲製作的 Ado 演唱會應援指南：收錄 ${SONGS.length} 首歌曲教學，看著 MV 跟同步歌詞，練哪裡拍手、哪裡大合唱、哪裡喊聲，還有每首手燈推薦顏色與藍牙手燈連動。不照特定場次歌單，安心不暴雷。`,
+  title: `Ado 演唱會應援教學：${SONGS.length} 首歌的手燈顏色、大合唱與喊聲｜${NAME}`,
+  desc: `第一次去 Ado 演唱會也不慌：${SONGS.length} 首歌各有一頁，跟著官方 MV 和日中同步歌詞，哪裡拍手、哪裡大合唱、哪裡喊「Hey!」、手燈切什麼顏色都標好了。非官方粉絲製作，不照任何場次歌單，不暴雷。`,
   ld: homeLd,
   extra: GSC_VERIFY && `<meta name="google-site-verification" content="${GSC_VERIFY}">`
 });
@@ -277,14 +295,11 @@ for (let i = 0; i < SONGS.length; i++) {
   const pen = penOf(s);
   const name = s.zh && s.zh !== s.ja ? `${s.ja}（${s.zh}）` : s.ja;
   const tips = s.hold || s.sug ? [] : s.tips || [];
-  const tipsSummaryText = tips.length
-    ? `應援重點：${tips.join("；")}`
-    : (s.free ? "這首歌沒有固定應援，現場自由跟隨節奏搖動手燈" : "應援資料整理中，先熟悉旋律並跟隨現場氣氛");
-  const desc = `Ado〈${s.ja}〉${s.zh && s.zh !== s.ja ? `（${s.zh}）` : ""}演唱會現場應援指南：推薦手燈顏色為${pen.text}。${tipsSummaryText}。搭配官方 MV 與同步日中歌詞練習，非官方粉絲製作。`;
+  const desc = songDesc(s, pen, tips);
   const url = `${SITE}song/${s.id}/`;
   urls.push(url);
 
-  const pageTitle = `Ado〈${s.ja}〉${s.zh && s.zh !== s.ja ? `（${s.zh}）` : (s.en ? `（${s.en}）` : "")} 演唱會應援指南與歌詞｜手燈顏色・大合唱・拍手教學`;
+  const pageTitle = songTitle(s, pen);
 
   const songLd = {
     "@context": "https://schema.org",
@@ -312,7 +327,7 @@ for (let i = 0; i < SONGS.length; i++) {
         "@type": "MusicRecording",
         "@id": `${url}#song`,
         "name": s.ja,
-        "alternateName": [s.zh, s.en].filter(x => x && x !== s.ja),
+        "alternateName": [...new Set([s.zh, s.en, ...(s.alias || [])])].filter(x => x && x !== s.ja),
         "byArtist": {
           "@type": "MusicGroup",
           "name": "Ado",
@@ -369,7 +384,7 @@ for (let i = 0; i < SONGS.length; i++) {
     base: "../../",
     song: s,
     title: pageTitle,
-    desc: cut(desc, 160),
+    desc,
     ld: songLd
   });
 
@@ -407,7 +422,8 @@ for (let i = 0; i < SONGS.length; i++) {
   const lives = s.lives;
   const liveRows = lives.length ? `<dt id="cardLiveDt">現場音源</dt><dd id="cardLiveDd">${lives.map(l => `<a href="https://www.youtube.com/watch?v=${l.yt}" class="live-chip" target="_blank" rel="noopener">${esc(l.concert)} ↗</a>`).join(" ")}</dd>` : `<dt id="cardLiveDt" hidden>現場音源</dt><dd id="cardLiveDd" hidden></dd>`;
 
-  const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="歌曲應援速覽"><h3 class="card-title">〈<span id="cardJa">${esc(s.ja)}${s.zh !== s.ja ? `（${esc(s.zh)}）` : ""}</span>〉應援速覽</h3><dl class="card-dl"><dt>推薦手燈</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>應援重點</dt><dd id="cardTips">${esc(tips.length ? tips.join("；") : (s.free ? "沒有固定應援，自由跟著節奏搖手燈。" : "應援還在整理，先熟悉旋律。"))}</dd><dt>官方 MV</dt><dd><a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd>${liveRows}</dl></section>`;
+  const akaText = [...new Set([...otherNames(s), s.en && s.en !== s.ja ? s.en : ""].filter(Boolean))].join("・");
+  const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="歌曲應援速覽"><h3 class="card-title">〈<span id="cardJa">${esc(s.ja)}${s.zh !== s.ja ? `（${esc(s.zh)}）` : ""}</span>〉應援速覽</h3><dl class="card-dl"><dt id="cardAkaDt"${akaText ? "" : " hidden"}>也叫</dt><dd id="cardAkaDd"${akaText ? "" : " hidden"}>${esc(akaText)}</dd><dt id="cardTieDt"${s.tie ? "" : " hidden"}>出處</dt><dd id="cardTieDd"${s.tie ? "" : " hidden"}>${esc(s.tie)}</dd><dt>推薦手燈</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>應援重點</dt><dd id="cardTips">${esc(tips.length ? tips.join("；") : (s.free ? "沒有固定應援，自由跟著節奏搖手燈。" : "應援還在整理，先熟悉旋律。"))}</dd><dt>官方 MV</dt><dd><a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd>${liveRows}</dl></section>`;
 
   // 轉換歌曲頁面的 HTML：預設展示歌曲 view，隱藏 home view，並將標題、螢光棒、歌詞填入靜態標籤
   songHtml = songHtml
@@ -450,13 +466,14 @@ for (let i = 0; i < SONGS.length; i++) {
 write("404.html", `<!doctype html><html lang="zh-Hant-TW"><meta charset="utf-8"><meta name="robots" content="noindex"><title>找不到這一頁｜${NAME}</title><meta http-equiv="refresh" content="0;url=${SITE}"><p>找不到這一頁，<a href="${SITE}">回 ${NAME} 首頁</a>。</p></html>\n`);
 
 // 網站地圖
-const today = new Date().toISOString().slice(0, 10);
+// lastmod 用 CHANGELOG 最新一版的日期：只有真的改版才變，Google 才會相信這個日期
+const today = (read("CHANGELOG.md").match(/^## v\d+\.\d+\.\d+ — (\d{4}-\d{2}-\d{2})/m) || [])[1] || new Date().toISOString().slice(0, 10);
 write(
   "sitemap.xml",
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
     .map(
-      (u, idx) =>
-        `  <url>\n    <loc>${u}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${idx === 0 ? "1.0" : "0.8"}</priority>\n  </url>`
+      u =>
+        `  <url>\n    <loc>${u}</loc>\n    <lastmod>${today}</lastmod>\n  </url>`
     )
     .join("\n")}\n</urlset>\n`
 );
