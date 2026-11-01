@@ -3,9 +3,10 @@
 // 用法：node scripts/check-data.mjs
 
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 
 const { SONGS, UT, PEN, BEAT, CLIMAX, LIVES } = require(path.join(root, "songs.js"));

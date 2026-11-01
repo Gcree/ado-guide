@@ -76,6 +76,7 @@
     { id: "sukideite", ja: "好きでいて", zh: "Sukideite", en: "Sukideite", ro: "Sukideite", date: "2026-09-07", yt: "iTNwVheLpj8", len: "4:07", hold: true  },
     { id: "soldiergame", ja: "soldier game", zh: "soldier game", en: "soldier game", ro: "soldier game", date: "2026-01-13", yt: "J3hzdBkd6bg", len: "3:42", hold: true  },
     // 翻唱
+    { id: "andjuly", ja: "And July", zh: "And July", en: "And July", ro: "And July", date: "2026-10-31", yt: "BcjqWNViVU0", len: "3:51", acts: ["wave"], tips: ["跟著節奏輕輕搖"], sug: true, cover: true  },
     { id: "ponpokorin", ja: "おどるポンポコリン", zh: "Odoru Ponpokorin", en: "Odoru Ponpokorin", ro: "Odoru Ponpokorin", date: "2026-01-11", yt: "TZYqDl19qLQ", len: "1:25", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true  },
     { id: "catseye", ja: "CAT'S EYE", zh: "CAT'S EYE", en: "CAT'S EYE", ro: "CAT'S EYE", date: "2025-12-26", yt: "8-Qekf_GBow", len: "3:05", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true  },
     { id: "kitaro", ja: "ゲゲゲの鬼太郎", zh: "GeGeGe no Kitaro", en: "GeGeGe no Kitaro", ro: "GeGeGe no Kitaro", date: "2025-05-15", yt: "6Qd16SxUjj4", len: "2:15", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true  },

@@ -4,6 +4,7 @@
 // GitHub Actions 每次推到 main 都會跑這支，再發布到 GitHub Pages；平常改網站只要改 index.html、style.css、app.js、song-lyrics.js
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 
@@ -16,7 +17,7 @@ const GSC_VERIFY = "YLXviPdOfiLpoPdirdp39Tf7T0PrqSdDVMpdkZnxveg";
 // Google Analytics 4 評估 ID（若有 ID 請替換成自己的 G-XXXXXXXXXX，留空 "" 則不載入 GA）
 const GA_ID = "G-HF9BLBHBL4";
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.resolve(process.argv[2] || path.join(root, "dist"));
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
 const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);

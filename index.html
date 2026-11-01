@@ -387,36 +387,47 @@
   <footer class="site-foot">
     <div class="col">
       <div class="foot-top">
+        <!-- 左：網站是什麼、應援資料從哪來 -->
         <div class="foot-brand">
           <span class="foot-name"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#02b4f5"/><path d="M12 5.2c-2.3 0-3.7 1.7-3.7 4 0 1.6-.5 3.4-1.2 5.2-.5 1.3-.6 2.6-.2 3.6h10.2c.4-1 .3-2.3-.2-3.6-.7-1.8-1.2-3.6-1.2-5.2 0-2.3-1.4-4-3.7-4z" fill="#070a12"/></svg>Ado 應援指南</span>
-          <p>粉絲整理的演唱會練習站，看著 MV 和歌詞把應援練熟。</p>
+          <p class="foot-tagline">粉絲整理的演唱會練習站，看著 MV 和歌詞把應援練熟。</p>
+          <ul class="foot-facts">
+            <li>原創曲的應援依 じゅん🌝ぴ 在 note 的整理。</li>
+            <li>翻唱曲和查不到可靠資料的歌，先不顯示應援。</li>
+            <li>實際以現場氣氛和 Ado 的引導為準。</li>
+          </ul>
+          <a class="foot-social" href="https://www.threads.com/@kiut._no" target="_blank" rel="me noopener">站長 Threads <b>@kiut._no</b> ↗</a>
         </div>
-        <nav class="foot-nav" aria-label="網站">
-          <span class="foot-h">網站</span>
-          <a href="#songs">全部歌曲</a>
-          <button type="button" id="logBtn" aria-haspopup="dialog" aria-controls="logDlg">更新日誌</button>
-          <button type="button" id="feedbackBtn">意見回饋</button>
-          <button type="button" id="pwaInstallBtn">加到主畫面</button>
-          <a href="https://www.threads.com/@kiut._no" target="_blank" rel="me noopener">Threads @kiut._no ↗</a>
-        </nav>
-        <nav class="foot-nav" aria-label="手燈 App">
-          <span class="foot-h">手燈連動程式</span>
-          <a href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-Windows-x64.zip">Windows 版</a>
-          <a href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-macOS.zip">macOS 版</a>
-          <a href="https://github.com/Gcree/penlight-sync" target="_blank" rel="noopener">GitHub ↗</a>
-        </nav>
-        <nav class="foot-nav" aria-label="來源與致謝">
-          <span class="foot-h">來源與致謝</span>
-          <a href="https://note.com/jun1217imokenp/n/nda2715681fcd" target="_blank" rel="noopener">應援整理：じゅん🌝ぴ ↗</a>
-          <a href="https://vaundy.tiaui.co/" target="_blank" rel="noopener">靈感：Vaundy 台北場應援指南 ↗</a>
-          <a href="https://github.com/Gcree/ado-guide" target="_blank" rel="noopener">網站原始碼 ↗</a>
-        </nav>
+        <!-- 右：三組連結 -->
+        <div class="foot-links">
+          <nav class="foot-nav" aria-label="網站">
+            <span class="foot-h">網站</span>
+            <a href="#songs">全部歌曲</a>
+            <button type="button" id="logBtn" aria-haspopup="dialog" aria-controls="logDlg">更新日誌</button>
+            <button type="button" id="feedbackBtn">意見回饋</button>
+            <button type="button" id="pwaInstallBtn">加到主畫面</button>
+          </nav>
+          <nav class="foot-nav" aria-label="手燈 App">
+            <span class="foot-h">手燈連動程式</span>
+            <a href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-Windows-x64.zip">Windows 版</a>
+            <a href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-macOS.zip">macOS 版</a>
+            <a href="https://github.com/Gcree/penlight-sync" target="_blank" rel="noopener">GitHub ↗</a>
+          </nav>
+          <nav class="foot-nav" aria-label="來源與致謝">
+            <span class="foot-h">來源與致謝</span>
+            <a href="https://note.com/jun1217imokenp/n/nda2715681fcd" target="_blank" rel="noopener">應援整理：じゅん🌝ぴ ↗</a>
+            <a href="https://vaundy.tiaui.co/" target="_blank" rel="noopener">靈感：Vaundy 台北場應援指南 ↗</a>
+            <a href="https://github.com/Gcree/ado-guide" target="_blank" rel="noopener">網站原始碼 ↗</a>
+          </nav>
+        </div>
       </div>
-      <p class="foot-note">原創曲的應援依 じゅん🌝ぴ 在 note 的整理；翻唱曲和還查不到可靠資料的歌先不顯示應援；實際以現場氣氛和 Ado 的引導為準。</p>
-      <span class="foot-note">本站用 Google Analytics 統計匿名瀏覽量（看哪些歌最常被練），不蒐集姓名或聯絡方式。</span>
+      <!-- 底列：聲明、隱私、版本 -->
       <div class="foot-legal">
-        <span>非官方粉絲製作。歌曲、MV 與縮圖版權屬於原作者。</span>
-        <span class="build">v1.17.2</span>
+        <div class="foot-legal-text">
+          <span>非官方粉絲製作，歌曲、MV 與縮圖版權屬於原作者。</span>
+          <span>以 Google Analytics 統計匿名瀏覽量，不蒐集姓名或聯絡方式。</span>
+        </div>
+        <span class="build">v1.20.0</span>
       </div>
     </div>
   </footer>

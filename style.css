@@ -1784,29 +1784,46 @@ button.pop-item > span { flex: 1 1 auto; }
 
 /* ── 頁尾：獨立底色 ── */
 .site-foot { position: relative; z-index: 1; background: var(--foot-bg); color: var(--text); font-size: 13px; line-height: 1.5; }
-.site-foot .col { max-width: 1080px; padding: 40px var(--home-pad) max(28px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 24px; }
-.foot-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 28px 48px; }
-.foot-brand { flex: 1 1 240px; display: flex; flex-direction: column; gap: 8px; }
+.site-foot .col { max-width: 1080px; padding: 48px var(--home-pad) max(24px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 40px; }
+/* 左品牌＋說明、右三組連結；窄畫面上下疊 */
+.foot-top { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px 64px; }
+.foot-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .foot-name { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; }
 .foot-name svg { width: 22px; height: 22px; }
-.foot-brand p { margin: 0; max-width: 26em; color: var(--faint); }
-.foot-nav { flex: 0 1 auto; display: flex; flex-direction: column; align-items: flex-start; }
+.foot-tagline { margin: 0; max-width: 26em; color: var(--text); opacity: .8; }
+.foot-facts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; max-width: 30em; color: var(--faint); font-size: 12px; line-height: 1.6; }
+.foot-facts li { position: relative; padding-left: 14px; }
+.foot-facts li::before { content: ""; position: absolute; left: 2px; top: .7em; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .7; }
+.foot-social { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; margin-top: 4px; padding: 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--foot-bg), var(--text) 7%); color: var(--faint); text-decoration: none; transition: var(--tr-color); }
+.foot-social b { color: var(--text); font-weight: 600; }
+@media (hover: hover) { .foot-social:hover { background: color-mix(in srgb, var(--foot-bg), var(--text) 12%); color: var(--text); } }
+.foot-social:active { opacity: .55; }
+.foot-social:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }
+.foot-links { display: grid; grid-template-columns: repeat(3, minmax(0, auto)); justify-content: space-between; gap: 28px 32px; }
+.foot-nav { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 .foot-h { padding-bottom: 4px; font-weight: 700; }
 .foot-nav a, .foot-nav button { display: inline-flex; align-items: center; min-height: 36px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--faint); font: inherit; text-align: left; text-decoration: none; text-underline-offset: 3px; cursor: pointer; transition: var(--tr-color); }
 @media (hover: hover) { .foot-nav a:hover, .foot-nav button:hover:not(:disabled) { color: var(--text); text-decoration: underline; } }
 .foot-nav a:active, .foot-nav button:active:not(:disabled) { opacity: .55; }
 .foot-nav a:focus-visible, .foot-nav button:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }
 .foot-nav button:disabled { opacity: .4; cursor: not-allowed; }
-.foot-note { margin: 0; max-width: 72ch; color: var(--faint); font-size: 12px; }
-.foot-legal { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px; color: var(--faint); font-size: 12px; }
-.foot-legal .build { font-variant-numeric: tabular-nums; }
+.foot-legal { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px 24px; padding-top: 20px; border-top: 1px solid color-mix(in srgb, var(--foot-bg), var(--text) 10%); color: var(--faint); font-size: 12px; }
+.foot-legal-text { display: flex; flex-wrap: wrap; gap: 2px 20px; }
+.foot-legal .build { flex: none; font-variant-numeric: tabular-nums; }
+@media (max-width: 860px) {
+  .foot-top { grid-template-columns: minmax(0, 1fr); }
+  .foot-links { justify-content: start; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 
 /* 窄畫面：小搜尋出現時收起網站名；再窄一點，手燈 App 只留圖示 */
 @media (max-width: 720px) { .bar.has-search .mark-name { display: none; } }
 @media (max-width: 560px) {
   .bar-btn-label { display: none; }
   .bar-btn { width: 44px; padding: 0; }
-  .foot-nav { flex: 1 1 40%; }
+  .foot-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .foot-links .foot-nav:last-child { grid-column: 1 / -1; }
+  .foot-legal { flex-direction: column; align-items: flex-start; }
+  .foot-legal-text { flex-direction: column; }
 }
 
 /* ══ 歌曲頁改版：和首頁同一套配色與元件狀態，跟著淺色／深色切換 ══
