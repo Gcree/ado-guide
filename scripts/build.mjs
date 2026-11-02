@@ -231,6 +231,9 @@ function langTemplate(L, T) {
   let html = translateTemplate(src, L, T)
     .replace('<html lang="zh-Hant-TW" ', `<html lang="${L.html}" data-lang="${L.code}"${up ? ` data-root="${up}"` : ""} `)
     .replace("<!-- build:i18n -->", L.code === "zh" ? "" : `<script src="${up}i18n/${L.code}.js?v=${hash(i18nFiles[L.code])}"></script>`);
+  // 頂欄的站名：英文用短名，手機上放得下
+  const SHORT = { en: "Ado Chant Guide" };
+  if (SHORT[L.code]) html = html.replace(/(<span class="mark-name">)[^<]*(<\/span>)/, `$1${SHORT[L.code]}$2`);
   if (up) html = html.replace(/(\s(?:href|src)=")((?:favicon\.ico|assets\/|manifest\.webmanifest|style\.css|songs\.js|karaoke-sources\.js|app\.js)[^"]*")/g, `$1${up}$2`);
   return html;
 }
