@@ -87,7 +87,7 @@
     if (cls) document.documentElement.classList.add(cls);
     document.startViewTransition(fn).finished.finally(() => cls && document.documentElement.classList.remove(cls));
   };
-  const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), 2600); }; })();
+  const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; /* 「加到主畫面」提示也在畫面上時，疊在它上面 */ const pwa = document.getElementById("pwaToast"); el.style.bottom = pwa && !pwa.hidden && pwa.classList.contains("show") ? `${Math.round(innerHeight - pwa.getBoundingClientRect().top + 10)}px` : ""; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), Math.min(7000, 2600 + String(msg).length * (LANG === "zh" || LANG === "ja" ? 80 : 30))); }; })();
 
   // ── 首頁 ──
   const homeEl = document.getElementById("home");
@@ -430,7 +430,7 @@
     }
 
     if (isIOS) {
-      pwaToastText.innerHTML = T('請點下方 <b>⎋</b> 再選<b>「加入主畫面 ＋」</b>');
+      pwaToastText.innerHTML = T("請點瀏覽器的<b>分享</b>按鈕，再選<b>「加入主畫面」</b>");
       pwaActionBtn.textContent = T("知道了");
       pwaToastTimer = setTimeout(() => hidePwaToast(true), 6000);
       return;
