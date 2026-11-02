@@ -1794,17 +1794,12 @@ button.pop-item > span { flex: 1 1 auto; }
 .foot-facts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; max-width: 30em; color: var(--faint); font-size: 12px; line-height: 1.6; }
 .foot-facts li { position: relative; padding-left: 14px; }
 .foot-facts li::before { content: ""; position: absolute; left: 2px; top: .7em; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .7; }
-.foot-socials { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-/* 站長社群連結：品牌圖示＋帳號。圖示來自 Simple Icons（CC0），檔案原樣放在 assets/icons/，用 mask 上色才能跟著淺色／深色換顏色 */
-.foot-social { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px 0 12px; border-radius: 999px; background: color-mix(in srgb, var(--foot-bg), var(--text) 7%); color: var(--faint); text-decoration: none; transition: var(--tr-color); }
-.foot-social b { color: var(--text); font-weight: 600; }
-.foot-social .si { flex: none; width: 16px; height: 16px; background: currentColor; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
-.foot-social .si-threads { -webkit-mask-image: url(assets/icons/threads.svg); mask-image: url(assets/icons/threads.svg); }
-.foot-social .si-ig { -webkit-mask-image: url(assets/icons/instagram.svg); mask-image: url(assets/icons/instagram.svg); }
-@media (hover: hover) { .foot-social:hover { background: color-mix(in srgb, var(--foot-bg), var(--text) 12%); color: var(--text); } }
-.foot-social:active { opacity: .55; }
-.foot-social:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }
-.foot-links { display: grid; grid-template-columns: repeat(3, minmax(0, auto)); justify-content: space-between; gap: 28px 32px; }
+/* Get in touch：站長社群，品牌圖示＋帳號。圖示來自 Simple Icons（CC0），檔案原樣放在 assets/icons/，用 mask 上色才能跟著淺色／深色換顏色 */
+.foot-contact a { gap: 8px; }
+.foot-nav .si { flex: none; width: 16px; height: 16px; background: currentColor; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
+.foot-nav .si-threads { -webkit-mask-image: url(assets/icons/threads.svg); mask-image: url(assets/icons/threads.svg); }
+.foot-nav .si-ig { -webkit-mask-image: url(assets/icons/instagram.svg); mask-image: url(assets/icons/instagram.svg); }
+.foot-links { display: grid; grid-template-columns: repeat(4, minmax(0, auto)); justify-content: space-between; gap: 28px 32px; }
 .foot-nav { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 .foot-h { padding-bottom: 4px; font-weight: 700; }
 .foot-nav a, .foot-nav button { display: inline-flex; align-items: center; min-height: 36px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--faint); font: inherit; text-align: left; text-decoration: none; text-underline-offset: 3px; cursor: pointer; transition: var(--tr-color); }
@@ -1817,7 +1812,7 @@ button.pop-item > span { flex: 1 1 auto; }
 .foot-legal .build { flex: none; font-variant-numeric: tabular-nums; }
 @media (max-width: 860px) {
   .foot-top { grid-template-columns: minmax(0, 1fr); }
-  .foot-links { justify-content: start; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .foot-links { justify-content: start; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 /* 窄畫面：小搜尋出現時收起網站名；再窄一點，手燈 App 只留圖示 */
@@ -1827,6 +1822,9 @@ button.pop-item > span { flex: 1 1 auto; }
   .bar-btn { width: 44px; padding: 0; }
   .foot-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .foot-links .foot-nav:last-child { grid-column: 1 / -1; }
+  /* 手機上 Get in touch 自己一列，兩個帳號橫排 */
+  .foot-contact { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; column-gap: 20px; }
+  .foot-contact .foot-h { flex-basis: 100%; }
   .foot-legal { flex-direction: column; align-items: flex-start; }
   .foot-legal-text { flex-direction: column; }
 }
