@@ -1,5 +1,6 @@
 // 建置正式網站：複製檔案，並替每首歌做一頁 song/<id>/（有自己的標題、說明與分享資訊，Google 才收錄得到）；
 // 歌詞拆成每首一個檔 lyrics/<id>.json，網頁打開哪首才載哪首
+// 三種語言：中文在根目錄、英文在 en/、日文在 jp/；介面文字以中文原文當 key 查 i18n.js（英文版歌詞下面放羅馬拼音 song-romaji.json）
 // 用法：node scripts/build.mjs [輸出資料夾，預設 dist]
 // GitHub Actions 每次推到 main 都會跑這支，再發布到 GitHub Pages；平常改網站只要改 index.html、style.css、app.js、song-lyrics.js
 import fs from "node:fs";
@@ -9,14 +10,20 @@ import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 
 const SITE = "https://ado.kuti.cc/";
-const NAME = "Ado 應援指南";
 // 站長的 Threads：結構化資料的 sameAs 和頁尾連結都用這個，讓 Google 知道網站和帳號是同一個來源
 const THREADS = "https://www.threads.com/@kiut._no";
 const INSTAGRAM = "https://www.instagram.com/ku.n3c/";
-// Google Search Console 的 HTML 標記驗證碼（只放在首頁）；另外根目錄的 googlea6b361c7e6e7d11c.html 是 HTML 檔案驗證，兩個都不要刪
+// Google Search Console 的 HTML 標記驗證碼（只放在中文首頁）；另外根目錄的 googlea6b361c7e6e7d11c.html 是 HTML 檔案驗證，兩個都不要刪
 const GSC_VERIFY = "YLXviPdOfiLpoPdirdp39Tf7T0PrqSdDVMpdkZnxveg";
 // Google Analytics 4 評估 ID（若有 ID 請替換成自己的 G-XXXXXXXXXX，留空 "" 則不載入 GA）
 const GA_ID = "G-HF9BLBHBL4";
+
+// 語言：dir 是網址前綴；hreflang 給搜尋引擎分辨語言；網址用 jp/，語言代碼照標準寫 ja
+const LANGS = [
+  { code: "zh", dir: "", html: "zh-Hant-TW", hreflang: "zh-Hant", og: "zh_TW", name: "Ado 應援指南" },
+  { code: "en", dir: "en/", html: "en", hreflang: "en", og: "en_US", name: "Ado Fan Chant Guide" },
+  { code: "ja", dir: "jp/", html: "ja", hreflang: "ja", og: "ja_JP", name: "Ado 応援ガイド" }
+];
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.resolve(process.argv[2] || path.join(root, "dist"));
@@ -28,6 +35,20 @@ const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"
 const require = createRequire(import.meta.url);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 const { SONGS, UT, PEN } = require(path.join(root, "songs.js"));
+const I18N = require(path.join(root, "i18n.js"));
+// 羅馬拼音：GitHub Actions 建置前用 tools/romaji/romaji.mjs 產生；沒有的話英文版歌詞下面就不放
+const ROMAJI = fs.existsSync(path.join(root, "song-romaji.json")) ? JSON.parse(read("song-romaji.json")) : {};
+
+// 翻譯：查不到的字記下來，建置最後列出來（畫面會先顯示中文）
+const missing = { en: new Set(), ja: new Set() };
+const makeT = code => (src, ...args) => {
+  let v = src;
+  if (code !== "zh") {
+    const d = (I18N[code] || {})[src];
+    if (d === undefined) missing[code].add(src); else v = d;
+  }
+  return v.replace(/\{(\d+)\}/g, (_, i) => args[i]);
+};
 
 const PENC = {
   青: ["藍", "#5d9dfe"],
@@ -63,14 +84,16 @@ SONGS.forEach(s => {
 });
 SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => (s.no = i + 1));
 
-function penOf(s) {
+function penOf(s, T = makeT("zh")) {
   const pen = !s.hold && PEN[s.id] && PEN[s.id][0] !== "?" && PEN[s.id];
   const keys = [...(pen || "青")];
+  const word = k => (k === "彩" ? T("彩色") : T(PENC[k][0]));
   return {
     keys,
     none: !pen,
-    text: !pen ? "藍色（官方未指定，建議切換為代表色藍色）" : keys.map(k => (k === "彩" ? "彩色" : (PENC[k] ? PENC[k][0] + "色" : k))).join("、"),
-    shortText: !pen ? "藍（未指定）" : keys.map(k => (k === "彩" ? "彩色" : (PENC[k] ? PENC[k][0] : k))).join("、"),
+    text: !pen ? T("藍色（官方未指定，建議切換為代表色藍色）") : keys.map(k => (k === "彩" ? T("彩色") : T("{0}色", word(k)))).join(T("、")),
+    shortText: !pen ? T("藍（未指定）") : keys.map(word).join(T("、")),
+    words: keys.map(word),
     cols: keys.flatMap(k => (k === "彩" ? RAINBOW : [k]).map(c => PENC[c][1]))
   };
 }
@@ -79,41 +102,46 @@ const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2,
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 const json = o => JSON.stringify(o).replace(/</g, "\\u003c");
+const isOffbeat = txt => !!txt && txt.includes("反拍");
+const isNote = j => !!j && /^（[^）]+）$/.test(j.trim()); // （間奏）這種全形括號的說明；半形括號的是歌詞
 
 // ── 搜尋結果上看到的文字：標題和描述直接寫出答案（手燈什麼色、哪裡要唱），像 Threads 貼文一樣「內容就是標題」 ──
-// 歌名以外大家會拿來搜的名字：中文譯名＋別名（例如〈うっせぇわ〉新聞多寫「煩死了」）
+// 中文：歌名以外大家會拿來搜的名字（中文譯名＋別名，例如〈うっせぇわ〉新聞多寫「煩死了」）
 const otherNames = s => [...new Set([s.zh !== s.ja ? s.zh : "", ...(s.alias || [])].filter(Boolean))];
-// 標題、描述用的歌名：只用台灣環球的官方中文曲名（songs.js 的 zh）；沒有官方中文的用讀音或英文。別名只放在「也叫」和站內搜尋
-const namePart = s => (s.zh && s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : ""));
-const penWords = (p, sep) => p.keys.map(k => (k === "彩" ? "彩色" : PENC[k][0])).join(sep);
-// 標題只放歌名和「應援教學」，手燈顏色、動作放在描述；超過 32 字（Google 大約顯示 30 個中文字）就只放日文歌名
-const TITLE_MAX = 32;
-function songTitle(s) {
-  const n = namePart(s), full = `Ado〈${s.ja}〉${n ? n + " " : ""}應援教學`;
-  return full.length <= TITLE_MAX ? full : `Ado〈${s.ja}〉應援教學`;
+// 標題、描述用的第二個歌名：中文用台灣環球的官方中文曲名（沒有就用讀音或英文）；英文用英文名；日文只放日文原名
+const namePart = (s, code) => (code === "ja" ? "" : code === "en" ? (s.en && s.en !== s.ja ? s.en : "") : (s.zh && s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : "")));
+// 歌曲頁標題：中文超過 32 字、英文超過 60 字（Google 大約顯示的長度）就只放日文歌名
+function songTitle(s, code) {
+  const n = namePart(s, code);
+  if (code === "en") { const full = `Ado "${n || s.ja}"${n ? ` (${s.ja})` : ""} Fan Chant Guide`; return full.length <= 60 ? full : `Ado "${s.ja}" Fan Chant Guide`; }
+  if (code === "ja") return `Ado「${s.ja}」ライブ応援ガイド`;
+  const full = `Ado〈${s.ja}〉${n ? n + " " : ""}應援教學`;
+  return full.length <= 32 ? full : `Ado〈${s.ja}〉應援教學`;
 }
-function songDesc(s, p, tips) {
-  const n = namePart(s);
-  const pen = p.none ? "手燈沒有指定，切 Ado 的代表色藍色；" : `手燈切${penWords(p, "、")}；`;
+function songDesc(s, code, p, tips, T) {
+  const n = namePart(s, code), tie = s.tie ? T(s.tie) : "";
+  if (code === "en") {
+    const pen = p.none ? "Penlight: no official color, so go with Ado's signature blue." : `Penlight: ${p.words.join(", ")}.`;
+    const how = tips.length ? tips.slice(0, 2).join("; ") + "." : (s.free ? "No set chant, just sway along to the beat." : "Chants are still being confirmed; get to know the melody first.");
+    return cut(`How to cheer for Ado's "${n || s.ja}"${tie ? ` (${tie})` : ""} at a concert. ${pen} ${how} Practice with the official MV and synced romaji lyrics.`, 160);
+  }
+  if (code === "ja") {
+    const pen = p.none ? "ペンライトは指定なし、迷ったらAdoのイメージカラーの青。" : `ペンライトは${p.words.join("・")}。`;
+    const how = tips.length ? tips.slice(0, 2).join("、") + "。" : (s.free ? "決まったコールはなく、リズムに合わせて自由に。" : "応援はまだ確認中、まずはメロディーを覚えよう。");
+    return cut(`Adoのライブで「${s.ja}」${tie ? `（${tie}）` : ""}はどう応援する？${pen}${how}公式MVと同期歌詞で予習できます。`, 120);
+  }
+  const pen = p.none ? "手燈沒有指定，切 Ado 的代表色藍色；" : `手燈切${p.words.join("、")}；`;
   const how = tips.length ? tips.slice(0, 2).join("，") + "。" : (s.free ? "沒有固定應援，跟著節奏搖手燈就好。" : "應援還在整理，先熟悉旋律。");
   return cut(`〈${s.ja}〉${n ? `（${n}）` : ""}${s.tie ? `是${s.tie}。` : ""}演唱會怎麼應援？${pen}${how}跟著官方 MV 和日中同步歌詞，先在家練一遍。`, 130);
 }
-
 
 function isoDuration(lenStr) {
   const [m, s] = lenStr.split(":").map(Number);
   return `PT${m}M${s}S`;
 }
 
-const icon = a => `<svg class="a-${a}" role="img" aria-label="${ACT_MAP[a]?.name || a}"><use href="#${ACT_MAP[a]?.icon || "i-sing"}"/></svg>`;
-
-const penDots = s => {
-  const p = penOf(s);
-  return `<span class="dots" aria-label="螢光棒：${esc(p.shortText)}">${p.keys.map(k => (k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`)).join("")}</span>`;
-};
-
 function jaHTML(txt, sung = []) {
-  const out = [], re = /([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g, hit = new Set();
+  const out = [], re = /([一-鿿々〆ヵヶ]+)[(（]([぀-ヿー]+)[)）]/g, hit = new Set();
   sung.forEach(w => {
     const i = txt.lastIndexOf(w);
     if (i >= 0) for (let j = i; j < i + w.length; j++) hit.add(j);
@@ -140,9 +168,11 @@ function jaHTML(txt, sung = []) {
 }
 
 // 每首一個歌詞檔（沒有歌詞的歌也放一個空的，網頁就不會讀到 404）；index.json 記每首的應援數量（有動作、不是「安靜聽」的行數）
+// 有羅馬拼音的行多一個 ro，英文版歌詞下面顯示
 const lyFiles = {}, lyIndex = {};
+const withRo = (id, lines) => lines.map(l => (ROMAJI[id] && l.jp && ROMAJI[id][l.jp] ? { ...l, ro: ROMAJI[id][l.jp] } : l));
 for (const s of SONGS) {
-  const b = LYRICS.find(x => x.id === s.id), lines = (b && b.lyrics) || [];
+  const b = LYRICS.find(x => x.id === s.id), lines = withRo(s.id, (b && b.lyrics) || []);
   lyFiles[`lyrics/${s.id}.json`] = JSON.stringify({ ...(b || { id: s.id }), lyrics: lines });
   if (lines.length) lyIndex[s.id] = lines.filter(l => (l.acts || []).some(a => a !== "listen")).length;
 }
@@ -172,8 +202,59 @@ const src = read("index.html")
   .replace("app.js?v=dev", `app.js?v=${hash(app)}`)
   .replace('<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-lyrics="${LYV}">`);
 
-function page({ url, title, desc, ld, base, song, extra = "" }) {
-  let html = src
+// 每種語言的字典另存一個小檔，英文版只載英文、日文版只載日文
+const i18nFiles = Object.fromEntries(["en", "ja"].map(code => [code, `window.ADO_I18N = ${JSON.stringify({ [code]: I18N[code] || {} })};\n`]));
+
+// ── 版型翻譯：把 index.html 裡的中文換成目前語言（歌曲內容是之後才填進去的，不會被換到） ──
+// 1. 字典裡含 HTML 的 key（一句話中間夾著標籤，例如「從<span>〈唱〉</span>開始練」）整段換
+// 2. 標籤之間的文字、aria-label／title／placeholder／alt／content 屬性逐一查字典
+const hasCJK = t => /[぀-ヿ一-鿿]/.test(t);
+function translateTemplate(html, L, T) {
+  if (L.code === "zh") return html;
+  const dict = I18N[L.code] || {};
+  for (const k of Object.keys(dict).filter(k => k.includes("<")).sort((a, b) => b.length - a.length)) html = html.split(k).join(dict[k]);
+  // 已經是譯文的（上面整段換掉的、或日文版裡本來就是日文的字）不用再查
+  const done = new Set(Object.values(dict).flatMap(v => v.split(/<[^>]+>/).map(x => x.trim())).filter(Boolean));
+  const tr = text => {
+    const t = text.trim();
+    if (!t || !hasCJK(t) || (!(t in dict) && done.has(t))) return text;
+    return text.replace(t, T(t));
+  };
+  html = html.replace(/(<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!--[\s\S]*?-->)|>([^<>]+)(?=<)/g, (m, skip, text) => (skip ? skip : ">" + tr(text)));
+  html = html.replace(/(\s(?:aria-label|title|placeholder|alt|content)=")([^"]*)(")/g, (m, a, v, b) => a + (hasCJK(v) ? esc(T(v.replace(/&amp;/g, "&").replace(/&quot;/g, '"'))) : v) + b);
+  return html;
+}
+
+// 英文、日文版在子資料夾：共用的 CSS、JS、圖示往上一層找；<html> 標上語言
+function langTemplate(L, T) {
+  const up = L.dir ? "../" : "";
+  let html = translateTemplate(src, L, T)
+    .replace('<html lang="zh-Hant-TW" ', `<html lang="${L.html}" data-lang="${L.code}"${up ? ` data-root="${up}"` : ""} `)
+    .replace("<!-- build:i18n -->", L.code === "zh" ? "" : `<script src="${up}i18n/${L.code}.js?v=${hash(i18nFiles[L.code])}"></script>`);
+  if (up) html = html.replace(/(\s(?:href|src)=")((?:favicon\.ico|assets\/|manifest\.webmanifest|style\.css|songs\.js|karaoke-sources\.js|app\.js)[^"]*")/g, `$1${up}$2`);
+  return html;
+}
+
+// hreflang：每一頁都列出三種語言的網址，中文當預設
+const altLinks = rest => [
+  ...LANGS.map(x => `<link rel="alternate" hreflang="${x.hreflang}" href="${SITE}${x.dir}${rest}">`),
+  `<link rel="alternate" hreflang="x-default" href="${SITE}${rest}">`
+].join("\n");
+// 語言切換的連結：這一頁的三種語言版本（相對於這個語言的根目錄）
+function langLinks(html, L, rest) {
+  return html.replace(/<a ([^>]*)data-lang-link="(\w+)"([^>]*) href="[^"]*"([^>]*)>/g, (m, a, code, b, c) => {
+    const here = code === L.code, x = LANGS.find(y => y.code === code);
+    const href = (here ? "" : (L.dir ? "../" : "") + x.dir) + rest || "./";
+    let attrs = `${a}data-lang-link="${code}"${b} href="${href}"${c}`;
+    if (/aria-checked=/.test(attrs)) attrs = attrs.replace(/aria-checked="[^"]*"/, `aria-checked="${here}"`);
+    else attrs = attrs.replace(/\s*aria-current="[^"]*"/, "") + (here ? ' aria-current="true"' : "");
+    return `<a ${attrs}>`;
+  });
+}
+
+function page(tpl, L, T, { rest, title, desc, ld, base, song, extra = "" }) {
+  const url = SITE + L.dir + rest;
+  let html = tpl
     .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`)
     .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${esc(desc)}">`)
     .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${esc(title)}">`)
@@ -181,11 +262,13 @@ function page({ url, title, desc, ld, base, song, extra = "" }) {
     .replace(/<meta property="og:type" content="[^"]*">/, `<meta property="og:type" content="${song ? "music.song" : "website"}">`)
     .replace(/<!-- build:seo[^>]*-->/, [
       `<link rel="canonical" href="${url}">`,
+      altLinks(rest),
       `<meta property="og:url" content="${url}">`,
-      `<meta property="og:site_name" content="${NAME}">`,
-      `<meta property="og:locale" content="zh_TW">`,
+      `<meta property="og:site_name" content="${L.name}">`,
+      `<meta property="og:locale" content="${L.og}">`,
+      ...LANGS.filter(x => x !== L).map(x => `<meta property="og:locale:alternate" content="${x.og}">`),
       `<meta property="og:image" content="${OG_IMG}">`,
-      `<meta property="og:image:alt" content="${NAME}：看 MV，跟著亮起的歌詞一起應援">`,
+      `<meta property="og:image:alt" content="${esc(T("Ado 應援指南：看 MV，跟著亮起的歌詞一起應援"))}">`,
       `<meta property="og:image:width" content="1200">`,
       `<meta property="og:image:height" content="630">`,
       `<meta name="twitter:card" content="summary_large_image">`,
@@ -197,8 +280,8 @@ function page({ url, title, desc, ld, base, song, extra = "" }) {
       extra
     ].filter(Boolean).join("\n"));
   if (base) html = html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n<base href="${base}">`);
-  if (song) html = html.replace('<html lang="zh-Hant-TW" ', `<html lang="zh-Hant-TW" data-song="${song.id}" `);
-  return html;
+  if (song) html = html.replace(/<html lang="([^"]+)" /, `<html lang="$1" data-song="${song.id}" `);
+  return langLinks(html, L, rest);
 }
 
 const write = (rel, text) => {
@@ -208,287 +291,296 @@ const write = (rel, text) => {
 };
 fs.rmSync(out, { recursive: true, force: true });
 
-// ── 產生首頁（靜態預渲染歌曲清單，讓搜尋引擎與 AI 爬蟲能直接索引所有內部連結） ──
-const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
-const homeLegendHtml = Object.keys(ACT_MAP)
-  .filter(a => usedActs.has(a))
-  .map(a => `<span class="a-${a}">${icon(a)}${ACT_MAP[a].name}</span>`)
-  .join("");
-
-// 首頁的列、書架卡片：和 app.js 的 rowHtml、書架模板同一個樣子，JS 載入後會再畫一次
-const thumbHtml = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
-const subOf = s => [s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : ""), s.cover ? "翻唱" : ""].filter(Boolean).join("・");
-const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
-const homeSongListHtml = SONGS.map(s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? '<span class="free">自由搖</span>' : ""}</span></span></a></li>`).join("");
 const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].map(id => SONGS.find(s => s.id === id)).filter(Boolean);
-const homeShelfHtml = STARTERS.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
+const thumbHtml = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
+const urls = [""];
 
-const FAQ = [...read("index.html").matchAll(/<details class="faq-item">\s*<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)]
-  .map(m => m.slice(1).map(t => t.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()));
-if (!FAQ.length) throw new Error("index.html 找不到常見問題（details.faq-item）");
-const homeLd = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebSite",
-      "@id": `${SITE}#website`,
-      "name": NAME,
-      "alternateName": ["Ado 應援預習", "ADO FAN CHANT GUIDE", "Ado 演唱會應援指南", "Ado 應援"],
-      "url": SITE,
-      "inLanguage": "zh-Hant-TW",
-      "description": `非官方粉絲製作的 Ado 演唱會應援指南：收錄 ${SONGS.length} 首歌曲教學，看著 MV 跟同步歌詞，練哪裡拍手、哪裡大合唱、哪裡喊聲，還有每首手燈推薦顏色與藍牙手燈連動。`,
-      "publisher": { "@id": `${SITE}#author` },
-      "about": {
-        "@type": "MusicGroup",
-        "name": "Ado",
-        "url": "https://www.youtube.com/@Ado1024",
-        "sameAs": [
-          "https://twitter.com/ado1024imokenp",
-          "https://www.instagram.com/ado1024sweetadream/"
-        ]
-      }
+// ── 每種語言產生首頁＋每首歌的獨立頁 ──
+function renderLang(L) {
+  const T = makeT(L.code);
+  const tpl = langTemplate(L, T);
+  const icon = a => `<svg class="a-${a}" role="img" aria-label="${esc(T(ACT_MAP[a]?.name || a))}"><use href="#${ACT_MAP[a]?.icon || "i-sing"}"/></svg>`;
+  const penDots = s => {
+    const p = penOf(s, T);
+    return `<span class="dots" aria-label="${esc(T("螢光棒：") + p.shortText)}">${p.keys.map(k => (k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`)).join("")}</span>`;
+  };
+  const subOf = s => [namePart(s, L.code), s.cover ? T("翻唱") : ""].filter(Boolean).join("・");
+  const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
+  const tipsOf = s => (s.hold || s.sug ? [] : s.tips || []).map(t => T(t));
+
+  // ── 首頁（靜態預渲染歌曲清單，讓搜尋引擎與 AI 爬蟲能直接索引所有內部連結） ──
+  const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
+  const homeLegendHtml = Object.keys(ACT_MAP).filter(a => usedActs.has(a)).map(a => `<span class="a-${a}">${icon(a)}${T(ACT_MAP[a].name)}</span>`).join("");
+  const homeSongListHtml = SONGS.map(s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`).join("");
+  const homeShelfHtml = STARTERS.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
+
+  // 常見問題：結構化資料直接讀這個語言畫面上的文字，兩邊一致
+  const FAQ = [...tpl.matchAll(/<details class="faq-item">\s*<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)]
+    .map(m => m.slice(1).map(t => t.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim()));
+  if (!FAQ.length) throw new Error("index.html 找不到常見問題（details.faq-item）");
+  const home = SITE + L.dir;
+  const COPY = {
+    zh: {
+      title: `Ado 演唱會應援教學｜${SONGS.length} 首歌的手燈顏色與大合唱`,
+      desc: `第一次去 Ado 演唱會也不慌：${SONGS.length} 首歌各有一頁，跟著官方 MV 和日中同步歌詞，哪裡拍手、哪裡大合唱、哪裡喊「Hey!」、手燈切什麼顏色都標好了。非官方粉絲製作，不照任何場次歌單，不暴雷。`,
+      site: `非官方粉絲製作的 Ado 演唱會應援指南：收錄 ${SONGS.length} 首歌曲教學，看著 MV 跟同步歌詞，練哪裡拍手、哪裡大合唱、哪裡喊聲，還有每首手燈推薦顏色與藍牙手燈連動。`,
+      list: "Ado 演唱會歌曲應援清單", listDesc: `Ado ${SONGS.length} 首歌曲的演唱會應援教學與同步歌詞`
     },
-    {
-      "@type": "Person",
-      "@id": `${SITE}#author`,
-      "name": "Kuti",
-      "url": SITE,
-      "sameAs": [THREADS, INSTAGRAM, "https://github.com/Gcree"]
+    en: {
+      title: `Ado Concert Chant Guide: Penlight Colors & Sing-Alongs for ${SONGS.length} Songs`,
+      desc: `Going to an Ado concert? Each of ${SONGS.length} songs has its own page: play the official MV with synced lyrics and romaji, and see exactly where to clap, sing along, shout "Hey!", and which penlight color to use. Unofficial, made by fans, spoiler-free.`,
+      site: `An unofficial fan-made guide to Ado concert chants: ${SONGS.length} songs with synced lyrics, romaji, sing-along parts, clap and call cues, and penlight colors.`,
+      list: "Ado concert chant guide by song", listDesc: `Chant guides and synced lyrics for ${SONGS.length} Ado songs`
     },
-    {
-      "@type": "ItemList",
-      "@id": `${SITE}#songlist`,
-      "name": "Ado 演唱會歌曲應援清單",
-      "description": `Ado ${SONGS.length} 首歌曲的演唱會應援教學與同步歌詞`,
-      "numberOfItems": SONGS.length,
-      "itemListElement": SONGS.map((s, idx) => ({
-        "@type": "ListItem",
-        "position": idx + 1,
-        "name": `Ado〈${s.ja}〉${s.zh !== s.ja ? `(${s.zh}) ` : ""}演唱會應援指南`,
-        "url": `${SITE}song/${s.id}/`
-      }))
-    },
-    {
-      "@type": "FAQPage",
-      "@id": `${SITE}#faq`,
-      // 跟首頁看得到的常見問題同一份文字（結構化資料要和畫面一致）
-      "mainEntity": FAQ.map(([name, text]) => ({ "@type": "Question", name, "acceptedAnswer": { "@type": "Answer", text } }))
+    ja: {
+      title: `Adoライブ応援ガイド｜${SONGS.length}曲のペンライト色・コール・合唱パート`,
+      desc: `初めてのAdoライブでも大丈夫。${SONGS.length}曲それぞれに専用ページ、公式MVと同期歌詞で、手拍子・合唱・「Hey!」コールの場所とペンライトの色をチェックできます。ファンによる非公式サイト、セトリのネタバレなし。`,
+      site: `ファンが作った非公式のAdoライブ応援ガイド。${SONGS.length}曲の同期歌詞、合唱パート、手拍子・コールのタイミング、ペンライト色をまとめています。`,
+      list: "Ado ライブ応援ガイド 曲一覧", listDesc: `Adoの${SONGS.length}曲の応援ガイドと同期歌詞`
     }
-  ]
-};
-let homeHtml = page({
-  url: SITE,
-  title: `Ado 演唱會應援教學｜${SONGS.length} 首歌的手燈顏色與大合唱`,
-  desc: `第一次去 Ado 演唱會也不慌：${SONGS.length} 首歌各有一頁，跟著官方 MV 和日中同步歌詞，哪裡拍手、哪裡大合唱、哪裡喊「Hey!」、手燈切什麼顏色都標好了。非官方粉絲製作，不照任何場次歌單，不暴雷。`,
-  ld: homeLd,
-  extra: GSC_VERIFY && `<meta name="google-site-verification" content="${GSC_VERIFY}">`
-});
-
-homeHtml = homeHtml
-  .replace('<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`)
-  .replace('<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`)
-  .replace('<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${SONGS.length} 首</span>`)
-  .replace('已列出 12／76 首', `已列出 12／${SONGS.length} 首`)
-  .replace('<span id="factSongs">76</span>', `<span id="factSongs">${SONGS.length}</span>`)
-  .replace('<div class="home-legend" id="homeLegend" aria-label="圖示代表的動作"></div>', `<div class="home-legend" id="homeLegend" aria-label="圖示代表的動作">${homeLegendHtml}</div>`)
-  .replace(/收錄 \d+ 首歌曲/g, `收錄 ${SONGS.length} 首歌曲`);
-
-write("index.html", homeHtml);
-
-// ── 產生各歌曲獨立頁面（完全靜態預渲染標題、應援重點、手燈顏色、歌詞與 JSON-LD 結構化資料） ──
-const urls = [SITE];
-for (let i = 0; i < SONGS.length; i++) {
-  const s = SONGS[i];
-  const prevSong = SONGS[i - 1] || null;
-  const nextSong = SONGS[i + 1] || null;
-  const b = LYRICS.find(x => x.id === s.id);
-  const lines = (b && b.lyrics) || [];
-  const hasLines = lines.length > 0;
-  const pen = penOf(s);
-  const name = s.zh && s.zh !== s.ja ? `${s.ja}（${s.zh}）` : s.ja;
-  const tips = s.hold || s.sug ? [] : s.tips || [];
-  const desc = songDesc(s, pen, tips);
-  const url = `${SITE}song/${s.id}/`;
-  urls.push(url);
-
-  const pageTitle = songTitle(s);
-
-  const songLd = {
+  }[L.code];
+  const homeLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "WebPage",
-        "@id": `${url}#webpage`,
-        "url": url,
-        "name": pageTitle,
-        "description": desc,
-        "inLanguage": "zh-Hant-TW",
-        "isPartOf": { "@type": "WebSite", "@id": `${SITE}#website` },
-        "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS, INSTAGRAM] },
-        "breadcrumb": { "@id": `${url}#breadcrumb` }
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": `${url}#breadcrumb`,
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": NAME, "item": SITE },
-          { "@type": "ListItem", "position": 2, "name": "全部歌曲", "item": `${SITE}#songs` },
-          { "@type": "ListItem", "position": 3, "name": `〈${s.ja}〉應援指南`, "item": url }
-        ]
-      },
-      {
-        "@type": "MusicRecording",
-        "@id": `${url}#song`,
-        "name": s.ja,
-        "alternateName": [...new Set([s.zh, s.en, ...(s.alias || [])])].filter(x => x && x !== s.ja),
-        "byArtist": {
+        "@type": "WebSite",
+        "@id": `${home}#website`,
+        "name": L.name,
+        ...(L.code === "zh" ? { "alternateName": ["Ado 應援預習", "ADO FAN CHANT GUIDE", "Ado 演唱會應援指南", "Ado 應援"] } : {}),
+        "url": home,
+        "inLanguage": L.html,
+        "description": COPY.site,
+        "publisher": { "@id": `${SITE}#author` },
+        "about": {
           "@type": "MusicGroup",
           "name": "Ado",
-          "url": "https://www.youtube.com/@Ado1024"
-        },
-        "datePublished": s.date,
-        "duration": isoDuration(s.len),
-        "url": url,
-        "inLanguage": "ja",
-        "video": {
-          "@type": "VideoObject",
-          "name": `Ado〈${s.ja}〉官方 MV`,
-          "description": `Ado〈${s.ja}〉官方音樂錄影帶 MV`,
-          "thumbnailUrl": `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg`,
-          "embedUrl": `https://www.youtube.com/embed/${s.yt}`,
-          "uploadDate": s.date
+          "url": "https://www.youtube.com/@Ado1024",
+          "sameAs": [
+            "https://twitter.com/ado1024imokenp",
+            "https://www.instagram.com/ado1024sweetadream/"
+          ]
         }
+      },
+      {
+        "@type": "Person",
+        "@id": `${SITE}#author`,
+        "name": "Kuti",
+        "url": SITE,
+        "sameAs": [THREADS, INSTAGRAM, "https://github.com/Gcree"]
+      },
+      {
+        "@type": "ItemList",
+        "@id": `${home}#songlist`,
+        "name": COPY.list,
+        "description": COPY.listDesc,
+        "numberOfItems": SONGS.length,
+        "itemListElement": SONGS.map((s, idx) => ({
+          "@type": "ListItem",
+          "position": idx + 1,
+          "name": songTitle(s, L.code),
+          "url": `${home}song/${s.id}/`
+        }))
       },
       {
         "@type": "FAQPage",
-        "@id": `${url}#faq`,
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": `Ado〈${s.ja}〉演唱會手燈推薦什麼顏色？`,
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": `Ado〈${s.ja}〉演唱會推薦手燈顏色為：${pen.text}。若搭配 PenlightSync 桌面 App，可透過藍牙自動切換官方手燈顏色。`
-            }
-          },
-          {
-            "@type": "Question",
-            "name": `Ado〈${s.ja}〉演唱會有什麼應援動作或大合唱？`,
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": tips.length ? tips.join("；") : (s.free ? "這首歌沒有固定應援，現場自由跟著節奏搖手燈即可。" : "這首歌應援資料整理中，先熟悉旋律並跟隨現場氣氛。")
-            }
-          },
-          ...(s.lives.length ? [{
-            "@type": "Question",
-            "name": `Ado〈${s.ja}〉有演唱會現場音源可以聽嗎？`,
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": `有，Ado 官方已釋出〈${s.ja}〉在歷年演唱會（${s.lives.map(l => l.concert).join("、")}）的官方現場音源。`
-            }
-          }] : [])
-        ]
+        "@id": `${home}#faq`,
+        "mainEntity": FAQ.map(([name, text]) => ({ "@type": "Question", name, "acceptedAnswer": { "@type": "Answer", text } }))
       }
     ]
   };
-
-  let songHtml = page({
-    url,
-    base: "../../",
-    song: s,
-    title: pageTitle,
-    desc,
-    ld: songLd
+  let homeHtml = page(tpl, L, T, {
+    rest: "",
+    title: COPY.title,
+    desc: COPY.desc,
+    ld: homeLd,
+    extra: L.code === "zh" && GSC_VERIFY && `<meta name="google-site-verification" content="${GSC_VERIFY}">`
   });
+  homeHtml = homeHtml
+    .replace('<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`)
+    .replace('<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`)
+    .replace('<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${T("{0} 首", SONGS.length)}</span>`)
+    .replace(/(<p class="list-progress" id="listProgress"[^>]*>)[^<]*(<\/p>)/, `$1${T("已列出 {0}／{1} 首", 12, SONGS.length)}$2`)
+    .replace(/(<span id="factSongs">)\d+(<\/span>)/, `$1${SONGS.length}$2`)
+    .replace(/(<div class="home-legend" id="homeLegend"[^>]*>)(<\/div>)/, `$1${homeLegendHtml}$2`);
+  write(`${L.dir}index.html`, homeHtml);
 
-  // 靜態預渲染歌詞行與應援標記
-  const mainAct = acts => acts.find(a => a !== "listen") || (acts.length ? "listen" : "");
-  const lineAct = l => ((l.sing && l.sing.length) ? "sing" : mainAct((l.acts || []).filter(a => a !== "sing")) || mainAct(l.acts || []));
-  let prerenderedLines = "";
-  if (!lines.length) {
-    prerenderedLines = `<div class="empty"><b>這首還沒有逐行時間軸</b>${s.tips.length ? `<ul class="summary">${s.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul><span>先邊看 MV 邊照上面的重點練。</span>` : "<span>應援還在整理，先看 MV 熟悉旋律，副歌跟著現場氣氛就好。</span>"}<span>歌詞請看<a href="${s.ut}" target="_blank" rel="noopener">歌ネット的正版歌詞頁</a>。</span></div>`;
-  } else {
-    prerenderedLines = lines.map((l, li) => {
-      const m = lineAct(l);
-      const acts = (s.hold ? [] : (l.acts || [])).filter(a => ACT_MAP[a] && a !== "listen");
-      const sing = s.hold ? [] : (l.sing || []);
-      const cls = "ln" + (m ? " a-" + m : "") + (acts.includes("sing") ? " sing" : "");
-      const ja = l.jp ? jaHTML(l.jp, sing) : `<span class="ph">日文歌詞（${fmt(l.time || 0)}）</span>`;
-      const zh = l.tr ? esc(l.tr) : (l.jp ? "" : `<span class="ph">中譯</span>`);
-      let callHtml = "";
-      if (l.call && !(li && lines[li - 1].call === l.call)) {
-        if (l.call.includes("反拍")) {
-          callHtml = `<span class="call call-offbeat"><svg class="ico-clap"><use href="#i-clap"/></svg><span class="call-txt">反拍拍手</span><span class="call-rhythm"><b>空</b><i>拍</i><b>空</b><i>拍</i></span></span>`;
-        } else {
-          callHtml = `<span class="call">${esc(l.call)}</span>`;
+  // ── 各歌曲獨立頁面（完全靜態預渲染標題、應援重點、手燈顏色、歌詞與 JSON-LD 結構化資料） ──
+  for (let i = 0; i < SONGS.length; i++) {
+    const s = SONGS[i];
+    const prevSong = SONGS[i - 1] || null;
+    const nextSong = SONGS[i + 1] || null;
+    const b = LYRICS.find(x => x.id === s.id);
+    const lines = withRo(s.id, (b && b.lyrics) || []);
+    const pen = penOf(s, T);
+    const tips = tipsOf(s);
+    const rest = `song/${s.id}/`;
+    const url = home + rest;
+    if (L.code === "zh") urls.push(rest);
+    const pageTitle = songTitle(s, L.code);
+    const desc = songDesc(s, L.code, pen, tips, T);
+    const dn = namePart(s, L.code);
+
+    const songLd = {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": `${url}#webpage`,
+          "url": url,
+          "name": pageTitle,
+          "description": desc,
+          "inLanguage": L.html,
+          "isPartOf": { "@type": "WebSite", "@id": `${home}#website` },
+          "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS, INSTAGRAM] },
+          "breadcrumb": { "@id": `${url}#breadcrumb` }
+        },
+        {
+          "@type": "BreadcrumbList",
+          "@id": `${url}#breadcrumb`,
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": L.name, "item": home },
+            { "@type": "ListItem", "position": 2, "name": T("全部歌曲"), "item": `${home}#songs` },
+            { "@type": "ListItem", "position": 3, "name": T("〈{0}〉應援指南", s.ja), "item": url }
+          ]
+        },
+        {
+          "@type": "MusicRecording",
+          "@id": `${url}#song`,
+          "name": s.ja,
+          "alternateName": [...new Set([s.zh, s.en, s.ro, ...(s.alias || [])])].filter(x => x && x !== s.ja),
+          "byArtist": {
+            "@type": "MusicGroup",
+            "name": "Ado",
+            "url": "https://www.youtube.com/@Ado1024"
+          },
+          "datePublished": s.date,
+          "duration": isoDuration(s.len),
+          "url": url,
+          "inLanguage": "ja",
+          "video": {
+            "@type": "VideoObject",
+            "name": T("Ado〈{0}〉官方 MV", s.ja),
+            "description": T("Ado〈{0}〉官方音樂錄影帶 MV", s.ja),
+            "thumbnailUrl": `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg`,
+            "embedUrl": `https://www.youtube.com/embed/${s.yt}`,
+            "uploadDate": s.date
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "@id": `${url}#faq`,
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": T("Ado〈{0}〉演唱會手燈推薦什麼顏色？", s.ja),
+              "acceptedAnswer": { "@type": "Answer", "text": T("Ado〈{0}〉演唱會推薦手燈顏色為：{1}。若搭配 PenlightSync 桌面 App，可透過藍牙自動切換官方手燈顏色。", s.ja, pen.text) }
+            },
+            {
+              "@type": "Question",
+              "name": T("Ado〈{0}〉演唱會有什麼應援動作或大合唱？", s.ja),
+              "acceptedAnswer": { "@type": "Answer", "text": tips.length ? tips.join(T("；")) : (s.free ? T("這首歌沒有固定應援，現場自由跟著節奏搖手燈即可。") : T("這首歌應援資料整理中，先熟悉旋律並跟隨現場氣氛。")) }
+            },
+            ...(s.lives.length ? [{
+              "@type": "Question",
+              "name": T("Ado〈{0}〉有演唱會現場音源可以聽嗎？", s.ja),
+              "acceptedAnswer": { "@type": "Answer", "text": T("有，Ado 官方已釋出〈{0}〉在歷年演唱會（{1}）的官方現場音源。", s.ja, s.lives.map(l => l.concert).join(T("、"))) }
+            }] : [])
+          ]
         }
-      }
-      return `<div class="${cls}" tabindex="0"><div class="ja" lang="ja">${ja}</div>${zh ? `<div class="zh">${zh}</div>` : ""}<div class="acts">${acts.map(icon).join("")}</div>${callHtml}</div>`;
-    }).join("");
-  }
+      ]
+    };
 
-  const subTitleHtml = s.zh !== s.ja ? `<span lang="zh-Hant-TW">${esc(s.zh)}</span>` : (s.en ? `<span lang="en">${esc(s.en)}</span>` : "");
-  const cueHowText = s.free
-    ? "沒有固定應援，跟著現場氣氛就好。"
-    : (s.hold ? "先熟悉旋律，跟著現場氣氛就好。" : (lines.length ? "播放後，這裡會顯示現在要做的動作。" : "這首還沒有逐行時間軸，照歌詞欄的重點練。"));
+    let songHtml = page(tpl, L, T, { rest, base: "../../", song: s, title: pageTitle, desc, ld: songLd });
 
-  const lives = s.lives;
-  const liveRows = lives.length ? `<dt id="cardLiveDt">現場音源</dt><dd id="cardLiveDd">${lives.map(l => `<a href="https://www.youtube.com/watch?v=${l.yt}" class="live-chip" target="_blank" rel="noopener">${esc(l.concert)} ↗</a>`).join(" ")}</dd>` : `<dt id="cardLiveDt" hidden>現場音源</dt><dd id="cardLiveDd" hidden></dd>`;
+    // 靜態預渲染歌詞行與應援標記；第二行：中文版放中譯、英文版放羅馬拼音、日文版不放
+    const mainAct = acts => acts.find(a => a !== "listen") || (acts.length ? "listen" : "");
+    const lineAct = l => ((l.sing && l.sing.length) ? "sing" : mainAct((l.acts || []).filter(a => a !== "sing")) || mainAct(l.acts || []));
+    const subLine = l => (L.code === "en" ? l.ro || "" : L.code === "ja" ? "" : l.tr || "");
+    let prerenderedLines = "";
+    if (!lines.length) {
+      prerenderedLines = `<div class="empty"><b>${T("這首還沒有逐行時間軸")}</b>${tips.length ? `<ul class="summary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul><span>${T("先邊看 MV 邊照上面的重點練。")}</span>` : `<span>${T("應援還在整理，先看 MV 熟悉旋律，副歌跟著現場氣氛就好。")}</span>`}<span>${T('歌詞請看<a href="{0}" target="_blank" rel="noopener">歌ネット的正版歌詞頁</a>。', s.ut)}</span></div>`;
+    } else {
+      prerenderedLines = lines.map((l, li) => {
+        const m = lineAct(l);
+        const acts = (s.hold ? [] : (l.acts || [])).filter(a => ACT_MAP[a] && a !== "listen");
+        const sing = s.hold ? [] : (l.sing || []);
+        const cls = "ln" + (m ? " a-" + m : "") + (acts.includes("sing") ? " sing" : "");
+        const jp = isNote(l.jp) ? T(l.jp.trim()) : l.jp;
+        const ja = jp ? jaHTML(jp, sing) : `<span class="ph">${T("日文歌詞（{0}）", fmt(l.time || 0))}</span>`;
+        const sub = subLine(l);
+        const zh = sub ? esc(sub) : (l.jp || L.code !== "zh" ? "" : `<span class="ph">中譯</span>`);
+        let callHtml = "";
+        if (l.call && !(li && lines[li - 1].call === l.call)) {
+          if (isOffbeat(l.call)) {
+            callHtml = `<span class="call call-offbeat"><svg class="ico-clap"><use href="#i-clap"/></svg><span class="call-txt">${T("反拍拍手")}</span><span class="call-rhythm"><b>${T("空")}</b><i>${T("拍")}</i><b>${T("空")}</b><i>${T("拍")}</i></span></span>`;
+          } else {
+            callHtml = `<span class="call">${esc(T(l.call))}</span>`;
+          }
+        }
+        return `<div class="${cls}" tabindex="0"><div class="ja" lang="ja">${ja}</div>${zh ? `<div class="zh"${L.code === "en" ? ' lang="ja-Latn"' : ""}>${zh}</div>` : ""}<div class="acts">${acts.map(icon).join("")}</div>${callHtml}</div>`;
+      }).join("");
+    }
 
-  const akaText = [...new Set([...otherNames(s), s.en && s.en !== s.ja ? s.en : ""].filter(Boolean))].join("・");
-  const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="歌曲應援速覽"><h3 class="card-title">〈<span id="cardJa">${esc(s.ja)}${s.zh !== s.ja ? `（${esc(s.zh)}）` : ""}</span>〉應援速覽</h3><dl class="card-dl"><dt id="cardAkaDt"${akaText ? "" : " hidden"}>也叫</dt><dd id="cardAkaDd"${akaText ? "" : " hidden"}>${esc(akaText)}</dd><dt id="cardTieDt"${s.tie ? "" : " hidden"}>出處</dt><dd id="cardTieDd"${s.tie ? "" : " hidden"}>${esc(s.tie)}</dd><dt>推薦手燈</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>應援重點</dt><dd id="cardTips">${esc(tips.length ? tips.join("；") : (s.free ? "沒有固定應援，自由跟著節奏搖手燈。" : "應援還在整理，先熟悉旋律。"))}</dd><dt>官方 MV</dt><dd><a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd>${liveRows}</dl></section>`;
+    const subTitleHtml = dn ? `<span lang="${L.code === "zh" && s.zh !== s.ja ? "zh-Hant-TW" : "en"}">${esc(dn)}</span>` : "";
+    const cueHowText = s.free
+      ? T("沒有固定應援，跟著現場氣氛就好。")
+      : (s.hold ? T("先熟悉旋律，跟著現場氣氛就好。") : (lines.length ? T("播放後，這裡會顯示現在要做的動作。") : T("這首還沒有逐行時間軸，照歌詞欄的重點練。")));
 
-  // 轉換歌曲頁面的 HTML：預設展示歌曲 view，隱藏 home view，並將標題、螢光棒、歌詞填入靜態標籤
-  songHtml = songHtml
-    .replace('<body>', '<body class="on-song">')
-    .replace('<div class="view home" id="home">', '<div class="view home" id="home" hidden>')
-    .replace('<div class="view" id="song" hidden>', '<div class="view" id="song">')
-    .replace('<h1 id="sTitle" lang="ja"></h1>', `<h1 id="sTitle" lang="ja">${esc(s.ja)}${subTitleHtml}</h1>`)
-    .replace('<span class="pen" id="pen"></span>', `<span class="pen" id="pen">螢光棒${penDots(s)}<b>${esc(pen.shortText)}</b></span>`)
-    .replace('<div class="how" id="cueHow"></div>', `<div class="how" id="cueHow">${esc(cueHowText)}</div>`)
-    .replace('<ul class="summary" id="cueSummary"></ul>', `<ul class="summary" id="cueSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`)
-    .replace('<div id="lines"></div>', `<div id="lines">${prerenderedLines}</div>`)
-    .replace(/<section class="song-guide-card" id="songGuideCard"[^>]*>[\s\S]*?<\/section>/, cardHtml);
+    const lives = s.lives;
+    const liveRows = lives.length ? `<dt id="cardLiveDt">${T("現場音源")}</dt><dd id="cardLiveDd">${lives.map(l => `<a href="https://www.youtube.com/watch?v=${l.yt}" class="live-chip" target="_blank" rel="noopener">${esc(l.concert)} ↗</a>`).join(" ")}</dd>` : `<dt id="cardLiveDt" hidden>${T("現場音源")}</dt><dd id="cardLiveDd" hidden></dd>`;
 
-  if (tips.length > 0) {
+    const akaText = L.code === "zh" ? [...new Set([...otherNames(s), s.en && s.en !== s.ja ? s.en : ""].filter(Boolean))].join("・") : L.code === "en" ? (s.ro && s.ro !== s.en ? s.ro : "") : "";
+    const tie = s.tie ? T(s.tie) : "";
+    const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="${esc(T("歌曲應援速覽"))}"><h3 class="card-title">${T("〈{0}〉應援速覽", `<span id="cardJa">${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}</span>`)}</h3><dl class="card-dl"><dt id="cardAkaDt"${akaText ? "" : " hidden"}>${T("也叫")}</dt><dd id="cardAkaDd"${akaText ? "" : " hidden"}>${esc(akaText)}</dd><dt id="cardTieDt"${tie ? "" : " hidden"}>${T("出處")}</dt><dd id="cardTieDd"${tie ? "" : " hidden"}>${esc(tie)}</dd><dt>${T("推薦手燈")}</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>${T("應援重點")}</dt><dd id="cardTips">${esc(tips.length ? tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。")))}</dd><dt>${T("官方 MV")}</dt><dd><a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">${T("在 YouTube 開啟 ↗")}</a></dd>${liveRows}</dl></section>`;
+
+    // 轉換歌曲頁面的 HTML：預設展示歌曲 view，隱藏 home view，並將標題、螢光棒、歌詞填入靜態標籤
     songHtml = songHtml
-      .replace('<details class="vopt tips-opt" id="tipsOpt" hidden>', '<details class="vopt tips-opt" id="tipsOpt">')
-      .replace('<ul class="summary" id="tipsSummary"></ul>', `<ul class="summary" id="tipsSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`);
-  }
+      .replace('<body>', '<body class="on-song">')
+      .replace('<div class="view home" id="home">', '<div class="view home" id="home" hidden>')
+      .replace('<div class="view" id="song" hidden>', '<div class="view" id="song">')
+      .replace('<h1 id="sTitle" lang="ja"></h1>', `<h1 id="sTitle" lang="ja">${esc(s.ja)}${subTitleHtml}</h1>`)
+      .replace('<span class="pen" id="pen"></span>', `<span class="pen" id="pen">${T("螢光棒")}${penDots(s)}<b>${esc(pen.shortText)}</b></span>`)
+      .replace('<div class="how" id="cueHow"></div>', `<div class="how" id="cueHow">${esc(cueHowText)}</div>`)
+      .replace('<ul class="summary" id="cueSummary"></ul>', `<ul class="summary" id="cueSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`)
+      .replace('<div id="lines"></div>', `<div id="lines">${prerenderedLines}</div>`)
+      .replace(/<section class="song-guide-card" id="songGuideCard"[^>]*>[\s\S]*?<\/section>/, cardHtml);
 
-  if (lives.length > 0) {
-    const liveListHtml = lives.map(l => `<li><a href="https://www.youtube.com/watch?v=${l.yt}" target="_blank" rel="noopener"><span>${esc(l.concert)}</span><svg class="ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></li>`).join("");
-    songHtml = songHtml
-      .replace('<details class="vopt live-opt" id="liveOpt" hidden>', '<details class="vopt live-opt" id="liveOpt">')
-      .replace('<ul class="live-menu-list" id="liveList"></ul>', `<ul class="live-menu-list" id="liveList">${liveListHtml}</ul>`)
-      .replace('<a id="liveLink" target="_blank" rel="noopener" hidden>現場音源 ↗</a>', `<a id="liveLink" href="https://www.youtube.com/watch?v=${lives[0].yt}" target="_blank" rel="noopener">現場音源（${esc(lives[0].concert)}）↗</a>`);
-  }
+    if (tips.length > 0) {
+      songHtml = songHtml
+        .replace('<details class="vopt tips-opt" id="tipsOpt" hidden>', '<details class="vopt tips-opt" id="tipsOpt">')
+        .replace('<ul class="summary" id="tipsSummary"></ul>', `<ul class="summary" id="tipsSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`);
+    }
 
-  // 上一首／下一首連結預渲染
-  if (prevSong) {
-    songHtml = songHtml.replace('<a class="ib" id="prevSong" aria-label="上一首">', `<a class="ib" id="prevSong" href="song/${prevSong.id}/" data-id="${prevSong.id}" aria-label="上一首：${esc(prevSong.ja)}">`);
-  }
-  if (nextSong) {
-    songHtml = songHtml.replace('<a class="ib" id="nextSong" aria-label="下一首">', `<a class="ib" id="nextSong" href="song/${nextSong.id}/" data-id="${nextSong.id}" aria-label="下一首：${esc(nextSong.ja)}">`);
-  }
+    if (lives.length > 0) {
+      const liveListHtml = lives.map(l => `<li><a href="https://www.youtube.com/watch?v=${l.yt}" target="_blank" rel="noopener"><span>${esc(l.concert)}</span><svg class="ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></li>`).join("");
+      songHtml = songHtml
+        .replace('<details class="vopt live-opt" id="liveOpt" hidden>', '<details class="vopt live-opt" id="liveOpt">')
+        .replace('<ul class="live-menu-list" id="liveList"></ul>', `<ul class="live-menu-list" id="liveList">${liveListHtml}</ul>`)
+        .replace(/<a id="liveLink" target="_blank" rel="noopener" hidden>[^<]*<\/a>/, `<a id="liveLink" href="https://www.youtube.com/watch?v=${lives[0].yt}" target="_blank" rel="noopener">${esc(T("現場音源（{0}）↗", lives[0].concert))}</a>`);
+    }
 
-  write(`song/${s.id}/index.html`, songHtml);
+    // 上一首／下一首連結預渲染
+    if (prevSong) songHtml = songHtml.replace(/<a class="ib" id="prevSong" aria-label="[^"]*">/, `<a class="ib" id="prevSong" href="song/${prevSong.id}/" data-id="${prevSong.id}" aria-label="${esc(T("上一首：{0}", prevSong.ja))}">`);
+    if (nextSong) songHtml = songHtml.replace(/<a class="ib" id="nextSong" aria-label="[^"]*">/, `<a class="ib" id="nextSong" href="song/${nextSong.id}/" data-id="${nextSong.id}" aria-label="${esc(T("下一首：{0}", nextSong.ja))}">`);
+
+    write(`${L.dir}song/${s.id}/index.html`, songHtml);
+  }
 }
+LANGS.forEach(renderLang);
+for (const [code, text] of Object.entries(i18nFiles)) write(`i18n/${code}.js`, text);
 
 // 找不到的網址回首頁
-write("404.html", `<!doctype html><html lang="zh-Hant-TW"><meta charset="utf-8"><meta name="robots" content="noindex"><title>找不到這一頁｜${NAME}</title><meta http-equiv="refresh" content="0;url=${SITE}"><p>找不到這一頁，<a href="${SITE}">回 ${NAME} 首頁</a>。</p></html>\n`);
+write("404.html", `<!doctype html><html lang="zh-Hant-TW"><meta charset="utf-8"><meta name="robots" content="noindex"><title>找不到這一頁｜Ado 應援指南</title><meta http-equiv="refresh" content="0;url=${SITE}"><p>找不到這一頁，<a href="${SITE}">回 Ado 應援指南首頁</a>。 Page not found — <a href="${SITE}en/">Ado Fan Chant Guide</a>｜<a href="${SITE}jp/">Ado 応援ガイド</a></p></html>\n`);
 
-// 網站地圖
+// 網站地圖：每個網址列出三種語言版本（xhtml:link），Google 才知道它們是同一頁的不同語言
 // lastmod 用 CHANGELOG 最新一版的日期：只有真的改版才變，Google 才會相信這個日期
 const today = (read("CHANGELOG.md").match(/^## v\d+\.\d+\.\d+ — (\d{4}-\d{2}-\d{2})/m) || [])[1] || new Date().toISOString().slice(0, 10);
+const alts = rest => LANGS.map(x => `    <xhtml:link rel="alternate" hreflang="${x.hreflang}" href="${SITE}${x.dir}${rest}"/>`).concat(`    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${rest}"/>`).join("\n");
 write(
   "sitemap.xml",
-  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
-    .map(
-      u =>
-        `  <url>\n    <loc>${u}</loc>\n    <lastmod>${today}</lastmod>\n  </url>`
-    )
-    .join("\n")}\n</urlset>\n`
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${LANGS.flatMap(L => urls.map(
+    rest => `  <url>\n    <loc>${SITE}${L.dir}${rest}</loc>\n    <lastmod>${today}</lastmod>\n${alts(rest)}\n  </url>`
+  )).join("\n")}\n</urlset>\n`
 );
 
 // ── 產生給 AI Agents / LLMs 的標準說明文件 (llms.txt 與 llms-full.txt) ──
@@ -497,6 +589,7 @@ function generateLlmsTxt() {
     `# Ado 應援指南 (Ado Concert Fan Chant & Penlight Guide)`,
     ``,
     `> 非官方粉絲製作的 Ado 演唱會應援指南網站：收錄 ${SONGS.length} 首歌曲的現場應援教學、官方 MV 同步日中歌詞、推薦手燈螢光棒顏色、拍手段落與大合唱重點。不依照任何單一場次的歌單，安心預習不暴雷。`,
+    `> English: ${SITE}en/ ・ 日本語: ${SITE}jp/`,
     ``,
     `網站首頁：${SITE}`,
     `完整歌詞與應援全文檔：${SITE}llms-full.txt`,
@@ -620,4 +713,8 @@ if (fs.existsSync(path.join(root, "assets/favicon.ico"))) {
 write("CNAME", "ado.kuti.cc\n");
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
-console.log(`輸出到 ${out}：首頁＋${SONGS.length} 首歌頁、${Object.keys(lyIndex).length} 首歌詞檔、sitemap.xml、robots.txt、llms.txt、llms-full.txt、404.html`);
+console.log(`輸出到 ${out}：中文、英文（en/）、日文（jp/）各首頁＋${SONGS.length} 首歌頁、${Object.keys(lyIndex).length} 首歌詞檔${Object.keys(ROMAJI).length ? `（${Object.keys(ROMAJI).length} 首有羅馬拼音）` : "（沒有 song-romaji.json，英文版不放羅馬拼音）"}、sitemap.xml、robots.txt、llms.txt、llms-full.txt、404.html`);
+for (const code of ["en", "ja"]) {
+  if (missing[code].size) console.log(`⚠ ${code} 還沒翻譯 ${missing[code].size} 句（畫面先顯示中文）：${[...missing[code]].slice(0, 8).join("｜")}${missing[code].size > 8 ? "…" : ""}`);
+}
+if (process.env.I18N_MISSING) fs.writeFileSync(process.env.I18N_MISSING, JSON.stringify(Object.fromEntries(Object.entries(missing).map(([k, v]) => [k, [...v]])), null, 1));

@@ -30,6 +30,10 @@ jobs:
         run: node scripts/check-data.mjs
       - name: Test karaoke
         run: node scripts/test-karaoke.mjs
+      # 英文版歌詞下面的羅馬拼音：裝 kuromoji（日文斷詞）產生 song-romaji.json；失敗的話照常建置，只是英文版不放羅馬拼音
+      - name: Romaji
+        continue-on-error: true
+        run: npm install --no-save --no-package-lock kuromoji@0.1.2 && node tools/romaji/romaji.mjs
       - name: Build
         run: node scripts/build.mjs dist
       - uses: actions/configure-pages@v5

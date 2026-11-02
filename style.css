@@ -1810,6 +1810,12 @@ button.pop-item > span { flex: 1 1 auto; }
 .foot-legal { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px 24px; padding-top: 20px; border-top: 1px solid color-mix(in srgb, var(--foot-bg), var(--text) 10%); color: var(--faint); font-size: 12px; }
 .foot-legal-text { display: flex; flex-wrap: wrap; gap: 2px 20px; }
 .foot-legal .build { flex: none; font-variant-numeric: tabular-nums; }
+/* 語言切換：頁尾底列，目前的語言加粗 */
+.lang-switch { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-left: auto; }
+.lang-switch a { color: var(--faint); text-decoration: none; }
+.lang-switch a[aria-current="true"] { color: var(--text); font-weight: 600; }
+@media (hover: hover) { .lang-switch a:hover { color: var(--text); text-decoration: underline; } }
+.lang-switch a:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; border-radius: 4px; }
 @media (max-width: 860px) {
   .foot-top { grid-template-columns: minmax(0, 1fr); }
   .foot-links { justify-content: start; grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -1826,6 +1832,7 @@ button.pop-item > span { flex: 1 1 auto; }
   .foot-contact { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; column-gap: 20px; }
   .foot-contact .foot-h { flex-basis: 100%; }
   .foot-legal { flex-direction: column; align-items: flex-start; }
+  .lang-switch { margin-left: 0; }
   .foot-legal-text { flex-direction: column; }
 }
 
