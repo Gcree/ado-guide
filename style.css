@@ -1795,8 +1795,12 @@ button.pop-item > span { flex: 1 1 auto; }
 .foot-facts li { position: relative; padding-left: 14px; }
 .foot-facts li::before { content: ""; position: absolute; left: 2px; top: .7em; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .7; }
 .foot-socials { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-.foot-social { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--foot-bg), var(--text) 7%); color: var(--faint); text-decoration: none; transition: var(--tr-color); }
+/* 站長社群連結：品牌圖示＋帳號。圖示來自 Simple Icons（CC0），檔案原樣放在 assets/icons/，用 mask 上色才能跟著淺色／深色換顏色 */
+.foot-social { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 14px 0 12px; border-radius: 999px; background: color-mix(in srgb, var(--foot-bg), var(--text) 7%); color: var(--faint); text-decoration: none; transition: var(--tr-color); }
 .foot-social b { color: var(--text); font-weight: 600; }
+.foot-social .si { flex: none; width: 16px; height: 16px; background: currentColor; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
+.foot-social .si-threads { -webkit-mask-image: url(assets/icons/threads.svg); mask-image: url(assets/icons/threads.svg); }
+.foot-social .si-ig { -webkit-mask-image: url(assets/icons/instagram.svg); mask-image: url(assets/icons/instagram.svg); }
 @media (hover: hover) { .foot-social:hover { background: color-mix(in srgb, var(--foot-bg), var(--text) 12%); color: var(--text); } }
 .foot-social:active { opacity: .55; }
 .foot-social:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }

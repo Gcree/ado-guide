@@ -39,7 +39,7 @@ songs.js                    ← 歌曲資料表（歌單 SONGS、歌ネット編
 song-lyrics.js              ← 每首歌的同步日文歌詞、繁中翻譯與逐行應援動作
 CHANGELOG.md                ← 更新日誌；網站頁尾的「更新日誌」直接讀這個檔案
 manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示與顏色
-assets/                     ← 網站圖示（favicon、主畫面圖示）與分享預覽圖 og.jpg
+assets/                     ← 網站圖示（favicon、主畫面圖示）、分享預覽圖 og.jpg；icons/ 是頁尾的 Threads、IG 圖示（Simple Icons，CC0）
 scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致性、動作合法性、時間順序等
 scripts/build.mjs           ← 建置：每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
