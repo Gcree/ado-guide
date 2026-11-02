@@ -1469,8 +1469,8 @@ html:not(.on-song) #fx { display: none; }
 .pop-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font-size: 16px; text-align: left; text-decoration: none; cursor: pointer; transition: var(--tr-color); }
 .pop-item.tint { color: var(--tint); }
 .pop-meta { color: var(--faint); font-size: 13px; }
-button.pop-item { justify-content: flex-start; }
-button.pop-item > span { flex: 1 1 auto; }
+.pop-item[role="menuitemradio"] { justify-content: flex-start; }
+.pop-item[role="menuitemradio"] > span { flex: 1 1 auto; }
 .pop-check, .pop-ico { flex: none; width: 18px; height: 18px; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .pop-check { stroke: var(--tint); stroke-width: 2.4; opacity: 0; transform: scale(.5); transition: opacity var(--dur-hover) var(--ease), transform var(--dur-base) var(--ease-spring); }
 .pop-ico { stroke: var(--faint); stroke-width: 2.1; }
@@ -1794,7 +1794,8 @@ button.pop-item > span { flex: 1 1 auto; }
 .site-foot { position: relative; z-index: 1; background: var(--foot-bg); color: var(--text); font-size: 13px; line-height: 1.5; }
 .site-foot .col { max-width: 1080px; padding: 48px var(--home-pad) max(24px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 40px; }
 /* 左品牌＋說明、右三組連結；窄畫面上下疊 */
-.foot-top { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px 64px; }
+/* 桌機：品牌＋四組連結排成 5 欄（.foot-links 用 display: contents 讓四組直接當 .foot-top 的欄） */
+.foot-top { display: grid; grid-template-columns: minmax(240px, 1fr) repeat(4, minmax(0, auto)); gap: 32px 40px; }
 .foot-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .foot-name { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; }
 .foot-name svg { width: 22px; height: 22px; }
@@ -1807,7 +1808,7 @@ button.pop-item > span { flex: 1 1 auto; }
 .foot-nav .si { flex: none; width: 16px; height: 16px; background: currentColor; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
 .foot-nav .si-threads { -webkit-mask-image: url(assets/icons/threads.svg); mask-image: url(assets/icons/threads.svg); }
 .foot-nav .si-ig { -webkit-mask-image: url(assets/icons/instagram.svg); mask-image: url(assets/icons/instagram.svg); }
-.foot-links { display: grid; grid-template-columns: repeat(4, minmax(0, auto)); justify-content: space-between; gap: 28px 32px; }
+.foot-links { display: contents; }
 .foot-nav { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 .foot-h { padding-bottom: 4px; font-weight: 700; }
 .foot-nav a, .foot-nav button { display: inline-flex; align-items: center; min-height: 36px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--faint); font: inherit; text-align: left; text-decoration: none; text-underline-offset: 3px; cursor: pointer; transition: var(--tr-color); }
@@ -1824,9 +1825,9 @@ button.pop-item > span { flex: 1 1 auto; }
 .lang-switch a[aria-current="true"] { color: var(--text); font-weight: 600; }
 @media (hover: hover) { .lang-switch a:hover { color: var(--text); text-decoration: underline; } }
 .lang-switch a:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; border-radius: 4px; }
-@media (max-width: 860px) {
+@media (max-width: 960px) {
   .foot-top { grid-template-columns: minmax(0, 1fr); }
-  .foot-links { justify-content: start; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .foot-links { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 32px; }
 }
 
 /* 窄畫面：小搜尋出現時收起網站名；再窄一點，手燈 App 只留圖示 */
