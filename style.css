@@ -1794,7 +1794,8 @@ button.pop-item > span { flex: 1 1 auto; }
 .foot-facts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; max-width: 30em; color: var(--faint); font-size: 12px; line-height: 1.6; }
 .foot-facts li { position: relative; padding-left: 14px; }
 .foot-facts li::before { content: ""; position: absolute; left: 2px; top: .7em; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .7; }
-.foot-social { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; margin-top: 4px; padding: 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--foot-bg), var(--text) 7%); color: var(--faint); text-decoration: none; transition: var(--tr-color); }
+.foot-socials { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.foot-social { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 14px; border-radius: 999px; background: color-mix(in srgb, var(--foot-bg), var(--text) 7%); color: var(--faint); text-decoration: none; transition: var(--tr-color); }
 .foot-social b { color: var(--text); font-weight: 600; }
 @media (hover: hover) { .foot-social:hover { background: color-mix(in srgb, var(--foot-bg), var(--text) 12%); color: var(--text); } }
 .foot-social:active { opacity: .55; }

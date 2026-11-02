@@ -12,6 +12,7 @@ const SITE = "https://ado.kuti.cc/";
 const NAME = "Ado 應援指南";
 // 站長的 Threads：結構化資料的 sameAs 和頁尾連結都用這個，讓 Google 知道網站和帳號是同一個來源
 const THREADS = "https://www.threads.com/@kiut._no";
+const INSTAGRAM = "https://www.instagram.com/ku.n3c/";
 // Google Search Console 的 HTML 標記驗證碼（只放在首頁）；另外根目錄的 googlea6b361c7e6e7d11c.html 是 HTML 檔案驗證，兩個都不要刪
 const GSC_VERIFY = "YLXviPdOfiLpoPdirdp39Tf7T0PrqSdDVMpdkZnxveg";
 // Google Analytics 4 評估 ID（若有 ID 請替換成自己的 G-XXXXXXXXXX，留空 "" 則不載入 GA）
@@ -252,7 +253,7 @@ const homeLd = {
       "@id": `${SITE}#author`,
       "name": "Kuti",
       "url": SITE,
-      "sameAs": [THREADS, "https://github.com/Gcree"]
+      "sameAs": [THREADS, INSTAGRAM, "https://github.com/Gcree"]
     },
     {
       "@type": "ItemList",
@@ -323,7 +324,7 @@ for (let i = 0; i < SONGS.length; i++) {
         "description": desc,
         "inLanguage": "zh-Hant-TW",
         "isPartOf": { "@type": "WebSite", "@id": `${SITE}#website` },
-        "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS] },
+        "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS, INSTAGRAM] },
         "breadcrumb": { "@id": `${url}#breadcrumb` }
       },
       {
