@@ -4,7 +4,7 @@
 
 非官方粉絲製作的 Ado 演唱會應援指南網站。看著官方 MV，跟著歌詞知道哪裡拍手、哪裡喊、哪裡跟著唱、哪裡安靜聽。不照任何一場的歌單，不會暴雷。
 
-**👉 打開網站：<https://ado.kuti.cc/>**
+**👉 打開網站：<https://ado.kuti.cc/>**（English：<https://ado.kuti.cc/en/>・日本語：<https://ado.kuti.cc/jp/>）
 
 - **77 首歌**：原創曲和翻唱曲都有，每首有自己的網址，可以直接分享。
 - **同步歌詞**：日文（含假名）和繁體中文翻譯，唱到哪一句亮哪一句；觀眾要唱的字、喊的聲另外標色。
@@ -37,11 +37,13 @@ style.css                   ← 樣式：顏色、排版、手機版
 app.js                      ← 所有互動程式（播放、歌詞捲動、搜尋、燈光效果）
 songs.js                    ← 歌曲資料表（歌單 SONGS、歌ネット編號 UT、螢光棒 PEN、拍點 BEAT、副歌高潮 CLIMAX）
 song-lyrics.js              ← 每首歌的同步日文歌詞、繁中翻譯與逐行應援動作
+i18n.js                     ← 英文、日文版的介面翻譯（key 是中文原文）；建置時拆成 i18n/en.js、i18n/ja.js
 CHANGELOG.md                ← 更新日誌；網站頁尾的「更新日誌」直接讀這個檔案
 manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示與顏色
 assets/                     ← 網站圖示（favicon、主畫面圖示）、分享預覽圖 og.jpg；icons/ 是頁尾的 Threads、IG 圖示（Simple Icons，CC0）
 scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致性、動作合法性、時間順序等
-scripts/build.mjs           ← 建置：每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
+scripts/build.mjs           ← 建置：中文、英文（en/）、日文（jp/）各一份首頁與每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
+tools/romaji/               ← 英文版歌詞的羅馬拼音：建置前用 kuromoji 自動產生 song-romaji.json（不進版控），讀錯的寫在 overrides.json
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
 README.md                   ← 這份說明
 google….html               ← Google Search Console 的擁有權驗證檔，不要刪
@@ -62,6 +64,14 @@ google….html               ← Google Search Console 的擁有權驗證檔，�
 | `songs.js` | `CLIMAX` | 副歌高潮噴彩帶的時間 |
 
 `song-lyrics.js` 是唯一要改的歌詞檔，`lyrics/` 由建置自動產生，不用手動改。每一行是 `{ time, jp, tr, acts, sing, call }`：`time` 是 MV 秒數，`acts` 是這行的動作，`sing` 是觀眾要唱的字，`call` 是喊聲。
+
+### 多語言（英文、日文）
+
+- 網址：中文在根目錄，英文在 `/en/`，日文在 `/jp/`（語言代碼照標準寫 `ja`）。每一頁都有 hreflang 告訴 Google 三種語言的對應頁，網站地圖也列出三種語言。
+- 介面文字：`index.html`、`app.js` 照常寫中文；`app.js` 裡畫面上的字用 `T("中文")` 包起來，翻譯寫在 `i18n.js`（`{0}`、`{1}` 是要填進去的數字或歌名）。應援重點、喊聲、出處這些資料也用中文原文當 key 翻譯。
+- 新增或改了中文字之後跑 `node scripts/build.mjs dist`，最後會列出英文、日文還沒翻譯的句子（畫面上先顯示中文），把它們補進 `i18n.js` 就好。
+- 歌詞：英文版歌詞下面放羅馬拼音（GitHub Actions 建置前自動產生，本機要看的話先跑 `npm install --no-save kuromoji@0.1.2 && node tools/romaji/romaji.mjs`）；日文版只放日文原文。
+- 搜尋標題、說明：在 `scripts/build.mjs` 的 `songTitle`、`songDesc` 和首頁的 `COPY` 裡，三種語言分開寫。
 
 ## 2. 在自己電腦上看
 
