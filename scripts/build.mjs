@@ -466,7 +466,7 @@ function renderLang(L) {
             "description": T("Ado〈{0}〉官方音樂錄影帶 MV", s.ja),
             "thumbnailUrl": `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg`,
             "embedUrl": `https://www.youtube.com/embed/${s.yt}`,
-            "uploadDate": s.date
+            "uploadDate": `${s.date}T00:00:00+09:00`
           }
         },
         {
