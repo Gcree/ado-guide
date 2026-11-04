@@ -198,6 +198,16 @@
   renderList();
   lyLoaded.then(renderList);
 
+  // 「隨機練一首」：按下去那一刻才抽（首頁的點擊處理接著用 data-id 換頁）；只抽有應援資料的歌，不抽剛剛練過的那首
+  const randomLink = document.getElementById("randomLink");
+  const pickRandom = () => {
+    const last = recentIds()[0], pool = SONGS.filter(s => !s.hold && s.tips.length && s.id !== last), s = pool[Math.floor(Math.random() * pool.length)];
+    if (!s) return;
+    randomLink.dataset.id = s.id;
+    randomLink.href = `song/${s.id}/`;
+  };
+  ["pointerdown", "keydown", "click"].forEach(ev => randomLink.addEventListener(ev, e => { if (ev !== "keydown" || e.key === "Enter") pickRandom(); }));
+
   // 書架：推薦先練的 6 首，6 種應援動作全包；下方進度條跟著捲動走，箭頭到底就停用
   const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].filter(id => BY[id]);
   const shelf = document.getElementById("shelf"), shelfNav = document.getElementById("shelfNav"), shelfThumb = document.getElementById("shelfThumb");
@@ -878,7 +888,7 @@
   if (LYV && "serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register(ROOT + "sw.js").catch(() => {}));
 
   function openSong(s, t = 0) {
-    quizStop();
+    quizStop(); closeSheets();
     S = s; curKey = null; hideAlert(); START = t; remember(s.id);
     // 上一首播不了留下的錯誤訊息，換歌時先收掉；播放器還沒好時保留「正在載入」那類提示
     if (ready) videoMsg("");
@@ -903,11 +913,8 @@
     const p = penOf(s);
     document.getElementById("pen").innerHTML = T("螢光棒") + p.keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")
       + `<b>${p.keys.map(penName).join(T("、"))}${p.none ? T("（沒指定）") : ""}</b>`;
-    const seq = ordered(), at = seq.indexOf(s);
-    [["prevSong", seq[at - 1], T("上一首")], ["nextSong", seq[at + 1], T("下一首")]].forEach(([id, x, word]) => {
-      const a = document.getElementById(id);
-      if (x) { a.setAttribute("href", songHref(x.id)); a.setAttribute("aria-label", `${word}：${x.ja}`); } else a.removeAttribute("href");
-    });
+    shuffleSeen(s);
+    paintNav(s);
     fillSong();
     document.querySelectorAll('[data-tool="click"]').forEach(b => b.disabled = !BEAT[s.id]);
     loadVideo();
@@ -1347,7 +1354,41 @@
   document.querySelectorAll("#moreDlg button:not([aria-pressed]), #moreDlg a, #toolImmersiveMenuBtn, #toolPipMenuBtn").forEach(el => el.addEventListener("click", () => setTimeout(closeSheets, 0)));
 
   // ── 練習工具 ──
-  const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", lamp: store.get("tool-lamp") === "1" };
+  const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", shuffle: store.get("tool-shuffle") === "1", lamp: store.get("tool-lamp") === "1" };
+
+  // ── 隨機播放：下一首（按鈕、播完自動下一首、歌詞小窗的下一首）照洗過的順序走，全部輪過一次才會重複；上一首回到剛剛聽的那首 ──
+  // 洗好的順序和聽過的紀錄只記在這個分頁（sessionStorage），關掉分頁就重來
+  const shufList = k => { try { return JSON.parse(session.get(k) || "[]").filter(id => BY[id]); } catch (e) { return []; } };
+  function shuffleNext(s) {
+    let q = shufList("shuffle-queue").filter(id => id !== s.id);
+    if (!q.length) {
+      q = SONGS.map(x => x.id).filter(id => id !== s.id);
+      for (let i = q.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [q[i], q[j]] = [q[j], q[i]]; }
+    }
+    session.set("shuffle-queue", JSON.stringify(q));
+    return BY[q[0]];
+  }
+  // 聽過的順序：往回走（按上一首）時退一格，不然接在後面
+  function shuffleSeen(s) {
+    if (!TOOL.shuffle) return;
+    const h = shufList("shuffle-hist");
+    if (h[h.length - 2] === s.id) h.pop(); else if (h[h.length - 1] !== s.id) h.push(s.id);
+    session.set("shuffle-hist", JSON.stringify(h.slice(-80)));
+    session.set("shuffle-queue", JSON.stringify(shufList("shuffle-queue").filter(id => id !== s.id)));
+  }
+  function navTargets(s) {
+    if (!TOOL.shuffle) { const seq = ordered(), at = seq.indexOf(s); return [seq[at - 1], seq[at + 1]]; }
+    const h = shufList("shuffle-hist");
+    return [h[h.length - 1] === s.id ? BY[h[h.length - 2]] : null, shuffleNext(s)];
+  }
+  function paintNav(s) {
+    const [prev, next] = navTargets(s);
+    [["prevSong", prev, T("上一首")], ["nextSong", next, TOOL.shuffle ? T("下一首（隨機）") : T("下一首")]].forEach(([id, x, word]) => {
+      const a = document.getElementById(id);
+      if (x) { a.setAttribute("href", songHref(x.id)); a.setAttribute("aria-label", `${word}：${x.ja}`); } else a.removeAttribute("href");
+    });
+    document.getElementById("nextSong").classList.toggle("is-shuffle", TOOL.shuffle);
+  }
   const paintTools = () => document.querySelectorAll("[data-tool]").forEach(b => b.setAttribute("aria-pressed", TOOL[b.dataset.tool]));
 
   // ── 沉浸模式 (Folia Immersive Stage) ──
@@ -1905,6 +1946,11 @@
     }
     TOOL[k] = !TOOL[k]; store.set("tool-" + k, TOOL[k] ? "1" : null); paintTools();
     if (k === "click" && TOOL.click) clickCtx();
+    if (k === "shuffle" && S) {
+      if (TOOL.shuffle) { session.set("shuffle-hist", "[]"); session.set("shuffle-queue", "[]"); shuffleSeen(S); }
+      paintNav(S);
+      toast(TOOL.shuffle ? T("隨機播放：下一首會隨機挑，{0} 首輪完才重複", SONGS.length) : T("已關閉隨機播放"));
+    }
     if (k === "lamp") {
       if (TOOL.lamp) { lampRetryCount = 0; lampConnect(); }
       else { lampDisconnect(true); }
@@ -1914,12 +1960,12 @@
   // 上次就開著拍點聲：瀏覽器要等使用者點一下或按鍵才肯出聲，第一次互動時把聲音準備好
   ["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (TOOL.click) clickCtx(); }, true));
 
-  // 播完自動下一首：照首頁目前的排序
+  // 播完自動下一首：跟下一首按鈕同一首（照首頁目前的排序，開了隨機播放就照洗過的順序）
   function ended() {
     // 測驗中播完：結算，不跳下一首
     if (QZ) return quizFinish();
     if (!TOOL.autonext || !S) return;
-    const seq = ordered(), nx = seq[seq.indexOf(S) + 1];
+    const nx = navTargets(S)[1];
     if (nx) goSong(nx.id);
   }
 

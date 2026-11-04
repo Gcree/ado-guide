@@ -162,6 +162,47 @@ await test("練習工具列：手機在底部，選單從下面拉出", async pa
   await page.waitForFunction(() => !document.getElementById("moreDlg").open);
 }, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
+await test("隨機播放：下一首照洗過的順序，上一首回到剛剛那首，輪完才重複", async page => {
+  await openSong(page, "#usseewa");
+  const orderedNext = await page.getAttribute("#nextSong", "href");
+  await page.click("#dockMore");
+  await page.click("#tool-shuffle");
+  assert.equal(await page.getAttribute("#tool-shuffle", "aria-pressed"), "true");
+  assert.equal(await page.evaluate(() => document.getElementById("nextSong").classList.contains("is-shuffle")), true);
+  assert.equal(await page.getAttribute("#prevSong", "href"), null, "剛開隨機播放，還沒有上一首");
+  const total = await page.evaluate(() => window.ADO_SONGS.SONGS.length), seen = new Set(["usseewa"]);
+  let first = null;
+  for (let i = 1; i < total; i++) {
+    const next = (await page.getAttribute("#nextSong", "href")).replace(/^#/, "");
+    assert.ok(!seen.has(next), `第 ${i} 首重複了：${next}`);
+    seen.add(next);
+    if (i === 1) first = next;
+    await page.evaluate(id => { location.hash = id; }, next);
+    // 換頁有過場動畫：等到這首的上一首、下一首都算好了才往下
+    await page.waitForFunction(id => location.hash === "#" + id && document.getElementById("nextSong").getAttribute("href") !== "#" + id && document.title.startsWith(window.ADO_SONGS.SONGS.find(x => x.id === id).ja), next);
+    if (i === 1) {
+      assert.equal(await page.getAttribute("#prevSong", "href"), "#usseewa", "上一首回到剛剛那首");
+    }
+  }
+  assert.equal(seen.size, total, "每首都輪到一次");
+  assert.notEqual(first, null);
+  // 關掉隨機播放：恢復照排序
+  await page.evaluate(() => { location.hash = "usseewa"; });
+  await page.waitForFunction(() => location.hash === "#usseewa");
+  await page.click("#dockMore");
+  await page.click("#tool-shuffle");
+  assert.equal(await page.getAttribute("#nextSong", "href"), orderedNext);
+});
+
+await test("首頁「隨機練一首」：點了會打開一首有應援的歌", async page => {
+  await page.goto(BASE);
+  await page.click("#randomLink");
+  await page.waitForFunction(() => !document.getElementById("song").hidden);
+  const id = await page.evaluate(() => location.hash.slice(1));
+  const ok = await page.evaluate(i => { const s = window.ADO_SONGS.SONGS.find(x => x.id === i); return !!s && !s.hold && !s.sug && (s.free || (s.tips && s.tips.length > 0)); }, id);
+  assert.ok(ok, `抽到的歌要有應援資料：${id}`);
+});
+
 await test("影片錯誤訊息：換歌後收掉", async page => {
   await openSong(page, "#usseewa");
   await page.evaluate(() => window.__yt.fireError());

@@ -2242,3 +2242,8 @@ html[lang="ja"] body { word-break: auto-phrase; }
     .dock-btn:not(.icon) { width: 40px; padding: 0; }
   }
 }
+
+/* 隨機播放：下一首的箭頭換成隨機圖示，一看就知道下一首是隨機挑的 */
+#nextSong .ico-shuf, #nextSong.is-shuffle .ico-next { display: none; }
+#nextSong.is-shuffle .ico-shuf { display: block; }
+#nextSong.is-shuffle { color: var(--tint); }

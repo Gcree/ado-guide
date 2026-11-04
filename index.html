@@ -141,6 +141,7 @@
     </div>
     <div class="sheet-group">
       <button type="button" class="pop-item" data-tool="autonext" id="tool-autonext" aria-pressed="false"><span>播完自動下一首</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+      <button type="button" class="pop-item" data-tool="shuffle" id="tool-shuffle" aria-pressed="false"><span>隨機播放</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-opt="light" aria-pressed="true"><span>舞台燈光</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
     </div>
     <div class="sheet-group">
@@ -231,6 +232,7 @@
           </label>
           <div class="hero-links">
             <a class="tint-link" href="song/show/" data-id="show">從<span lang="ja">〈唱〉</span>開始練<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
+            <a class="tint-link" id="randomLink" href="song/show/" data-id="show">隨機練一首<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
             <a class="tint-link" id="resumeLink" hidden>繼續練<span lang="ja">〈<span id="resumeName"></span>〉</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
           </div>
         </div>
@@ -326,7 +328,7 @@
         <div class="pick">
           <a class="ib" id="prevSong" aria-label="上一首"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></a>
           <h1 id="sTitle" lang="ja"></h1>
-          <a class="ib" id="nextSong" aria-label="下一首"><svg viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg></a>
+          <a class="ib" id="nextSong" aria-label="下一首"><svg class="ico-next" viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg><svg class="ico-shuf" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4h4v4M4 20 20 4M20 16v4h-4M14 14l6 6M4 4l5 5"/></svg></a>
         </div>
         <!-- 獨立手燈連動按鈕（桌面版獨立顯示） -->
         <button class="lamp-btn" data-tool="lamp" id="tool-lamp" aria-pressed="false" title="點擊切換與 PenlightSync 桌面 App 的手燈連動">
