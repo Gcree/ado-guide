@@ -2071,3 +2071,59 @@ html.vt-theme::view-transition-new(root) { animation: vt-fade var(--dur-base) va
   .crate .float, .cd-spin { animation: none !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
+
+/* ── 測驗模式：歌詞顏色、動作圖示、喊聲標籤、圖例都藏起來，提示框換成分數；手機上提示框也要露出來 ── */
+.quiz-on #lines .ln { --act: var(--text); --sing: var(--text); }
+.quiz-on #lines .ln .acts, .quiz-on #lines .ln .call, .quiz-on .legend, .quiz-on #singJump, .quiz-on #tipsOpt,
+.quiz-on .cue .now, .quiz-on .cue .next, .quiz-on .cue .how, .quiz-on .cue .summary, .quiz-on .cue .switch { display: none !important; }
+.quiz-on #lines .ln .ja { color: var(--muted) !important; }
+.quiz-on #lines .ln.now .ja { color: var(--text) !important; }
+.quiz-on #lines .ln .sung, .quiz-on #lines .ln .k.sung, .quiz-on #lines .ln .k.sung.lit, .quiz-on #lines .ln .k.sung.lit rt { color: inherit !important; text-shadow: none !important; animation: none !important; font-weight: inherit; }
+.quiz-on #lines .ln.dim { opacity: 1; }
+.quiz-on .cue { display: grid !important; }
+.quiz-hud { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 16px; }
+.quiz-hud[hidden] { display: none; }
+.quiz-score { display: flex; align-items: baseline; gap: 4px; }
+.quiz-score b { font-size: 40px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.quiz-score span { color: var(--muted); font-size: 14px; }
+.quiz-judge { justify-self: end; min-height: 44px; text-align: right; }
+.quiz-judge b { display: block; font-size: 22px; font-weight: 800; letter-spacing: .02em; }
+.quiz-judge span { font-size: 13px; color: var(--muted); }
+.quiz-judge.pop b { animation: quiz-pop .28s var(--ease-out, ease-out); }
+@keyframes quiz-pop { from { transform: scale(1.25); opacity: .4; } to { transform: none; opacity: 1; } }
+.j-perfect { color: var(--color-bahama-blue-400); }
+.j-good { color: #4ee08a; }
+.j-miss { color: #ff4a5a; }
+.j-stray { color: var(--faint); }
+.quiz-meta { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 12px; color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; }
+.quiz-pad { grid-column: 1 / -1; height: 72px; border: 0; border-radius: 18px; background: var(--raised); color: var(--text); font: inherit; font-size: 20px; font-weight: 700; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; box-shadow: inset 0 0 0 1px var(--line); transition: transform .06s, background-color .12s; }
+.quiz-pad.hit { transform: scale(.97); background: color-mix(in srgb, var(--accent) 26%, var(--raised)); }
+.quiz-tip { grid-column: 1 / -1; margin: 0; color: var(--faint); font-size: 12.5px; }
+/* 結算視窗：沿用回報視窗的外框 */
+.quiz-rank { display: flex; align-items: center; gap: 16px; }
+.quiz-rank b { font-size: 64px; font-weight: 800; line-height: 1; color: var(--accent); }
+.quiz-rank strong { display: block; font-size: 28px; font-weight: 700; }
+.quiz-rank small { color: var(--muted); font-size: 13px; }
+.report dl.quiz-counts { grid-template-columns: repeat(4, auto 1fr); }
+.quiz-counts dd { font-variant-numeric: tabular-nums; }
+.quiz-acts { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; }
+.quiz-acts li { display: grid; grid-template-columns: 5.5em 1fr auto; align-items: center; gap: 10px; }
+.quiz-acts i { height: 6px; border-radius: 3px; background: var(--hover); overflow: hidden; }
+.quiz-acts i span { display: block; height: 100%; background: var(--act); border-radius: inherit; }
+.quiz-acts b { font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.quiz-dlg .acts { flex-wrap: wrap; }
+@media (max-width: 900px), (orientation: landscape) and (max-height: 500px) {
+  .quiz-hud { gap: 4px 12px; }
+  .quiz-score b { font-size: 28px; }
+  .quiz-judge { min-height: 36px; }
+  .quiz-judge b { font-size: 18px; }
+  .quiz-pad { height: 56px; font-size: 18px; }
+  .quiz-tip { display: none; }
+}
+@media (max-width: 600px) {
+  .report dl.quiz-counts { grid-template-columns: repeat(2, auto 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quiz-judge.pop b { animation: none; }
+  .quiz-pad { transition: none; }
+}

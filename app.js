@@ -836,6 +836,7 @@
   }
 
   function openSong(s, t = 0) {
+    quizStop();
     S = s; curKey = null; hideAlert(); START = t; remember(s.id);
     // 上一首播不了留下的錯誤訊息，換歌時先收掉；播放器還沒好時保留「正在載入」那類提示
     if (ready) videoMsg("");
@@ -892,6 +893,8 @@
     if (karaokeTiming && S && karaokeTiming.songId === S.id) {
       applyKaraokeTimingToDom(S);
     }
+    // 測驗要有逐行應援才出得了題
+    document.getElementById("toolQuiz").disabled = !TAGGED;
     const hasTips = TAGGED && s.tips && s.tips.length > 0 && !s.hold;
     const tipsOpt = document.getElementById("tipsOpt");
     if (tipsOpt) {
@@ -1028,7 +1031,8 @@
   addEventListener("resize", () => { if (alKey) placeCard(); });
   function hideAlert() { if (alKey) { al.className = "alert"; alKey = ""; } cueFrame.style.opacity = 0; }
   function alerts(t, playing, cue) {
-    if (!alertOn || !playing || !cue) return hideAlert();
+    // 測驗中不提示：字卡和邊框光都會洩題
+    if (!alertOn || !playing || !cue || QZ) return hideAlert();
     const b = beatAt(t), pulse = b && !reduce ? beatPulse(b) * (b.known && !b.down ? .6 : 1) : 0;
     const pen = penOf(S).cols;
     cueFrame.style.setProperty("--c1", pen[0]); cueFrame.style.setProperty("--c2", pen[1 % pen.length]);
@@ -1074,7 +1078,7 @@
 
   // ── Folia 風格：字型輪廓音波衝擊 (Glyph Shockwave) ──
   function spawnGlyphWave(targetEl) {
-    if (!targetEl || reduce) return;
+    if (!targetEl || reduce || QZ) return;
     const old = targetEl.querySelectorAll(".chorus-glyph-wave");
     old.forEach(w => w.remove());
 
@@ -1817,6 +1821,8 @@
 
   // 播完自動下一首：照首頁目前的排序
   function ended() {
+    // 測驗中播完：結算，不跳下一首
+    if (QZ) return quizFinish();
     if (!TOOL.autonext || !S) return;
     const seq = ordered(), nx = seq[seq.indexOf(S) + 1];
     if (nx) location.hash = nx.id;
@@ -2040,6 +2046,161 @@
   }
   addEventListener("pagehide", lampStop);
 
+  // ── 測驗模式：應援提示藏起來，該應援的地方自己按空白鍵或點「按這裡」，依時間準不準給分 ──
+  // 題目：連續同一個動作（含標籤）的行合成一段；有拍點資料的拍手段每拍一題（反拍只算第 2、4 拍），其他動作只在段落開頭一題
+  // 判定窗以真實秒數計（影片秒數 ÷ 速度），放慢練也一樣公平；段落開頭比較難抓，判定窗放寬
+  const QZ_WIN = { beat: [.08, .16], onset: [.15, .35] };
+  const QZ_POINT = { perfect: 1, good: .6, miss: 0 };
+  const quizBtn = document.getElementById("toolQuiz"), quizHud = document.getElementById("quizHud"), quizPad = document.getElementById("quizPad"), quizDlg = document.getElementById("quizDlg");
+  const qzScore = document.getElementById("qzScore"), qzJudge = document.getElementById("qzJudge"), qzCombo = document.getElementById("qzCombo"), qzProg = document.getElementById("qzProg");
+  let QZ = null;
+  // 這行要做的主要動作：跟大字提醒的字卡同一套判斷
+  const quizAct = l => isOffbeat(l.call) ? "clap" : l.sing.length ? "sing" : l.call && l.acts.includes("call") ? "call" : mainAct(l.acts);
+  function quizTargets() {
+    const out = [], bt = BEAT[S.id], sig = l => l.acts.join(",") + cueLabel(l);
+    for (let i = 0; i < LINES.length; i++) {
+      const l = LINES[i];
+      if (!l.acts.length) continue;
+      let j = i;
+      while (LINES[j + 1] && LINES[j + 1].acts.length && sig(LINES[j + 1]) === sig(l)) j++;
+      const end = LINES[j + 1] ? LINES[j + 1].t : DUR(), act = quizAct(l), off = isOffbeat(l.call);
+      let n = 0;
+      if (bt && act === "clap") {
+        const P = 60 / bt[0];
+        for (let k = Math.ceil((l.t - .1 - bt[1]) / P); bt[1] + k * P < end - .05; k++) {
+          const bar = ((k % 4) + 4) % 4;
+          if (off && bar !== 1 && bar !== 3) continue;
+          out.push({ t: bt[1] + k * P, act, kind: "beat", res: null }); n++;
+        }
+      }
+      if (!n) out.push({ t: l.t, act, kind: "onset", res: null });
+      i = j;
+    }
+    return out;
+  }
+  const quizWin = tg => QZ_WIN[tg.kind].map(w => w * RATE);
+  function quizStats() {
+    const c = { perfect: 0, good: 0, miss: 0, skip: 0 }, per = {};
+    QZ.targets.forEach(tg => {
+      if (tg.res) c[tg.res]++;
+      if (!tg.res || tg.res === "skip") return;
+      const p = per[tg.act] = per[tg.act] || { hit: 0, total: 0 };
+      p.total++; if (tg.res !== "miss") p.hit++;
+    });
+    const judged = c.perfect + c.good + c.miss;
+    return { c, per, judged, total: QZ.targets.length - c.skip, score: judged ? Math.round((c.perfect + c.good * QZ_POINT.good) / judged * 100) : 0 };
+  }
+  const quizRank = n => n >= 95 ? "S" : n >= 85 ? "A" : n >= 70 ? "B" : n >= 50 ? "C" : "D";
+  function quizPaint() {
+    const st = quizStats();
+    qzScore.textContent = st.score;
+    qzCombo.textContent = QZ.combo > 1 ? T("{0} 連擊", QZ.combo) : "";
+    qzProg.textContent = T("{0}／{1} 題", st.judged, st.total);
+  }
+  function quizJudge(kind, act, d) {
+    const NAME = { perfect: "Perfect", good: "Good", miss: "Miss", stray: T("多按了") };
+    const hint = act ? ACT[act].name + (d != null && kind !== "miss" && Math.abs(d) >= .03 ? "・" + T(d < 0 ? "早 {0} 秒" : "晚 {0} 秒", Math.abs(d / RATE).toFixed(2)) : "") : "";
+    qzJudge.innerHTML = `<b class="j-${kind}">${NAME[kind]}</b>${hint ? `<span>${esc(hint)}</span>` : ""}`;
+    replay(qzJudge, "pop", 300);
+  }
+  function quizStart() {
+    if (!S || !ready) return;
+    const targets = quizTargets();
+    if (!targets.length) { toast(T("這首沒有逐行應援，不能測驗")); return; }
+    // lastT 先記現在的位置，seek(0) 之後會當成往回跳，把成績整個清掉
+    QZ = { targets, stray: 0, combo: 0, maxCombo: 0, lastT: now(), done: false, rate: RATE };
+    document.body.classList.add("quiz-on");
+    quizBtn.setAttribute("aria-pressed", "true");
+    quizHud.hidden = false; qzJudge.innerHTML = "";
+    hideAlert(); quizPaint();
+    seek(0);
+    toast(T("測驗開始：該應援的地方按空白鍵或點「按這裡」"));
+  }
+  function quizStop() {
+    if (!QZ) return;
+    QZ = null;
+    document.body.classList.remove("quiz-on");
+    quizBtn.setAttribute("aria-pressed", "false");
+    quizHud.hidden = true;
+    if (quizDlg.open) quizDlg.close();
+  }
+  function quizTap() {
+    if (!QZ || QZ.done) return;
+    replay(quizPad, "hit", 120);
+    const t = now();
+    let hit = null, bd = Infinity;
+    QZ.targets.forEach(tg => { const d = Math.abs(t - tg.t); if (!tg.res && d <= quizWin(tg)[1] && d < bd) { bd = d; hit = tg; } });
+    if (!hit) { QZ.stray++; quizJudge("stray"); return; }
+    hit.res = bd <= quizWin(hit)[0] ? "perfect" : "good";
+    QZ.combo++; QZ.maxCombo = Math.max(QZ.maxCombo, QZ.combo);
+    quizJudge(hit.res, hit.act, t - hit.t);
+    quizPaint();
+  }
+  function quizFrame(t) {
+    if (!QZ || QZ.done) return;
+    let changed = false;
+    if (t < QZ.lastT - .5) {
+      // 往回跳：跳回點之後的題目重新作答，可以只重練一段
+      QZ.targets.forEach(tg => { if (tg.t >= t - .2 && tg.res) { tg.res = null; changed = true; } });
+      QZ.combo = 0;
+    } else if (t - QZ.lastT > 1.2) {
+      // 往前跳（點歌詞、按 →、切到別的分頁回來）：中間沒機會按的題目不算分
+      QZ.targets.forEach(tg => { if (!tg.res && tg.t >= QZ.lastT && tg.t < t - quizWin(tg)[1]) { tg.res = "skip"; changed = true; } });
+    }
+    QZ.targets.forEach(tg => {
+      if (tg.res || t <= tg.t + quizWin(tg)[1]) return;
+      tg.res = "miss"; QZ.combo = 0; changed = true;
+      quizJudge("miss", tg.act);
+    });
+    QZ.lastT = t;
+    if (changed) quizPaint();
+    const last = QZ.targets[QZ.targets.length - 1];
+    if (t > last.t + 2 && QZ.targets.every(tg => tg.res)) quizFinish();
+  }
+  function quizFinish() {
+    if (!QZ || QZ.done) return;
+    QZ.targets.forEach(tg => { if (!tg.res) tg.res = "miss"; });
+    QZ.done = true;
+    pause();
+    const st = quizStats(), rank = quizRank(st.score);
+    // 最佳成績：整首都有作答（沒有略過）才記
+    let best = {};
+    try { best = JSON.parse(store.get("quiz-best") || "{}") || {}; } catch (e) {}
+    const prev = best[S.id], full = !st.c.skip, isNew = full && (!prev || st.score > prev.score);
+    if (isNew) { best[S.id] = { score: st.score, rate: QZ.rate }; store.set("quiz-best", JSON.stringify(best)); }
+    QZ.result = { score: st.score, rank, c: st.c };
+    document.getElementById("qrRank").textContent = rank;
+    document.getElementById("qrScore").textContent = T("{0} 分", st.score);
+    document.getElementById("qrMeta").textContent = `〈${S.ja}〉${QZ.rate !== 1 ? `・${QZ.rate}×` : ""}${QZ.maxCombo > 1 ? "・" + T("最多 {0} 連擊", QZ.maxCombo) : ""}`;
+    ["perfect", "good", "miss"].forEach(k => document.getElementById("qr" + k[0].toUpperCase() + k.slice(1)).textContent = st.c[k]);
+    document.getElementById("qrStray").textContent = QZ.stray;
+    document.getElementById("qrActs").innerHTML = Object.keys(ACT).filter(a => st.per[a]).map(a => {
+      const p = st.per[a], pct = Math.round(p.hit / p.total * 100);
+      return `<li class="a-${a}"><span>${ACT[a].name}</span><i><span style="width:${pct}%"></span></i><b>${p.hit}／${p.total}</b></li>`;
+    }).join("");
+    document.getElementById("qrBest").textContent = !full ? T("中間有跳過的段落，這次不記最佳成績。") : isNew ? (prev ? T("刷新最佳成績！（之前 {0} 分）", prev.score) : T("第一次挑戰這首，已記下成績。")) : T("最佳成績 {0} 分", prev.score);
+    quizDlg.showModal();
+  }
+  quizDlg.addEventListener("close", async () => {
+    const v = quizDlg.returnValue;
+    quizDlg.returnValue = "";
+    if (!QZ) return;
+    if (v === "retry") { quizStop(); quizStart(); }
+    else if (v === "answer") quizStop();
+    else if (v === "copy" && QZ.result) {
+      const r = QZ.result, text = T("〈{0}〉應援測驗 {1}（{2} 分，Perfect {3}・Good {4}・Miss {5}）", S.ja, r.rank, r.score, r.c.perfect, r.c.good, r.c.miss) + `｜${T("Ado 應援指南")} ${LYV ? new URL(`song/${S.id}/`, document.baseURI).href : location.href.split("#")[0] + "#" + S.id}`;
+      try { await navigator.clipboard.writeText(text); toast(T("已複製成績")); } catch (e) { prompt(T("複製這段內容："), text); }
+      quizDlg.showModal();
+    }
+  });
+  quizBtn.addEventListener("click", () => {
+    document.getElementById("tools").open = false;
+    QZ ? quizStop() : quizStart();
+  });
+  // 按下去那一刻就判定（不等放開）；不搶焦點，空白鍵才不會按到別的按鈕
+  quizPad.addEventListener("pointerdown", e => { e.preventDefault(); quizTap(); });
+  quizPad.addEventListener("click", e => { if (e.detail === 0) quizTap(); });
+
   // 分享目前時間：網址後面加 @秒數，打開就從那裡開始
   document.getElementById("shareBtn").addEventListener("click", async () => {
     if (!S) return;
@@ -2121,9 +2282,16 @@
 
   // 鍵盤：空白鍵播放／暫停，← → 上一句、下一句（在輸入框裡不搶按鍵）
   addEventListener("keydown", e => {
-    if (!S || songV.hidden || !ready || e.metaKey || e.ctrlKey || e.altKey || dlg.open || logDlg.open) return;
+    if (!S || songV.hidden || !ready || e.metaKey || e.ctrlKey || e.altKey || dlg.open || logDlg.open || quizDlg.open) return;
     if (e.target.closest("input, textarea, select, [contenteditable]")) return;
-    if (e.key === "f" || e.key === "F") {
+    // 測驗中空白鍵拿來作答（播放／暫停改用 K）；按住不放不算連按
+    if (QZ && e.key === " ") {
+      e.preventDefault();
+      if (!e.repeat) quizTap();
+    } else if (e.key === "q" || e.key === "Q") {
+      e.preventDefault();
+      if (!quizBtn.disabled) QZ ? quizStop() : quizStart();
+    } else if (e.key === "f" || e.key === "F") {
       e.preventDefault();
       toggleImmersive();
     } else if (e.key === "p" || e.key === "P") {
@@ -2132,6 +2300,9 @@
     } else if (e.key === "Escape" && isImmersive) {
       e.preventDefault();
       setImmersive(false);
+    } else if (e.key === "Escape" && QZ) {
+      e.preventDefault();
+      quizStop();
     } else if (e.key === " " || e.key === "k") {
       if (e.target.closest("button, summary, a") && e.key === " ") return;
       e.preventDefault(); isPlaying() ? pause() : player.playVideo();
@@ -2183,7 +2354,7 @@
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
       trackView(s);
     } else {
-      setImmersive(false);
+      setImmersive(false); quizStop();
       lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
       renderRecent(); crateShow();
       const target = h && document.getElementById(h);
@@ -2611,6 +2782,7 @@
     const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
     clicks(t, playing);
     lampFrame(t, playing);
+    quizFrame(t);
     // 歌曲頁燈光換成這首的螢光棒顏色，回首頁換回藍白
     const want = S && !songV.hidden ? S : null;
     if (want !== penSong) { penSong = want; bg.pen(want && penOf(want).cols); idleDrawn = false; blasted = false; }

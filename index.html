@@ -96,6 +96,22 @@
   </form>
 </dialog>
 
+<dialog class="report quiz-dlg" id="quizDlg" aria-labelledby="quizH">
+  <form method="dialog">
+    <h2 id="quizH">測驗結果</h2>
+    <div class="quiz-rank"><b id="qrRank">S</b><span><strong id="qrScore">0</strong><small id="qrMeta"></small></span></div>
+    <dl class="quiz-counts">
+      <dt>Perfect</dt><dd id="qrPerfect">0</dd>
+      <dt>Good</dt><dd id="qrGood">0</dd>
+      <dt>Miss</dt><dd id="qrMiss">0</dd>
+      <dt>多按</dt><dd id="qrStray">0</dd>
+    </dl>
+    <ul class="quiz-acts" id="qrActs"></ul>
+    <p id="qrBest"></p>
+    <div class="acts"><button class="btn ghost" value="copy">複製成績</button><button class="btn ghost" value="answer">看答案</button><button class="btn primary" value="retry">再挑戰</button></div>
+  </form>
+</dialog>
+
 <dialog class="log" id="logDlg" aria-labelledby="logH">
   <form method="dialog">
     <header><h2 id="logH">更新日誌</h2><button class="x" value="close" aria-label="關閉"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
@@ -290,6 +306,7 @@
             <button class="do" id="toolPipMenuBtn">歌詞小窗 (P)</button>
             <button data-tool="click" id="tool-click" aria-pressed="false" title="這首沒有拍點資料時不能用">拍點聲</button>
             <button data-tool="autonext" id="tool-autonext" aria-pressed="false">播完自動下一首</button>
+            <button id="toolQuiz" aria-pressed="false" title="藏起應援提示，自己按按看準不準">測驗模式 (Q)</button>
             <button class="m-only" id="alertTool" aria-pressed="true">大字提醒</button>
             <button data-opt="light" aria-pressed="true">舞台燈光</button>
             <div class="sep"></div>
@@ -347,6 +364,14 @@
             <div class="next" id="cueNext"></div>
             <div class="how" id="cueHow"></div>
             <ul class="summary" id="cueSummary"></ul>
+            <!-- 測驗模式：提示藏起來，改顯示分數；該應援的地方按空白鍵或點「按這裡」 -->
+            <div class="quiz-hud" id="quizHud" hidden>
+              <div class="quiz-score"><b id="qzScore">0</b><span>分</span></div>
+              <div class="quiz-judge" id="qzJudge" aria-live="off"></div>
+              <div class="quiz-meta"><span id="qzCombo"></span><span id="qzProg"></span></div>
+              <button type="button" class="quiz-pad" id="quizPad">按這裡</button>
+              <p class="quiz-tip">該拍手、喊、唱、跳的時候按空白鍵或點「按這裡」。播放／暫停用 K。</p>
+            </div>
           </section>
         </div>
 
