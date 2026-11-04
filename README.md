@@ -45,6 +45,7 @@ assets/                     ← 網站圖示（favicon、主畫面圖示）、�
 scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致性、動作合法性、時間順序等
 scripts/test-ui.mjs         ← 畫面冒煙測試（Playwright）：開 dist/ 走一遍首頁、歌曲頁、分享、測驗模式、離線、手機版面
 scripts/build.mjs           ← 建置：中文、英文（en/）、日文（jp/）各一份首頁與每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
+tools/timing/               ← 歌詞對時工具（只在本機用，不會發布）：邊播 MV 邊按空白鍵打每句的時間，下載 JSON 後用 apply.mjs 寫回 song-lyrics.js
 tools/romaji/               ← 英文版歌詞的羅馬拼音：建置前用 kuromoji 自動產生 song-romaji.json（不進版控），讀錯的寫在 overrides.json
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
 README.md                   ← 這份說明
@@ -94,6 +95,21 @@ node scripts/build.mjs dist
 再到 `dist` 資料夾開靜態伺服器。獨立頁的網址、分享圖與 canonical 都寫成正式網址，所以本機只用來看版面和功能。
 
 直接開原始檔時沒有拆好的歌詞，網頁會自動改讀整份 `song-lyrics.js`；建置後的網頁（`<html data-lyrics="…">`）才會一首一首讀 `lyrics/`。
+
+### 歌詞對時
+
+新增歌曲或修正時間時，用 `tools/timing/` 邊播 MV 邊打時間：
+
+1. 在專案資料夾開靜態伺服器（見上面），打開 <http://localhost:8000/tools/timing/>。
+2. 選歌。已經有歌詞的歌直接列出每一句；新歌先貼上歌詞（一行一句，日文和中譯中間用 Tab 隔開）。
+3. 播放影片，每句開始唱的時候按空白鍵；按錯按 Backspace 回上一句重打，`[` `]` 微調 0.05 秒，Enter 從那句前 2 秒重播檢查。反應時間（預設 150 毫秒）會先扣掉。進度存在這台電腦，重新整理不會不見。
+4. 按「下載 JSON」，再寫回歌詞檔（應援動作 acts、sing、call 會保留）：
+
+```bash
+node tools/timing/apply.mjs ~/Downloads/<id>.json
+```
+
+5. 跑 `node scripts/check-data.mjs` 確認。
 
 ### 資料自動檢查
 

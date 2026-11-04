@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>歌詞對時工具｜Ado 應援指南</title>
+<!-- 給維護者在本機用：在專案資料夾開靜態伺服器（python3 -m http.server 8000），打開 http://localhost:8000/tools/timing/ -->
+<style>
+  :root { color-scheme: dark; --bg: #070a12; --panel: #121829; --raised: #1c2439; --line: #2a3450; --text: #f1f5f9; --muted: #94a3b8; --faint: #64748b; --accent: #02b4f5; --warn: #ffb020; --bad: #ff4a5a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Noto Sans TC", sans-serif; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 2; }
+  h1 { margin: 0; font-size: 16px; }
+  select, input, button, textarea { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #04121c; border-color: var(--accent); font-weight: 600; }
+  label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.2fr); gap: 16px; padding: 16px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .left { position: sticky; top: 70px; align-self: start; display: grid; gap: 12px; }
+  .screen { aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
+  .screen iframe, #ytp { width: 100%; height: 100%; }
+  .now { font-size: 28px; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .keys { margin: 0; padding: 12px 14px; background: var(--panel); border-radius: 12px; color: var(--muted); display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
+  .keys dt { color: var(--text); font-family: ui-monospace, monospace; }
+  .keys dd { margin: 0; }
+  #paste { display: grid; gap: 8px; background: var(--panel); border-radius: 12px; padding: 12px; }
+  #paste textarea { min-height: 220px; resize: vertical; }
+  #paste p { margin: 0; color: var(--muted); }
+  .status { color: var(--muted); }
+  .status b { color: var(--text); }
+  .status .warn { color: var(--warn); }
+  ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  li { display: grid; grid-template-columns: 2.5em 5.5em 1fr; gap: 10px; align-items: baseline; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+  li:hover { background: var(--panel); }
+  li .no { color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; }
+  li .t { font-family: ui-monospace, monospace; color: var(--muted); }
+  li .t.none { color: var(--faint); }
+  li .jp { font-family: "Noto Sans JP", sans-serif; }
+  li .tr { grid-column: 3; color: var(--faint); font-size: 12.5px; }
+  li.playing { background: var(--raised); }
+  li.sel { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+  li.bad .t { color: var(--bad); }
+  li.changed .t::after { content: " *"; color: var(--warn); }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--raised); padding: 8px 16px; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+</style>
+
+<header>
+  <h1>歌詞對時工具</h1>
+  <label>歌曲 <select id="song"></select></label>
+  <label>速度 <select id="rate"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option></select></label>
+  <label title="從聽到到按下去的反應時間，打點時先扣掉">反應時間 <input id="lag" type="number" value="150" step="10" min="0" max="500" style="width: 5em"> 毫秒</label>
+  <button id="reset" title="丟掉這首在這台電腦存的進度，回到 song-lyrics.js 的版本">還原</button>
+  <button id="copy">複製 JSON</button>
+  <button id="save" class="primary">下載 JSON</button>
+</header>
+
+<main>
+  <div class="left">
+    <div class="screen"><div id="ytp"></div></div>
+    <div class="now" id="now">0:00.00</div>
+    <p class="status" id="status"></p>
+    <dl class="keys">
+      <dt>空白鍵</dt><dd>把現在的時間打在選取的那句（藍線），往下一句</dd>
+      <dt>Backspace</dt><dd>回上一句重打</dd>
+      <dt>↑ ↓</dt><dd>換選取的句子</dd>
+      <dt>Enter</dt><dd>從選取那句的前 2 秒播放，檢查對不對</dd>
+      <dt>[ ]</dt><dd>選取那句提早／延後 0.05 秒（按住 Shift：0.2 秒）</dd>
+      <dt>Delete</dt><dd>清掉選取那句的時間</dd>
+      <dt>K</dt><dd>播放／暫停</dd>
+      <dt>← →</dt><dd>倒退／快轉 2 秒</dd>
+    </dl>
+    <div id="paste" hidden>
+      <p>這首在 song-lyrics.js 還沒有歌詞。貼上歌詞，一行一句；要附中譯的話，日文和中譯中間用 Tab 隔開。</p>
+      <textarea id="pasteText" placeholder="正しさとは　愚かさとは&#9;何謂正確　何謂愚蠢"></textarea>
+      <button id="pasteOk" class="primary">開始對時</button>
+    </div>
+  </div>
+  <ol id="lines"></ol>
+</main>
+<div id="toast" role="status"></div>
+
+<script src="../../songs.js"></script>
+<script src="../../song-lyrics.js"></script>
+<script src="timing.js"></script>
