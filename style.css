@@ -496,7 +496,7 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 }
 .ln[class*=" a-"]:not(.a-listen):not(.a-sing) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
 /* 「唱」不染整行，只染觀眾要唱的字 */
-.ln .sung { position: relative; display: inline-block; color: color-mix(in srgb, var(--sing) 75%, var(--muted)); transition: color var(--dur-base) var(--ease), text-shadow var(--dur-base) var(--ease); }
+.ln .sung { position: relative; display: inline-block; white-space: pre-wrap; color: color-mix(in srgb, var(--sing) 75%, var(--muted)); transition: color var(--dur-base) var(--ease), text-shadow var(--dur-base) var(--ease); }
 .ln.now .sung { color: #fff; font-weight: 700; text-shadow: 0 0 8px rgba(2, 180, 245, .95), 0 0 20px rgba(45, 199, 255, .65), 0 0 35px rgba(2, 180, 245, .4); animation: chorus-glow-pulse 2.2s var(--ease-sine) infinite alternate; }
 .karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: #fff !important; text-shadow: 0 0 10px rgba(2, 180, 245, 1), 0 0 24px rgba(45, 199, 255, .75), 0 0 40px rgba(2, 180, 245, .5); }
 @keyframes chorus-glow-pulse {
@@ -1507,7 +1507,7 @@ html:not(.on-song) #fx { display: none; }
 .hero::before { content: ""; position: absolute; inset: -10% -30% -10% 35%; z-index: -1; pointer-events: none; background: radial-gradient(50% 55% at 55% 45%, color-mix(in srgb, var(--glow) var(--glow-mix), transparent), transparent 70%); transition: background 900ms var(--ease); }
 .hero-copy { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 18px; min-width: 0; }
 .hero h1 { margin: 0; font-size: clamp(48px, 6.4vw, 88px); font-weight: 800; line-height: .98; letter-spacing: -.045em; white-space: nowrap; }
-.hero-sub { margin: -4px 0 0; color: var(--muted); font-size: clamp(17px, 1.8vw, 21px); font-weight: 700; letter-spacing: -.01em; }
+.hero-sub { margin: -4px 0 0; text-wrap: pretty; color: var(--muted); font-size: clamp(17px, 1.8vw, 21px); font-weight: 700; letter-spacing: -.01em; }
 .lead { margin: 0; max-width: 24em; color: var(--faint); font-size: 17px; line-height: 1.55; text-wrap: pretty; }
 .hero .field.lg { max-width: 440px; margin-top: 4px; }
 .hero-links { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-left: -4px; }
@@ -1684,9 +1684,11 @@ html:not(.on-song) #fx { display: none; }
 /* 區塊標題 */
 .starter, .all-songs, .faq { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 #songs, #faq { scroll-margin-top: 64px; }
-.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.sec-head h2 { white-space: nowrap; }
+.sec-head > .text-btn { margin-left: auto; }
 .sec-head h2, .faq h2 { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: -.01em; }
-.sec-head .count { margin-left: 8px; color: var(--faint); font-size: 15px; font-weight: 400; letter-spacing: 0; }
+.sec-head .count { margin-left: 8px; white-space: nowrap; color: var(--faint); font-size: 15px; font-weight: 400; letter-spacing: 0; }
 .sec-sub { margin: 0; color: var(--faint); font-size: 15px; }
 
 /* 書架：橫向滑動，留 4px 讓放大和聚焦外框不被裁掉 */
@@ -1727,7 +1729,7 @@ html:not(.on-song) #fx { display: none; }
 .text-btn:disabled { opacity: .35; cursor: not-allowed; }
 
 /* 篩選膠囊：外層 44px 好點，裡面 34px 的膠囊 */
-.chips { display: flex; gap: 8px; margin-inline: -4px; padding-inline: 4px; overflow-x: auto; scrollbar-width: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 0 8px; margin-inline: -4px; padding-inline: 4px; }
 .chips::-webkit-scrollbar { display: none; }
 .chip { flex: none; min-height: 44px; padding: 5px 0; border: 0; background: transparent; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
 .chip > span { display: inline-flex; align-items: center; height: 34px; padding: 0 16px; border-radius: 999px; background: var(--fill); color: var(--text); font-size: 15px; font-weight: 500; white-space: nowrap; transition: var(--tr-color), var(--tr-press); }
@@ -1781,7 +1783,7 @@ html:not(.on-song) #fx { display: none; }
 /* 常見問題：卡片，點開往下展開 */
 .faq-list { display: flex; flex-direction: column; gap: 8px; }
 .faq-item { padding: 0 20px; border-radius: 14px; background: var(--card); transition: background-color var(--dur-hover) var(--ease); }
-.faq-item summary { min-height: 64px; padding: 12px 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-radius: 8px; font-size: 17px; list-style: none; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.faq-item summary { min-height: 64px; padding: 12px 0; text-wrap: pretty; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-radius: 8px; font-size: 17px; list-style: none; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
 .faq-item summary::-webkit-details-marker { display: none; }
 .faq-item summary::after { content: ""; flex: none; width: 8px; height: 8px; border-right: 2px solid var(--faint); border-bottom: 2px solid var(--faint); transform: translateY(-2px) rotate(45deg); transition: transform var(--dur-base) var(--ease); }
 .faq-item[open] summary::after { transform: translateY(2px) rotate(-135deg); }
@@ -1801,7 +1803,7 @@ html:not(.on-song) #fx { display: none; }
 .foot-name svg { width: 22px; height: 22px; }
 .foot-tagline { margin: 0; max-width: 26em; color: var(--text); opacity: .8; }
 .foot-facts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; max-width: 30em; color: var(--faint); font-size: 12px; line-height: 1.6; }
-.foot-facts li { position: relative; padding-left: 14px; }
+.foot-facts li { position: relative; padding-left: 14px; text-wrap: pretty; }
 .foot-facts li::before { content: ""; position: absolute; left: 2px; top: .7em; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: .7; }
 /* Get in touch：站長社群，品牌圖示＋帳號。圖示來自 Simple Icons（CC0），檔案原樣放在 assets/icons/，用 mask 上色才能跟著淺色／深色換顏色 */
 .foot-contact a { gap: 8px; }
@@ -1817,10 +1819,10 @@ html:not(.on-song) #fx { display: none; }
 .foot-nav a:focus-visible, .foot-nav button:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }
 .foot-nav button:disabled { opacity: .4; cursor: not-allowed; }
 .foot-legal { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px 24px; padding-top: 20px; border-top: 1px solid color-mix(in srgb, var(--foot-bg), var(--text) 10%); color: var(--faint); font-size: 12px; }
-.foot-legal-text { display: flex; flex-wrap: wrap; gap: 2px 20px; }
+.foot-legal-text { display: flex; flex-wrap: wrap; gap: 2px 20px; text-wrap: pretty; }
 .foot-legal .build { flex: none; font-variant-numeric: tabular-nums; }
 /* 語言切換：頁尾底列，目前的語言加粗 */
-.lang-switch { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-left: auto; }
+.lang-switch { display: flex; gap: 4px 16px; margin-left: auto; white-space: nowrap; }
 .lang-switch a { color: var(--faint); text-decoration: none; }
 .lang-switch a[aria-current="true"] { color: var(--text); font-weight: 600; }
 @media (hover: hover) { .lang-switch a:hover { color: var(--text); text-decoration: underline; } }
@@ -2126,4 +2128,22 @@ html.vt-theme::view-transition-new(root) { animation: vt-fade var(--dur-base) va
 @media (prefers-reduced-motion: reduce) {
   .quiz-judge.pop b { animation: none; }
   .quiz-pad { transition: none; }
+}
+
+/* ── 各尺寸細節 ── */
+/* 日文版：照詞組換行，「応援し／よう」這種斷在詞中間的情況不會出現 */
+html[lang="ja"] body { word-break: auto-phrase; }
+/* 提示框：開著大字提醒時，沒有字卡的段落（前奏、安靜聽）照樣顯示下一個動作，不要整塊空著 */
+.cue.playing.alerting.idle .next { opacity: 1; visibility: visible; }
+/* 手機：沉浸模式、歌詞小窗收進練習工具選單（選單裡本來就有），頂欄留位置給歌名 */
+@media (max-width: 600px) {
+  .songbar #tool-immersive, .songbar #toolPipBtn { display: none; }
+  /* 頂欄選單改對齊整條頂欄的右邊，不會從按鈕往左長出畫面 */
+  .bar .menu { position: static; }
+  .bar .pop { right: max(12px, env(safe-area-inset-right, 0px)); max-width: calc(100vw - 24px); }
+}
+/* 手機橫拿：畫面很矮，唱片架縮小，標題和搜尋框不用捲很久才看得到 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .crate-stage { height: 300px; }
+  .crate .rec { --s: min(170px, 40vh); bottom: 56px; }
 }

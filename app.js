@@ -2140,6 +2140,7 @@
     // lastT 先記現在的位置，seek(0) 之後會當成往回跳，把成績整個清掉
     QZ = { targets, stray: 0, combo: 0, maxCombo: 0, lastT: now(), done: false, rate: RATE };
     document.body.classList.add("quiz-on");
+    cueBox.querySelector("h2").textContent = T("測驗模式");
     quizBtn.setAttribute("aria-pressed", "true");
     quizHud.hidden = false; qzJudge.innerHTML = "";
     hideAlert(); quizPaint();
@@ -2150,6 +2151,7 @@
     if (!QZ) return;
     QZ = null;
     document.body.classList.remove("quiz-on");
+    cueBox.querySelector("h2").textContent = T("現在要做的事");
     quizBtn.setAttribute("aria-pressed", "false");
     quizHud.hidden = true;
     if (quizDlg.open) quizDlg.close();
