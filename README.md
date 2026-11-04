@@ -43,6 +43,7 @@ manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示與顏
 sw.js                       ← 離線用的 Service Worker：建置時填進版本和要先存起來的檔案（首頁、CSS／JS、每首歌詞）
 assets/                     ← 網站圖示（favicon、主畫面圖示）、分享預覽圖 og.jpg；icons/ 是頁尾的 Threads、IG 圖示（Simple Icons，CC0）
 scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致性、動作合法性、時間順序等
+scripts/test-ui.mjs         ← 畫面冒煙測試（Playwright）：開 dist/ 走一遍首頁、歌曲頁、分享、測驗模式、離線、手機版面
 scripts/build.mjs           ← 建置：中文、英文（en/）、日文（jp/）各一份首頁與每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
 tools/romaji/               ← 英文版歌詞的羅馬拼音：建置前用 kuromoji 自動產生 song-romaji.json（不進版控），讀錯的寫在 overrides.json
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
@@ -100,6 +101,16 @@ node scripts/build.mjs dist
 
 ```bash
 node scripts/check-data.mjs
+```
+
+改了畫面或互動程式，可以再跑畫面測試（第一次要先裝 Playwright；YouTube 會換成假的播放器，不用連網）：
+
+```bash
+npm install --no-save --no-package-lock playwright@1.64.1 && npx playwright install chromium-headless-shell
+```
+
+```bash
+node scripts/build.mjs dist && node scripts/test-ui.mjs dist
 ```
 
 ## 3. 發布到 GitHub Pages

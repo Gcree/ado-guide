@@ -36,6 +36,9 @@ jobs:
         run: npm install --no-save --no-package-lock kuromoji@0.1.2 && node tools/romaji/romaji.mjs
       - name: Build
         run: node scripts/build.mjs dist
+      # 畫面冒煙測試：開建置好的網站走一遍首頁、歌曲頁、分享、測驗模式、離線；沒過就不發布
+      - name: UI test
+        run: npm install --no-save --no-package-lock playwright@1.64.1 && npx playwright install --with-deps chromium-headless-shell && node scripts/test-ui.mjs dist
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
