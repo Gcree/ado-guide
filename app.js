@@ -827,13 +827,25 @@
   if (location.protocol === "file:") {
     videoMsg(T("直接點開檔案時 YouTube 不允許嵌入播放。請改用資料夾裡的「開啟網站.command」，或放上 GitHub Pages 再看。"));
   } else {
-    slowTimer = setTimeout(() => { if (!ready) videoMsg(T("影片連線延遲，請到 YouTube 觀看。")); }, 8000);
+    // 離線時（加到主畫面、在場館收不到訊號）影片播不了，先說清楚；連回網路就重新載入播放器
+    const OFFLINE = T("離線中：影片要連上網路才能播，歌詞和應援重點照樣可以看。");
+    const loadYT = () => {
+      if (window.YT && YT.Player) return;
+      clearTimeout(slowTimer);
+      slowTimer = setTimeout(() => { if (!ready) videoMsg(navigator.onLine ? T("影片連線延遲，請到 YouTube 觀看。") : OFFLINE); }, 8000);
+      const yts = document.createElement("script");
+      yts.src = "https://www.youtube.com/iframe_api";
+      yts.onerror = () => { yts.remove(); videoMsg(navigator.onLine ? T("無法載入 YouTube 播放器，請到 YouTube 觀看。") : OFFLINE); };
+      document.head.appendChild(yts);
+    };
     window.onYouTubeIframeAPIReady = loadVideo;
-    const yts = document.createElement("script");
-    yts.src = "https://www.youtube.com/iframe_api";
-    yts.onerror = () => videoMsg(T("無法載入 YouTube 播放器，請到 YouTube 觀看。"));
-    document.head.appendChild(yts);
+    if (!navigator.onLine) videoMsg(OFFLINE);
+    loadYT();
+    addEventListener("online", () => { if (!ready) { videoMsg(T("正在載入影片…")); loadYT(); } });
+    addEventListener("offline", () => { if (!ready) videoMsg(OFFLINE); });
   }
+  // 離線用的 Service Worker：只有建置過的網站才有 sw.js；ROOT 讓英文、日文版也註冊到網站根目錄
+  if (LYV && "serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register(ROOT + "sw.js").catch(() => {}));
 
   function openSong(s, t = 0) {
     quizStop();

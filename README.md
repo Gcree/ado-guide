@@ -40,6 +40,7 @@ song-lyrics.js              ← 每首歌的同步日文歌詞、繁中翻譯與
 i18n.js                     ← 英文、日文版的介面翻譯（key 是中文原文）；建置時拆成 i18n/en.js、i18n/ja.js
 CHANGELOG.md                ← 更新日誌；網站頁尾的「更新日誌」直接讀這個檔案
 manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示與顏色
+sw.js                       ← 離線用的 Service Worker：建置時填進版本和要先存起來的檔案（首頁、CSS／JS、每首歌詞）
 assets/                     ← 網站圖示（favicon、主畫面圖示）、分享預覽圖 og.jpg；icons/ 是頁尾的 Threads、IG 圖示（Simple Icons，CC0）
 scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致性、動作合法性、時間順序等
 scripts/build.mjs           ← 建置：中文、英文（en/）、日文（jp/）各一份首頁與每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/

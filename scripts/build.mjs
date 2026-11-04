@@ -713,6 +713,16 @@ for (const f of [
 if (fs.existsSync(path.join(root, "assets/favicon.ico"))) {
   fs.copyFileSync(path.join(root, "assets/favicon.ico"), path.join(out, "favicon.ico"));
 }
+// 離線用的 Service Worker：先存三種語言的首頁、共用的 CSS／JS 和每首歌詞檔；VERSION 跟著這些檔案的版本走，有改才會換新版
+const precache = [
+  ...LANGS.map(L => L.dir || "./"),
+  `style.css?v=${hash(css)}`, `songs.js?v=${hash(songsText)}`, `karaoke-sources.js?v=${hash(karaokeSrc)}`, `app.js?v=${hash(app)}`,
+  ...Object.entries(i18nFiles).map(([code, text]) => `i18n/${code}.js?v=${hash(text)}`),
+  ...Object.keys(lyFiles).map(f => `${f}?v=${LYV}`),
+  "manifest.webmanifest", "favicon.ico", "assets/favicon.svg", "assets/icon-192.png"
+];
+const swSrc = read("sw.js");
+write("sw.js", swSrc.replace("__VERSION__", hash(precache.join("\n") + swSrc)).replace("__PRECACHE__", JSON.stringify(precache)));
 write("CNAME", "ado.kuti.cc\n");
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
