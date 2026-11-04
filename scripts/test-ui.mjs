@@ -122,11 +122,45 @@ await test("分享目前時間：連到正在播的那首歌的頁面", async pa
     Object.defineProperty(navigator, "clipboard", { value: { writeText: async t => { window.__copied = t; } } });
     window.__yt.pauseVideo(); window.__yt.seekTo(42.5);
   });
-  await page.click("#tools summary");
+  await page.click("#dockMore");
   await page.click("#shareBtn");
   await page.waitForFunction(() => window.__copied);
   assert.equal(await page.evaluate(() => window.__copied), BASE + "song/usseewa/#usseewa@42");
 });
+
+await test("練習工具列：速度、選單（電腦浮出）", async page => {
+  await openSong(page, "#usseewa");
+  await page.click('.dock-rate [data-rate="0.75"]');
+  assert.equal(await page.getAttribute('.dock-rate [data-rate="0.75"]', "aria-pressed"), "true");
+  assert.equal(await page.evaluate(() => localStorage.getItem("mv-rate")), "0.75");
+  await page.click("#dispBtn");
+  await page.waitForFunction(() => document.getElementById("dispDlg").open);
+  assert.equal(await page.evaluate(() => document.getElementById("dispDlg").classList.contains("as-sheet")), false, "電腦版是浮出的選單");
+  await page.click('#dispDlg [data-opt="karaoke"]');
+  assert.equal(await page.evaluate(() => document.getElementById("lines").classList.contains("karaoke")), true);
+  assert.equal(await page.evaluate(() => document.getElementById("dispDlg").open), true, "切開關不會把選單關掉");
+  await page.mouse.click(5, 300);
+  await page.waitForFunction(() => !document.getElementById("dispDlg").open);
+  await page.click("#dockMore");
+  const r = await page.evaluate(() => { const b = document.querySelector("#moreDlg .sheet-panel").getBoundingClientRect(); return [b.left, b.right, b.top, b.bottom, innerWidth, innerHeight]; });
+  assert.ok(r[0] >= 0 && r[1] <= r[4] && r[2] >= 0 && r[3] <= r[5], `「更多」選單要在畫面內：${r.join(",")}`);
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.getElementById("moreDlg").open);
+});
+
+await test("練習工具列：手機在底部，選單從下面拉出", async page => {
+  await openSong(page, "#usseewa");
+  const dock = await page.evaluate(() => { const r = document.getElementById("dock").getBoundingClientRect(); return [Math.round(r.bottom), innerHeight, getComputedStyle(document.getElementById("dock")).position]; });
+  assert.equal(dock[2], "fixed"); assert.ok(Math.abs(dock[0] - dock[1]) <= 1, `工具列要貼著畫面底部：${dock}`);
+  await page.click("#rateCycle");
+  assert.equal((await page.textContent("#rateNow")).trim(), "0.75×");
+  await page.click("#dockMore");
+  await page.waitForFunction(() => document.getElementById("moreDlg").open);
+  assert.equal(await page.evaluate(() => document.getElementById("moreDlg").classList.contains("as-sheet")), true);
+  assert.equal(await page.isVisible('#moreDlg [data-tool="click"]'), true, "手機的拍點聲在「更多」裡");
+  await page.mouse.click(180, 40);
+  await page.waitForFunction(() => !document.getElementById("moreDlg").open);
+}, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
 await test("影片錯誤訊息：換歌後收掉", async page => {
   await openSong(page, "#usseewa");
@@ -172,7 +206,8 @@ await test("測驗模式：按鈕停用、藏提示、判定、結算", async pa
 
 await test("英文版：介面翻譯", async page => {
   await openSong(page, "en/#usseewa");
-  assert.equal((await page.textContent("#toolQuiz")).trim(), "Quiz mode (Q)");
+  assert.equal((await page.textContent("#toolQuiz")).trim(), "Quiz");
+  assert.equal((await page.textContent("#dockMore")).trim(), "More");
   assert.equal(await page.getAttribute("html", "lang"), "en");
 });
 

@@ -557,9 +557,8 @@ function renderLang(L) {
     if (lives.length > 0) {
       const liveListHtml = lives.map(l => `<li><a href="https://www.youtube.com/watch?v=${l.yt}" target="_blank" rel="noopener"><span>${esc(l.concert)}</span><svg class="ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></li>`).join("");
       songHtml = songHtml
-        .replace('<details class="vopt live-opt" id="liveOpt" hidden>', '<details class="vopt live-opt" id="liveOpt">')
-        .replace('<ul class="live-menu-list" id="liveList"></ul>', `<ul class="live-menu-list" id="liveList">${liveListHtml}</ul>`)
-        .replace(/<a id="liveLink" target="_blank" rel="noopener" hidden>[^<]*<\/a>/, `<a id="liveLink" href="https://www.youtube.com/watch?v=${lives[0].yt}" target="_blank" rel="noopener">${esc(T("現場音源（{0}）↗", lives[0].concert))}</a>`);
+        .replace('<div class="sheet-group" id="liveOpt" hidden>', '<div class="sheet-group" id="liveOpt">')
+        .replace('<ul class="live-menu-list" id="liveList"></ul>', `<ul class="live-menu-list" id="liveList">${liveListHtml}</ul>`);
     }
 
     // 上一首／下一首連結預渲染

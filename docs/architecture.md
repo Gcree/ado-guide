@@ -52,7 +52,9 @@ flowchart TB
       LINES["歌詞：點句跳轉・自動捲動・卡拉OK"]
       CUE["現在要做的事＋下一個動作"]
       ALERT["大字提醒字卡＋邊框光"]
-      TOOLS["練習工具：速度・拍點聲・自動下一首<br/>分享時間・回報錯誤・加到主畫面"]
+      TOOLS["練習工具列：速度・拍點聲・大字提醒・測驗<br/>電腦浮在影片下方，手機固定在底部"]
+      SHEETS["顯示、更多選單（dialog）<br/>電腦貼著按鈕浮出，手機從底部拉出"]
+      TOOLS --> SHEETS
       IMM["沉浸模式 F"]
       PIP["歌詞小窗 P<br/>Document PiP，不行改 Canvas PiP"]
       LAMP["手燈連動 WebSocket<br/>127.0.0.1:51730"]

@@ -561,15 +561,19 @@
   function jaHTML(txt, sung = []) {
     const out = [], re = /([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g, hit = new Set();
     sung.forEach(w => { const i = txt.lastIndexOf(w); if (i >= 0) for (let j = i; j < i + w.length; j++) hit.add(j); });
-    let kIndex = 0;
-    const k = (i, html) => {
+    // 英文、數字連在一起的字包成一組（.kw），一個單字不會被拆到兩行
+    let kIndex = 0, word = [];
+    const flush = () => { if (word.length) out.push(word.length > 1 ? `<span class="kw">${word.join("")}</span>` : word[0]); word = []; };
+    const k = (i, html, latin) => {
       const rot = (((kIndex * 7) % 15) - 7).toFixed(1) + "deg";
-      out.push(`<span class="k${hit.has(i) ? " sung" : ""}" style="--i:${kIndex++};--rot:${rot}">${html}</span>`);
+      const span = `<span class="k${hit.has(i) ? " sung" : ""}" style="--i:${kIndex++};--rot:${rot}">${html}</span>`;
+      if (latin) word.push(span); else { flush(); out.push(span); }
     };
-    const chars = (str, at) => { for (const c of str) { k(at, esc(c)); at += c.length; } };
+    const chars = (str, at) => { for (const c of str) { k(at, esc(c), /[A-Za-z0-9'’!?,.\-]/.test(c)); at += c.length; } };
     let last = 0, m;
     while ((m = re.exec(txt))) { chars(txt.slice(last, m.index), last); k(m.index, `<ruby>${esc(m[1])}<rt>${esc(m[2])}</rt></ruby>`); last = re.lastIndex; }
     chars(txt.slice(last), last);
+    flush();
     return out.join("");
   }
   function renderLines() {
@@ -719,11 +723,19 @@
   function seek(t) { if (!ready) return; player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); }
 
   // 播放速度：放慢練應援時間點，記在這台裝置
+  // 電腦是 0.5／0.75／1 三段按鈕，手機是一顆按鈕輪流切換（1 → 0.75 → 0.5）
   let RATE = [.5, .75].includes(+store.get("mv-rate")) ? +store.get("mv-rate") : 1;
-  const rateSel = document.getElementById("rateSel");
-  rateSel.value = String(RATE);
+  const RATES = [1, .75, .5], rateCycle = document.getElementById("rateCycle"), rateNow = document.getElementById("rateNow");
   const applyRate = () => { try { player.setPlaybackRate(RATE); } catch (e) {} };
-  rateSel.addEventListener("change", () => { RATE = +rateSel.value; store.set("mv-rate", RATE === 1 ? null : String(RATE)); if (ready) applyRate(); });
+  function paintRate() {
+    document.querySelectorAll("[data-rate]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.rate === RATE)));
+    rateNow.textContent = `${RATE}×`;
+    rateCycle.setAttribute("aria-label", T("播放速度：{0}（點一下切換）", `${RATE}×`));
+  }
+  function setRate(r) { RATE = r; store.set("mv-rate", RATE === 1 ? null : String(RATE)); if (ready) applyRate(); paintRate(); }
+  document.querySelectorAll("[data-rate]").forEach(b => b.addEventListener("click", () => setRate(+b.dataset.rate)));
+  rateCycle.addEventListener("click", () => setRate(RATES[(RATES.indexOf(RATE) + 1) % RATES.length]));
+  paintRate();
 
   // 跳到大合唱：每段連續 sing 行的第一行
   const singJump = document.getElementById("singJump"), singPrev = document.getElementById("singPrev"), singNext = document.getElementById("singNext");
@@ -881,22 +893,11 @@
     const liveOpt = document.getElementById("liveOpt");
     if (liveOpt) {
       liveOpt.hidden = lives.length === 0;
-      liveOpt.open = false;
       const liveList = document.getElementById("liveList");
       if (liveList) {
         liveList.innerHTML = lives.map(l =>
           `<li><a href="https://www.youtube.com/watch?v=${l.yt}" target="_blank" rel="noopener"><span>${esc(l.concert)}</span><svg class="ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></li>`
         ).join("");
-      }
-    }
-    const liveLink = document.getElementById("liveLink");
-    if (liveLink) {
-      if (lives.length > 0) {
-        liveLink.hidden = false;
-        liveLink.href = `https://www.youtube.com/watch?v=${lives[0].yt}`;
-        liveLink.textContent = T("現場音源（{0}）↗", lives[0].concert);
-      } else {
-        liveLink.hidden = true;
       }
     }
     const p = penOf(s);
@@ -908,7 +909,7 @@
       if (x) { a.setAttribute("href", songHref(x.id)); a.setAttribute("aria-label", `${word}：${x.ja}`); } else a.removeAttribute("href");
     });
     fillSong();
-    document.getElementById("tool-click").disabled = !BEAT[s.id];
+    document.querySelectorAll('[data-tool="click"]').forEach(b => b.disabled = !BEAT[s.id]);
     loadVideo();
     loadKaraokeTiming(s);
     updateAmbientColors(s);
@@ -1006,11 +1007,11 @@
   // 大字提醒：字卡＋四周邊框光，不蓋住 MV 和歌詞
   // 動作前一小節邊框先微亮預告（不倒數），動作開始那拍整個亮；字卡內容跟著拍子動
   const al = document.getElementById("alert"), alIcon = document.getElementById("alIcon"), alName = document.getElementById("alName"),
-        alBody = document.getElementById("alBody"), alHow = document.getElementById("alHow"), cueFrame = document.getElementById("cueFrame"), alertSw = document.getElementById("alertSw");
+        alBody = document.getElementById("alBody"), alHow = document.getElementById("alHow"), cueFrame = document.getElementById("cueFrame");
   const screenEl = document.getElementById("screen");
   let alertOn = store.get("alert-off") !== "1", alKey = "", alKind = "", alDots = [], alWords = [], alSing = [], alSteps = [];
-  // 大字提醒開關：電腦在提示框裡，手機在練習工具選單裡
-  const alertBtns = [alertSw, document.getElementById("alertTool")];
+  // 大字提醒開關：在練習工具列上
+  const alertBtns = [document.getElementById("alertTool")];
   const paintAlert = () => alertBtns.forEach(b => b.setAttribute("aria-pressed", alertOn));
   paintAlert();
   alertBtns.forEach(b => b.addEventListener("click", () => { alertOn = !alertOn; paintAlert(); store.set("alert-off", alertOn ? "0" : "1"); }));
@@ -1245,8 +1246,12 @@
   document.querySelectorAll("[data-size]").forEach(b => b.addEventListener("click", () => setOpt("size", b.dataset.size)));
   document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => setOpt(b.dataset.opt, !OPT[b.dataset.opt])));
   applyOpts();
-  // 點選單外面就收起來
-  const menus = [document.getElementById("vopt"), document.getElementById("tools"), document.getElementById("tipsOpt"), document.getElementById("liveOpt")].filter(Boolean);
+  // 歌詞下面那一行：中文版是中譯、英文版是羅馬拼音、日文版沒有，開關的名稱跟著換
+  const optSub = document.getElementById("optSub");
+  if (LANG === "en") optSub.firstElementChild.textContent = T("羅馬拼音");
+  if (LANG === "ja") optSub.hidden = true;
+  // 點選單外面就收起來（影片下方的「這首重點」）
+  const menus = [document.getElementById("tipsOpt")].filter(Boolean);
   document.addEventListener("click", e => menus.forEach(m => { if (m.open && !m.contains(e.target)) m.open = false; }));
   // 按 Esc 也收起來，焦點回到選單按鈕；這一下不再拿去關沉浸模式
   document.addEventListener("keydown", e => {
@@ -1256,7 +1261,7 @@
     m.open = false;
     m.querySelector("summary").focus();
   }, true);
-  // 窄螢幕上按鈕換行到左邊時選單往右展開，下面放不下時往上展開（#vopt 在歌詞頂部，順向往下展開至歌詞區）
+  // 下面放不下時往上展開
   menus.forEach(m => m.addEventListener("toggle", () => {
     const box = m.querySelector(".view-opts");
     if (!box) return;
@@ -1265,13 +1270,81 @@
     if (!m.open) return;
     const r = box.getBoundingClientRect();
     if (r.left < 8) box.classList.add("to-right");
-    if (m.id === "vopt") return;
     const below = innerHeight - r.top - 8, above = m.getBoundingClientRect().top - 14;
     if (r.height > below) {
       if (above > below) box.classList.add("to-up");
       if (r.height > Math.max(above, below)) box.style.maxHeight = Math.max(above, below) + "px";
     }
   }));
+
+  // ── 「顯示」「更多」兩個選單 ──
+  // 電腦：貼著按鈕浮出（非強制回應的 dialog，點外面或 Esc 關掉）；手機、平板直放、手機橫拿：從畫面底部拉出的抽屜（強制回應，點暗處、往下滑或 Esc 關掉）
+  const SHEET_MQ = matchMedia("(max-width: 900px), (orientation: landscape) and (max-height: 500px)");
+  const SHEETS = [
+    { dlg: document.getElementById("dispDlg"), btns: ["dispBtn", "dockDisp"] },
+    { dlg: document.getElementById("moreDlg"), btns: ["dockMore"] }
+  ].map(x => ({ ...x, btns: x.btns.map(id => document.getElementById(id)) }));
+  let sheetFrom = null;
+  function placeSheet(sh, btn) {
+    const panel = sh.dlg.firstElementChild, r = btn.getBoundingClientRect(), w = panel.offsetWidth, h = panel.offsetHeight;
+    // 右緣對齊按鈕；下面放得下往下開，不然往上開（工具列在影片下方，「更多」通常往上）
+    // 兩邊都放不下就開在空間大的那邊，選單裡面自己捲
+    panel.style.maxHeight = "";
+    const left = Math.max(12, Math.min(innerWidth - w - 12, r.right - w)), below = innerHeight - r.bottom - 18, above = r.top - 18;
+    const down = h <= below || (h > above && below >= above);
+    if (h > (down ? below : above)) panel.style.maxHeight = (down ? below : above) + "px";
+    const top = down ? r.bottom + 6 : r.top - 6 - Math.min(h, above);
+    Object.assign(sh.dlg.style, { left: left + "px", top: top + "px" });
+  }
+  function closeSheets() { SHEETS.forEach(sh => { if (sh.dlg.open) sh.dlg.close(); }); }
+  function openSheet(sh, btn) {
+    const was = sh.dlg.open;
+    closeSheets();
+    if (was) return;
+    sheetFrom = btn;
+    const asSheet = SHEET_MQ.matches;
+    sh.dlg.classList.toggle("as-sheet", asSheet);
+    sh.dlg.style.left = sh.dlg.style.top = "";
+    if (asSheet) sh.dlg.showModal(); else { sh.dlg.show(); placeSheet(sh, btn); }
+    sh.btns.forEach(b => b.setAttribute("aria-expanded", "true"));
+    // 用鍵盤打開時焦點移到第一個項目
+    if (!asSheet) (sh.dlg.querySelector("button:not(:disabled), a") || sh.dlg).focus();
+  }
+  SHEETS.forEach(sh => {
+    sh.btns.forEach(b => b.addEventListener("click", ev => { ev.stopPropagation(); openSheet(sh, b); }));
+    sh.dlg.addEventListener("close", () => {
+      sh.btns.forEach(b => b.setAttribute("aria-expanded", "false"));
+      sh.dlg.classList.remove("dragging"); sh.dlg.firstElementChild.style.transform = "";
+      if (sheetFrom && document.activeElement && (sh.dlg.contains(document.activeElement) || document.activeElement === document.body)) sheetFrom.focus({ preventScroll: true });
+    });
+    // 抽屜：點到暗處（dialog 本身，不是裡面的面板）就關
+    sh.dlg.addEventListener("click", e => { if (e.target === sh.dlg) sh.dlg.close(); });
+    // 抽屜：抓著上面的把手或標題往下拉，拉超過 80px 就關
+    const panel = sh.dlg.firstElementChild;
+    let drag = null;
+    panel.addEventListener("pointerdown", e => {
+      if (!sh.dlg.classList.contains("as-sheet") || !e.target.closest(".sheet-grip, .sheet-title")) return;
+      drag = { y: e.clientY, id: e.pointerId }; panel.setPointerCapture(e.pointerId); sh.dlg.classList.add("dragging");
+    });
+    panel.addEventListener("pointermove", e => { if (drag && e.pointerId === drag.id) panel.style.transform = `translateY(${Math.max(0, e.clientY - drag.y)}px)`; });
+    const end = e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dy = e.clientY - drag.y; drag = null; sh.dlg.classList.remove("dragging");
+      if (dy > 80) sh.dlg.close(); else panel.style.transform = "";
+    };
+    panel.addEventListener("pointerup", end);
+    panel.addEventListener("pointercancel", end);
+  });
+  // 浮出的選單：點外面、按 Esc、捲動或改變視窗大小就關
+  document.addEventListener("click", e => SHEETS.forEach(sh => { if (sh.dlg.open && !sh.dlg.classList.contains("as-sheet") && !sh.dlg.contains(e.target)) sh.dlg.close(); }));
+  document.addEventListener("keydown", e => {
+    const sh = e.key === "Escape" && SHEETS.find(x => x.dlg.open && !x.dlg.classList.contains("as-sheet"));
+    if (!sh) return;
+    e.stopImmediatePropagation(); sh.dlg.close();
+  }, true);
+  addEventListener("resize", () => SHEETS.forEach(sh => { if (sh.dlg.open && sh.dlg.classList.contains("as-sheet") !== SHEET_MQ.matches) sh.dlg.close(); }));
+  // 選單裡的動作（分享、回報、沉浸模式這些）做完就收起來；開關類的（日文、卡拉OK…）留著，可以連續切
+  document.querySelectorAll("#moreDlg button:not([aria-pressed]), #moreDlg a, #toolImmersiveMenuBtn, #toolPipMenuBtn").forEach(el => el.addEventListener("click", () => setTimeout(closeSheets, 0)));
 
   // ── 練習工具 ──
   const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", lamp: store.get("tool-lamp") === "1" };
@@ -1307,7 +1380,7 @@
     isImmersive = on;
     document.body.classList.toggle("immersive-mode", isImmersive);
     syncThemeColor();
-    if (toolImmersive) toolImmersive.setAttribute("aria-pressed", isImmersive);
+    [toolImmersive, toolImmersiveMenuBtn].forEach(b => b && b.setAttribute("aria-pressed", isImmersive));
     if (isImmersive) {
       updateAmbientColors(S);
       toast(T("✨ 已開啟沉浸播放模式（按 Esc 或 F 退出）"));
@@ -1331,11 +1404,7 @@
 
   if (toolImmersive) toolImmersive.addEventListener("click", toggleImmersive);
   if (toolImmersiveMenuBtn) {
-    toolImmersiveMenuBtn.addEventListener("click", () => {
-      toggleImmersive();
-      const toolsMenu = document.getElementById("tools");
-      if (toolsMenu) toolsMenu.open = false;
-    });
+    toolImmersiveMenuBtn.addEventListener("click", toggleImmersive);
   }
 
   // ── 歌詞子母畫面小窗 (Lyrics Document Picture-in-Picture & Fallback) ──
@@ -1818,11 +1887,7 @@
 
   if (toolPipBtn) toolPipBtn.addEventListener("click", togglePip);
   if (toolPipMenuBtn) {
-    toolPipMenuBtn.addEventListener("click", () => {
-      togglePip();
-      const toolsMenu = document.getElementById("tools");
-      if (toolsMenu) toolsMenu.open = false;
-    });
+    toolPipMenuBtn.addEventListener("click", togglePip);
   }
 
   ["mousemove", "touchstart"].forEach(ev => {
@@ -2226,7 +2291,7 @@
     }
   });
   quizBtn.addEventListener("click", () => {
-    document.getElementById("tools").open = false;
+    closeSheets();
     QZ ? quizStop() : quizStart();
   });
   // 按下去那一刻就判定（不等放開）；不搶焦點，空白鍵才不會按到別的按鈕
@@ -2240,7 +2305,7 @@
     const t = Math.floor(now()), at = t ? `#${S.id}@${t}` : "";
     // 建置過的網頁才有 data-lyrics；baseURI 是這個語言的根目錄（歌曲頁有 <base href="../../">）
     const url = LYV ? new URL(`song/${S.id}/`, document.baseURI).href + at : `${location.origin}${location.pathname}${at || "#" + S.id}`;
-    document.getElementById("tools").open = false;
+    closeSheets();
     const text = `${S.ja}${t ? " " + fmt(t) : ""}｜${T("Ado 應援指南")}`;
     if (navigator.share && matchMedia("(pointer: coarse)").matches) { try { await navigator.share({ title: text, url }); return; } catch (e) { if (e.name === "AbortError") return; } }
     try { await navigator.clipboard.writeText(url); toast(t ? T("已複製連結（從 {0} 開始）", fmt(t)) : T("已複製連結")); }
@@ -2254,7 +2319,7 @@
   let rpData = null;
   // 歌曲頁的「回報錯誤」帶入歌曲、時間和這一句；頁尾的「意見回饋」不指定歌曲
   function openReport(onSong) {
-    document.getElementById("tools").open = false;
+    closeSheets();
     document.getElementById("reportH").textContent = onSong ? T("回報錯誤") : T("意見回饋");
     document.getElementById("rpWhere").hidden = !onSong;
     if (onSong) {

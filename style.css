@@ -496,6 +496,8 @@ main.col { padding-block: 8px 72px; display: grid; gap: var(--gap); }
 }
 .ln[class*=" a-"]:not(.a-listen):not(.a-sing) .ja { color: color-mix(in srgb, var(--act) 62%, var(--muted)); }
 /* 「唱」不染整行，只染觀眾要唱的字 */
+/* 英文、羅馬字的單字包成一組，不會在單字中間換行（每個字都是一個框，框和框之間本來都可以斷） */
+.kw { white-space: nowrap; }
 .ln .sung { position: relative; display: inline-block; white-space: pre-wrap; color: color-mix(in srgb, var(--sing) 75%, var(--muted)); transition: color var(--dur-base) var(--ease), text-shadow var(--dur-base) var(--ease); }
 .ln.now .sung { color: #fff; font-weight: 700; text-shadow: 0 0 8px rgba(2, 180, 245, .95), 0 0 20px rgba(45, 199, 255, .65), 0 0 35px rgba(2, 180, 245, .4); animation: chorus-glow-pulse 2.2s var(--ease-sine) infinite alternate; }
 .karaoke .ln.now .k.sung.lit, .karaoke .ln.now .k.sung.lit rt { color: #fff !important; text-shadow: 0 0 10px rgba(2, 180, 245, 1), 0 0 24px rgba(45, 199, 255, .75), 0 0 40px rgba(2, 180, 245, .5); }
@@ -2135,9 +2137,7 @@ html.vt-theme::view-transition-new(root) { animation: vt-fade var(--dur-base) va
 html[lang="ja"] body { word-break: auto-phrase; }
 /* 提示框：開著大字提醒時，沒有字卡的段落（前奏、安靜聽）照樣顯示下一個動作，不要整塊空著 */
 .cue.playing.alerting.idle .next { opacity: 1; visibility: visible; }
-/* 手機：沉浸模式、歌詞小窗收進練習工具選單（選單裡本來就有），頂欄留位置給歌名 */
 @media (max-width: 600px) {
-  .songbar #tool-immersive, .songbar #toolPipBtn { display: none; }
   /* 頂欄選單改對齊整條頂欄的右邊，不會從按鈕往左長出畫面 */
   .bar .menu { position: static; }
   .bar .pop { right: max(12px, env(safe-area-inset-right, 0px)); max-width: calc(100vw - 24px); }
@@ -2146,4 +2146,99 @@ html[lang="ja"] body { word-break: auto-phrase; }
 @media (orientation: landscape) and (max-height: 500px) {
   .crate-stage { height: 300px; }
   .crate .rec { --s: min(170px, 40vh); bottom: 56px; }
+}
+
+/* ── 練習工具列（dock）與兩個選單（sheet）：按鈕沿用首頁篩選鈕（選中是 chip-on 的實心膠囊），選單沿用頂欄選單的底色、陰影和項目 ──
+   電腦：影片下方的浮動膠囊；選單貼著按鈕浮出
+   手機直拿、平板直放：固定在畫面底部，大拇指按得到；選單從下面拉出
+   手機橫拿：畫面太矮，工具列留在左欄（影片下方），選單一樣從下面拉出 */
+.dock { justify-self: center; align-self: center; display: flex; align-items: center; gap: 2px; max-width: 100%; padding: 4px; border-radius: 999px; background: var(--menu); box-shadow: var(--menu-shadow); box-sizing: border-box; }
+.dock-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 40px; min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--text); font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: var(--tr-color), var(--tr-press); }
+.dock-btn.icon { width: 40px; padding: 0; }
+.dock-btn svg { flex: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.dock-btn b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.dock-btn[aria-pressed="true"] { background: var(--chip-on-bg); color: var(--chip-on-fg); }
+.dock-btn[aria-expanded="true"] { background: var(--fill); }
+@media (hover: hover) {
+  .dock-btn:hover:not(:disabled) { background: var(--fill-hover); }
+  .dock-btn[aria-pressed="true"]:hover:not(:disabled) { background: var(--chip-on-hover); }
+}
+.dock-btn:active:not(:disabled) { transform: scale(.95); }
+.dock-btn:focus-visible, .dock-rate button:focus-visible, .ly-btn:focus-visible, .sheet-seg button:focus-visible { outline: 2px solid var(--tint); outline-offset: 2px; }
+.dock-btn:disabled { opacity: .4; cursor: not-allowed; }
+.dock-rate, .sheet-seg { display: inline-flex; flex: none; padding: 2px; border-radius: 999px; background: var(--fill); }
+.dock-rate { margin-right: 4px; }
+.dock-rate button, .sheet-seg button { min-width: 44px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; transition: var(--tr-color); }
+.dock-rate button[aria-pressed="true"], .sheet-seg button[aria-pressed="true"] { background: var(--chip-on-bg); color: var(--chip-on-fg); }
+.compact-only, .sheet .sheet-group.compact-only { display: none; }
+/* 歌詞區的「顯示」：跟大合唱跳轉同一排、同樣的膠囊 */
+.ly-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--fill); color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: var(--tr-color); }
+.ly-btn::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform var(--dur-quick) var(--ease); }
+.ly-btn[aria-expanded="true"] { background: var(--fill-press); color: var(--text); }
+.ly-btn[aria-expanded="true"]::after { transform: translateY(1px) rotate(-135deg); }
+
+/* 選單：跟頂欄選單（.pop）同一套 */
+.sheet { position: fixed; inset: auto; margin: 0; padding: 0; border: 0; background: transparent; color: var(--text); max-width: none; max-height: none; overflow: visible; z-index: 40; }
+.sheet::backdrop { background: rgba(4, 6, 12, .5); }
+.sheet-panel { width: 280px; max-height: min(72vh, 560px); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 14px; background: var(--menu); box-shadow: var(--menu-shadow); box-sizing: border-box; animation: pop-in var(--dur-quick) var(--ease-out); }
+.sheet-grip { display: none; }
+.sheet-title { margin: 0; padding: 8px 12px 4px; color: var(--faint); font-size: 13px; font-weight: 500; }
+.sheet-group { display: flex; flex-direction: column; }
+.sheet-group + .sheet-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+.sheet-h { margin: 0; padding: 6px 12px 2px; color: var(--faint); font-size: 12.5px; }
+.sheet .pop-item { font-size: 15px; justify-content: space-between; }
+.sheet .pop-item[aria-pressed="true"] { font-weight: 700; }
+.sheet .pop-item[aria-pressed="true"] .pop-check { opacity: 1; transform: none; }
+.sheet .pop-item:disabled { opacity: .4; }
+@media (hover: hover) { .sheet .pop-item:hover, .sheet .live-menu-list a:hover { background: var(--fill); } }
+.sheet .live-menu-list a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: var(--text); font-size: 15px; text-decoration: none; transition: var(--tr-color); }
+.sheet .live-menu-list .ext { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--faint); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sheet-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; margin-top: 4px; padding: 4px 6px 0 12px; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font-size: 15px; }
+/* 手機：從畫面底部拉出的抽屜 */
+.sheet.as-sheet { inset: auto 0 0 0; width: 100%; }
+.sheet.as-sheet .sheet-panel { width: auto; max-width: 560px; max-height: 78dvh; margin: 0 auto; padding: 0 8px max(12px, env(safe-area-inset-bottom, 0px)); border-radius: 20px 20px 0 0; animation: sheet-up var(--dur-slow) var(--ease-out); touch-action: pan-y; }
+.sheet.as-sheet .sheet-grip { display: block; width: 36px; height: 5px; margin: 8px auto 2px; border-radius: 3px; background: var(--fill-press); }
+.sheet.as-sheet .sheet-title { padding: 8px 12px; color: var(--text); font-size: 16px; font-weight: 700; }
+.sheet.as-sheet .pop-item, .sheet.as-sheet .live-menu-list a { min-height: 48px; font-size: 16px; }
+.sheet.as-sheet.dragging .sheet-panel { transition: none; animation: none; }
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .sheet-panel, .sheet.as-sheet .sheet-panel { animation: none; } }
+
+@media (max-width: 900px), (orientation: landscape) and (max-height: 500px) {
+  .dock .wide-only, .sheet .wide-only { display: none; }
+  .dock .compact-only { display: inline-flex; }
+  .sheet .sheet-group.compact-only { display: flex; }
+  .lyrics-top #dispBtn { display: none; }
+}
+/* 手機直拿、平板直放：工具列固定在底部，跟首頁頂欄捲動後一樣的磨砂底；每顆按鈕是圖示＋小字，選中時圖示後面亮起膠囊 */
+@media (max-width: 900px) and (min-height: 501px) {
+  .on-song .dock { position: fixed; z-index: 24; left: 0; right: 0; bottom: 0; justify-self: stretch; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; padding: 4px max(8px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); border-radius: 0; background: var(--bar-bg); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 10%, transparent); }
+  .on-song #song { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+  .dock-btn { flex-direction: column; gap: 2px; min-height: 56px; padding: 4px 0; border-radius: 14px; color: var(--muted); font-size: 11.5px; }
+  .dock-btn svg, .dock-btn b { box-sizing: content-box; height: 20px; padding: 4px 16px; border-radius: 999px; transition: var(--tr-color); }
+  .dock-btn b { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; font-size: 14px; line-height: 20px; color: var(--text); }
+  .dock-btn[aria-pressed="true"], .dock-btn[aria-expanded="true"] { background: transparent; color: var(--text); }
+  .dock-btn[aria-pressed="true"] svg { background: var(--chip-on-bg); color: var(--chip-on-fg); }
+  .dock-btn[aria-expanded="true"] svg { background: var(--fill); }
+  @media (hover: hover) { .dock-btn:hover:not(:disabled), .dock-btn[aria-pressed="true"]:hover:not(:disabled) { background: transparent; } }
+  .dock-btn:active:not(:disabled) svg, .dock-btn:active:not(:disabled) b { background: var(--fill-press); }
+}
+/* 手機橫拿：工具列在左欄影片下方，左欄很窄，只放圖示（名稱在按鈕的說明文字裡） */
+@media (orientation: landscape) and (max-height: 500px) {
+  .dock-btn { min-height: 38px; padding: 0 10px; }
+  .dock-btn:not(#rateCycle) span { display: none; }
+  #rateCycle span { display: none; }
+}
+/* 英文、日文的按鈕名稱比較長，左右留白少一點，電腦版一樣放得進左欄 */
+@media (min-width: 901px) {
+  html:not([lang^="zh"]) .dock-btn:not(.icon) { padding: 0 10px; }
+  html:not([lang^="zh"]) .dock-rate button { padding: 0 9px; }
+}
+/* 電腦：左欄不夠寬時（小筆電、英文字比較長）也只放圖示，不會伸到歌詞區底下 */
+@media (min-width: 901px) {
+  .left { container-type: inline-size; }
+  @container (max-width: 640px) {
+    .dock-btn:not(.icon) span { display: none; }
+    .dock-btn:not(.icon) { width: 40px; padding: 0; }
+  }
 }
