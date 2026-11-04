@@ -2234,14 +2234,24 @@ html[lang="ja"] body { word-break: auto-phrase; }
   html:not([lang^="zh"]) .dock-btn:not(.icon) { padding: 0 10px; }
   html:not([lang^="zh"]) .dock-rate button { padding: 0 9px; }
 }
-/* 電腦：左欄不夠寬時（小筆電、英文字比較長）也只放圖示，不會伸到歌詞區底下 */
+/* 電腦：工具列浮在畫面下方正中間，離底部 24px；歌詞區跟左欄（MV＋資訊列＋提示框）一樣高，歌詞在裡面捲 */
 @media (min-width: 901px) {
-  .left { container-type: inline-size; }
-  @container (max-width: 640px) {
-    .dock-btn:not(.icon) span { display: none; }
-    .dock-btn:not(.icon) { width: 40px; padding: 0; }
-  }
+  .on-song .dock { position: fixed; z-index: 24; left: 0; right: 0; bottom: max(24px, env(safe-area-inset-bottom, 0px)); justify-self: auto; width: max-content; max-width: calc(100vw - 32px); margin-inline: auto; }
+  .on-song #song { padding-bottom: 96px; }
+  /* 左欄是 sticky，自己是一個疊層：整個左欄要疊在歌詞區上面，浮出去的工具列才不會被歌詞區蓋住 */
+  .on-song .left { z-index: 24; }
+  body.on-song:not(.immersive-mode) .grid { align-items: stretch; }
+  /* 高度設 0、最小高度 100%：這一列的高度由左欄決定，歌詞再多也不會把區塊撐高 */
+  body.on-song:not(.immersive-mode) .lyrics { position: relative; top: auto; height: 0; min-height: 100%; max-height: none; }
 }
+/* 沉浸模式：工具列跟頂欄一起，閒置 3.5 秒淡出，碰一下畫面又出來 */
+body.immersive-mode .dock { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-slow) var(--ease-out); }
+body.immersive-mode .dock.autohide { opacity: 0; transform: translateY(14px); pointer-events: none; transition: opacity var(--dur-quick) var(--ease-in), transform var(--dur-base) var(--ease-in); }
+/* 速度下拉：數字＋小箭頭，打開時箭頭朝上 */
+#rateBtn { gap: 4px; padding: 0 10px 0 14px; }
+#rateBtn .chev { width: 16px; height: 16px; transition: transform var(--dur-quick) var(--ease); }
+#rateBtn[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.sheet-sm .sheet-panel { width: 180px; }
 
 /* 隨機播放：下一首的箭頭換成隨機圖示，一看就知道下一首是隨機挑的 */
 #nextSong .ico-shuf, #nextSong.is-shuffle .ico-next { display: none; }

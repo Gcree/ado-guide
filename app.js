@@ -733,13 +733,13 @@
   function seek(t) { if (!ready) return; player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); }
 
   // 播放速度：放慢練應援時間點，記在這台裝置
-  // 電腦是 0.5／0.75／1 三段按鈕，手機是一顆按鈕輪流切換（1 → 0.75 → 0.5）
+  // 電腦是工具列上的下拉選單，手機是一顆按鈕輪流切換（1 → 0.75 → 0.5）
   let RATE = [.5, .75].includes(+store.get("mv-rate")) ? +store.get("mv-rate") : 1;
   const RATES = [1, .75, .5], rateCycle = document.getElementById("rateCycle"), rateNow = document.getElementById("rateNow");
   const applyRate = () => { try { player.setPlaybackRate(RATE); } catch (e) {} };
   function paintRate() {
     document.querySelectorAll("[data-rate]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.rate === RATE)));
-    rateNow.textContent = `${RATE}×`;
+    rateNow.textContent = document.getElementById("rateBtnVal").textContent = `${RATE}×`;
     rateCycle.setAttribute("aria-label", T("播放速度：{0}（點一下切換）", `${RATE}×`));
   }
   function setRate(r) { RATE = r; store.set("mv-rate", RATE === 1 ? null : String(RATE)); if (ready) applyRate(); paintRate(); }
@@ -1289,15 +1289,16 @@
   const SHEET_MQ = matchMedia("(max-width: 900px), (orientation: landscape) and (max-height: 500px)");
   const SHEETS = [
     { dlg: document.getElementById("dispDlg"), btns: ["dispBtn", "dockDisp"] },
-    { dlg: document.getElementById("moreDlg"), btns: ["dockMore"] }
+    { dlg: document.getElementById("moreDlg"), btns: ["dockMore"] },
+    { dlg: document.getElementById("rateDlg"), btns: ["rateBtn"] }
   ].map(x => ({ ...x, btns: x.btns.map(id => document.getElementById(id)) }));
   let sheetFrom = null;
   function placeSheet(sh, btn) {
     const panel = sh.dlg.firstElementChild, r = btn.getBoundingClientRect(), w = panel.offsetWidth, h = panel.offsetHeight;
-    // 右緣對齊按鈕；下面放得下往下開，不然往上開（工具列在影片下方，「更多」通常往上）
+    // 對齊按鈕中間（靠近畫面邊緣時往內收）；下面放得下往下開，不然往上開（工具列在畫面下方，所以通常往上）
     // 兩邊都放不下就開在空間大的那邊，選單裡面自己捲
     panel.style.maxHeight = "";
-    const left = Math.max(12, Math.min(innerWidth - w - 12, r.right - w)), below = innerHeight - r.bottom - 18, above = r.top - 18;
+    const left = Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2)), below = innerHeight - r.bottom - 18, above = r.top - 18;
     const down = h <= below || (h > above && below >= above);
     if (h > (down ? below : above)) panel.style.maxHeight = (down ? below : above) + "px";
     const top = down ? r.bottom + 6 : r.top - 6 - Math.min(h, above);
@@ -1351,7 +1352,7 @@
   }, true);
   addEventListener("resize", () => SHEETS.forEach(sh => { if (sh.dlg.open && sh.dlg.classList.contains("as-sheet") !== SHEET_MQ.matches) sh.dlg.close(); }));
   // 選單裡的動作（分享、回報、沉浸模式這些）做完就收起來；開關類的（日文、卡拉OK…）留著，可以連續切
-  document.querySelectorAll("#moreDlg button:not([aria-pressed]), #moreDlg a, #toolImmersiveMenuBtn, #toolPipMenuBtn").forEach(el => el.addEventListener("click", () => setTimeout(closeSheets, 0)));
+  document.querySelectorAll("#moreDlg button:not([aria-pressed]), #moreDlg a, #toolImmersiveMenuBtn, #toolPipMenuBtn, #rateDlg [data-rate]").forEach(el => el.addEventListener("click", () => setTimeout(closeSheets, 0)));
 
   // ── 練習工具 ──
   const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", shuffle: store.get("tool-shuffle") === "1", lamp: store.get("tool-lamp") === "1" };
@@ -1395,7 +1396,7 @@
   const ambientMesh = document.getElementById("ambientMesh");
   const toolImmersive = document.getElementById("tool-immersive");
   const toolImmersiveMenuBtn = document.getElementById("toolImmersiveMenuBtn");
-  const songbar = document.querySelector(".songbar");
+  const songbar = document.querySelector(".songbar"), dockEl = document.getElementById("dock");
   let isImmersive = false;
   let songbarHideTimer = null;
 
@@ -1409,10 +1410,10 @@
 
   function resetSongbarAutohide() {
     if (!isImmersive || !songbar) return;
-    songbar.classList.remove("autohide");
+    [songbar, dockEl].forEach(el => el.classList.remove("autohide"));
     clearTimeout(songbarHideTimer);
     songbarHideTimer = setTimeout(() => {
-      if (isImmersive) songbar.classList.add("autohide");
+      if (isImmersive && !SHEETS.some(sh => sh.dlg.open)) [songbar, dockEl].forEach(el => el.classList.add("autohide"));
     }, 3500);
   }
 
@@ -1430,7 +1431,7 @@
         setTimeout(() => centerLine(lineEls[curLine]), 80);
       }
     } else {
-      if (songbar) songbar.classList.remove("autohide");
+      [songbar, dockEl].forEach(el => el && el.classList.remove("autohide"));
       clearTimeout(songbarHideTimer);
       if (curLine >= 0 && lineEls[curLine]) {
         setTimeout(() => centerLine(lineEls[curLine]), 80);

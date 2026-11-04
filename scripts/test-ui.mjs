@@ -130,8 +130,18 @@ await test("分享目前時間：連到正在播的那首歌的頁面", async pa
 
 await test("練習工具列：速度、選單（電腦浮出）", async page => {
   await openSong(page, "#usseewa");
-  await page.click('.dock-rate [data-rate="0.75"]');
-  assert.equal(await page.getAttribute('.dock-rate [data-rate="0.75"]', "aria-pressed"), "true");
+  // 電腦版工具列：浮在畫面下方正中間，離底部 24px
+  const dk = await page.evaluate(() => { const r = document.getElementById("dock").getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(innerHeight - r.bottom), innerWidth]; });
+  assert.ok(Math.abs(dk[0] - dk[2] / 2) <= 1 && dk[1] === 24, `工具列要置中、離底部 24px：${dk}`);
+  // 歌詞區跟左欄一樣高
+  const hs = await page.evaluate(() => [document.querySelector(".left").getBoundingClientRect().height, document.querySelector(".lyrics").getBoundingClientRect().height].map(Math.round));
+  assert.ok(Math.abs(hs[0] - hs[1]) <= 1, `歌詞區要跟左欄同高：${hs}`);
+  // 速度是下拉選單，選了就收起來
+  await page.click("#rateBtn");
+  await page.waitForFunction(() => document.getElementById("rateDlg").open);
+  await page.click('#rateDlg [data-rate="0.75"]');
+  await page.waitForFunction(() => !document.getElementById("rateDlg").open);
+  assert.equal((await page.textContent("#rateBtnVal")).trim(), "0.75×");
   assert.equal(await page.evaluate(() => localStorage.getItem("mv-rate")), "0.75");
   await page.click("#dispBtn");
   await page.waitForFunction(() => document.getElementById("dispDlg").open);

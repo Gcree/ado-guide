@@ -130,6 +130,17 @@
   </div>
 </dialog>
 
+<dialog class="sheet sheet-sm" id="rateDlg" aria-labelledby="rateH">
+  <div class="sheet-panel">
+    <h2 class="sheet-title" id="rateH">播放速度</h2>
+    <div class="sheet-group">
+      <button type="button" class="pop-item" data-rate="0.5" aria-pressed="false"><span>0.5×</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+      <button type="button" class="pop-item" data-rate="0.75" aria-pressed="false"><span>0.75×</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+      <button type="button" class="pop-item" data-rate="1" aria-pressed="true"><span>1×（原速）</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    </div>
+  </div>
+</dialog>
+
 <dialog class="sheet" id="moreDlg" aria-labelledby="moreH">
   <div class="sheet-panel">
     <div class="sheet-grip" aria-hidden="true"></div>
@@ -363,7 +374,7 @@
 
           <!-- 練習工具列：常用的一直看得到。電腦是影片下方的浮動膠囊，手機固定在畫面底部（大拇指按得到）；顯示、更多打開選單（手機是從下面拉出的抽屜） -->
           <div class="dock" id="dock" role="toolbar" aria-label="練習工具">
-            <div class="dock-rate wide-only" role="group" aria-label="播放速度"><button type="button" data-rate="0.5" aria-pressed="false">0.5×</button><button type="button" data-rate="0.75" aria-pressed="false">0.75×</button><button type="button" data-rate="1" aria-pressed="true">1×</button></div>
+            <button type="button" class="dock-btn wide-only" id="rateBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="rateDlg" aria-label="播放速度" title="播放速度"><b id="rateBtnVal">1×</b><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
             <button type="button" class="dock-btn compact-only" id="rateCycle" aria-label="播放速度：1×（點一下切換）"><b id="rateNow">1×</b><span>速度</span></button>
             <button type="button" class="dock-btn wide-only" data-tool="click" id="tool-click" aria-pressed="false" title="這首沒有拍點資料時不能用"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21 10 3h4l3 18zM12 15l5-7"/></svg><span>拍點聲</span></button>
             <button type="button" class="dock-btn" id="alertTool" aria-pressed="true" aria-label="大字提醒" title="大字提醒：該應援時跳出大字卡"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span>提醒</span></button>
