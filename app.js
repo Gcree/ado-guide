@@ -837,6 +837,8 @@
 
   function openSong(s, t = 0) {
     S = s; curKey = null; hideAlert(); START = t; remember(s.id);
+    // 上一首播不了留下的錯誤訊息，換歌時先收掉；播放器還沒好時保留「正在載入」那類提示
+    if (ready) videoMsg("");
     // 在這首自己的頁面（song/<id>/）時保留建置時寫好的完整標題，給搜尋引擎看
     document.title = s.id === PAGE_SONG ? PAGE_TITLE : `${s.ja}｜${T("Ado 應援指南")}`;
     const sub = otherName(s);
@@ -1663,16 +1665,17 @@
     ctx.fillStyle = "#ffffff";
     ctx.font = 'bold 26px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = "left";
-    const curJp = l ? stripFurigana(l.jp) : (S ? `〈${S.ja}〉` : T("等待播放…"));
+    // LINES 的每行是 parseBuiltin 整理過的：日文在 ja、下面那行（中譯或羅馬拼音）在 zh
+    const curJp = l ? stripFurigana(l.ja || l.zh || "") : (S ? `〈${S.ja}〉` : T("等待播放…"));
     ctx.fillText(curJp, 24, curY, w - 48);
 
-    if (l && subLine(l)) {
+    if (l && l.ja && l.zh) {
       ctx.fillStyle = "#94a3b8";
       ctx.font = '17px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(subLine(l), 24, curY + 34, w - 48);
+      ctx.fillText(l.zh, 24, curY + 34, w - 48);
     }
 
-    if (nextL && nextL.jp) {
+    if (nextL && (nextL.ja || nextL.zh)) {
       ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
       ctx.beginPath();
       ctx.moveTo(24, h - 54);
@@ -1685,7 +1688,7 @@
 
       ctx.fillStyle = "#64748b";
       ctx.font = '14px "LINESeedTW", "LINE Seed TW", "LINE Seed JP", -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(stripFurigana(nextL.jp), 74, h - 24, w - 100);
+      ctx.fillText(stripFurigana(nextL.ja || nextL.zh), 74, h - 24, w - 100);
     }
   }
 
@@ -2042,7 +2045,8 @@
     if (!S) return;
     // 正式網站（有每首歌的獨立頁）分享那首的頁面，連結預覽才會是那首歌；本機預覽沒有獨立頁，用 # 網址
     const t = Math.floor(now()), at = t ? `#${S.id}@${t}` : "";
-    const url = location.hostname.endsWith("github.io") ? new URL(`song/${S.id}/`, document.baseURI).href + at : `${location.origin}${location.pathname}${at || "#" + S.id}`;
+    // 建置過的網頁才有 data-lyrics；baseURI 是這個語言的根目錄（歌曲頁有 <base href="../../">）
+    const url = LYV ? new URL(`song/${S.id}/`, document.baseURI).href + at : `${location.origin}${location.pathname}${at || "#" + S.id}`;
     document.getElementById("tools").open = false;
     const text = `${S.ja}${t ? " " + fmt(t) : ""}｜${T("Ado 應援指南")}`;
     if (navigator.share && matchMedia("(pointer: coarse)").matches) { try { await navigator.share({ title: text, url }); return; } catch (e) { if (e.name === "AbortError") return; } }
