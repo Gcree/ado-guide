@@ -101,6 +101,20 @@ await test("歌曲獨立頁：語言連結指向同一首", async page => {
   assert.equal(new URL(await page.$eval('#langPop [data-lang-link="ja"]', a => a.href)).pathname, "/jp/song/show/");
 });
 
+await test("歌曲獨立頁：上一首、下一首不重新載入，網址換成那首的頁面", async page => {
+  await openSong(page, "en/song/show/");
+  const title0 = await page.evaluate(() => { window.__sameDoc = true; return document.title; });
+  const next = await page.getAttribute("#nextSong", "href");
+  assert.match(next, /^song\/[^/]+\/$/);
+  const id = next.split("/")[1];
+  await page.click("#nextSong");
+  await page.waitForFunction(([i, t]) => location.pathname === `/en/song/${i}/` && document.title !== t, [id, title0]);
+  assert.equal(await page.evaluate(() => window.__sameDoc), true, "不應該整頁重新載入");
+  await page.goBack();
+  await page.waitForFunction(t => location.pathname === "/en/song/show/" && document.title === t, title0);
+  assert.equal(await page.evaluate(() => window.__sameDoc), true);
+});
+
 await test("分享目前時間：連到正在播的那首歌的頁面", async page => {
   await openSong(page, "song/show/#usseewa");
   await page.evaluate(() => {

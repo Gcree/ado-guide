@@ -485,6 +485,24 @@
   const homeV = document.getElementById("home"), songV = document.getElementById("song");
   const box = document.getElementById("lines"), legend = document.getElementById("legend");
   const PAGE_SONG = document.documentElement.dataset.song || "", PAGE_TITLE = document.title;
+  // 在歌曲獨立頁（song/<id>/）上切歌：網址換成那首的獨立頁，不重新載入整頁；從首頁進來的（#id）照舊用 #
+  const pathSong = () => { const m = location.pathname.match(/\/song\/([^/]+)\/?$/); return m && BY[m[1]] ? m[1] : ""; };
+  const songHref = id => (PAGE_SONG ? `song/${id}/` : "#" + id);
+  let lastPath = location.pathname;
+  function goSong(id) {
+    if (!PAGE_SONG) { location.hash = id; return; }
+    history.pushState(null, "", new URL(`song/${id}/`, document.baseURI));
+    lastPath = location.pathname;
+    transition(route);
+  }
+  // 上一頁、下一頁：路徑變了才換歌（只換 # 的交給 hashchange）
+  addEventListener("popstate", () => { if (location.pathname === lastPath) return; lastPath = location.pathname; transition(route); });
+  ["prevSong", "nextSong"].forEach(k => document.getElementById(k).addEventListener("click", ev => {
+    const a = ev.currentTarget;
+    if (!PAGE_SONG || !a.getAttribute("href") || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
+    ev.preventDefault();
+    goSong(getSongIdFromEl(a));
+  }));
   let S = null, LINES = [], TAGGED = false, lineEls = [], curLine = -1, curKey = "";
 
   // 歌詞捲動：自己做 0.26 秒先快後慢的動畫，把目前這行放到框的正中央；新的一行來了就從現在位置接著捲，不會疊在一起
@@ -887,7 +905,7 @@
     const seq = ordered(), at = seq.indexOf(s);
     [["prevSong", seq[at - 1], T("上一首")], ["nextSong", seq[at + 1], T("下一首")]].forEach(([id, x, word]) => {
       const a = document.getElementById(id);
-      if (x) { a.href = "#" + x.id; a.setAttribute("aria-label", `${word}：${x.ja}`); } else a.removeAttribute("href");
+      if (x) { a.setAttribute("href", songHref(x.id)); a.setAttribute("aria-label", `${word}：${x.ja}`); } else a.removeAttribute("href");
     });
     fillSong();
     document.getElementById("tool-click").disabled = !BEAT[s.id];
@@ -1837,7 +1855,7 @@
     if (QZ) return quizFinish();
     if (!TOOL.autonext || !S) return;
     const seq = ordered(), nx = seq[seq.indexOf(S) + 1];
-    if (nx) location.hash = nx.id;
+    if (nx) goSong(nx.id);
   }
 
   // 拍點聲：在拍子上響一聲「喀」，小節第一拍高一點；聲音提前排好，不會跟著畫面掉格
@@ -2356,7 +2374,7 @@
   }
   function route() {
     // 每首歌的獨立頁（song/<id>/）沒有 # 時直接開那首
-    const h = location.hash.slice(1) || PAGE_SONG, [id, at] = h.split("@"), s = BY[id];
+    const h = location.hash.slice(1) || pathSong(), [id, at] = h.split("@"), s = BY[id];
     syncLangLinks(s);
     if (s) {
       if (!homeV.hidden) listY = scrollY;
