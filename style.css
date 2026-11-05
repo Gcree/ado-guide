@@ -2627,8 +2627,11 @@ main.col {
   }
 }
 
-/* ── Folia 風格：全螢幕沉浸播放模式 (Immersive Stage Mode) ── */
-/* 1. 動態流光極光背景 (Ambient Light Mesh) 與 BPM 節奏閃爍 */
+/* ── 沉浸模式：從你的座位看出去（設計見 docs/immersive-mode.md） ──
+   MV 是舞台大螢幕、歌詞是螢幕下的字幕、最下面是手燈海（#fx 畫布）。
+   --mesh-c1 / --mesh-c2：這首的手燈色（設在 body）；--beat-hit：拍點亮度 0–1（設在 #song 和 #ambientMesh） */
+
+/* 1. 場館：四周壓暗、舞台後方的光暈慢慢呼吸、台下地板光跟著拍點 */
 .ambient-mesh {
   position: fixed;
   inset: 0;
@@ -2636,7 +2639,8 @@ main.col {
   pointer-events: none;
   overflow: hidden;
   opacity: 0;
-  transition: opacity .8s var(--ease-sine);
+  transition: opacity 1.2s var(--ease-sine);
+  box-shadow: inset 0 0 22vmax 4vmax #000;
 }
 
 .immersive-mode .ambient-mesh {
@@ -2647,70 +2651,77 @@ main.col {
 .ambient-mesh::after {
   content: "";
   position: absolute;
+  left: 50%;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: .38;
+  pointer-events: none;
   will-change: transform, opacity;
-  animation: ambient-drift 20s var(--ease-sine) infinite alternate;
 }
 
+/* 舞台後方的光：螢幕背後透出來的手燈色 */
 .ambient-mesh::before {
-  width: 75vw;
-  height: 75vw;
-  top: -25%;
-  left: -15%;
-  background: radial-gradient(circle, var(--mesh-c1, var(--color-bahama-blue-500)) 0%, transparent 70%);
+  top: 2vh;
+  width: 110vw;
+  height: 70vh;
+  margin-left: -55vw;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--mesh-c1, #02b4f5) 24%, transparent), transparent);
+  opacity: calc(.5 + var(--beat-hit, 0) * .3);
+  animation: imm-breathe 14s var(--ease-sine) infinite alternate;
 }
 
+/* 台下的光：手燈海映上來的顏色，大合唱時整片升起 */
 .ambient-mesh::after {
-  width: 65vw;
-  height: 65vw;
-  bottom: -20%;
-  right: -10%;
-  background: radial-gradient(circle, var(--mesh-c2, #ff4a5a) 0%, transparent 70%);
-  animation-duration: 26s;
-  animation-direction: alternate-reverse;
+  bottom: -38vh;
+  width: 140vw;
+  height: 70vh;
+  margin-left: -70vw;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--mesh-c2, #ff4a5a) 24%, transparent), transparent);
+  opacity: calc(.4 + var(--beat-hit, 0) * .25);
+  transform-origin: 50% 100%;
+  transition: transform 1.4s var(--ease-out), opacity .4s var(--ease);
 }
 
-.immersive-mode .ambient-mesh::before,
-.immersive-mode .ambient-mesh::after {
-  opacity: calc(0.32 + var(--beat-hit, 0) * 0.35);
+.imm-crowd .ambient-mesh::after {
+  opacity: .8;
+  transform: scale(1.15, 1.3);
+  transition: transform 1.1s var(--ease-out), opacity 1.1s var(--ease-out);
 }
 
-/* BPM 節拍中心光暈爆發層 */
+/* 重拍：從台下往上亮一下 */
 .ambient-beat-flash {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--mesh-c1, var(--color-bahama-blue-500)) 45%, transparent) 0%, color-mix(in srgb, var(--mesh-c2, #ff4a5a) 25%, transparent) 45%, transparent 75%);
+  background: radial-gradient(90% 50% at 50% 108%, color-mix(in srgb, var(--mesh-c1, #02b4f5) 22%, transparent), transparent 70%);
   mix-blend-mode: screen;
   opacity: 0;
-  will-change: opacity, transform;
-  transition: transform .06s var(--ease);
 }
 
 .immersive-mode .ambient-beat-flash {
-  opacity: calc(var(--beat-hit, 0) * 0.85);
-  transform: scale(calc(1 + var(--beat-hit, 0) * 0.08));
+  opacity: calc(var(--beat-hit, 0) * .8);
 }
 
-@keyframes ambient-drift {
-  0% {
-    transform: translate(0, 0) scale(1);
+@keyframes imm-breathe {
+  from {
+    transform: scale(1);
   }
 
-  50% {
-    transform: translate(8%, 6%) scale(1.08);
-  }
-
-  100% {
-    transform: translate(-6%, 5%) scale(0.96);
+  to {
+    transform: scale(1.08, 1.12);
   }
 }
 
-/* 2. 沉浸模式下的整體全螢幕覆蓋 */
+/* 開關時的熄燈／亮燈黑幕（JS 建、淡入淡出後拿掉） */
+.imm-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: #000;
+  pointer-events: none;
+}
+
+/* 2. 整個畫面：場館黑，頁面其他東西都收起來 */
 body.immersive-mode {
-  background: #04060c;
+  background: #05060a;
   overflow: hidden !important;
 }
 
@@ -2722,8 +2733,13 @@ body.immersive-mode #home {
 
 body.immersive-mode #fx {
   z-index: 2;
-  opacity: 0.85;
+  opacity: .8;
   pointer-events: none;
+}
+
+/* 舞台內容要在燈光畫布上面：.shell 本來是 z-index 1，比 #fx 低，燈光會打在影片和字幕上 */
+body.immersive-mode .shell {
+  z-index: 3;
 }
 
 body.immersive-mode #confetti {
@@ -2746,17 +2762,17 @@ body.immersive-mode #song {
   overflow: hidden;
 }
 
-/* 頂部懸浮控制列：半透明磨砂玻璃膠囊，閒置 3 秒自動隱藏 */
+/* 頂欄：淡淡的膠囊，閒置 3.5 秒淡出 */
 body.immersive-mode .songbar {
   position: absolute;
-  top: max(16px, env(safe-area-inset-top, 0px));
+  top: max(14px, env(safe-area-inset-top, 0px));
   left: max(24px, env(safe-area-inset-left, 0px));
   right: max(24px, env(safe-area-inset-right, 0px));
   z-index: 120;
-  background: rgba(14, 19, 34, .72);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(8, 10, 16, .62);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, .07);
   border-radius: 999px;
   padding: 6px 16px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
@@ -2770,176 +2786,394 @@ body.immersive-mode .songbar.autohide {
   transition: opacity var(--dur-quick) var(--ease-in), transform var(--dur-base) var(--ease-in);
 }
 
-/* 舞台主區域：左右劇院式分欄 */
+/* 3. 舞台：螢幕在上、提示膠囊、字幕在下，全部置中 */
 body.immersive-mode .grid {
   width: 100%;
   height: 100%;
-  padding: calc(max(16px, env(safe-area-inset-top, 0px)) + 64px) max(32px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(32px, env(safe-area-inset-left, 0px));
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 36px;
-  align-items: center;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(8px, 1.4vh, 16px);
+  padding: calc(max(14px, env(safe-area-inset-top, 0px)) + 60px) max(24px, env(safe-area-inset-right, 0px)) calc(max(16px, env(safe-area-inset-bottom, 0px)) + 5vh) max(24px, env(safe-area-inset-left, 0px));
 }
 
 body.immersive-mode .left {
   position: static;
+  flex: none;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-width: 580px;
-  justify-self: center;
-  width: 100%;
+  align-items: center;
+  gap: clamp(10px, 1.6vh, 18px);
+  width: min(100%, calc(52dvh * 16 / 9));
+  max-width: none;
 }
 
-/* MV 卡片帶有環境光暈與磨砂深邃倒影，隨 BPM 節奏呼吸 */
+/* 舞台螢幕：沒有卡片框，只有螢幕本身和背後透出的光，拍點時光暈脹一下 */
 body.immersive-mode .mv {
-  background: rgba(14, 19, 34, .8);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, .14);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, .7),
-    0 0 calc(35px + var(--beat-hit, 0) * 45px) color-mix(in srgb, var(--mesh-c1, rgba(2, 180, 245, .3)) calc(25% + var(--beat-hit, 0) * 45%), transparent);
-  border-radius: 22px;
+  width: 100%;
+  background: #000;
+  border: 0;
+  border-radius: 6px;
   overflow: hidden;
-  transition: box-shadow .08s linear;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transform-origin: 50% 0;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .06),
+    0 40px 90px -30px #000,
+    0 0 calc(70px + var(--beat-hit, 0) * 50px) calc(-8px + var(--beat-hit, 0) * 8px) color-mix(in srgb, var(--mesh-c1, #02b4f5) calc(26% + var(--beat-hit, 0) * 34%), transparent);
+  transition: transform 1.4s var(--ease-out), filter 1.4s var(--ease-out);
 }
 
-/* 提示卡片 */
+body.immersive-mode .mv .screen {
+  border-radius: 6px;
+}
+
+body.immersive-mode .mvbar {
+  display: none;
+}
+
+/* 「交給觀眾」：大合唱的句子，螢幕退暗往後縮，把舞台讓給台下 */
+body.immersive-mode.imm-crowd .mv {
+  transform: scale(.93);
+  filter: brightness(.42) saturate(.75);
+  transition: transform 1.1s var(--ease-out), filter 1.1s var(--ease-out);
+}
+
+/* 提示膠囊：現在做什麼｜下一個是什麼 */
 body.immersive-mode .cue {
-  background: rgba(14, 19, 34, .72);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 18px;
-  padding: 12px 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .4);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 6px 16px;
+  background: rgba(255, 255, 255, .045);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 999px;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  transition: border-color 1.1s var(--ease-out), box-shadow 1.1s var(--ease-out), background-color 1.1s var(--ease-out);
+}
+
+body.immersive-mode .cue .top,
+body.immersive-mode .cue .how,
+body.immersive-mode .cue .summary,
+body.immersive-mode .cue .switch {
+  display: none;
+}
+
+body.immersive-mode .cue .now {
+  gap: 8px;
+}
+
+body.immersive-mode .cue .now svg {
+  width: 20px;
+  height: 20px;
 }
 
 body.immersive-mode .cue .now strong {
-  font-size: clamp(20px, 2.2vw, 28px);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
-/* 沉浸式歌詞列車 */
+body.immersive-mode .cue .next {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, .12);
+  color: rgba(244, 246, 251, .5);
+}
+
+body.immersive-mode .cue .next:empty {
+  display: none;
+}
+
+body.immersive-mode .cue .next b {
+  display: inline;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.immersive-mode .cue.idle .next {
+  padding-left: 0;
+  border-left: 0;
+}
+
+body.immersive-mode .cue:has(.now strong:empty):has(.next:empty) {
+  visibility: hidden;
+}
+
+body.immersive-mode.imm-crowd .cue {
+  background: color-mix(in srgb, var(--mesh-c1, #02b4f5) 14%, transparent);
+  border-color: color-mix(in srgb, var(--mesh-c1, #02b4f5) 55%, transparent);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--mesh-c1, #02b4f5) 30%, transparent);
+}
+
+/* 4. 字幕：置中、現在這句最大，前後句淡淡的 */
 body.immersive-mode .lyrics {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  height: 100%;
-  max-height: calc(100dvh - 120px);
+  flex: 1 1 0;
+  min-height: 0;
+  width: min(1100px, 100%);
+  max-width: 100%;
+  max-height: none;
+  height: auto;
   padding: 0;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
   box-sizing: border-box;
   overflow: hidden;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-body.immersive-mode .lyrics-top {
+body.immersive-mode .lyrics-top,
+body.immersive-mode .legend,
+body.immersive-mode #songGuideCard {
   display: none;
 }
 
 body.immersive-mode .lyrics-scroll {
   flex: 1;
-  mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%);
-  overflow-x: hidden;
-  overflow-y: auto;
+  min-height: 0;
   width: 100%;
   max-width: 100%;
-  min-width: 0;
   box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 28%, #000 72%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 28%, #000 72%, transparent 100%);
+}
+
+body.immersive-mode .lyrics-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 body.immersive-mode .ln {
-  padding: 16px 20px;
-  border-radius: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  text-align: center;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 8px 24px;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform-origin: 50% 50%;
+}
+
+body.immersive-mode .ln .acts {
+  display: none;
+}
+
+body.immersive-mode .ln .call {
+  justify-self: center;
 }
 
 body.immersive-mode .ln .ja {
-  font-size: clamp(22px, 2.7vw, 38px);
-  line-height: 1.48;
-  letter-spacing: -.01em;
+  font-size: clamp(17px, 1.6vw, 23px);
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: rgba(244, 246, 251, .5);
+  text-shadow: 0 1px 14px rgba(0, 0, 0, .85);
   min-width: 0;
   width: 100%;
   overflow-wrap: anywhere;
   word-break: normal;
   white-space: normal;
+  filter: none !important;
 }
 
 body.immersive-mode .ln .zh {
-  font-size: clamp(14px, 1.5vw, 19px);
-  margin-top: 6px;
+  font-size: clamp(12px, 1vw, 14px);
+  margin-top: 2px;
+  color: rgba(244, 246, 251, .32);
   min-width: 0;
   width: 100%;
   overflow-wrap: anywhere;
-  word-break: normal;
-  white-space: normal;
 }
 
-body.immersive-mode .ln.now {
-  transform: scale(1.02);
-  background: rgba(255, 255, 255, .08);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  box-shadow: inset 4px 0 0 var(--act, var(--accent)), 0 8px 28px rgba(0, 0, 0, .45);
+body.immersive-mode .ln:hover .ja {
+  color: rgba(244, 246, 251, .78);
 }
 
-/* 手機垂直螢幕下的沉浸排版 */
+body.immersive-mode .ln:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--mesh-c1, #02b4f5) 80%, #fff);
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+
+body.immersive-mode .ln.now .ja {
+  font-size: clamp(26px, 2.8vw, 44px);
+  line-height: 1.32;
+  font-weight: 700;
+  letter-spacing: -.015em;
+  color: #fff;
+}
+
+body.immersive-mode .ln.now:not(.a-listen):not(.a-sing) .ja {
+  color: color-mix(in srgb, var(--act, #fff) 70%, #fff);
+}
+
+body.immersive-mode .ln.now .zh {
+  font-size: clamp(14px, 1.25vw, 18px);
+  margin-top: 6px;
+  color: rgba(244, 246, 251, .74);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, .9);
+}
+
+/* 大字提醒在沉浸模式改由提示膠囊負責，不蓋住字幕 */
+body.immersive-mode .alert {
+  display: none !important;
+}
+
+body.immersive-mode .cue.playing.alerting .now,
+body.immersive-mode .cue.playing.alerting .next {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 觀眾要唱的字：發出這首的手燈色 */
+body.immersive-mode .ln.now .sung {
+  color: #fff;
+  text-shadow:
+    0 0 10px color-mix(in srgb, var(--mesh-c1, #02b4f5) 90%, transparent),
+    0 0 26px color-mix(in srgb, var(--mesh-c1, #02b4f5) 60%, transparent),
+    0 0 48px color-mix(in srgb, var(--mesh-c2, var(--mesh-c1, #02b4f5)) 40%, transparent);
+}
+
+body.immersive-mode .depth-focus .ln {
+  transition: transform 1.1s var(--ease-out), opacity var(--dur-slow) var(--ease), filter var(--dur-slow) var(--ease);
+}
+
+body.immersive-mode .depth-focus.has-now .ln:not(.now) {
+  transform: none;
+  opacity: .6;
+}
+
+body.immersive-mode .depth-focus.has-now .ln.now {
+  transform: none;
+}
+
+body.immersive-mode.imm-crowd .depth-focus.has-now .ln.now {
+  transform: scale(1.06);
+}
+
+/* 5. 手機直拿：螢幕滿版貼在頂欄下，字幕佔下半 */
 @media (max-width: 900px) {
   body.immersive-mode .songbar {
-    left: 12px;
-    right: 12px;
+    left: 10px;
+    right: 10px;
     padding: 4px 10px;
   }
 
   body.immersive-mode .grid {
-    display: flex;
-    flex-direction: column;
-    padding: calc(max(12px, env(safe-area-inset-top, 0px)) + 54px) 14px max(14px, env(safe-area-inset-bottom, 0px));
-    gap: 14px;
-    align-items: stretch;
+    padding: calc(max(10px, env(safe-area-inset-top, 0px)) + 54px) 0 calc(max(12px, env(safe-area-inset-bottom, 0px)) + 8vh);
+    gap: 12px;
   }
 
   body.immersive-mode .left {
-    position: static;
     width: 100%;
-    max-width: none;
-    max-height: 28vh;
+    gap: 12px;
   }
 
-  body.immersive-mode .mv {
-    border-radius: 16px;
+  body.immersive-mode .mv,
+  body.immersive-mode .mv .screen {
+    border-radius: 0;
   }
 
   body.immersive-mode .cue {
+    max-width: calc(100% - 24px);
+    padding: 5px 12px;
+    min-height: 36px;
+  }
+
+  body.immersive-mode .cue .now {
+    min-width: 0;
+  }
+
+  body.immersive-mode .cue .now strong {
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* 手機寬度不夠：有動作時只講現在，下一個留給前奏和安靜聽的段落 */
+  body.immersive-mode .cue:not(.idle) .next {
     display: none;
   }
 
   body.immersive-mode .lyrics {
-    flex: 1;
     width: 100%;
-    max-height: none;
-    height: auto;
   }
 
   body.immersive-mode .ln {
-    padding: 12px 14px;
+    padding: 6px 18px;
   }
 
   body.immersive-mode .ln .ja {
-    font-size: clamp(19px, 5.2vw, 26px);
+    font-size: clamp(15px, 4.2vw, 18px);
   }
 
-  body.immersive-mode .ln .zh {
-    font-size: clamp(13px, 3.6vw, 15px);
+  body.immersive-mode .ln.now .ja {
+    font-size: clamp(22px, 6.4vw, 30px);
+  }
+
+  body.immersive-mode .ln.now .zh {
+    font-size: clamp(13px, 3.8vw, 16px);
+  }
+}
+
+/* 手機橫拿：高度很矮，螢幕縮小、字幕放旁邊 */
+@media (max-height: 500px) and (orientation: landscape) {
+  body.immersive-mode .grid {
+    flex-direction: row;
+    align-items: center;
+    padding: calc(max(10px, env(safe-area-inset-top, 0px)) + 52px) max(16px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  }
+
+  body.immersive-mode .left {
+    width: min(48vw, calc((100dvh - 120px) * 16 / 9));
+  }
+
+  body.immersive-mode .mv,
+  body.immersive-mode .mv .screen {
+    border-radius: 6px;
+  }
+
+  body.immersive-mode .lyrics {
+    height: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-mesh::before {
+    animation: none;
+  }
+
+  body.immersive-mode .mv,
+  body.immersive-mode.imm-crowd .mv,
+  body.immersive-mode .depth-focus .ln {
+    transition: none;
+  }
+
+  body.immersive-mode.imm-crowd .mv,
+  body.immersive-mode.imm-crowd .depth-focus.has-now .ln.now,
+  .imm-crowd .ambient-mesh::after {
+    transform: none;
   }
 }
 
@@ -7282,4 +7516,203 @@ body.immersive-mode .dock.autohide {
 
 #nextSong.is-shuffle {
   color: var(--tint);
+}
+/* ── 關聯曲：同一位創作者、同一部作品（影片下方的選單＋速覽卡） ── */
+#nextSong .ico-rel,
+#nextSong.is-related .ico-next {
+  display: none;
+}
+
+#nextSong.is-related .ico-rel {
+  display: block;
+}
+
+#nextSong.is-related {
+  color: var(--tint);
+}
+
+.rel-opt summary svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.rel-opt summary b {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tint) 22%, transparent);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.rel-pop.view-opts {
+  width: 300px;
+  max-height: min(60vh, 440px);
+  padding: 8px;
+  gap: 8px;
+  z-index: 30;
+}
+
+.rel-g {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rel-h {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 2px 6px;
+  font-size: 12.5px;
+  color: var(--text);
+  min-width: 0;
+}
+
+.rel-h b {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rel-h small {
+  flex: none;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.rel-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.view-opts a.rel-link,
+.rel-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  border-radius: 10px;
+  color: var(--text);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.rel-link:hover,
+.rel-link:focus-visible {
+  background: color-mix(in srgb, var(--tint) 14%, transparent);
+}
+
+.rel-link .thumb {
+  flex: none;
+  width: 64px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--ground);
+}
+
+.rel-t {
+  display: grid;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.rel-t b {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rel-t small {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+/* 速覽卡：詞曲列接在原本的表後面，關聯曲用兩欄卡片 */
+.song-guide-card .card-credit {
+  margin-top: 8px;
+}
+
+.song-guide-card .card-note {
+  display: block;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.rel-block {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+}
+
+.rel-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rel-title small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.rel-block .rel-list {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 8px;
+}
+
+.rel-block .rel-link {
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.rel-block .rel-link:hover {
+  border-color: color-mix(in srgb, var(--tint) 50%, var(--line));
+}
+
+@media (max-width: 900px) {
+  .rel-opt summary {
+    width: auto;
+    padding: 0 10px;
+  }
+}
+
+.song-guide-card dd a.live-chip {
+  white-space: nowrap;
+}
+
+.song-guide-card dd a.live-chip .ext {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

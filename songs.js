@@ -197,11 +197,104 @@
     kaze: "《航海王劇場版：紅髮歌姬》插曲", kurakura: "《SPY×FAMILY 間諜家家酒》片頭曲", show: "日本環球影城 2023 萬聖節主題曲",
     shinka: "《惡魔的紋章》片頭曲"
   };
+  // 詞曲：w 作詞、c 作曲、a 編曲（只寫跟作曲不同、而且跟別首有關的）；x 本站沒收、但 Ado 也唱過的同作者作品
+  // 整理自 ADO_SONGS_CREDITS.md。名字後面括號裡的團名／本名只顯示，比對時拿掉，所以同一個人要寫成一樣的名字才會串起來
+  const CREDIT = {
+    show: { w: ["TOPHAMHAT-KYO (FAKE TYPE.)"], c: ["Giga & TeddyLoid"] },
+    usseewa: { w: ["syudou"], c: ["syudou"], x: ["邪魔", "馬鹿"] },
+    readymade: { w: ["すりぃ"], c: ["すりぃ"], x: ["テレキャスタービーボーイ"] },
+    freedom: { w: ["jon-YAKITORY"], c: ["jon-YAKITORY"], x: ["シカバネーゼ", "イート", "蝸旋", "フェイキング・オブ・コメディ"] },
+    rule: { w: ["MARETU"], c: ["MARETU"], x: ["脳内革命ガール", "マインドブランド"] },
+    ashura: { w: ["Neru"], c: ["Neru"], x: ["脱法ロック", "ロストワンの号哭", "東京テディベア"] },
+    mondaisaku: { w: ["ピノキオピー"], c: ["ピノキオピー"], x: ["内臓ありますか"] },
+    gyakkou: { w: ["Vaundy"], c: ["Vaundy"] },
+    odo: { w: ["DECO*27"], c: ["Giga & TeddyLoid"], x: ["乙女解剖", "ヴァンパイア"] },
+    shinjidai: { w: ["中田ヤスタカ"], c: ["中田ヤスタカ"] },
+    giragira: { w: ["てにをは"], c: ["てにをは"] },
+    kurakura: { w: ["meiyo"], c: ["meiyo"], a: ["菅野よう子"] },
+    saikyo: { w: ["大森元貴 (Mrs. GREEN APPLE)"], c: ["大森元貴 (Mrs. GREEN APPLE)"] },
+    aiaia: { w: ["きくお"], c: ["きくお"] },
+    rockstar: { w: ["jon-YAKITORY"], c: ["jon-YAKITORY"], x: ["シカバネーゼ", "イート", "蝸旋"] },
+    staygold: { w: ["Timucin Lam", "Kanata Okajima", "Jamil Kazmi", "Kiddo", "Frank Nobel", "Hight"], c: ["Timucin Lam", "Kanata Okajima", "Jamil Kazmi", "Kiddo", "Frank Nobel", "Hight"] },
+    episodex: { w: ["Ayase (YOASOBI)"], c: ["Ayase (YOASOBI)"], x: ["シニカルナイトプラン"] },
+    totmusica: { w: ["cAnON."], c: ["澤野弘之"] },
+    kira: { w: ["キタニタツヤ"], c: ["キタニタツヤ"] },
+    monstruo: { w: ["ryo (supercell)"], c: ["Giga & TeddyLoid"], x: ["メルト", "君の知らない物語"] },
+    ibara: { w: ["Vaundy"], c: ["Vaundy"] },
+    rebellion: { w: ["Chinozo"], c: ["Chinozo"], x: ["グッバイ宣言"] },
+    chocolat: { w: ["かめりあ"], c: ["TAKU INOUE"] },
+    shoka: { w: ["Ado"], c: ["Ado"] },
+    pierrot: { w: ["biz"], c: ["biz"], x: ["東亰カニバリズム", "フロイトメタ"] },
+    aitakute: { w: ["みゆはん"], c: ["みゆはん"], a: ["みきとP"] },
+    akuruhi: { w: ["てにをは"], c: ["てにをは"] },
+    kokoro: { w: ["まふまふ"], c: ["まふまふ"] },
+    utakata: { w: ["TOPHAMHAT-KYO (FAKE TYPE.)"], c: ["FAKE TYPE."] },
+    sekai: { w: ["折坂悠太"], c: ["折坂悠太"] },
+    kaze: { w: ["秦基博"], c: ["秦基博"] },
+    missing: { w: ["椎名林檎"], c: ["椎名林檎"] },
+    himawari: { w: ["みゆはん"], c: ["みゆはん"], a: ["40mP"] },
+    dignity: { w: ["稲葉浩志 (B'z)"], c: ["松本孝弘 (B'z)"] },
+    radio: { w: ["Mitchie M"], c: ["Mitchie M"] },
+    unravel: { w: ["TK (凛として時雨)"], c: ["TK (凛として時雨)"] },
+    hotaru: { w: ["n-buna (ヨルシカ)"], c: ["n-buna (ヨルシカ)"], x: ["ウミユリ海底譚"] },
+    value: { w: ["ポリスピカデリー"], c: ["ポリスピカデリー"] },
+    mirror: { w: ["なとり"], c: ["なとり"] },
+    sakura: { w: ["まふまふ"], c: ["まふまふ"] },
+    elf: { w: ["てにをは"], c: ["てにをは"] },
+    hanataba: { w: ["shito (HoneyWorks)", "Gom (HoneyWorks)"], c: ["shito (HoneyWorks)"], x: ["誇り高きアイドル", "ファンサ"] },
+    kazetowatashi: { w: ["宮本浩次 (エレファントカシマシ)"], c: ["宮本浩次 (エレファントカシマシ)"], a: ["まふまふ"] },
+    magic: { w: ["ツミキ"], c: ["ツミキ"], x: ["フォニイ"] },
+    angelseek: { w: ["煮ル果実"], c: ["煮ル果実"], x: ["紗痲", "トラフィック・ジャム"] },
+    vivarium: { w: ["Ado"], c: ["Ado"] },
+    haruni: { w: ["トミタカズキ", "藤原優樹"], c: ["トミタカズキ"] },
+    kagakushu: { w: ["伊根"], c: ["伊根"] },
+    hanabi: { w: ["くじら"], c: ["くじら"], x: ["金木犀"] },
+    domestic: { w: ["Kanaria"], c: ["Kanaria"], x: ["KING", "エンヴィーベイビー"] },
+    luckybruto: { w: ["柊キライ"], c: ["柊キライ"], x: ["ラブカ？", "ボッカデラベリタ"] },
+    motherland: { w: ["煮ル果実"], c: ["煮ル果実"], x: ["紗痲", "トラフィック・ジャム"] },
+    nukegara: { w: ["牛肉"], c: ["雄之助"] },
+    zero: { w: ["椎乃味醂"], c: ["椎乃味醂"] },
+    hellosignals: { w: ["伊根"], c: ["伊根"] },
+    kittocoaster: { w: ["No-Image"], c: ["潟村拓哉"] },
+    lovemeforever: { w: ["つんく♂"], c: ["つんく♂"], x: ["めちゃモテ I LOVE YOU"] },
+    dnd: { w: ["Kanata Okajima", "monii"], c: ["Johnny R", "monii", "Ari", "KIRA"] },
+    ravensky: { w: ["Seann Bowe", "Kanata Okajima"], c: ["宅見将典"] },
+    kanjaa: { w: ["ヨエコ"], c: ["ヨエコ"] },
+    shinka: { w: ["ユリイ・カノン"], c: ["ユリイ・カノン"], x: ["だれかの心臓になれたなら"] },
+    sukideite: { w: ["敬也-amazuti-"], c: ["敬也-amazuti-", "宮崎諒-amazuti-"] },
+    soldiergame: { w: ["畑亜貴"], c: ["若林充"] },
+    andjuly: { w: ["Dean", "Heize"], c: ["Dean", "Delly Boi", "Esta."] },
+    ponpokorin: { w: ["さくらももこ"], c: ["織田哲郎"] },
+    catseye: { w: ["三浦徳子"], c: ["小田裕一郎"] },
+    kitaro: { w: ["水木しげる"], c: ["いずみたく"] },
+    charles: { w: ["バルーン (須田景凪)"], c: ["バルーン (須田景凪)"], a: ["キタニタツヤ"], x: ["パメラ"] },
+    hibana: { w: ["DECO*27"], c: ["DECO*27"], x: ["乙女解剖", "ヴァンパイア"] },
+    jikkai: { w: ["売野雅勇"], c: ["高中正義"] },
+    aishite: { w: ["きくお"], c: ["きくお"] },
+    kazarijanai: { w: ["井上陽水"], c: ["井上陽水"] },
+    kamippoina: { w: ["ピノキオピー"], c: ["ピノキオピー"], x: ["内臓ありますか"] },
+    kawaikute: { w: ["shito (HoneyWorks)"], c: ["shito (HoneyWorks)"], x: ["誇り高きアイドル", "ファンサ"] },
+    tsumitobatsu: { w: ["椎名林檎"], c: ["椎名林檎"] },
+    dryflower: { w: ["優里"], c: ["優里"] },
+    villain: { w: ["てにをは"], c: ["てにをは"] },
+    burikino: { w: ["日向電工"], c: ["日向電工"] },
+    anobando: { w: ["樋口愛"], c: ["草野華余子"] }
+  };
+  // 同一部作品（電影、動畫、節目、專輯）裡的歌：歌曲頁「關聯曲」用
+  const SERIES = [
+    { name: "《航海王劇場版：紅髮歌姬》", ids: ["shinjidai", "saikyo", "gyakkou", "utakata", "totmusica", "sekai", "kaze"] },
+    { name: "電影《尋找身體》", ids: ["missing", "rebellion"] },
+    { name: "電影《沈默的艦隊》系列", ids: ["dignity", "kazetowatashi"] },
+    { name: "ABEMA《今天，喜歡上你了。》", ids: ["haruni", "sukideite"] },
+    { name: "動畫《CAT'S EYE 貓眼》", ids: ["magic", "catseye"] },
+    { name: "《Adoの歌ってみたアルバム》", ids: ["unravel", "aishite", "kazarijanai", "kamippoina", "kawaikute", "tsumitobatsu", "dryflower", "villain", "burikino"] }
+  ];
   SONGS.forEach(s => {
+    s.credit = CREDIT[s.id] || null;
     s.lives = LIVES[s.id] || [];
     s.liveVideo = LIVE_VIDEOS[s.id] || null;
     s.alias = ALIAS[s.id] || [];
     s.tie = TIE[s.id] || "";
   });
-  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS };
+  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS, SERIES };
 });

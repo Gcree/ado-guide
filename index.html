@@ -235,7 +235,7 @@
         <div class="pick">
           <a class="ib" id="prevSong" aria-label="上一首"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></a>
           <h1 id="sTitle" lang="ja"></h1>
-          <a class="ib" id="nextSong" aria-label="下一首"><svg class="ico-next" viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg><svg class="ico-shuf" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4h4v4M4 20 20 4M20 16v4h-4M14 14l6 6M4 4l5 5"/></svg></a>
+          <a class="ib" id="nextSong" aria-label="下一首"><svg class="ico-next" viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg><svg class="ico-shuf" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4h4v4M4 20 20 4M20 16v4h-4M14 14l6 6M4 4l5 5"/></svg><svg class="ico-rel" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg></a>
         </div>
         <!-- 獨立手燈連動按鈕（桌面版獨立顯示） -->
         <button class="lamp-btn" data-tool="lamp" id="tool-lamp" aria-pressed="false" title="點擊切換與 PenlightSync 桌面 App 的手燈連動">
@@ -258,11 +258,10 @@
             <div class="mvbar">
               <span class="pen" id="pen"></span>
               <span class="lamp-live-badge" id="lampLiveBadge" hidden title="已透過 PenlightSync 連動實體 Ado 手燈">手燈連動中</span>
-              <details class="vopt tips-opt" id="tipsOpt" hidden>
-                <summary aria-label="這首重點">這首重點</summary>
-                <div class="view-opts" role="group" aria-label="這首重點">
-                  <ul class="summary" id="tipsSummary"></ul>
-                </div>
+              <!-- 關聯曲：同一位創作者、同一部作品的歌，點了直接換歌 -->
+              <details class="vopt rel-opt" id="relOpt" hidden>
+                <summary aria-label="關聯曲"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg><span class="lbl">關聯曲</span><b id="relCount"></b></summary>
+                <div class="view-opts to-right rel-pop" id="relPop"></div>
               </details>
               <div class="video-source-pill" id="videoSourcePill" hidden role="group" aria-label="影片版本">
                 <button type="button" class="source-opt active" data-video-source="mv" aria-pressed="true">MV</button>
@@ -294,6 +293,13 @@
             <div class="jump" id="singJump" role="group" aria-label="跳到大合唱段落">
               <button id="singPrev" aria-label="上一段大合唱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg></button><button class="mid" id="singOnly" aria-pressed="false" title="只看大合唱的句子">大合唱</button><button id="singNext" aria-label="下一段大合唱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></button>
             </div>
+            <!-- 手機才顯示：電腦版的重點在「現在要做的事」框裡 -->
+            <details class="vopt tips-opt" id="tipsOpt" hidden>
+              <summary aria-label="這首重點">這首重點</summary>
+              <div class="view-opts" role="group" aria-label="這首重點">
+                <ul class="summary" id="tipsSummary"></ul>
+              </div>
+            </details>
             <button type="button" class="ly-btn" id="dispBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="dispDlg">顯示</button>
           </div>
           <div class="legend" id="legend" aria-label="顏色代表的動作"></div>
@@ -475,6 +481,7 @@
       <button type="button" class="pop-item" data-tool="prefer-live" id="tool-prefer-live" aria-pressed="false"><span>優先播放 Live 版</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-tool="autonext" id="tool-autonext" aria-pressed="false"><span>播完自動下一首</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-tool="shuffle" id="tool-shuffle" aria-pressed="false"><span>隨機播放</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+      <button type="button" class="pop-item" data-tool="related" id="tool-related" aria-pressed="false"><span>下一首接關聯曲</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-opt="light" aria-pressed="true"><span>舞台燈光</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
     </div>
     <div class="sheet-group">

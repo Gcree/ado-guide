@@ -21,7 +21,7 @@
     listen:  { name: T("安靜聽"),   icon: "i-listen",  how: T("留給 Ado 唱") }
   };
 
-  const { SONGS, UT, PEN, BEAT, CLIMAX } = window.ADO_SONGS;
+  const { SONGS, UT, PEN, BEAT, CLIMAX, SERIES = [] } = window.ADO_SONGS;
   // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示；沒有 tips 又不是 free 的歌也先視為 hold
   SONGS.forEach(s => { if (s.sug || (!s.free && (!s.tips || !s.tips.length))) s.hold = true; if (s.hold) { s.acts = []; s.tips = []; } });
   SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = (s.tips || []).map(t => T(t)); s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
@@ -1097,8 +1097,11 @@
     const p = penOf(s);
     document.getElementById("pen").innerHTML = T("螢光棒") + p.keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")
       + `<b>${p.keys.map(penName).join(T("、"))}${p.none ? T("（沒指定）") : ""}</b>`;
+    // 接關聯曲：換到的是上一首說好的那首，告訴使用者為什麼接這首
+    if (TOOL.related && nextUp && nextUp.id === s.id && nextUp.why) toast(T("接著聽關聯曲：{0}", nextUp.why));
     shuffleSeen(s);
     paintNav(s);
+    paintRelated(s);
     fillSong();
     document.querySelectorAll('[data-tool="click"]').forEach(b => b.disabled = !BEAT[s.id]);
     loadVideo();
@@ -1543,7 +1546,7 @@
   // 優先級判斷：現場影片 (Live Video) > MV > 演唱會音源 (Live Audio)；有現場影片時預設 Live 優先
   const preferLiveStored = store.get("tool-prefer-live");
   const preferLiveDefault = preferLiveStored === null ? true : preferLiveStored === "1";
-  const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", shuffle: store.get("tool-shuffle") === "1", lamp: store.get("tool-lamp") === "1", "prefer-live": preferLiveDefault };
+  const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", shuffle: store.get("tool-shuffle") === "1", related: store.get("tool-related") === "1" && store.get("tool-shuffle") !== "1", lamp: store.get("tool-lamp") === "1", "prefer-live": preferLiveDefault };
 
   // ── 隨機播放：下一首（按鈕、播完自動下一首、歌詞小窗的下一首）照洗過的順序走，全部輪過一次才會重複；上一首回到剛剛聽的那首 ──
   // 洗好的順序和聽過的紀錄只記在這個分頁（sessionStorage），關掉分頁就重來
@@ -1559,25 +1562,102 @@
   }
   // 聽過的順序：往回走（按上一首）時退一格，不然接在後面
   function shuffleSeen(s) {
-    if (!TOOL.shuffle) return;
+    if (!TOOL.shuffle && !TOOL.related) return;
     const h = shufList("shuffle-hist");
     if (h[h.length - 2] === s.id) h.pop(); else if (h[h.length - 1] !== s.id) h.push(s.id);
     session.set("shuffle-hist", JSON.stringify(h.slice(-80)));
     session.set("shuffle-queue", JSON.stringify(shufList("shuffle-queue").filter(id => id !== s.id)));
   }
   function navTargets(s) {
-    if (!TOOL.shuffle) { const seq = ordered(), at = seq.indexOf(s); return [seq[at - 1], seq[at + 1]]; }
-    const h = shufList("shuffle-hist");
-    return [h[h.length - 1] === s.id ? BY[h[h.length - 2]] : null, shuffleNext(s)];
+    const seq = ordered(), at = seq.indexOf(s);
+    if (!TOOL.shuffle && !TOOL.related) return [seq[at - 1], seq[at + 1]];
+    const h = shufList("shuffle-hist"), prev = h[h.length - 1] === s.id ? BY[h[h.length - 2]] : null;
+    if (TOOL.shuffle) return [prev, shuffleNext(s)];
+    // 接關聯曲：這個分頁還沒聽過的關聯曲先接；都聽過了就照首頁順序往下
+    const r = relNext(s);
+    return [prev, r ? r.s : seq[at + 1] || seq[0], r ? r.why : ""];
   }
+  // 下一首按鈕指向哪首、為什麼（接關聯曲時換到那首會跳提示）
+  let nextUp = null;
   function paintNav(s) {
-    const [prev, next] = navTargets(s);
-    [["prevSong", prev, T("上一首")], ["nextSong", next, TOOL.shuffle ? T("下一首（隨機）") : T("下一首")]].forEach(([id, x, word]) => {
+    const [prev, next, why] = navTargets(s);
+    nextUp = next ? { id: next.id, why } : null;
+    const nextWord = TOOL.shuffle ? T("下一首（隨機）") : TOOL.related ? T("下一首（關聯曲）") : T("下一首");
+    [["prevSong", prev, T("上一首")], ["nextSong", next, nextWord]].forEach(([id, x, word]) => {
       const a = document.getElementById(id);
-      if (x) { a.setAttribute("href", songHref(x.id)); a.setAttribute("aria-label", `${word}：${x.ja}`); } else a.removeAttribute("href");
+      if (x) { a.setAttribute("href", songHref(x.id)); a.setAttribute("aria-label", `${word}：${x.ja}`); a.title = `${word}：${x.ja}${id === "nextSong" && why ? `（${why}）` : ""}`; } else { a.removeAttribute("href"); a.removeAttribute("title"); }
     });
-    document.getElementById("nextSong").classList.toggle("is-shuffle", TOOL.shuffle);
+    const nb = document.getElementById("nextSong");
+    nb.classList.toggle("is-shuffle", TOOL.shuffle);
+    nb.classList.toggle("is-related", TOOL.related);
   }
+
+  // ── 關聯曲：同一位作詞／作曲／編曲者、同一部作品（songs.js 的 CREDIT、SERIES） ──
+  // 名字後面括號裡的團名只顯示，比對時拿掉
+  const credKey = n => n.replace(/\s*\(.*\)\s*$/, "").trim();
+  const credHas = (s, part, key) => !!(s.credit && (s.credit[part] || []).some(n => credKey(n) === key));
+  function credRole(s, key) {
+    const w = credHas(s, "w", key), c = credHas(s, "c", key);
+    return w && c ? T("詞曲") : w ? T("作詞") : c ? T("作曲") : credHas(s, "a", key) ? T("編曲") : "";
+  }
+  const relCache = {};
+  function relatedOf(s) {
+    if (relCache[s.id]) return relCache[s.id];
+    const groups = [], c = s.credit;
+    if (c) {
+      const names = [...c.w || [], ...c.c || [], ...c.a || []], keys = [...new Set(names.map(credKey))];
+      keys.forEach(key => {
+        const songs = SONGS.filter(x => x !== s && ["w", "c", "a"].some(p => credHas(x, p, key)));
+        if (songs.length) groups.push({ kind: "who", name: names.find(n => credKey(n) === key), role: credRole(s, key), songs: songs.map(x => ({ s: x, role: credRole(x, key) })) });
+      });
+    }
+    SERIES.forEach(g => {
+      if (!g.ids.includes(s.id)) return;
+      const songs = g.ids.filter(id => id !== s.id && BY[id]).map(id => ({ s: BY[id], role: "" }));
+      if (songs.length) groups.push({ kind: "work", name: T(g.name), songs });
+    });
+    return relCache[s.id] = groups;
+  }
+  // 理由寫成一句：「同為 てにをは 的作品」「同一部作品：《…》」
+  const relWhy = g => g.kind === "who" ? T("同為 {0} 的作品", credKey(g.name)) : T("同一部作品：{0}", g.name);
+  function relNext(s) {
+    const heard = new Set(shufList("shuffle-hist"));
+    for (const g of relatedOf(s)) for (const r of g.songs) if (!heard.has(r.s.id)) return { s: r.s, why: relWhy(g) };
+    return null;
+  }
+  function relHtml(s) {
+    return relatedOf(s).map(g => `<div class="rel-g"><p class="rel-h"><b${g.kind === "who" ? ' lang="ja"' : ""}>${esc(g.name)}</b><small>${g.kind === "who" ? T("這首的{0}", esc(g.role)) : T("同一部作品")}</small></p><ul class="rel-list">${g.songs.map(({ s: x, role }) =>
+      `<li><a class="rel-link" href="${songHref(x.id)}" data-id="${x.id}">${thumb(x, 64, 36, true)}<span class="rel-t"><b lang="ja">${esc(x.ja)}</b>${role || x.cover ? `<small>${[role, x.cover ? T("翻唱") : ""].filter(Boolean).join("・")}</small>` : ""}</span></a></li>`).join("")}</ul></div>`).join("");
+  }
+  const extIco = `<svg class="ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+  function paintRelated(s) {
+    const groups = relatedOf(s), n = new Set(groups.flatMap(g => g.songs.map(r => r.s.id))).size;
+    const opt = document.getElementById("relOpt");
+    if (opt) {
+      opt.hidden = !n; opt.open = false;
+      document.getElementById("relCount").textContent = n || "";
+      document.getElementById("relPop").innerHTML = n ? relHtml(s) : "";
+    }
+    // 速覽卡：詞曲、關聯曲、本站沒收的同作者作品（建置出來的歌曲頁沒有這塊，第一次用到時補上）
+    const card = document.getElementById("songGuideCard");
+    if (!card) return;
+    let more = document.getElementById("cardMore");
+    if (!more) { more = document.createElement("div"); more.id = "cardMore"; card.appendChild(more); }
+    const c = s.credit, who = list => list.map(n => `<span lang="ja">${esc(n)}</span>`).join("、");
+    const rows = !c ? [] : [[T("作詞"), c.w], [T("作曲"), c.c], [T("編曲"), c.a]].filter(([, v]) => v && v.length).map(([k, v]) => `<dt>${k}</dt><dd>${who(v)}</dd>`);
+    if (c && c.x && c.x.length) rows.push(`<dt>${T("延伸聽")}</dt><dd><span class="card-note">${T("本站還沒收、Ado 也唱過的同作者作品")}</span>${c.x.map(t => `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent("Ado " + t)}" target="_blank" rel="noopener" class="live-chip" lang="ja">${esc(t)} ${extIco}</a>`).join(" ")}</dd>`);
+    more.innerHTML = (rows.length ? `<dl class="card-dl card-credit">${rows.join("")}</dl>` : "")
+      + (n ? `<section class="rel-block" aria-label="${T("關聯曲")}"><h4 class="rel-title">${T("關聯曲")}<small>${T("同一位創作者、同一部作品，點了直接換歌")}</small></h4>${relHtml(s)}</section>` : "");
+  }
+  // 點關聯曲：跟上一首、下一首一樣，在歌曲獨立頁不重新載入整頁
+  document.addEventListener("click", ev => {
+    const a = ev.target.closest("a.rel-link");
+    if (!a) return;
+    const d = a.closest("details"); if (d) d.open = false;
+    if (!PAGE_SONG || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
+    ev.preventDefault();
+    goSong(a.dataset.id);
+  });
   const paintTools = () => document.querySelectorAll("[data-tool]").forEach(b => b.setAttribute("aria-pressed", TOOL[b.dataset.tool]));
 
   // ── 沉浸模式 (Folia Immersive Stage) ──
@@ -1592,8 +1672,9 @@
     if (!s || !ambientMesh) return;
     const p = penOf(s);
     const cols = p && p.cols && p.cols.length ? p.cols : ["#5d9dfe", "#ff4a5a"];
-    ambientMesh.style.setProperty("--mesh-c1", cols[0]);
-    ambientMesh.style.setProperty("--mesh-c2", cols[1] || cols[0]);
+    // 設在 body：場館光暈、舞台螢幕的光、字幕發光都用這首的手燈色
+    document.body.style.setProperty("--mesh-c1", cols[0]);
+    document.body.style.setProperty("--mesh-c2", cols[1] || cols[0]);
   }
 
   function resetSongbarAutohide() {
@@ -1605,26 +1686,35 @@
     }, 3500);
   }
 
-  function setImmersive(on) {
-    if (isImmersive === on) return;
+  // 開關沉浸模式：先熄燈（黑幕淡入），換版面，再亮出舞台螢幕；離開時像場燈亮起。instant：回首頁時直接關
+  let immBusy = false;
+  const veilFade = (el, from, to, ms) => el.animate([{ opacity: from }, { opacity: to }], { duration: ms, easing: to ? "cubic-bezier(.4, 0, 1, 1)" : "cubic-bezier(0, 0, .2, 1)", fill: "forwards" }).finished.catch(() => {});
+  async function setImmersive(on, instant) {
+    if (isImmersive === on || (immBusy && !instant)) return;
     isImmersive = on;
+    [toolImmersive, toolImmersiveMenuBtn].forEach(b => b && b.setAttribute("aria-pressed", isImmersive));
+    const veil = !reduce && !instant ? document.body.appendChild(Object.assign(document.createElement("div"), { className: "imm-veil" })) : null;
+    if (veil) { immBusy = true; await veilFade(veil, 0, 1, on ? 260 : 180); }
+    if (isImmersive !== on) { if (veil) veil.remove(); immBusy = false; return; }
     document.body.classList.toggle("immersive-mode", isImmersive);
     syncThemeColor();
-    [toolImmersive, toolImmersiveMenuBtn].forEach(b => b && b.setAttribute("aria-pressed", isImmersive));
     if (isImmersive) {
       updateAmbientColors(S);
       toast(T("✨ 已開啟沉浸播放模式（按 Esc 或 F 退出）"));
       resetSongbarAutohide();
-      if (curLine >= 0 && lineEls[curLine]) {
-        setTimeout(() => centerLine(lineEls[curLine]), 80);
+      // 舞台螢幕開機：從全黑亮到過曝再回正常，提示和字幕隨後浮上來
+      if (!reduce) {
+        const ease = "cubic-bezier(.2, .7, .2, 1)";
+        document.querySelector("#song .mv")?.animate([{ opacity: 0, filter: "brightness(0)" }, { opacity: 1, filter: "brightness(1.6)", offset: .45 }, { opacity: 1, filter: "brightness(1)" }], { duration: 1100, delay: 200, easing: ease, fill: "backwards" });
+        [cueBox, document.querySelector("#song .lyrics")].forEach((el, i) => el && el.animate([{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "none" }], { duration: 800, delay: 650 + i * 70, easing: ease, fill: "backwards" }));
       }
     } else {
       [songbar, dockEl].forEach(el => el && el.classList.remove("autohide"));
       clearTimeout(songbarHideTimer);
-      if (curLine >= 0 && lineEls[curLine]) {
-        setTimeout(() => centerLine(lineEls[curLine]), 80);
-      }
+      document.body.classList.remove("imm-crowd");
     }
+    if (curLine >= 0 && lineEls[curLine]) setTimeout(() => centerLine(lineEls[curLine]), 80);
+    if (veil) { await veilFade(veil, 1, 0, on ? 700 : 380); veil.remove(); immBusy = false; }
   }
 
   function toggleImmersive() {
@@ -2135,10 +2225,13 @@
     }
     TOOL[k] = !TOOL[k]; store.set("tool-" + k, TOOL[k] ? "1" : null); paintTools();
     if (k === "click" && TOOL.click) clickCtx();
-    if (k === "shuffle" && S) {
-      if (TOOL.shuffle) { session.set("shuffle-hist", "[]"); session.set("shuffle-queue", "[]"); shuffleSeen(S); }
+    // 隨機播放、接關聯曲只能開一個
+    if ((k === "shuffle" || k === "related") && TOOL[k]) { const o = k === "shuffle" ? "related" : "shuffle"; TOOL[o] = false; store.set("tool-" + o, null); paintTools(); }
+    if ((k === "shuffle" || k === "related") && S) {
+      if (TOOL[k]) { session.set("shuffle-hist", "[]"); session.set("shuffle-queue", "[]"); shuffleSeen(S); }
       paintNav(S);
-      toast(TOOL.shuffle ? T("隨機播放：下一首會隨機挑，{0} 首輪完才重複", SONGS.length) : T("已關閉隨機播放"));
+      if (k === "shuffle") toast(TOOL.shuffle ? T("隨機播放：下一首會隨機挑，{0} 首輪完才重複", SONGS.length) : T("已關閉隨機播放"));
+      else toast(TOOL.related ? T("接關聯曲：下一首先接同一位創作者或同一部作品的歌") : T("已關閉接關聯曲"));
     }
     if (k === "lamp") {
       if (TOOL.lamp) { lampRetryCount = 0; lampConnect(); }
@@ -2714,7 +2807,7 @@
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
       trackView(s);
     } else {
-      setImmersive(false); quizStop();
+      setImmersive(false, true); quizStop();
       lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
       renderRecent(); crateShow();
       const target = h && document.getElementById(h);
@@ -3067,16 +3160,18 @@
         ctx.save(); ctx.translate(p.x * W + Math.sin(p.a) * 12, p.y * H); ctx.rotate(p.a);
         ctx.fillStyle = hex(pal ? pal[i % pal.length] : BLUE, .28 * o.k); ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * .55, 0, 0, 6.28); ctx.fill(); ctx.restore();
       });
-      const baseY = H - 4, band = Math.min(70, H * .14);
+      // raise：0 一般、沉浸模式約 .35、大合唱時 1；手燈海變高、往上舉、更亮
+      const rz = draw.raise * (W < 600 ? .45 : 1), baseY = H - 4, band = Math.min(70, H * .14) * (1 + rz * .8);
       sticks.forEach(s => {
         const swing = reduce ? 0 : Math.sin(tt * (playing ? 4.2 : 1.3) + s.ph) * (playing ? .5 : .2) * (listen ? .3 : 1);
-        ctx.save(); ctx.translate(s.x * W, baseY - s.y * band - 6 * hit); ctx.rotate(swing);
-        ctx.strokeStyle = hex(s.c, (.16 + .3 * energy + .45 * hit) * (.45 + s.y * .55) * o.k);
-        ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -(12 + s.y * 8)); ctx.stroke(); ctx.restore();
+        ctx.save(); ctx.translate(s.x * W, baseY - s.y * band - 6 * hit - rz * 8); ctx.rotate(swing);
+        ctx.strokeStyle = hex(s.c, (.16 + .3 * energy + .45 * hit) * (.45 + s.y * .55) * o.k * (1 + rz * .5));
+        ctx.lineWidth = 3 + rz; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -(12 + s.y * 8 + rz * 6)); ctx.stroke(); ctx.restore();
       });
       ctx.globalCompositeOperation = "source-over";
     };
     draw.pen = pen;
+    draw.raise = 0;
     return draw;
   }
   const bg = stage(document.getElementById("fx"), { sticks: 110, petals: 22, k: 1.25 });
@@ -3136,7 +3231,7 @@
   addEventListener("hashchange", () => setTimeout(() => dispatchEvent(new Event("resize")), 0));
 
   // 背景燈光只在播放時動；沒播放時畫一次就停，不在閱讀時晃
-  let stageT = 0, lastMs = 0, idleDrawn = false, penSong, blasted = false;
+  let stageT = 0, lastMs = 0, idleDrawn = false, penSong, blasted = false, crowdOn = false;
   addEventListener("resize", () => { idleDrawn = false; });
   function frame(ms) {
     const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
@@ -3152,6 +3247,11 @@
       if (t < cx - .3) blasted = false;
       else if (playing && !blasted && t >= cx - .05 && t < cx + .8 && OPT.light !== false) { blasted = true; blast(penOf(want).cols); }
     }
+    // 「交給觀眾」：沉浸模式播到大合唱的句子，舞台螢幕退暗、字幕和手燈海亮起來
+    const cl = isImmersive && playing && LINES.length ? lineAt(t) : -1;
+    const crowd = cl >= 0 && LINES[cl].acts.includes("sing");
+    if (crowd !== crowdOn) { crowdOn = crowd; document.body.classList.toggle("imm-crowd", crowd); }
+    const prevMs = lastMs || ms;
     if (OPT.light !== false) {
       if (playing) stageT += Math.min(.1, (ms - lastMs) / 1000);
       lastMs = ms;
@@ -3162,9 +3262,14 @@
       else if (playing && !reduce && l) hit = Math.exp(-(t - l.t) / .4) * (l.acts.length ? 1 : .65);
       const energy = playing && cue ? (cue.listen ? .2 : cue.beat ? 1 : .45) : .4;
       if (isImmersive && ambientMesh) {
-        ambientMesh.style.setProperty("--beat-hit", (playing && !reduce) ? hit.toFixed(3) : "0");
+        const bh = (playing && !reduce) ? hit.toFixed(3) : "0";
+        ambientMesh.style.setProperty("--beat-hit", bh);
+        songV.style.setProperty("--beat-hit", bh);
       }
-      if (playing || !idleDrawn) { bg(stageT, energy, hit, cue && cue.listen, playing, beat); idleDrawn = !playing; }
+      // 沉浸模式的手燈海比較高；大合唱時整片舉起來
+      const raiseTo = isImmersive ? (crowd ? 1 : .35) : 0;
+      if (Math.abs(bg.raise - raiseTo) > .005) { bg.raise += (raiseTo - bg.raise) * Math.min(1, (ms - prevMs) / 1000 * 2.4); idleDrawn = false; }
+      if (playing || !idleDrawn) { bg(stageT, playing ? Math.max(energy, crowd ? .9 : 0) : energy, hit, cue && cue.listen && !crowd, playing, beat); idleDrawn = !playing && Math.abs(bg.raise - raiseTo) <= .005; }
     } else {
       lastMs = ms;
       if (!idleDrawn) {
