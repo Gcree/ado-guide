@@ -613,7 +613,14 @@
     if (glideId !== null) { cancelAnimationFrame(glideId); glideId = null; }
   }, { passive: true }));
   // 底部留半個框的空白，最後幾行也能捲到中間
-  const padEnd = () => { sc.style.paddingBottom = LINES.length ? Math.round(sc.clientHeight / 2) + "px" : ""; };
+  // 沉浸模式：上面也留半個框，前幾句也能捲到正中間（字幕永遠在同一個高度）
+  // 留白放在歌詞清單（#lines）上，不放在捲動框上：捲動框的內距會撐住它自己的高度，視窗變矮時縮不回來
+  const padEnd = () => {
+    const half = LINES.length ? Math.round(sc.clientHeight / 2) + "px" : "", imm = document.body.classList.contains("immersive-mode"), list = document.getElementById("lines");
+    sc.style.paddingBottom = imm ? "" : half;
+    list.style.paddingTop = imm ? half : "";
+    list.style.paddingBottom = imm ? half : "";
+  };
   addEventListener("resize", padEnd);
 
   const getBuiltinSong = (id, source = (typeof currentVideoSource === "function" ? currentVideoSource(S) : "mv")) => {
@@ -1675,6 +1682,7 @@
     // 設在 body：場館光暈、舞台螢幕的光、字幕發光都用這首的手燈色
     document.body.style.setProperty("--mesh-c1", cols[0]);
     document.body.style.setProperty("--mesh-c2", cols[1] || cols[0]);
+    if (venue) venue.setPen(cols);
   }
 
   function resetSongbarAutohide() {
@@ -1698,8 +1706,10 @@
     if (isImmersive !== on) { if (veil) veil.remove(); immBusy = false; return; }
     document.body.classList.toggle("immersive-mode", isImmersive);
     syncThemeColor();
+    padEnd();
     if (isImmersive) {
       updateAmbientColors(S);
+      ensureVenue().then(() => requestAnimationFrame(venueLayout));
       toast(T("✨ 已開啟沉浸播放模式（按 Esc 或 F 退出）"));
       resetSongbarAutohide();
       // 舞台螢幕開機：從全黑亮到過曝再回正常，提示和字幕隨後浮上來
@@ -1711,10 +1721,42 @@
     } else {
       [songbar, dockEl].forEach(el => el && el.classList.remove("autohide"));
       clearTimeout(songbarHideTimer);
-      document.body.classList.remove("imm-crowd");
+      document.body.classList.remove("imm-crowd", "has-venue");
     }
     if (curLine >= 0 && lineEls[curLine]) setTimeout(() => centerLine(lineEls[curLine]), 80);
     if (veil) { await veilFade(veil, 1, 0, on ? 700 : 380); veil.remove(); immBusy = false; }
+  }
+
+  // ── 3D 場館（assets/stage3d.js，原始碼在 tools/stage3d）：第一次開沉浸模式才載入 ──
+  // 減少動態、沒有 WebGL、載入失敗：照舊用 2D 的燈光畫布
+  let venue = null, venueP = null, venueRO = null;
+  const pointer = { x: 0, y: 0 };
+  addEventListener("pointermove", e => { pointer.x = e.clientX / innerWidth * 2 - 1; pointer.y = e.clientY / innerHeight * 2 - 1; }, { passive: true });
+  function venueLayout() {
+    if (!venue || !isImmersive) return;
+    const cv = document.getElementById("venue");
+    venue.layout(document.getElementById("screen").getBoundingClientRect(), cv.clientWidth, cv.clientHeight);
+  }
+  function ensureVenue() {
+    if (reduce) return Promise.resolve(null);
+    if (!venueP) {
+      const app = document.querySelector('script[src*="app.js"]');
+      const url = new URL("assets/stage3d.js" + (app ? new URL(app.src).search : ""), app ? app.src : location.href).href;
+      venueP = import(url).then(m => {
+        const cv = document.createElement("canvas");
+        cv.id = "venue"; cv.setAttribute("aria-hidden", "true");
+        document.body.insertBefore(cv, document.getElementById("fx"));
+        venue = m.createVenue(cv, { mobile: matchMedia("(max-width: 900px), (pointer: coarse)").matches });
+        if (S) venue.setPen(penOf(S).cols);
+        if (/[?&]debug3d(&|$)/.test(location.search)) window.__venue = venue;
+        cv.addEventListener("webglcontextlost", e => { e.preventDefault(); venue = null; document.body.classList.remove("has-venue"); });
+        addEventListener("resize", () => requestAnimationFrame(venueLayout));
+        venueRO = new ResizeObserver(() => venueLayout());
+        venueRO.observe(document.getElementById("screen"));
+        return venue;
+      }).catch(err => { console.warn("3D venue unavailable", err); return null; });
+    }
+    return venueP;
   }
 
   function toggleImmersive() {
@@ -2414,6 +2456,24 @@
     if (isBallad) return "listen";
     return "";
   }
+
+  // 跟 PenlightSync「網站」取色模式（SiteLightEvaluator，自動節奏）同一套規則：沉浸模式的 3D 觀眾手燈用，現場看起來跟實體手燈一致
+  // 一般段落每 2 拍換色；拍手、喊聲、跳躍、135 BPM 以上每拍換；副歌高潮（8 拍）連續鼓聲每半拍換；沒有拍點資料每 4 秒換；安靜聽亮度減半
+  function lampLook(t) {
+    const n = penOf(S).cols.length || 1, bd = BEAT[S.id], cueName = currentCue(t), cx = CLIMAX[S.id];
+    const bpm = bd && bd[0] > 0 ? bd[0] : 0;
+    const climax = cx != null && t >= cx && t < cx + (bpm ? 8 * 60 / bpm : 4);
+    const listen = cueName === "listen", hype = cueName === "jump" || cueName === "call" || cueName === "clap" || climax;
+    const mod = k => ((k % n) + n) % n;
+    let idx = 0;
+    if (n > 1 && bpm) {
+      const x = (t - bd[1]) / (60 / bpm), k = Math.floor(x), bar = mod4(k);
+      const roll = climax || (hype && bpm >= 125) || (bar === 3 && x - k >= .5 && bpm >= 115);
+      idx = mod(roll ? Math.floor(x * 2) : (hype || bpm >= 135) ? k : Math.floor(k / 2));
+    } else if (n > 1) idx = mod(Math.floor(t / 4));
+    return { idx, bright: climax ? 1 : listen ? .5 : 1, cue: cueName };
+  }
+  const mod4 = k => ((k % 4) + 4) % 4;
 
   function lampFrame(t, playing) {
     if (!TOOL.lamp || !lampWS || lampWS.readyState !== WebSocket.OPEN) return;
@@ -3161,7 +3221,7 @@
         ctx.fillStyle = hex(pal ? pal[i % pal.length] : BLUE, .28 * o.k); ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * .55, 0, 0, 6.28); ctx.fill(); ctx.restore();
       });
       // raise：0 一般、沉浸模式約 .35、大合唱時 1；手燈海變高、往上舉、更亮
-      const rz = draw.raise * (W < 600 ? .45 : 1), baseY = H - 4, band = Math.min(70, H * .14) * (1 + rz * .8);
+      const rz = draw.raise * (Math.min(W, H) < 600 ? .45 : 1), baseY = H - 4, band = Math.min(70, H * .14) * (1 + rz * .8);
       sticks.forEach(s => {
         const swing = reduce ? 0 : Math.sin(tt * (playing ? 4.2 : 1.3) + s.ph) * (playing ? .5 : .2) * (listen ? .3 : 1);
         ctx.save(); ctx.translate(s.x * W, baseY - s.y * band - 6 * hit - rz * 8); ctx.rotate(swing);
@@ -3231,7 +3291,7 @@
   addEventListener("hashchange", () => setTimeout(() => dispatchEvent(new Event("resize")), 0));
 
   // 背景燈光只在播放時動；沒播放時畫一次就停，不在閱讀時晃
-  let stageT = 0, lastMs = 0, idleDrawn = false, penSong, blasted = false, crowdOn = false;
+  let stageT = 0, lastMs = 0, idleDrawn = false, penSong, blasted = false, crowdOn = false, venueOn = false, venueRaise = 0, venueClap = 0, venueJump = 0;
   addEventListener("resize", () => { idleDrawn = false; });
   function frame(ms) {
     const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
@@ -3269,9 +3329,24 @@
       // 沉浸模式的手燈海比較高；大合唱時整片舉起來
       const raiseTo = isImmersive ? (crowd ? 1 : .35) : 0;
       if (Math.abs(bg.raise - raiseTo) > .005) { bg.raise += (raiseTo - bg.raise) * Math.min(1, (ms - prevMs) / 1000 * 2.4); idleDrawn = false; }
-      if (playing || !idleDrawn) { bg(stageT, playing ? Math.max(energy, crowd ? .9 : 0) : energy, hit, cue && cue.listen && !crowd, playing, beat); idleDrawn = !playing && Math.abs(bg.raise - raiseTo) <= .005; }
+      // 3D 場館載好了就由它畫，2D 畫布休息
+      const useVenue = isImmersive && !!venue;
+      if (useVenue !== venueOn) { venueOn = useVenue; document.body.classList.toggle("has-venue", useVenue); idleDrawn = false; if (useVenue) venueLayout(); }
+      if (useVenue) {
+        const ease = Math.min(1, (ms - prevMs) / 1000 * 2.2), look = lampLook(t);
+        // 拍手：手燈舉高不擺，每拍往下一頓再亮一下（反拍拍手只在第 2、4 拍）；跳躍：全場跟著拍子彈
+        const offb = !!(cue && isOffbeat(cue.name)), clapOn = playing && (look.cue === "clap" || offb), jumpOn = playing && look.cue === "jump";
+        venueRaise += ((crowd ? 1 : 0) - venueRaise) * ease;
+        venueClap += ((clapOn ? 1 : 0) - venueClap) * ease * 1.5;
+        venueJump += ((jumpOn ? .16 : 0) - venueJump) * ease;
+        const clapPulse = clapOn ? (b ? ((!offb || b.bar % 2 === 1) ? beatPulse(b) : 0) : hit) : 0;
+        venue.render({ t: ms / 1000, swing: b ? b.x : ms / 1000 * (playing ? 1.6 : .35), amp: playing ? (look.cue === "listen" && !crowd ? .14 : .42) : .08,
+          hit: playing && !reduce ? hit : 0, raise: venueRaise, px: pointer.x, py: pointer.y, still: false,
+          colIdx: look.idx, bright: look.bright, clap: venueClap, clapPulse, jump: venueJump });
+      } else if (playing || !idleDrawn) { bg(stageT, playing ? Math.max(energy, crowd ? .9 : 0) : energy, hit, cue && cue.listen && !crowd, playing, beat); idleDrawn = !playing && Math.abs(bg.raise - raiseTo) <= .005; }
     } else {
       lastMs = ms;
+      if (venueOn) { venueOn = false; document.body.classList.remove("has-venue"); }
       if (!idleDrawn) {
         const cv = document.getElementById("fx");
         if (cv) {

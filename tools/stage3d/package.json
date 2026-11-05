@@ -1,0 +1,13 @@
+{
+  "name": "ado-stage3d",
+  "private": true,
+  "description": "沉浸模式的 3D 場館：venue.js 打包成 assets/stage3d.js（只打包用到的 three.js 部分）",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "three": "0.187.0"
+  }
+}
