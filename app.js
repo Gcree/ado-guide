@@ -30,7 +30,7 @@
   // 歌詞：正式網站由 scripts/build.mjs 拆成每首一個檔（lyrics/<id>.json），<html data-lyrics> 是版本；
   // 先讀小小的 lyrics/index.json（每首的應援數量），打開哪首才載那首。直接開原始檔時沒有拆，改讀整份 song-lyrics.js
   // 應援數量：歌詞裡有動作的行數（「安靜聽」不算）；index.json 裡沒有的歌就是沒有逐行歌詞
-  const LYV = document.documentElement.dataset.lyrics, LY = {}, lyWait = {};
+  const LYV = document.documentElement.dataset.lyrics, LY = {}, lyWait = {}, LY_LIVE = {}, lyLiveWait = {};
   let lyReady = false;
   const loadScript = src => new Promise(res => {
     const el = document.createElement("script");
@@ -41,9 +41,16 @@
   const getJSON = url => fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null);
   const lyLoaded = (LYV
     ? getJSON(`${ROOT}lyrics/index.json?v=${LYV}`)
-    : loadScript(ROOT + "song-lyrics.js").then(() => {
+    : Promise.all([
+        loadScript(ROOT + "song-lyrics.js"),
+        loadScript(ROOT + "song-lyrics-live.js")
+      ]).then(() => {
         const idx = {};
         (window.SONG_LYRICS || []).forEach(b => { LY[b.id] = b; if (b.lyrics && b.lyrics.length) idx[b.id] = b.lyrics.filter(l => (l.acts || []).some(a => a !== "listen")).length; });
+        (window.SONG_LYRICS_LIVE || []).forEach(b => {
+          const baseId = b.baseId || b.id.replace('-live', '');
+          LY_LIVE[baseId] = b;
+        });
         return idx;
       })
   ).then(idx => {
@@ -51,14 +58,25 @@
     SONGS.forEach(s => { s.lines = !!idx && s.id in idx; s.cheer = s.lines && !s.hold ? idx[s.id] : 0; });
   });
   // 這首的歌詞載好了沒（拆檔時打開才載）；網址一開始就指向的歌，和 index.json 一起先載
-  const lyHave = s => lyReady && (!s.lines || !!LY[s.id]);
+  const lyHave = (s, source = (typeof currentVideoSource === "function" ? currentVideoSource(s) : "mv")) => {
+    if (!lyReady) return false;
+    if (!s.lines) return true;
+    if (source === "live" && s.liveVideo) return !!LY_LIVE[s.id] || !!LY[s.id];
+    return !!LY[s.id];
+  };
   const fetchLy = id => lyWait[id] = lyWait[id] || getJSON(`${ROOT}lyrics/${id}.json?v=${LYV}`).then(b => { if (b) LY[id] = b; });
+  const fetchLyLive = id => lyLiveWait[id] = lyLiveWait[id] || getJSON(`${ROOT}lyrics-live/${id}.json?v=${LYV}`).then(b => { if (b) LY_LIVE[id] = b; });
   function loadLyrics(s) {
     if (!LYV || lyHave(s)) return Promise.resolve();
-    return fetchLy(s.id).then(() => { if (!LY[s.id]) s.lines = false; });
+    const tasks = [fetchLy(s.id)];
+    if (s.liveVideo) tasks.push(fetchLyLive(s.id));
+    return Promise.all(tasks).then(() => { if (!LY[s.id] && !LY_LIVE[s.id]) s.lines = false; });
   }
   const firstSong = (location.hash.slice(1) || document.documentElement.dataset.song || "").split("@")[0];
-  if (LYV && SONGS.some(s => s.id === firstSong)) fetchLy(firstSong);
+  if (LYV && SONGS.some(s => s.id === firstSong)) {
+    fetchLy(firstSong);
+    fetchLyLive(firstSong);
+  }
   const BY = Object.fromEntries(SONGS.map(s => [s.id, s]));
   const PENC = { 青: [T("藍"), "#5d9dfe"], 水: [T("水藍"), "#5fd4ff"], 白: [T("白"), "#f2efe8"], 赤: [T("紅"), "#ff4a5a"], 桃: [T("粉紅"), "#ff7ab8"], 紫: [T("紫"), "#a374ff"], 橙: [T("橘"), "#ff9a3c"], 黄: [T("黃"), "#ffd84a"], 緑: [T("綠"), "#4ee08a"] };
   const penName = k => (k === "彩" ? T("彩色") : PENC[k][0]);
@@ -85,7 +103,8 @@
   const transition = (fn, cls) => {
     if (reduce || !document.startViewTransition) return fn();
     if (cls) document.documentElement.classList.add(cls);
-    document.startViewTransition(fn).finished.finally(() => cls && document.documentElement.classList.remove(cls));
+    const vt = document.startViewTransition(fn);
+    vt.finished.catch(() => {}).finally(() => cls && document.documentElement.classList.remove(cls));
   };
   const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; /* 「加到主畫面」提示也在畫面上時，疊在它上面 */ const pwa = document.getElementById("pwaToast"); el.style.bottom = pwa && !pwa.hidden && pwa.classList.contains("show") ? `${Math.round(innerHeight - pwa.getBoundingClientRect().top + 10)}px` : ""; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), Math.min(7000, 2600 + String(msg).length * (LANG === "zh" || LANG === "ja" ? 80 : 30))); }; })();
 
@@ -108,7 +127,22 @@
   const otherName = s => (LANG === "ja" ? "" : LANG === "en" ? (s.en && s.en !== s.ja ? s.en : "") : (s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : "")));
   const subOf = s => [otherName(s), s.cover ? T("翻唱") : ""].filter(Boolean).join("・");
   const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
-  const rowHtml = s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}${sort === "cheer" && s.cheer ? `<span class="cnt">${T("{0} 句", s.cheer)}</span>` : ""}</span></span></a></li>`;
+
+  const hasLiveVideo = s => Boolean(s.liveVideo || (s.live && s.yt));
+  const hasLiveAudio = s => Boolean((s.lives && s.lives.length > 0) && !s.liveVideo && !s.live);
+  const hasLive = s => Boolean((s.lives && s.lives.length > 0) || s.liveVideo || s.live);
+
+  const liveTagOf = s => {
+    if (filter === "live") {
+      if (hasLiveVideo(s)) return `<span class="live-tag is-video">${T("Live 影片")}</span>`;
+      if (hasLiveAudio(s)) return `<span class="live-tag is-audio">${T("Live 音源")}</span>`;
+    } else if (hasLiveVideo(s)) {
+      return `<span class="live-tag is-video">${T("Live 影片")}</span>`;
+    }
+    return "";
+  };
+
+  const rowHtml = s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${liveTagOf(s)}${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}${sort === "cheer" && s.cheer ? `<span class="cnt">${T("{0} 句", s.cheer)}</span>` : ""}</span></span></a></li>`;
   // free：粉絲說沒有固定應援；hold（含 sug）：還查不到可靠的應援資料
   function renderList() {
     const term = q.value.trim().toLowerCase();
@@ -121,7 +155,11 @@
         if (!matchPlain && !matchClean) return false;
       }
       if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
-      if (filter === "live") return !!(s.lives && s.lives.length > 0);
+      if (filter === "live") {
+        if (liveSub === "video") return hasLiveVideo(s);
+        if (liveSub === "audio") return hasLiveAudio(s);
+        return hasLive(s);
+      }
       if (filter === "cover") return !!s.cover;
       return true;
     });
@@ -165,11 +203,42 @@
     const r = songsSec.getBoundingClientRect();
     if (r.top > innerHeight * .6 || r.bottom < 120) songsSec.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   });
+  let liveSub = "all"; // "all" | "video" | "audio"
+  const liveSubFilter = document.getElementById("liveSubFilter");
+  function syncLiveSubFilter() {
+    if (!liveSubFilter) return;
+    liveSubFilter.hidden = filter !== "live";
+    const elAll = document.getElementById("cntLiveAll");
+    const elVid = document.getElementById("cntLiveVideo");
+    const elAud = document.getElementById("cntLiveAudio");
+    if (elAll) elAll.textContent = SONGS.filter(hasLive).length;
+    if (elVid) elVid.textContent = SONGS.filter(hasLiveVideo).length;
+    if (elAud) elAud.textContent = SONGS.filter(hasLiveAudio).length;
+    liveSubFilter.querySelectorAll("[data-sub]").forEach(b => {
+      const active = b.dataset.sub === liveSub;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-pressed", String(active));
+    });
+  }
+
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
     filter = b.dataset.f; shown = LIMIT;
+    if (filter === "live") liveSub = "all";
+    syncLiveSubFilter();
     document.querySelectorAll("[data-f]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
     renderList(); replay(list, "swap");
   }));
+
+  if (liveSubFilter) {
+    liveSubFilter.addEventListener("click", ev => {
+      const btn = ev.target.closest("[data-sub]");
+      if (!btn) return;
+      liveSub = btn.dataset.sub;
+      syncLiveSubFilter();
+      shown = LIMIT;
+      renderList(); replay(list, "swap");
+    });
+  }
   const SORT_NAME = { date: T("推出順序"), cheer: T("動作多的在前") };
   function syncSort() {
     sortLabel.textContent = SORT_NAME[sort];
@@ -195,6 +264,7 @@
     if (e.detail === 0 && fresh[0]) fresh[0].querySelector("a").focus();
   });
   syncSort();
+  syncLiveSubFilter();
   renderList();
   lyLoaded.then(renderList);
 
@@ -546,7 +616,10 @@
   const padEnd = () => { sc.style.paddingBottom = LINES.length ? Math.round(sc.clientHeight / 2) + "px" : ""; };
   addEventListener("resize", padEnd);
 
-  const getBuiltinSong = id => LY[id] || null;
+  const getBuiltinSong = (id, source = (typeof currentVideoSource === "function" ? currentVideoSource(S) : "mv")) => {
+    if (source === "live" && LY_LIVE[id]) return LY_LIVE[id];
+    return LY[id] || null;
+  };
   // 內建歌詞：動作只看每行的 acts，依 じゅん🌝ぴ 的 note 整理
   function parseBuiltin(builtin) {
     const lines = (builtin.lyrics || []).map(item => ({
@@ -559,8 +632,8 @@
     }));
     return lines.sort((a, b) => a.t - b.t);
   }
-  function loadSongData() {
-    const builtin = getBuiltinSong(S.id);
+  function loadSongData(source = (typeof currentVideoSource === "function" ? currentVideoSource(S) : "mv")) {
+    const builtin = getBuiltinSong(S.id, source);
     LINES = builtin && builtin.lyrics ? parseBuiltin(builtin) : [];
     TAGGED = LINES.some(l => l.acts.length);
   }
@@ -724,8 +797,107 @@
   // 直接點開檔案（file://）時瀏覽器不送來源網址，YouTube 會拒絕嵌入，所以改顯示提示
   let player = null, ready = false, vid = "", slowTimer = 0, START = 0, muteTimer = 0;
   const vstatus = document.getElementById("vstatus"), vmsg = document.getElementById("vmsg");
+
+  // ── 影片版本（MV / Live）控制 ──
+  let videoSourceOverride = null; // null | "mv" | "live"
+  let routeSource = null;
+
+  function currentVideoSource(s = S) {
+    if (!s || !s.liveVideo) return "mv";
+    if (videoSourceOverride === "mv" || videoSourceOverride === "live") return videoSourceOverride;
+    return TOOL["prefer-live"] ? "live" : "mv";
+  }
+
+  function activeVideoId(s = S) {
+    if (!s) return "";
+    return currentVideoSource(s) === "live" && s.liveVideo ? s.liveVideo.yt : s.yt;
+  }
+
+  function updateVideoSourceUi() {
+    const pill = document.getElementById("videoSourcePill");
+    if (!pill) return;
+    const hasLive = Boolean(S && S.liveVideo);
+    pill.hidden = !hasLive;
+    if (!hasLive) return;
+
+    const isLive = currentVideoSource(S) === "live";
+    const mvBtn = pill.querySelector('[data-video-source="mv"]');
+    const liveBtn = pill.querySelector('[data-video-source="live"]');
+
+    if (mvBtn) {
+      mvBtn.classList.toggle("active", !isLive);
+      mvBtn.setAttribute("aria-pressed", String(!isLive));
+    }
+    if (liveBtn) {
+      liveBtn.classList.toggle("active", isLive);
+      liveBtn.setAttribute("aria-pressed", String(isLive));
+      liveBtn.title = S.liveVideo.concert ? `${S.ja} (${S.liveVideo.concert})` : T("現場版");
+    }
+  }
+
+  function updateExternalLinks(s = S) {
+    if (!s) return;
+    const curYt = activeVideoId(s);
+    ["ytLink", "ytLink2"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.href = `https://www.youtube.com/watch?v=${curYt}`;
+    });
+    const cardYt = document.getElementById("cardYt");
+    if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${curYt}`;
+  }
+
+  function currentOffset(s = S) {
+    if (!s || !s.liveVideo || currentVideoSource(s) !== "live") return 0;
+    // 如果這首歌已有手動對時的專屬現場歌詞檔，時間軸已精確對齊現場影片，offset 為 0
+    if (LY_LIVE[s.id]) return 0;
+    return Number(s.liveVideo.offset) || 0;
+  }
+
+  function switchVideoSource(source) {
+    if (!S || !S.liveVideo) return;
+    const targetSource = source === "live" ? "live" : "mv";
+    if (currentVideoSource(S) === targetSource) return;
+
+    const curIdx = lineAt(now());
+    videoSourceOverride = targetSource;
+    updateVideoSourceUi();
+
+    const doSwitch = () => {
+      loadSongData(targetSource);
+      renderLines();
+
+      const targetVid = activeVideoId(S);
+      if (player && ready) {
+        let targetStart = 0;
+        if (curIdx >= 0 && LINES[curIdx]) {
+          targetStart = LINES[curIdx].t;
+        } else {
+          targetStart = player.getCurrentTime() || 0;
+        }
+        vid = targetVid;
+        try { player.unMute(); } catch (e) {}
+        player.loadVideoById({ videoId: targetVid, startSeconds: targetStart });
+        ensurePlaying();
+      }
+      updateExternalLinks(S);
+
+      if (targetSource === "live") {
+        karaokeTiming = null;
+        applyKaraokeTimingToDom(S);
+      } else {
+        loadKaraokeTiming(S);
+      }
+    };
+
+    if (lyReady && !lyHave(S, targetSource)) {
+      loadLyrics(S, targetSource).then(doSwitch);
+    } else {
+      doSwitch();
+    }
+  }
+
   // 長度以 YouTube 回報的為準，還沒載好才用資料裡的長度
-  const DUR = () => { try { const d = ready && vid === S.yt && player.getDuration(); if (d) return d; } catch (e) {} return S ? S.dur : 1; };
+  const DUR = () => { try { const d = ready && vid === activeVideoId(S) && player.getDuration(); if (d) return d; } catch (e) {} return S ? S.dur : 1; };
   function videoMsg(text) { vstatus.hidden = !text; if (text) vmsg.textContent = text; }
   const now = () => { try { return ready && player.getCurrentTime() || 0; } catch (e) { return 0; } };
   const isPlaying = () => { try { return ready && [1, 3].includes(player.getPlayerState()); } catch (e) { return false; } };
@@ -779,7 +951,7 @@
           // 等播放器的期間已經回首頁：不要在背景出聲
           if (!S || songV.hidden) { try { player.pauseVideo(); } catch (e) {} START = 0; return; }
           // 等播放器的期間換了歌：交給 loadVideo 換片
-          if (vid !== S.yt) { loadVideo(); return; }
+          if (vid !== activeVideoId(S)) { loadVideo(); return; }
           if (startPlaying) {
             // 點連結時播放器先建好，之後才知道網址上的 @秒數
             if (START && START !== startAt) seek(START);
@@ -797,17 +969,19 @@
 
   function loadVideo() {
     if (!S || songV.hidden || !window.YT || !YT.Player) return;
+    const targetVid = activeVideoId(S);
+    const startSec = START || 0;
     if (!player) {
-      vid = S.yt;
+      vid = targetVid;
       createPlayer(vid, true);
       return;
     }
     if (!ready) return;
     // 打開歌曲或切歌播放
-    if (vid !== S.yt) {
-      vid = S.yt;
+    if (vid !== targetVid) {
+      vid = targetVid;
       try { player.unMute(); } catch (e) {}
-      player.loadVideoById({ videoId: S.yt, startSeconds: START });
+      player.loadVideoById({ videoId: targetVid, startSeconds: startSec });
     } else {
       if (START) seek(START);
       try { player.unMute(); } catch (e) {}
@@ -822,8 +996,8 @@
     if (!el) return null;
     if (el.dataset && el.dataset.id) return el.dataset.id;
     const href = el.getAttribute("href") || "";
-    if (href.startsWith("#")) return href.slice(1).split("@")[0];
-    const m = href.match(/(?:^|\/)song\/([^\/]+)/);
+    if (href.startsWith("#")) return href.slice(1).split("@")[0].split("?")[0];
+    const m = href.match(/(?:^|\/)song\/([^\/?#]+)/);
     return m ? m[1] : null;
   }
 
@@ -835,8 +1009,9 @@
     const targetSong = targetId && BY[targetId];
     if (!targetSong) return;
 
+    const targetVid = activeVideoId(targetSong);
     if (!player && window.YT && YT.Player) {
-      vid = targetSong.yt;
+      vid = targetVid;
       createPlayer(vid, true);
       return;
     }
@@ -844,9 +1019,9 @@
     if (player && ready) {
       try {
         player.unMute();
-        if (vid !== targetSong.yt) {
-          vid = targetSong.yt;
-          player.loadVideoById({ videoId: targetSong.yt, startSeconds: 0 });
+        if (vid !== targetVid) {
+          vid = targetVid;
+          player.loadVideoById({ videoId: targetVid, startSeconds: 0 });
         } else {
           player.playVideo();
         }
@@ -890,6 +1065,15 @@
   function openSong(s, t = 0) {
     quizStop(); closeSheets();
     S = s; curKey = null; hideAlert(); START = t; remember(s.id);
+    if (routeSource) {
+      videoSourceOverride = routeSource;
+      routeSource = null;
+    } else {
+      videoSourceOverride = null;
+    }
+    updateVideoSourceUi();
+    const curSrc = currentVideoSource(s);
+    loadSongData(curSrc);
     // 上一首播不了留下的錯誤訊息，換歌時先收掉；播放器還沒好時保留「正在載入」那類提示
     if (ready) videoMsg("");
     // 在這首自己的頁面（song/<id>/）時保留建置時寫好的完整標題，給搜尋引擎看
@@ -897,7 +1081,7 @@
     const sub = otherName(s);
     // 歌名前的小唱片：首頁唱片架飛過來的落點，播放時會轉
     document.getElementById("sTitle").innerHTML = (window.ADO_CD ? `<span class="sdisc" aria-hidden="true">${window.ADO_CD(s)}</span>` : "") + esc(s.ja) + (sub ? `<span lang="${LANG === "zh" && s.zh !== s.ja ? "zh-Hant-TW" : "en"}">${esc(sub)}</span>` : "");
-    ["ytLink", "ytLink2"].forEach(id => document.getElementById(id).href = `https://www.youtube.com/watch?v=${s.yt}`);
+    updateExternalLinks(s);
     document.getElementById("lyLink").href = s.ut;
     const lives = s.lives;
     const liveOpt = document.getElementById("liveOpt");
@@ -925,8 +1109,9 @@
   // 歌詞相關的部分：歌詞檔載好後會再跑一次
   function fillSong() {
     const s = S;
+    const curSrc = currentVideoSource(s);
     if (lyReady && !lyHave(s)) loadLyrics(s).then(() => { if (S === s && !songV.hidden) fillSong(); });
-    loadSongData();
+    loadSongData(curSrc);
     renderLines();
     if (karaokeTiming && S && karaokeTiming.songId === S.id) {
       applyKaraokeTimingToDom(S);
@@ -961,7 +1146,7 @@
       });
       document.getElementById("cardTips").textContent = s.tips && s.tips.length ? s.tips.join("；") : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。"));
       const cardYt = document.getElementById("cardYt");
-      if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${s.yt}`;
+      if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${activeVideoId(s)}`;
       const cardLiveDt = document.getElementById("cardLiveDt");
       const cardLiveDd = document.getElementById("cardLiveDd");
       if (cardLiveDt && cardLiveDd) {
@@ -1355,7 +1540,10 @@
   document.querySelectorAll("#moreDlg button:not([aria-pressed]), #moreDlg a, #toolImmersiveMenuBtn, #toolPipMenuBtn, #rateDlg [data-rate]").forEach(el => el.addEventListener("click", () => setTimeout(closeSheets, 0)));
 
   // ── 練習工具 ──
-  const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", shuffle: store.get("tool-shuffle") === "1", lamp: store.get("tool-lamp") === "1" };
+  // 優先級判斷：現場影片 (Live Video) > MV > 演唱會音源 (Live Audio)；有現場影片時預設 Live 優先
+  const preferLiveStored = store.get("tool-prefer-live");
+  const preferLiveDefault = preferLiveStored === null ? true : preferLiveStored === "1";
+  const TOOL = { click: store.get("tool-click") === "1", autonext: store.get("tool-autonext") === "1", shuffle: store.get("tool-shuffle") === "1", lamp: store.get("tool-lamp") === "1", "prefer-live": preferLiveDefault };
 
   // ── 隨機播放：下一首（按鈕、播完自動下一首、歌詞小窗的下一首）照洗過的順序走，全部輪過一次才會重複；上一首回到剛剛聽的那首 ──
   // 洗好的順序和聽過的紀錄只記在這個分頁（sessionStorage），關掉分頁就重來
@@ -1956,8 +2144,23 @@
       if (TOOL.lamp) { lampRetryCount = 0; lampConnect(); }
       else { lampDisconnect(true); }
     }
+    if (k === "prefer-live") {
+      toast(TOOL["prefer-live"] ? T("已開啟：有官方現場畫面的歌曲優先播放 Live 版") : T("已關閉優先播放 Live 版"));
+      if (S && S.liveVideo) {
+        switchVideoSource(TOOL["prefer-live"] ? "live" : "mv");
+      }
+    }
   }));
   paintTools();
+
+  const videoSourcePill = document.getElementById("videoSourcePill");
+  if (videoSourcePill) {
+    videoSourcePill.addEventListener("click", e => {
+      const btn = e.target.closest("[data-video-source]");
+      if (!btn) return;
+      switchVideoSource(btn.dataset.videoSource);
+    });
+  }
   // 上次就開著拍點聲：瀏覽器要等使用者點一下或按鍵才肯出聲，第一次互動時把聲音準備好
   ["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (TOOL.click) clickCtx(); }, true));
 
@@ -2247,6 +2450,9 @@
   }
   function quizStart() {
     if (!S || !ready) return;
+    if (S.liveVideo && currentVideoSource(S) === "live") {
+      switchVideoSource("mv");
+    }
     const targets = quizTargets();
     if (!targets.length) { toast(T("這首沒有逐行應援，不能測驗")); return; }
     // lastT 先記現在的位置，seek(0) 之後會當成往回跳，把成績整個清掉
@@ -2488,7 +2694,17 @@
   }
   function route() {
     // 每首歌的獨立頁（song/<id>/）沒有 # 時直接開那首
-    const h = location.hash.slice(1) || pathSong(), [id, at] = h.split("@"), s = BY[id];
+    const rawH = location.hash.slice(1) || pathSong();
+    let h = rawH;
+    routeSource = null;
+    const qIdx = h.indexOf("?");
+    if (qIdx >= 0) {
+      const q = new URLSearchParams(h.slice(qIdx + 1));
+      const sVal = (q.get("src") || "").toLowerCase();
+      if (sVal === "live" || sVal === "mv") routeSource = sVal;
+      h = h.slice(0, qIdx);
+    }
+    const [id, at] = h.split("@"), s = BY[id];
     syncLangLinks(s);
     if (s) {
       if (!homeV.hidden) listY = scrollY;

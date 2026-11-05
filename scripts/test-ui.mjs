@@ -42,7 +42,7 @@ window.YT = { Player: function (el, o) {
 setTimeout(() => window.onYouTubeIframeAPIReady && window.onYouTubeIframeAPIReady(), 0);
 `;
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || undefined });
 let failed = 0, passed = 0;
 async function test(name, fn, ctxOpts = {}) {
   const ctx = await browser.newContext({ serviceWorkers: "block", ...ctxOpts });

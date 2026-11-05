@@ -375,10 +375,16 @@
   }
 
   async function fetchLrclib(song, options) {
-    const url = new URL(`${LRCLIB_API}/search`);
-    url.searchParams.set("track_name", sourceTitle(song));
+    const title = sourceTitle(song);
+    let url = new URL(`${LRCLIB_API}/search`);
+    url.searchParams.set("track_name", title);
     url.searchParams.set("artist_name", "Ado");
-    const search = await fetchJson(url.toString(), { timeoutMs: (options && options.timeoutMs) || 7000 });
+    let search = await fetchJson(url.toString(), { timeoutMs: (options && options.timeoutMs) || 7000 });
+    if (!Array.isArray(search) || !search.length) {
+      url = new URL(`${LRCLIB_API}/search`);
+      url.searchParams.set("q", title);
+      search = await fetchJson(url.toString(), { timeoutMs: (options && options.timeoutMs) || 7000 });
+    }
     if (!Array.isArray(search) || !search.length) return null;
 
     const wantedDur = sourceDuration(song, options);

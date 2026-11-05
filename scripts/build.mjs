@@ -31,9 +31,10 @@ const read = f => fs.readFileSync(path.join(root, f), "utf8");
 const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);
 // 分享預覽圖加上內容雜湊，換圖後 LINE／Facebook／X 會重新抓，不會一直顯示舊圖
 const OG_IMG = `${SITE}assets/og.jpg?v=${createHash("sha1").update(fs.readFileSync(path.join(root, "assets/og.jpg"))).digest("hex").slice(0, 8)}`;
-const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"), karaokeSrc = read("karaoke-sources.js");
+const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"), karaokeSrc = read("karaoke-sources.js"), liveLyricsText = read("song-lyrics-live.js");
 const require = createRequire(import.meta.url);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
+const LYRICS_LIVE = require(path.join(root, "song-lyrics-live.js"));
 const { SONGS, UT, PEN } = require(path.join(root, "songs.js"));
 const I18N = require(path.join(root, "i18n.js"));
 // 羅馬拼音：GitHub Actions 建置前用 tools/romaji/romaji.mjs 產生；沒有的話英文版歌詞下面就不放
@@ -176,6 +177,11 @@ for (const s of SONGS) {
   lyFiles[`lyrics/${s.id}.json`] = JSON.stringify({ ...(b || { id: s.id }), lyrics: lines });
   if (lines.length) lyIndex[s.id] = lines.filter(l => (l.acts || []).some(a => a !== "listen")).length;
 }
+for (const b of LYRICS_LIVE) {
+  const baseId = b.baseId || b.id.replace("-live", "");
+  const lines = withRo(baseId, b.lyrics || []);
+  lyFiles[`lyrics-live/${baseId}.json`] = JSON.stringify({ ...b, lyrics: lines });
+}
 lyFiles["lyrics/index.json"] = JSON.stringify(lyIndex);
 
 // 版本字串：內容變了才換，瀏覽器才會抓新的（原始檔寫 ?v=dev）
@@ -196,8 +202,9 @@ const VERSION = (read("CHANGELOG.md").match(/^## (v\d+\.\d+\.\d+)/m) || [])[1];
 if (!VERSION) throw new Error("CHANGELOG.md 找不到版本標題（## vX.Y.Z）");
 const src = read("index.html")
   .replace(/<span class="build">[^<]*<\/span>/, `<span class="build">${VERSION}</span>`)
-  .replace("style.css?v=dev", `style.css?v=${hash(css)}`)
+  .replace(/style\.css\?v=[^"]*/, `style.css?v=${hash(css)}`)
   .replace("songs.js?v=dev", `songs.js?v=${hash(songsText)}`)
+  .replace("song-lyrics-live.js?v=dev", `song-lyrics-live.js?v=${hash(liveLyricsText)}`)
   .replace("karaoke-sources.js?v=dev", `karaoke-sources.js?v=${hash(karaokeSrc)}`)
   .replace("app.js?v=dev", `app.js?v=${hash(app)}`)
   .replace('<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-lyrics="${LYV}">`);
@@ -234,7 +241,7 @@ function langTemplate(L, T) {
   // 頂欄的站名：英文用短名，手機上放得下
   const SHORT = { en: "Ado Chant Guide" };
   if (SHORT[L.code]) html = html.replace(/(<span class="mark-name">)[^<]*(<\/span>)/, `$1${SHORT[L.code]}$2`);
-  if (up) html = html.replace(/(\s(?:href|src)=")((?:favicon\.ico|assets\/|manifest\.webmanifest|style\.css|songs\.js|karaoke-sources\.js|app\.js)[^"]*")/g, `$1${up}$2`);
+  if (up) html = html.replace(/(\s(?:href|src)=")((?:favicon\.ico|assets\/|manifest\.webmanifest|style\.css|songs\.js|song-lyrics-live\.js|karaoke-sources\.js|app\.js)[^"]*")/g, `$1${up}$2`);
   return html;
 }
 
@@ -701,6 +708,7 @@ for (const f of [
   "app.js",
   "karaoke-sources.js",
   "song-lyrics.js",
+  "song-lyrics-live.js",
   "CHANGELOG.md",
   "manifest.webmanifest",
   "googlea6b361c7e6e7d11c.html",

@@ -73,6 +73,7 @@
     { id: "dnd", ja: "DND feat. KUROMI", zh: "DND feat. KUROMI", en: "DND feat. KUROMI", ro: "DND feat. KUROMI", date: "2026-10-07", yt: "__qvPGatwus", len: "3:08", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "ravensky", ja: "Raven Sky", zh: "Raven Sky", en: "Raven Sky", ro: "Raven Sky", date: "2026-10-16", yt: "7DBSMzbPQzc", len: "4:12", acts: [], tips: ["演唱會尚未公開演唱，目前沒有固定應援，自由跟著節奏"], free: true  },
     { id: "kanjaa", ja: "患者A", zh: "Patient A", en: "Patient A", ro: "Kanja A", date: "2026-10-24", yt: "JO66tA5Yngs", len: "4:49", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
+    { id: "shinka", ja: "シンカ", zh: "Shinka", en: "Shinka", ro: "Shinka", date: "2026-11-06", yt: "q0OGymI3LMs", len: "3:20", acts: [], tips: ["演唱會尚未公開演唱，目前沒有固定應援，自由跟著節奏"], free: true  },
     { id: "sukideite", ja: "好きでいて", zh: "Sukideite", en: "Sukideite", ro: "Sukideite", date: "2026-09-07", yt: "iTNwVheLpj8", len: "4:07", hold: true  },
     { id: "soldiergame", ja: "soldier game", zh: "soldier game", en: "soldier game", ro: "soldier game", date: "2026-01-13", yt: "J3hzdBkd6bg", len: "3:42", hold: true  },
     // 翻唱
@@ -90,19 +91,37 @@
     { id: "tsumitobatsu", ja: "罪と罰", zh: "罪與罰", en: "Crime and Punishment", ro: "Tsumi to Batsu", date: "2022-07-24", yt: "x1UsJ2Znjk0", len: "4:50", acts: ["listen"], tips: ["以聽為主"], sug: true, cover: true  },
     { id: "dryflower", ja: "ドライフラワー", zh: "Dry Flower", en: "Dried Flower", ro: "Dry Flower", date: "2023-12-12", yt: "qhmrt3ZNgcs", len: "4:49", acts: ["listen"], tips: ["抒情歌，安靜聽"], sug: true, cover: true  },
     { id: "villain", ja: "ヴィラン", zh: "Villain", en: "Villain", ro: "Villain", date: "2023-12-12", yt: "r_wO7xKI-tw", len: "3:20", acts: ["wave"], tips: ["副歌舉手跟著搖"], sug: true, cover: true  },
-    { id: "burikino", ja: "ブリキノダンス", zh: "Buriki no Dance", en: "Buriki no Dance", ro: "Buriki no Dance", date: "2023-11-29", yt: "iL7uoLCbJoc", len: "3:22", acts: ["clap", "wave"], tips: ["跟著節拍拍手、搖螢光棒"], sug: true, cover: true  }
+    { id: "burikino", ja: "ブリキノダンス", zh: "Buriki no Dance", en: "Buriki no Dance", ro: "Buriki no Dance", date: "2023-11-29", yt: "iL7uoLCbJoc", len: "3:22", acts: ["clap", "wave"], tips: ["跟著節拍拍手、搖螢光棒"], sug: true, cover: true  },
+    { id: "anobando", ja: "あのバンド", zh: "那個樂團", en: "That Band", ro: "Ano Band", date: "2025-06-06", yt: "rzVKfAQp2No", len: "3:33", acts: ["clap", "wave"], tips: ["跟著節拍拍手、搖螢光棒"], sug: true, cover: true, live: true  }
   ];
   // 正版歌詞：歌ネット（uta-net.com）的歌曲頁編號
-  const UT = {"show":343570,"usseewa":292534,"readymade":295824,"freedom":313113,"rule":356726,"ashura":309074,"mondaisaku":332973,"gyakkou":321128,"odo":301298,"shinjidai":319758,"giragira":297951,"kurakura":344008,"saikyo":320568,"aiaia":389756,"rockstar":371304,"staygold":374911,"episodex":364731,"totmusica":322907,"kira":392133,"monstruo":397076,"ibara":336879,"rebellion":324691,"chocolat":349160,"shoka":361947,"pierrot":303332,"aitakute":306065,"akuruhi":315407,"kokoro":313110,"utakata":322805,"sekai":322906,"kaze":322905,"missing":326032,"himawari":340373,"dignity":343573,"radio":344727,"unravel":350288,"hotaru":350286,"value":350381,"mirror":355040,"sakura":362390,"elf":367139,"hanataba":369630,"kazetowatashi":380660,"magic":381653,"angelseek":386914,"vivarium":388255,"haruni":392755,"kagakushu":313108,"hanabi":313112,"domestic":313114,"luckybruto":313111,"motherland":313109,"nukegara":357493,"zero":357492,"hellosignals":371303,"kittocoaster":363098,"lovemeforever":395819,"dnd":399762,"kanjaa":401422,"ravensky":400798,"sukideite":398715,"soldiergame":386267,"ponpokorin":385914,"catseye":380030,"kitaro":374762,"charles":371560,"hibana":265028,"jikkai":373551,"aishite":350293,"kazarijanai":350294,"kamippoina":350289,"kawaikute":350291,"tsumitobatsu":350292,"dryflower":350295,"villain":350290,"burikino":350287};
+  const UT = {"show":343570,"usseewa":292534,"readymade":295824,"freedom":313113,"rule":356726,"ashura":309074,"mondaisaku":332973,"gyakkou":321128,"odo":301298,"shinjidai":319758,"giragira":297951,"kurakura":344008,"saikyo":320568,"aiaia":389756,"rockstar":371304,"staygold":374911,"episodex":364731,"totmusica":322907,"kira":392133,"monstruo":397076,"ibara":336879,"rebellion":324691,"chocolat":349160,"shoka":361947,"pierrot":303332,"aitakute":306065,"akuruhi":315407,"kokoro":313110,"utakata":322805,"sekai":322906,"kaze":322905,"missing":326032,"himawari":340373,"dignity":343573,"radio":344727,"unravel":350288,"hotaru":350286,"value":350381,"mirror":355040,"sakura":362390,"elf":367139,"hanataba":369630,"kazetowatashi":380660,"magic":381653,"angelseek":386914,"vivarium":388255,"haruni":392755,"kagakushu":313108,"hanabi":313112,"domestic":313114,"luckybruto":313111,"motherland":313109,"nukegara":357493,"zero":357492,"hellosignals":371303,"kittocoaster":363098,"lovemeforever":395819,"dnd":399762,"kanjaa":401422,"ravensky":400798,"shinka":401946,"sukideite":398715,"soldiergame":386267,"ponpokorin":385914,"catseye":380030,"kitaro":374762,"charles":371560,"hibana":265028,"jikkai":373551,"aishite":350293,"kazarijanai":350294,"kamippoina":350289,"kawaikute":350291,"tsumitobatsu":350292,"dryflower":350295,"villain":350290,"burikino":350287,"anobando":329198};
 
   // 螢光棒顏色：依 じゅん🌝ぴ 的 note；彩＝カラフル，開頭 ? 是原文的預測（不顯示，當作沒寫）；沒寫的歌用藍（原文：迷ったら青）
-  const PEN = { usseewa: "青赤", readymade: "赤桃水", giragira: "白", odo: "赤青", pierrot: "水紫", aitakute: "桃", ashura: "赤橙", kokoro: "白水", hanabi: "彩", kagakushu: "白水", akuruhi: "白水", domestic: "赤桃青", motherland: "青水白", luckybruto: "青赤", shinjidai: "彩桃", saikyo: "彩橙", gyakkou: "赤", utakata: "緑青赤", sekai: "黄", totmusica: "紫青", kaze: "青水", rebellion: "赤青", missing: "白水", freedom: "白青", mondaisaku: "緑彩", ibara: "水白青", himawari: "黄橙緑水", show: "橙黄", dignity: "青水", kurakura: "水桃", radio: "橙黄緑", chocolat: "赤白", value: "水白", mirror: "青桃", kittocoaster: "水桃", rule: "青水赤", nukegara: "水白", zero: "白", hellosignals: "水桃", shoka: "赤青", sakura: "桃", episodex: "青水白", elf: "緑橙黄", hanataba: "水黄", rockstar: "赤黄", staygold: "赤青紫", kazetowatashi: "青水", magic: "紫桃赤", angelseek: "水白", vivarium: "青", aiaia: "赤橙黄", kira: "青橙", haruni: "桃", sukideite: "?黄", monstruo: "橙赤黄水", lovemeforever: "紫水白", dnd: "紫桃青", kanjaa: "白赤", ravensky: "橙赤紫", hibana: "赤青" };
+  const PEN = { usseewa: "青赤", readymade: "赤桃水", giragira: "白", odo: "赤青", pierrot: "水紫", aitakute: "桃", ashura: "赤橙", kokoro: "白水", hanabi: "彩", kagakushu: "白水", akuruhi: "白水", domestic: "赤桃青", motherland: "青水白", luckybruto: "青赤", shinjidai: "彩桃", saikyo: "彩橙", gyakkou: "赤", utakata: "緑青赤", sekai: "黄", totmusica: "紫青", kaze: "青水", rebellion: "赤青", missing: "白水", freedom: "白青", mondaisaku: "緑彩", ibara: "水白青", himawari: "黄橙緑水", show: "橙黄", dignity: "青水", kurakura: "水桃", radio: "橙黄緑", chocolat: "赤白", value: "水白", mirror: "青桃", kittocoaster: "水桃", rule: "青水赤", nukegara: "水白", zero: "白", hellosignals: "水桃", shoka: "赤青", sakura: "桃", episodex: "青水白", elf: "緑橙黄", hanataba: "水黄", rockstar: "赤黄", staygold: "赤青紫", kazetowatashi: "青水", magic: "紫桃赤", angelseek: "水白", vivarium: "青", aiaia: "赤橙黄", kira: "青橙", haruni: "桃", sukideite: "?黄", monstruo: "橙赤黄水", lovemeforever: "紫水白", dnd: "紫桃青", kanjaa: "白赤", ravensky: "?橙赤紫", shinka: "?青", hibana: "赤青", anobando: "青" };
   // 拍點：[BPM, 第一個小節第一拍的秒數, 小節第一拍可信]。從 MV 音訊分析：BPM 以 songbpm.com 為起點微調，再找拍子位置和和聲換的那一拍；
   // 拍點不清楚的歌不列，燈光改成每句歌詞開頭亮一下
-  const BEAT = { aiaia: [138, 1.685, 0], aishite: [115, 0.5, 0], aitakute: [160, 0.97, 1], akuruhi: [147, 0.671, 0], angelseek: [103, 0.5, 0], ashura: [156, 1.522, 1], burikino: [172, 0.695, 1], catseye: [145, 0.635, 1], charles: [148, 1.306, 0], chocolat: [137, 0.033, 1], dignity: [154, 0.447, 1], dnd: [155, 0.38, 1], domestic: [116, 0.726, 1], dryflower: [148, 0.473, 1], elf: [160, 1.47, 1], episodex: [174, 0.152, 1], freedom: [178, 0.203, 1], giragira: [96, 2.05, 1], gyakkou: [145, 0.366, 0], hanabi: [100, 0.95, 1], hanataba: [93.5, 2.005, 0], haruni: [145, 1.055, 1], hellosignals: [170, 0.595, 0], hibana: [200, 0.45, 1], himawari: [95, 0.773, 1], hotaru: [80, 1.79, 0], ibara: [165, 1.064, 1], jikkai: [149, 0.58, 1], kagakushu: [100, 2.11, 1], kamippoina: [142, 0.5, 0], kanjaa: [120, 0.056, 0], kawaikute: [160, 0.5, 1], kazarijanai: [178, 1.001, 1], kaze: [140, 1.686, 1], kazetowatashi: [172, 0.533, 0], kira: [155, 0.362, 1], kitaro: [110.98, 1.646, 0], kittocoaster: [100, 0.5, 0], kokoro: [152, 1.525, 1], kurakura: [94, 1.977, 1], lovemeforever: [135, 0.418, 1], luckybruto: [99, 2.172, 0], magic: [133, 0.853, 1], mirror: [114, 1.208, 1], missing: [137.98, 0.393, 1], mondaisaku: [150, 0.42, 1], monstruo: [130, 0.172, 1], motherland: [130, 0.262, 1], nukegara: [132, 0.461, 1], odo: [128, 1.858, 1], pierrot: [120, 0.68, 0], ponpokorin: [140, 0.496, 1], radio: [118, 1.084, 1], ravensky: [162, 0.997, 1], readymade: [97.51, 1.216, 0], rebellion: [178, 0.344, 1], rockstar: [105, 1.643, 0], rule: [132, 0.107, 1], saikyo: [96, 2.17, 0], sakura: [174, 0.152, 1], sekai: [76, 0.39, 1], shinjidai: [175, 1.208, 1], shoka: [94, 0.59, 0], show: [132, 0.747, 1], soldiergame: [132, 0.631, 1], staygold: [140, 1.564, 1], sukideite: [164, 0.379, 1], totmusica: [130, 0.32, 1], tsumitobatsu: [118.5, 1.827, 0], unravel: [135, 0.396, 1], usseewa: [178, 0.505, 1], utakata: [178, 0.874, 1], value: [160, 0.5, 0], villain: [102, 1.654, 1], vivarium: [97.5, 0.981, 0], zero: [171, 0.017, 1] };
+  const BEAT = { aiaia: [138, 1.685, 0], aishite: [115, 0.5, 0], aitakute: [160, 0.97, 1], akuruhi: [147, 0.671, 0], angelseek: [103, 0.5, 0], ashura: [156, 1.522, 1], burikino: [172, 0.695, 1], catseye: [145, 0.635, 1], charles: [148, 1.306, 0], chocolat: [137, 0.033, 1], dignity: [154, 0.447, 1], dnd: [155, 0.38, 1], domestic: [116, 0.726, 1], dryflower: [148, 0.473, 1], elf: [160, 1.47, 1], episodex: [174, 0.152, 1], freedom: [178, 0.203, 1], giragira: [96, 2.05, 1], gyakkou: [145, 0.366, 0], hanabi: [100, 0.95, 1], hanataba: [93.5, 2.005, 0], haruni: [145, 1.055, 1], hellosignals: [170, 0.595, 0], hibana: [200, 0.45, 1], himawari: [95, 0.773, 1], hotaru: [80, 1.79, 0], ibara: [165, 1.064, 1], jikkai: [149, 0.58, 1], kagakushu: [100, 2.11, 1], kamippoina: [142, 0.5, 0], kanjaa: [120, 0.056, 0], kawaikute: [160, 0.5, 1], kazarijanai: [178, 1.001, 1], kaze: [140, 1.686, 1], kazetowatashi: [172, 0.533, 0], kira: [155, 0.362, 1], kitaro: [110.98, 1.646, 0], kittocoaster: [100, 0.5, 0], kokoro: [152, 1.525, 1], kurakura: [94, 1.977, 1], lovemeforever: [135, 0.418, 1], luckybruto: [99, 2.172, 0], magic: [133, 0.853, 1], mirror: [114, 1.208, 1], missing: [137.98, 0.393, 1], mondaisaku: [150, 0.42, 1], monstruo: [130, 0.172, 1], motherland: [130, 0.262, 1], nukegara: [132, 0.461, 1], odo: [128, 1.858, 1], pierrot: [120, 0.68, 0], ponpokorin: [140, 0.496, 1], radio: [118, 1.084, 1], ravensky: [162, 0.997, 1], readymade: [97.51, 1.216, 0], rebellion: [178, 0.344, 1], rockstar: [105, 1.643, 0], rule: [132, 0.107, 1], saikyo: [96, 2.17, 0], sakura: [174, 0.152, 1], sekai: [76, 0.39, 1], shinjidai: [175, 1.208, 1], shoka: [94, 0.59, 0], show: [132, 0.747, 1], soldiergame: [132, 0.631, 1], staygold: [140, 1.564, 1], sukideite: [164, 0.379, 1], totmusica: [130, 0.32, 1], tsumitobatsu: [118.5, 1.827, 0], unravel: [135, 0.396, 1], usseewa: [178, 0.505, 1], utakata: [178, 0.874, 1], value: [160, 0.5, 0], villain: [102, 1.654, 1], vivarium: [97.5, 0.981, 0], zero: [171, 0.017, 1], anobando: [190, 0.45, 1], shinka: [130, 0.2, 1] };
 
   // 副歌高潮（最後一次副歌開頭）的秒數：MV 音訊和聲比對＋歌詞重複找的，再依歌詞段落人工修正
-  const CLIMAX = { aiaia: 190.36, aishite: 161.24, aitakute: 215.9, akuruhi: 202.94, angelseek: 149.3, ashura: 139.43, burikino: 163.7, catseye: 145.75, charles: 178.85, chocolat: 178.27, dignity: 187.27, dnd: 143.6, domestic: 114.59, dryflower: 229.74, elf: 237.27, episodex: 165.67, freedom: 153.74, giragira: 219.12, gyakkou: 192.71, hanabi: 163.72, hanataba: 183.25, haruni: 181.86, hellosignals: 147.49, hibana: 154.9, himawari: 174.22, hotaru: 265.96, ibara: 209.89, jikkai: 175.46, kagakushu: 184.47, kamippoina: 174.95, kanjaa: 236.06, kawaikute: 188.49, kazarijanai: 173.36, kaze: 211.47, kazetowatashi: 282.75, kira: 137.71, kitaro: 106.47, kittocoaster: 143.9, kokoro: 217.56, kurakura: 146.97, lovemeforever: 206.43, luckybruto: 170.63, magic: 134.64, mirror: 135.86, missing: 118.79, mondaisaku: 160.09, monstruo: 154.83, motherland: 214.34, nukegara: 140.44, odo: 169.11, pierrot: 148.16, ponpokorin: 69.01, radio: 167.91, ravensky: 212.09, readymade: 184.18, rebellion: 133.56, rockstar: 177.47, rule: 178.23, saikyo: 189.47, sakura: 280.79, sekai: 189.4, shinjidai: 160.4, shoka: 180.15, show: 154.95, soldiergame: 176.73, staygold: 184.22, sukideite: 182.07, totmusica: 144.62, tsumitobatsu: 179.27, unravel: 199.14, usseewa: 167.48, utakata: 108.64, value: 150.66, villain: 165.25, vivarium: 171.27, zero: 112.16 };
+  const CLIMAX = { aiaia: 190.36, aishite: 161.24, aitakute: 215.9, akuruhi: 202.94, angelseek: 149.3, ashura: 139.43, burikino: 163.7, catseye: 145.75, charles: 178.85, chocolat: 178.27, dignity: 187.27, dnd: 143.6, domestic: 114.59, dryflower: 229.74, elf: 237.27, episodex: 165.67, freedom: 153.74, giragira: 219.12, gyakkou: 192.71, hanabi: 163.72, hanataba: 183.25, haruni: 181.86, hellosignals: 147.49, hibana: 154.9, himawari: 174.22, hotaru: 265.96, ibara: 209.89, jikkai: 175.46, kagakushu: 184.47, kamippoina: 174.95, kanjaa: 236.06, kawaikute: 188.49, kazarijanai: 173.36, kaze: 211.47, kazetowatashi: 282.75, kira: 137.71, kitaro: 106.47, kittocoaster: 143.9, kokoro: 217.56, kurakura: 146.97, lovemeforever: 206.43, luckybruto: 170.63, magic: 134.64, mirror: 135.86, missing: 118.79, mondaisaku: 160.09, monstruo: 154.83, motherland: 214.34, nukegara: 140.44, odo: 169.11, pierrot: 148.16, ponpokorin: 69.01, radio: 167.91, ravensky: 212.09, readymade: 184.18, rebellion: 133.56, rockstar: 177.47, rule: 178.23, saikyo: 189.47, sakura: 280.79, sekai: 189.4, shinjidai: 160.4, shoka: 180.15, show: 154.95, soldiergame: 176.73, staygold: 184.22, sukideite: 182.07, totmusica: 144.62, tsumitobatsu: 179.27, unravel: 199.14, usseewa: 167.48, utakata: 108.64, value: 150.66, villain: 165.25, vivarium: 171.27, zero: 112.16, anobando: 154.0, shinka: 148.08 };
+  // 官方正式釋出的【LIVE映像】（有真實演唱會畫面與現場實況）
+  const LIVE_VIDEOS = {
+    show: { yt: "Igr6jQJEoNs", concert: "日本武道館 (2023)" },
+    usseewa: { yt: "8dnjqzodjgo", concert: "喜劇〜マーズ 巡演精華" },
+    odo: { yt: "YGx5fcgEuwA", concert: "さいたま (2022)" },
+    shinjidai: { yt: "v79I6c7fWtA", concert: "さいたま (2022)" },
+    rule: { yt: "prIfzzEGEcw", concert: "K-Arena (2024)" },
+    giragira: { yt: "GQrEitDFQos", concert: "さいたま (2022)" },
+    kokoro: { yt: "H-UbEcmIKSc", concert: "K-Arena (2024)" },
+    aiaia: { yt: "K9xb-JrhG50", concert: "東京ドーム (2025)" },
+    rockstar: { yt: "NVutx0Olj8E", concert: "Orlando (2025)" },
+    monstruo: { yt: "bVdCJluq0RE", concert: "日産スタジアム (2026)" },
+    kaze: { yt: "iDvuZ7mRiJ0", concert: "大阪・関西万博 (2025)" },
+    sakura: { yt: "Vrr2gFTYMGQ", concert: "国立競技場 (2024)" },
+    unravel: { yt: "khplMpm4ctc", concert: "日本武道館 (2023)" },
+    kira: { yt: "Cjtt_BlQ6Us", concert: "Rose Bowl (2024)" }
+  };
   // 歷年演唱會現場音源（官方 YouTube 釋出版本，依年代由新至舊）
   const LIVES = {
     show: [{ concert: "Hibana (2025)", yt: "WgGdWq6UmGg" }, { concert: "モナ・リザの横顔 (2024)", yt: "ID80ZJjIuHc" }, { concert: "心臓 (2024)", yt: "xZRsPnKF2jk" }, { concert: "Wish (2024)", yt: "n7h7ZyFmDR0" }, { concert: "マーズ (2023)", yt: "09jAVAZBBSY" }],
@@ -118,10 +137,13 @@
     giragira: [{ concert: "Hibana (2025)", yt: "9OpHwXmPtmA" }, { concert: "心臓 (2024)", yt: "UJgw23V2TNU" }, { concert: "Wish (2024)", yt: "gu_pjL_KMfY" }, { concert: "カムパネルラ (2022)", yt: "HkCOF7J-yw0" }, { concert: "喜劇 (2022)", yt: "ybZcoKLVqCE" }],
     kurakura: [{ concert: "Hibana (2025)", yt: "PprZsuQjS6g" }, { concert: "モナ・リザの横顔 (2024)", yt: "EVOik6zlgg0" }, { concert: "心臓 (2024)", yt: "qrkHzKcbLcQ" }, { concert: "Wish (2024)", yt: "TX2m27iq5Gk" }],
     saikyo: [{ concert: "心臓 (2024)", yt: "ZnrmNsHOBpM" }, { concert: "Wish (2024)", yt: "XSbI5auQ8Jk" }, { concert: "マーズ (2023)", yt: "TFTpQOIjxHc" }, { concert: "カムパネルラ (2022)", yt: "8jke-NjdX68" }],
+    aiaia: [{ concert: "東京ドーム (2025)", yt: "K9xb-JrhG50" }],
     rockstar: [{ concert: "Hibana (2025)", yt: "YMtXAzCDE_U" }],
     staygold: [{ concert: "Hibana (2025)", yt: "Tmz3mpOq8aE" }],
     episodex: [{ concert: "Hibana (2025)", yt: "taMaq4itiWI" }],
     totmusica: [{ concert: "心臓 (2024)", yt: "UW15nfNNnsM" }, { concert: "Wish (2024)", yt: "9MzT3Eo0NhI" }, { concert: "マーズ (2023)", yt: "Gx6MQ-eAklA" }],
+    kira: [{ concert: "Rose Bowl (2026)", yt: "Cjtt_BlQ6Us" }],
+    monstruo: [{ concert: "日産スタジアム (2026)", yt: "bVdCJluq0RE" }],
     ibara: [{ concert: "心臓 (2024)", yt: "aJ1XfvT87lk" }, { concert: "マーズ (2023)", yt: "qFP2fD0q7Xw" }],
     rebellion: [{ concert: "モナ・リザの横顔 (2024)", yt: "I1TvjJpQVNk" }, { concert: "Wish (2024)", yt: "DilKFiiEdmM" }, { concert: "マーズ (2023)", yt: "2uBvYV81gaE" }],
     chocolat: [{ concert: "モナ・リザの横顔 (2024)", yt: "hLpRjGbOXVw" }, { concert: "心臓 (2024)", yt: "nD3kJA7EmJQ" }],
@@ -131,6 +153,7 @@
     akuruhi: [{ concert: "心臓 (2024)", yt: "RENZ6yYUQp8" }, { concert: "カムパネルラ (2022)", yt: "pO7XmFW9wKY" }],
     kokoro: [{ concert: "モナ・リザの横顔 (2024)", yt: "fZcJLXmHDCk" }, { concert: "心臓 (2024)", yt: "vNu1Bzv0-s4" }, { concert: "Wish (2024)", yt: "xARuAduZLNI" }, { concert: "カムパネルラ (2022)", yt: "7zLttoH_PDM" }, { concert: "喜劇 (2022)", yt: "vXM-ouOarE0" }],
     utakata: [{ concert: "Hibana (2025)", yt: "RRX4XHAnUbQ" }, { concert: "モナ・リザの横顔 (2024)", yt: "MegI6wWnLEQ" }, { concert: "Wish (2024)", yt: "YG1luhZFH_A" }, { concert: "マーズ (2023)", yt: "L0jSlm6k3W4" }],
+    kaze: [{ concert: "大阪・関西万博 (2025)", yt: "iDvuZ7mRiJ0" }],
     missing: [{ concert: "心臓 (2024)", yt: "qKD2AradcHs" }, { concert: "マーズ (2023)", yt: "Cb7f_R1QpTo" }],
     himawari: [{ concert: "マーズ (2023)", yt: "VC10CwlKgtY" }],
     dignity: [{ concert: "心臓 (2024)", yt: "py_aTfmb7G4" }, { concert: "マーズ (2023)", yt: "7WQqDRO70tA" }],
@@ -158,19 +181,28 @@
   };
   // 搜尋別名：v1.17.0 歌名改成官方譯名或英文後，粉絲習慣的舊中文名稱留在這裡給搜尋用，畫面不顯示
   const ALIAS = {
-    usseewa: ["煩死了"], ashura: ["阿修羅醬"], saikyo: ["我是最強"], kurakura: ["暈眩"], rockstar: ["搖滾巨星"], rebellion: ["叛逆"],
+    usseewa: ["煩死了"], ashura: ["阿修羅醬"], saikyo: ["我是最強"], rockstar: ["搖滾巨星"], rebellion: ["叛逆"],
     pierrot: ["夜之小丑"], aitakute: ["好想見你"], utakata: ["泡沫拉拉歌"], sekai: ["世界的續篇"], kaze: ["風的行方", "風的去向"],
     missing: ["下落不明"], hotaru: ["黎明與螢火蟲"], sakura: ["櫻花晴日與時光機"], elf: ["精靈"], hanataba: ["給我的花束"],
     kazetowatashi: ["風與我的故事"], haruni: ["於春日起舞"], kittocoaster: ["一定是雲霄飛車"], sukideite: ["請一直喜歡我"],
+    shinka: ["進化", "深化", "真價", "真価", "惡魔的紋章", "デモンズ・クレスト", "Demons' Crest"],
     ponpokorin: ["跳舞的嘭嘭可琳"], catseye: ["貓眼"], charles: ["夏爾"], hibana: ["火花"], kazarijanai: ["眼淚不是裝飾品"],
-    kamippoina: ["像神一樣呢"], kawaikute: ["可愛真是抱歉"], dryflower: ["乾燥花"], burikino: ["鐵皮之舞"]
+    kamippoina: ["像神一樣呢"], kawaikute: ["可愛真是抱歉"], dryflower: ["乾燥花"], burikino: ["鐵皮之舞"],
+    anobando: ["那支樂團", "那個樂隊", "孤獨搖滾", "Bocchi"]
   };
   // 出處：動畫、電影、活動的主題曲（只寫確定的）；歌曲頁和搜尋結果會顯示，大家常用作品名找歌
   const TIE = {
+    anobando: "《孤獨搖滾！》劇中歌（結束樂團翻唱）",
     shinjidai: "《航海王劇場版：紅髮歌姬》主題曲", saikyo: "《航海王劇場版：紅髮歌姬》插曲", gyakkou: "《航海王劇場版：紅髮歌姬》插曲",
     utakata: "《航海王劇場版：紅髮歌姬》插曲", totmusica: "《航海王劇場版：紅髮歌姬》插曲", sekai: "《航海王劇場版：紅髮歌姬》插曲",
-    kaze: "《航海王劇場版：紅髮歌姬》插曲", kurakura: "《SPY×FAMILY 間諜家家酒》片頭曲", show: "日本環球影城 2023 萬聖節主題曲"
+    kaze: "《航海王劇場版：紅髮歌姬》插曲", kurakura: "《SPY×FAMILY 間諜家家酒》片頭曲", show: "日本環球影城 2023 萬聖節主題曲",
+    shinka: "《惡魔的紋章》片頭曲"
   };
-  SONGS.forEach(s => { s.lives = LIVES[s.id] || []; s.alias = ALIAS[s.id] || []; s.tie = TIE[s.id] || ""; });
-  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES };
+  SONGS.forEach(s => {
+    s.lives = LIVES[s.id] || [];
+    s.liveVideo = LIVE_VIDEOS[s.id] || null;
+    s.alias = ALIAS[s.id] || [];
+    s.tie = TIE[s.id] || "";
+  });
+  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS };
 });

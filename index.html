@@ -40,7 +40,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap">
-<link rel="stylesheet" href="style.css?v=dev">
+<link rel="stylesheet" href="style.css?v=dev1">
 
 <svg width="0" height="0" style="position:absolute;display:none" aria-hidden="true">
   <defs>
@@ -176,8 +176,13 @@
         <div class="chips" role="group" aria-label="篩選">
           <button type="button" class="chip" data-f="all" aria-pressed="true"><span>全部</span></button>
           <button type="button" class="chip" data-f="cheer" aria-pressed="false" title="粉絲整理過固定應援的歌"><span>有應援</span></button>
-          <button type="button" class="chip" data-f="live" aria-pressed="false" title="Ado 官方有釋出演唱會現場音源的歌"><span>有現場版</span></button>
+          <button type="button" class="chip" data-f="live" aria-pressed="false" title="全部有現場版本（影片或音源）的歌"><span>有現場版</span></button>
           <button type="button" class="chip" data-f="cover" aria-pressed="false" title="Ado 翻唱曲"><span>翻唱</span></button>
+        </div>
+        <div class="sub-chips" id="liveSubFilter" hidden role="group" aria-label="現場版分類">
+          <button type="button" class="sub-chip active" data-sub="all" aria-pressed="true" title="全部現場版本（含影片與音源）"><span>全部現場 <b class="cnt" id="cntLiveAll">55</b></span></button>
+          <button type="button" class="sub-chip" data-sub="video" aria-pressed="false" title="有官方演唱會現場真實畫面的歌"><span>有影片檔 <b class="cnt" id="cntLiveVideo">17</b></span></button>
+          <button type="button" class="sub-chip" data-sub="audio" aria-pressed="false" title="有官方演唱會現場音源但無獨立畫面的歌"><span>純音源 <b class="cnt" id="cntLiveAudio">38</b></span></button>
         </div>
         <div class="list-tools">
           <div class="home-legend" id="homeLegend" aria-label="圖示代表的動作"></div>
@@ -259,7 +264,10 @@
                   <ul class="summary" id="tipsSummary"></ul>
                 </div>
               </details>
-              <span class="mvhint">點歌詞跳到那句・空白鍵播放、← → 換句</span>
+              <div class="video-source-pill" id="videoSourcePill" hidden role="group" aria-label="影片版本">
+                <button type="button" class="source-opt active" data-video-source="mv" aria-pressed="true">MV</button>
+                <button type="button" class="source-opt" data-video-source="live" aria-pressed="false">Live</button>
+              </div>
             </div>
           </section>
 
@@ -464,6 +472,7 @@
       <button type="button" class="pop-item" id="toolPipMenuBtn" aria-pressed="false"><span>歌詞小窗</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
     </div>
     <div class="sheet-group">
+      <button type="button" class="pop-item" data-tool="prefer-live" id="tool-prefer-live" aria-pressed="false"><span>優先播放 Live 版</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-tool="autonext" id="tool-autonext" aria-pressed="false"><span>播完自動下一首</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-tool="shuffle" id="tool-shuffle" aria-pressed="false"><span>隨機播放</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-opt="light" aria-pressed="true"><span>舞台燈光</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
@@ -493,5 +502,6 @@
 
 <!-- build:i18n -->
 <script src="songs.js?v=dev"></script>
+<script src="song-lyrics-live.js?v=dev"></script>
 <script src="karaoke-sources.js?v=dev"></script>
 <script src="app.js?v=dev"></script>

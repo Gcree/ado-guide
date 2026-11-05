@@ -15,3 +15,5 @@ tools/optimize/work/
 # 建置前自動產生的羅馬拼音（tools/romaji/romaji.mjs）
 song-romaji.json
 node_modules/
+__pycache__/
+*.pyc

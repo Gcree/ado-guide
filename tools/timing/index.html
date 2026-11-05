@@ -1,87 +1,596 @@
 <!doctype html>
 <html lang="zh-Hant-TW">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>歌詞對時工具｜Ado 應援指南</title>
-<!-- 給維護者在本機用：在專案資料夾開靜態伺服器（python3 -m http.server 8000），打開 http://localhost:8000/tools/timing/ -->
-<style>
-  :root { color-scheme: dark; --bg: #070a12; --panel: #121829; --raised: #1c2439; --line: #2a3450; --text: #f1f5f9; --muted: #94a3b8; --faint: #64748b; --accent: #02b4f5; --warn: #ffb020; --bad: #ff4a5a; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Noto Sans TC", sans-serif; }
-  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 2; }
-  h1 { margin: 0; font-size: 16px; }
-  select, input, button, textarea { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
-  button { cursor: pointer; }
-  button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); color: #04121c; border-color: var(--accent); font-weight: 600; }
-  label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-  main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.2fr); gap: 16px; padding: 16px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  .left { position: sticky; top: 70px; align-self: start; display: grid; gap: 12px; }
-  .screen { aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; }
-  .screen iframe, #ytp { width: 100%; height: 100%; }
-  .now { font-size: 28px; font-variant-numeric: tabular-nums; font-weight: 700; }
-  .keys { margin: 0; padding: 12px 14px; background: var(--panel); border-radius: 12px; color: var(--muted); display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
-  .keys dt { color: var(--text); font-family: ui-monospace, monospace; }
-  .keys dd { margin: 0; }
-  #paste { display: grid; gap: 8px; background: var(--panel); border-radius: 12px; padding: 12px; }
-  #paste textarea { min-height: 220px; resize: vertical; }
-  #paste p { margin: 0; color: var(--muted); }
-  .status { color: var(--muted); }
-  .status b { color: var(--text); }
-  .status .warn { color: var(--warn); }
-  ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-  li { display: grid; grid-template-columns: 2.5em 5.5em 1fr; gap: 10px; align-items: baseline; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
-  li:hover { background: var(--panel); }
-  li .no { color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; }
-  li .t { font-family: ui-monospace, monospace; color: var(--muted); }
-  li .t.none { color: var(--faint); }
-  li .jp { font-family: "Noto Sans JP", sans-serif; }
-  li .tr { grid-column: 3; color: var(--faint); font-size: 12.5px; }
-  li.playing { background: var(--raised); }
-  li.sel { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
-  li.bad .t { color: var(--bad); }
-  li.changed .t::after { content: " *"; color: var(--warn); }
-  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--raised); padding: 8px 16px; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; }
-  #toast.show { opacity: 1; }
-</style>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>歌詞對時工作台 (Timing Studio)｜Ado 應援指南</title>
+  <link rel="stylesheet" href="timing.css?v=20261105_2">
+</head>
+<body>
+  <div class="app-container">
+    <!-- ====================================================================
+         1. 頂部工具列 (Top Bar)
+         ==================================================================== -->
+    <header class="top-bar">
+      <div class="brand-section">
+        <div class="brand-title">
+          <span>🎬 歌詞對時工作台</span>
+          <span class="brand-badge">PRO</span>
+        </div>
+        <div class="song-selector-wrap">
+          <select id="songSelect" title="選擇歌曲"></select>
+          <!-- 版本切換：MV 版 vs 現場 LIVE 版 -->
+          <div class="version-toggle-group" id="versionToggleGroup">
+            <button id="btnVersionMv" class="version-btn active" title="官方 MV 錄音室版本">🎬 MV 版</button>
+            <button id="btnVersionLive" class="version-btn is-live" title="官方現場演唱會 LIVE 版本">🎤 現場 LIVE 版</button>
+          </div>
+          <select id="liveConcertSelect" class="concert-select" style="display: none;" title="選擇現場演唱會場次"></select>
+        </div>
+      </div>
 
-<header>
-  <h1>歌詞對時工具</h1>
-  <label>歌曲 <select id="song"></select></label>
-  <label>速度 <select id="rate"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option></select></label>
-  <label title="從聽到到按下去的反應時間，打點時先扣掉">反應時間 <input id="lag" type="number" value="150" step="10" min="0" max="500" style="width: 5em"> 毫秒</label>
-  <button id="reset" title="丟掉這首在這台電腦存的進度，回到 song-lyrics.js 的版本">還原</button>
-  <button id="copy">複製 JSON</button>
-  <button id="save" class="primary">下載 JSON</button>
-</header>
+      <div class="top-controls">
+        <div class="param-group" title="播放速度">
+          <label>速度</label>
+          <select id="rateSelect">
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1.0×</option>
+            <option value="1.25">1.25×</option>
+            <option value="1.5">1.5×</option>
+          </select>
+        </div>
 
-<main>
-  <div class="left">
-    <div class="screen"><div id="ytp"></div></div>
-    <div class="now" id="now">0:00.00</div>
-    <p class="status" id="status"></p>
-    <dl class="keys">
-      <dt>空白鍵</dt><dd>把現在的時間打在選取的那句（藍線），往下一句</dd>
-      <dt>Backspace</dt><dd>回上一句重打</dd>
-      <dt>↑ ↓</dt><dd>換選取的句子</dd>
-      <dt>Enter</dt><dd>從選取那句的前 2 秒播放，檢查對不對</dd>
-      <dt>[ ]</dt><dd>選取那句提早／延後 0.05 秒（按住 Shift：0.2 秒）</dd>
-      <dt>Delete</dt><dd>清掉選取那句的時間</dd>
-      <dt>K</dt><dd>播放／暫停</dd>
-      <dt>← →</dt><dd>倒退／快轉 2 秒</dd>
-    </dl>
-    <div id="paste" hidden>
-      <p>這首在 song-lyrics.js 還沒有歌詞。貼上歌詞，一行一句；要附中譯的話，日文和中譯中間用 Tab 隔開。</p>
-      <textarea id="pasteText" placeholder="正しさとは　愚かさとは&#9;何謂正確　何謂愚蠢"></textarea>
-      <button id="pasteOk" class="primary">開始對時</button>
+        <div class="param-group" title="從聽到唱出到按空白鍵的生理反應時間，打點時自動扣掉">
+          <label>反應時間</label>
+          <input id="lagInput" type="number" value="150" step="10" min="0" max="600" style="width: 50px">
+          <span>ms</span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <!-- 上一步 / 下一步 -->
+        <button id="btnUndo" class="btn" title="上一步 / 復原 (Ctrl+Z)" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+          復原
+        </button>
+        <button id="btnRedo" class="btn" title="下一步 / 重做 (Ctrl+Y 或 Ctrl+Shift+Z)" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
+          重做
+        </button>
+
+        <button id="btnPasteModal" class="btn" title="貼上新歌詞">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+          貼上新詞
+        </button>
+        <button id="btnReset" class="btn danger" title="丟掉本機儲存的進度，回到原始檔">還原</button>
+        <button id="btnHotkeys" class="btn icon-only" title="鍵盤快捷鍵說明 (按 ? 鍵)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </button>
+        <button id="btnCopy" class="btn" title="複製 JSON 到剪貼簿">複製 JSON</button>
+        <button id="btnDownload" class="btn primary" title="下載對時 JSON 檔案">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          下載 JSON
+        </button>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         2. 中間工作區 (Stage: Monitor & Script Panel)
+         ==================================================================== -->
+    <main class="stage-workspace">
+      <!-- 左側：監視器與走帶面板 -->
+      <section class="monitor-panel">
+        <div class="panel-header">
+          <div class="panel-header-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+            <span>監視器預覽 (Program Monitor)</span>
+          </div>
+          <span id="songInfoBadge" style="color: var(--text-faint); font-family: var(--font-mono);">--:--</span>
+        </div>
+
+        <div class="monitor-screen-wrapper">
+          <div class="video-ratio-box">
+            <div id="ytp"></div>
+          </div>
+
+          <!-- 打點視覺反饋脈衝光 -->
+          <div id="punchFlash" class="punch-flash-overlay"></div>
+
+          <!-- 監視器上的即時字幕疊加 (Live Subtitle Overlay) -->
+          <div id="liveSubOverlay" class="live-subtitle-overlay">
+            <div id="liveSubBadge" class="live-sub-badge" style="display: none;"></div>
+            <div id="liveSubJp" class="live-sub-jp"></div>
+            <div id="liveSubTr" class="live-sub-tr"></div>
+          </div>
+        </div>
+
+        <!-- 走帶控制列 (Transport Deck) -->
+        <div class="transport-deck">
+          <div class="transport-main-row">
+            <!-- 時間碼顯示 -->
+            <div class="timecode-display">
+              <span id="tcNow" class="tc-now">00:00.00</span>
+              <span class="tc-divider">/</span>
+              <span id="tcTotal" class="tc-total">00:00.00</span>
+            </div>
+
+            <!-- 走帶播放控制按鈕 -->
+            <div class="playback-controls">
+              <button id="btnSeekStart" class="transport-btn" title="跳至開頭 (Home)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2.5"></line></svg>
+              </button>
+              <button id="btnRewind2" class="transport-btn" title="後退 2 秒 (← 或 J)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
+              </button>
+              <button id="btnPrevLine" class="transport-btn" title="上一句 (Backspace / ↑)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <button id="btnPlayPause" class="transport-btn play-pause-btn" title="播放 / 暫停 (K 或空白鍵)">
+                <svg id="playIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <svg id="pauseIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+              </button>
+              <button id="btnNextLine" class="transport-btn" title="下一句 (↓)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+              <button id="btnForward2" class="transport-btn" title="快轉 2 秒 (→ 或 L)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+              </button>
+              <button id="btnPreviewLine" class="transport-btn" title="試聽選取句：從前 2 秒播放 (Enter)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+              </button>
+            </div>
+
+            <!-- 醒目打點按鈕 -->
+            <button id="btnPunch" class="punch-btn" title="為選取的句子打下當前時間，並自動前進到下一句 (空白鍵)">
+              <span class="punch-dot"></span>
+              <span>打點 (Space)</span>
+            </button>
+          </div>
+
+          <!-- 打點導讀提示條 (Punch Prompter) -->
+          <div class="punch-prompter-row">
+            <div class="prompter-col prompter-target">
+              <span class="prompter-label">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"></circle></svg>
+                打點目標 (當前選取)
+              </span>
+              <span id="prompterTargetText" class="prompter-text">—</span>
+            </div>
+            <div class="prompter-col prompter-next">
+              <span class="prompter-label">下一句預備唱</span>
+              <span id="prompterNextText" class="prompter-text">—</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右側：歌詞腳本與檢查器面板 -->
+      <section class="inspector-panel">
+        <!-- 狀態進度卡片 -->
+        <div class="stats-header-card">
+          <div class="stats-info-row">
+            <span id="statsSummary"><b>0 / 0</b> 句已對時</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="statsDetails" style="color: var(--text-muted);"></span>
+              <button id="btnAutoSort" class="btn" style="padding: 2px 8px; font-size: 10.5px; background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.5); color: #fde047; font-weight: 700;" title="依照時間從小到大自動重新排序整首歌詞，一鍵消除順序顛倒警告">🔃 照時間自動排序</button>
+            </div>
+          </div>
+          <div class="progress-track">
+            <div id="statsProgressFill" class="progress-fill"></div>
+          </div>
+        </div>
+
+        <!-- 選中句精確微調工具箱 (Clip Inspector) -->
+        <div class="clip-inspector-dock">
+          <div class="inspector-dock-header">
+            <span id="inspectorTitle">選取句：<b>#1</b></span>
+            <span id="inspectorTimeLabel" style="font-family: var(--font-mono); color: var(--accent);">—</span>
+          </div>
+          <div class="inspector-tools-row">
+            <div class="step-btn-group" title="時間微調">
+              <button id="btnStepMinus20" title="提早 0.2 秒 (Shift + [)">-0.2s</button>
+              <button id="btnStepMinus5" title="提早 0.05 秒 ([)">-0.05s</button>
+              <button id="btnStepPlus5" title="延後 0.05 秒 (])">+0.05s</button>
+              <button id="btnStepPlus20" title="延後 0.2 秒 (Shift + ])">+0.2s</button>
+            </div>
+            <input id="manualTimeInput" type="text" placeholder="秒數 / mm:ss" title="手動輸入時間秒數或格式">
+            <button id="btnSetNowTime" class="btn" style="padding: 3px 8px; font-size: 11px;" title="將目前播放時間直接套用給這句">📍 設為當前</button>
+            <button id="btnClearTime" class="btn danger" style="padding: 3px 8px; font-size: 11px;" title="清除這句的時間 (Delete)">清除</button>
+            <button id="btnEditLine" class="btn" style="padding: 3px 8px; font-size: 11px;" title="修改歌詞日文或中文">✏ 編輯</button>
+            <button id="btnMoveUp" class="btn" style="padding: 3px 6px; font-size: 11px;" title="將此句順序上移一行 (Alt+↑)">⬆ 上移</button>
+            <button id="btnMoveDown" class="btn" style="padding: 3px 6px; font-size: 11px;" title="將此句順序下移一行 (Alt+↓)">⬇ 下移</button>
+            <button id="btnDuplicateLine" class="btn" style="padding: 3px 8px; font-size: 11px;" title="複製目前選取句 (快捷鍵 Ctrl+D)">📑 複製句</button>
+            <button id="btnSplitLine" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.5); color: #93c5fd;" title="將目前選取句切半分段 (快捷鍵 C)">✂️ 切半分段 (C)</button>
+            <button id="btnAddLine" class="btn" style="padding: 3px 8px; font-size: 11px;" title="在目前選取句後方插入新的一句（例如現場喊話、額外詞）">➕ 新增句</button>
+            <button id="btnDeleteLine" class="btn danger" style="padding: 3px 8px; font-size: 11px;" title="從列表中刪除目前選取句">🗑 刪除句</button>
+            <button id="btnCloneFromMv" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(244, 63, 94, 0.15); border-color: rgba(244, 63, 94, 0.5); color: #fda4af;" title="從官方 MV 版直接複製全部歌詞（文字與標籤完整保留，時間清空重新打點）">📥 從 MV 複製歌詞</button>
+          </div>
+        </div>
+
+        <!-- 歌詞清單滾動區 -->
+        <div class="lyrics-list-wrap">
+          <!-- 現場版專用導引橫幅 -->
+          <div id="liveHelperBanner" class="live-helper-box" style="display: none;"></div>
+          <ol id="lyricsCueList" class="lyrics-cue-list"></ol>
+        </div>
+      </section>
+    </main>
+
+    <!-- ====================================================================
+         3. 底部：全寬專業時間軸 (Full-Width Pro Timeline Editor)
+         ==================================================================== -->
+    <footer class="timeline-dock">
+      <!-- 時間軸頂部工具列 -->
+      <div class="timeline-toolbar">
+        <div class="timeline-tools-left">
+          <div class="timeline-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="7" y1="15" x2="7.01" y2="15"></line><line x1="12" y1="15" x2="12.01" y2="15"></line><line x1="17" y1="15" x2="17.01" y2="15"></line></svg>
+            <span>時間軸軌道 (Timeline)</span>
+          </div>
+
+          <div class="timeline-zoom-controls">
+            <button id="btnZoomOut" class="btn icon-only" style="padding: 2px 5px;" title="縮小時間軸">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <input id="zoomSlider" class="zoom-slider" type="range" min="10" max="180" value="40" title="時間軸縮放 (Ctrl + 滑鼠滾輪)">
+            <button id="btnZoomIn" class="btn icon-only" style="padding: 2px 5px;" title="放大時間軸">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button id="btnZoomFit" class="btn" style="padding: 2px 8px; font-size: 11px;" title="一鍵縮放至適合整首歌長度">適配全曲</button>
+            <button id="btnZoomFocus" class="btn" style="padding: 2px 8px; font-size: 11px;" title="聚焦目前選取的句子">聚焦選中</button>
+          </div>
+
+          <label class="timeline-toggle-label" title="播放時時間軸視角自動跟隨播放指針移動">
+            <input id="chkFollowPlayhead" type="checkbox" checked>
+            <span>自動跟隨指針</span>
+          </label>
+        </div>
+
+        <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-faint);">
+          <span id="timelinePointerTime">00:00.00</span>
+        </div>
+      </div>
+
+      <!-- 時間軸主體分欄 -->
+      <div class="timeline-stage">
+        <!-- 左側軌道頭 (Track Headers) -->
+        <div class="track-headers-column">
+          <div class="header-ruler-space">
+            <span>TC 00:00:00</span>
+          </div>
+          <div class="track-header-item track-header-subtitles">
+            <div class="track-tag">
+              <span class="track-badge">S1</span>
+              <span>字幕軌 (Subtitles)</span>
+            </div>
+            <span id="subClipCount" style="font-size: 10px; color: var(--text-faint);">0 塊</span>
+          </div>
+          <div class="track-header-item track-header-waveform">
+            <div class="track-tag">
+              <span class="track-badge">A1</span>
+              <span>波形與標記</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右側可滾動時間軸 (Timeline Viewport) -->
+        <div id="timelineViewport" class="timeline-viewport">
+          <div id="timelineContentLayer" class="timeline-content-layer">
+            <!-- 刻度尺 -->
+            <div id="timelineRulerTrack" class="timeline-ruler-track" title="點擊或拖曳跳轉時間">
+              <canvas id="rulerCanvas"></canvas>
+            </div>
+
+            <!-- 字幕軌 (Subtitles Track S1) -->
+            <div id="trackSubtitles" class="track-row-subtitles"></div>
+
+            <!-- 框選多選矩形 (Marquee Selection Box) -->
+            <div id="timelineMarqueeBox" class="timeline-marquee-box"></div>
+
+            <!-- 參考波形與打點標記軌 (Audio & Markers Track A1) -->
+            <div id="trackWaveform" class="track-row-waveform">
+              <canvas id="waveCanvas"></canvas>
+            </div>
+
+            <!-- 播放指針 (Playhead Needle) -->
+            <div id="playheadCursor" class="playhead-cursor">
+              <div id="playheadHead" class="playhead-head" title="拖曳時間指針">
+                <svg viewBox="0 0 16 20" width="16" height="20">
+                  <polygon points="0,0 16,0 16,12 8,20 0,12"></polygon>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 磁吸對齊參考線 (Snap Guide Line) -->
+            <div id="timelineSnapLine" class="timeline-snap-line"></div>
+
+            <!-- 拖曳浮動時間 Tooltip -->
+            <div id="timelineDragTooltip" class="timeline-drag-tooltip">00:00.00</div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ====================================================================
+       4. 模態彈窗 (Modals)
+       ==================================================================== -->
+  <!-- 貼上新歌歌詞彈窗 -->
+  <div id="modalPaste" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>貼上歌詞開始對時</h3>
+        <button id="btnClosePasteModal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin: 0; color: var(--text-muted); font-size: 12.5px;">
+          請貼上歌詞文字，<b>一行一句</b>；若有中文翻譯，日文歌詞與中文翻譯中間請用 <b>Tab</b> 鍵隔開：
+        </p>
+        <textarea id="pasteInputText" style="min-height: 240px; font-family: 'Noto Sans JP', var(--font-sans); line-height: 1.6;" placeholder="正しさとは　愚かさとは&#9;何謂正確　何謂愚蠢&#10;それが何か見せつけてやる&#9;我會證明給你看"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelPaste" class="btn">取消</button>
+        <button id="btnConfirmPaste" class="btn primary">開始對時</button>
+      </div>
     </div>
   </div>
-  <ol id="lines"></ol>
-</main>
-<div id="toast" role="status"></div>
 
-<script src="../../songs.js"></script>
-<script src="../../song-lyrics.js"></script>
-<script src="timing.js"></script>
+  <!-- 編輯單句文字彈窗 -->
+  <div id="modalEditLine" class="modal-overlay">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 id="editLineModalTitle">編輯歌詞文字</h3>
+        <button id="btnCloseEditModal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label style="display: flex; flex-direction: column; gap: 4px; font-weight: 600;">
+          <span>日文歌詞 (原文)</span>
+          <input id="editJpInput" type="text" style="font-family: 'Noto Sans JP', var(--font-sans); font-size: 14px;">
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-weight: 600;">
+          <span>中文翻譯 (選填)</span>
+          <input id="editTrInput" type="text" style="font-size: 13.5px;">
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelEdit" class="btn">取消</button>
+        <button id="btnSaveEdit" class="btn primary">儲存修改</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增句子彈窗 -->
+  <div id="modalAddLine" class="modal-overlay">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>新增一句歌詞</h3>
+        <button id="btnCloseAddModal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label style="display: flex; flex-direction: column; gap: 4px; font-weight: 600;">
+          <span>日文歌詞 / 原文（例如：いくぞ！或（觀眾接唱））</span>
+          <input id="addJpInput" type="text" placeholder="輸入日文或舞台台詞..." style="font-family: 'Noto Sans JP', var(--font-sans); font-size: 14px;">
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-weight: 600;">
+          <span>中文翻譯（選填）</span>
+          <input id="addTrInput" type="text" placeholder="輸入中文翻譯..." style="font-size: 13.5px;">
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-weight: 600;">
+          <span>起始時間秒數（選填，留空表示尚未打點）</span>
+          <input id="addTimeInput" type="text" placeholder="留空或輸入秒數..." style="font-family: var(--font-mono); font-size: 13px;">
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelAdd" class="btn">取消</button>
+        <button id="btnSaveAdd" class="btn primary">插入此句</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 切半分段彈窗 -->
+  <div id="modalSplitLine" class="modal-overlay">
+    <div class="modal-card" style="max-width: 580px;">
+      <div class="modal-header">
+        <h3 id="splitModalTitle">✂️ 將歌詞切半分段</h3>
+        <button id="btnCloseSplitModal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="split-preview-box">
+          <div style="color: var(--text-faint); font-size: 11px; margin-bottom: 2px;">原始完整句子：</div>
+          <div id="splitOrigJp" style="font-weight: 700; color: #fff; font-family: 'Noto Sans JP', var(--font-sans); font-size: 13.5px;"></div>
+          <div id="splitOrigTr" style="color: #93c5fd; font-size: 12px; margin-top: 2px;"></div>
+        </div>
+
+        <div class="split-quick-actions">
+          <span style="font-size: 11px; color: var(--text-muted);">快速切分：</span>
+          <button id="btnQuickSplitSpace" class="btn" style="padding: 2px 8px; font-size: 11px;">依空格切分</button>
+          <button id="btnQuickSplitMid" class="btn" style="padding: 2px 8px; font-size: 11px;">文字切半</button>
+          <button id="btnQuickSplitPlayhead" class="btn" style="padding: 2px 8px; font-size: 11px;">指針時間點切分</button>
+        </div>
+
+        <div class="split-parts-grid">
+          <!-- 前半段 -->
+          <div class="split-part-card part-1">
+            <span style="font-size: 11px; font-weight: 700; color: #38bdf8;">前半段 (原句保留)</span>
+            <label style="display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 11px; color: var(--text-muted);">日文歌詞</span>
+              <input id="splitPart1Jp" type="text" style="font-family: 'Noto Sans JP', var(--font-sans);">
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 11px; color: var(--text-muted);">中文翻譯</span>
+              <input id="splitPart1Tr" type="text">
+            </label>
+            <div style="font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); margin-top: 4px;">
+              起點：<span id="splitPart1TimeLabel" style="color: var(--accent);">00:00.00</span>
+            </div>
+          </div>
+
+          <!-- 後半段 -->
+          <div class="split-part-card part-2">
+            <span style="font-size: 11px; font-weight: 700; color: #38bdf8;">後半段 (新增為下一句)</span>
+            <label style="display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 11px; color: var(--text-muted);">日文歌詞</span>
+              <input id="splitPart2Jp" type="text" style="font-family: 'Noto Sans JP', var(--font-sans);">
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 11px; color: var(--text-muted);">中文翻譯</span>
+              <input id="splitPart2Tr" type="text">
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 3px;">
+              <span style="font-size: 11px; color: var(--text-muted);">後半段起點秒數 (或 mm:ss)</span>
+              <input id="splitPart2Time" type="text" style="font-family: var(--font-mono); font-size: 12px;">
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelSplit" class="btn">取消</button>
+        <button id="btnConfirmSplit" class="btn primary">✂️ 確認分段切分</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 快捷鍵說明彈窗 -->
+  <div id="modalHotkeys" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>鍵盤快捷鍵指南 (Hotkeys)</h3>
+        <button id="btnCloseHotkeysModal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <table class="hotkey-table">
+          <thead>
+            <tr>
+              <th style="width: 140px;">按鍵</th>
+              <th>動作說明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="hotkey-badge">空白鍵 Space</span></td>
+              <td><b>打點記錄</b>：把目前指針時間賦予選中句（自動扣除反應延遲），並自動跳至下一句</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Shift + 空白鍵</span></td>
+              <td><b>純播放 / 暫停</b>：單純控制影片播放，不覆蓋選中句時間</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">K</span></td>
+              <td><b>播放 / 暫停</b> 影片</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Backspace</span></td>
+              <td><b>退回上一句</b>：重新打點或校對</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">↑ / ↓</span></td>
+              <td>切換上一句 / 下一句選取</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Enter</span></td>
+              <td><b>試聽選取句</b>：從選取句開始時間的前 2 秒播放</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">[</span> / <span class="hotkey-badge">]</span></td>
+              <td>選取句微調 <b>提早 / 延後 0.05 秒</b>（按住 <span class="hotkey-badge">Shift</span>：<b>0.2 秒</b>）</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Ctrl + Z</span></td>
+              <td><b>復原 / 上一步 (Undo)</b>：還原上一次的打點、微調、長度調整或分割動作</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Ctrl + Y</span> / <span class="hotkey-badge">Ctrl+Shift+Z</span></td>
+              <td><b>重做 / 下一步 (Redo)</b>：恢復被復原的操作</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Ctrl + D</span></td>
+              <td><b>複製句子 (Duplicate)</b>：快速複製目前選取句為新句</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">M</span></td>
+              <td><b>靜音 / 取消靜音</b> 切換</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">+</span> / <span class="hotkey-badge">-</span></td>
+              <td>時間軸放大 / 縮小</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">清單抓取拖曳</span></td>
+              <td>按住清單每行左側的 <span class="hotkey-badge">⋮⋮</span> 手柄<b>上下拖曳直接調整歌詞順序</b></td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Alt + ↑ / ↓</span></td>
+              <td>將選中句歌詞<b>上移 / 下移一行</b>（或點擊工具列 ⬆ / ⬇）</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Shift + 點選</span></td>
+              <td><b>連續多選</b>：選取從上一句到點選句之間的所有歌詞區間</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Ctrl + 點選</span></td>
+              <td><b>加選 / 減選</b>：個別加入或移出選取的句子</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">空白處拉框</span></td>
+              <td>在字幕軌空白處拖曳拉出選取矩形，<b>批次框選多段歌詞</b></td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">拖曳多選字幕</span></td>
+              <td>按住任一選中字幕塊拖曳，<b>同時批次平移所有選中歌詞</b></td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Ctrl + A</span></td>
+              <td><b>全選</b> 所有歌詞進行批次移動或微調</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Delete</span></td>
+              <td><b>清除</b> 選取句的時間打點</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">C</span></td>
+              <td><b>切半分段 (Split)</b>：將選中句切分為兩句，後半段自動插入為下一句</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">拉動字幕右緣</span></td>
+              <td>在時間軸上直接滑鼠拖曳字幕塊的右邊緣，即可自由<b>延長或縮短</b>該句的顯示時間</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">← / →</span> 或 <span class="hotkey-badge">J / L</span></td>
+              <td>倒退 / 快轉 2 秒（按住 <span class="hotkey-badge">Shift</span>：5 秒）</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Home</span></td>
+              <td>時間軸與影片跳至曲首 00:00</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">時間軸拖曳</span></td>
+              <td>在時間軸刻度尺上拖曳指針或拖曳字幕塊直接調整位置</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCloseHotkeys" class="btn primary">我知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 嚴重錯誤提示橫幅 -->
+  <div id="dataLoadErrorBanner" style="display:none; position:fixed; top:0; left:0; right:0; background:#dc2626; color:#fff; padding:12px 18px; text-align:center; font-weight:700; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+    ⚠️ 尚未讀取到歌曲資料庫 (songs.js / song-lyrics.js)。請確認靜態伺服器是在專案根目錄啟動。
+    <button id="btnRetryLoad" style="background:#fff; color:#0f172a; border:none; padding:4px 12px; border-radius:4px; font-weight:700; margin-left:12px; cursor:pointer;">按此重新載入</button>
+  </div>
+
+  <!-- Toast 訊息提示 -->
+  <div id="toast" role="status"></div>
+
+  <!-- 資料來源 (加上版本號確保瀏覽器抓取最新檔案不讀舊快取) -->
+  <script src="../../songs.js?v=20261105_2"></script>
+  <script src="../../song-lyrics.js?v=20261105_2"></script>
+  <script src="timing.js?v=20261105_2"></script>
+</body>
+</html>
