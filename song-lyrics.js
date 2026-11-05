@@ -1485,12 +1485,24 @@
       {
         "time": 65.87,
         "jp": "サヨナラ",
-        "tr": "再見"
+        "tr": "再見",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "サヨナラ"
+        ]
       },
       {
         "time": 67.03,
         "jp": "サヨナラ",
-        "tr": "再見"
+        "tr": "再見",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "サヨナラ"
+        ]
       },
       {
         "time": 68.2,
@@ -1511,12 +1523,24 @@
       {
         "time": 73.12,
         "jp": "サヨナラ",
-        "tr": "再見"
+        "tr": "再見",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "サヨナラ"
+        ]
       },
       {
         "time": 74.28,
         "jp": "サヨナラ",
-        "tr": "再見"
+        "tr": "再見",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "サヨナラ"
+        ]
       },
       {
         "time": 75.45,
@@ -1636,17 +1660,35 @@
       {
         "time": 142.85,
         "jp": "サヨナラ",
-        "tr": "再見"
+        "tr": "再見",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "サヨナラ"
+        ]
       },
       {
         "time": 144.03,
         "jp": "サヨナラ",
-        "tr": "再見"
+        "tr": "再見",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "サヨナラ"
+        ]
       },
       {
         "time": 145.22,
         "jp": "サヨナラ",
-        "tr": "再見"
+        "tr": "再見",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "サヨナラ"
+        ]
       },
       {
         "time": 146.4,
@@ -1667,12 +1709,24 @@
       {
         "time": 151.55,
         "jp": "サヨナラ",
-        "tr": "再見"
+        "tr": "再見",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "サヨナラ"
+        ]
       },
       {
         "time": 152.6,
         "jp": "サヨナラ",
-        "tr": "再見"
+        "tr": "再見",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "サヨナラ"
+        ]
       },
       {
         "time": 153.65,
@@ -2544,12 +2598,16 @@
         "acts": [
           "gesture"
         ],
-        "call": "轉手 3 次"
+        "call": "轉手 1 次"
       },
       {
         "time": 54.91,
         "jp": "ないやないや",
-        "tr": "沒了沒了"
+        "tr": "沒了沒了",
+        "acts": [
+          "gesture"
+        ],
+        "call": "轉手 2 次"
       },
       {
         "time": 56.5,
@@ -2588,12 +2646,16 @@
         "acts": [
           "gesture"
         ],
-        "call": "轉手 3 次"
+        "call": "轉手 1 次"
       },
       {
         "time": 67.74,
         "jp": "ないなないな",
-        "tr": "沒了沒了"
+        "tr": "沒了沒了",
+        "acts": [
+          "gesture"
+        ],
+        "call": "轉手 2 次"
       },
       {
         "time": 69.15,
@@ -2691,12 +2753,16 @@
         "acts": [
           "gesture"
         ],
-        "call": "轉手 3 次"
+        "call": "轉手 1 次"
       },
       {
         "time": 134.1,
         "jp": "ないやないや",
-        "tr": "沒了沒了"
+        "tr": "沒了沒了",
+        "acts": [
+          "gesture"
+        ],
+        "call": "轉手 2 次"
       },
       {
         "time": 135.45,
@@ -2735,12 +2801,16 @@
         "acts": [
           "gesture"
         ],
-        "call": "轉手 3 次"
+        "call": "轉手 1 次"
       },
       {
         "time": 147.23,
         "jp": "ないなないな",
-        "tr": "沒了沒了"
+        "tr": "沒了沒了",
+        "acts": [
+          "gesture"
+        ],
+        "call": "轉手 2 次"
       },
       {
         "time": 148.6,
@@ -2836,12 +2906,16 @@
         "acts": [
           "gesture"
         ],
-        "call": "轉手 3 次"
+        "call": "轉手 1 次"
       },
       {
         "time": 201.84,
         "jp": "ないやないや",
-        "tr": "沒了沒了"
+        "tr": "沒了沒了",
+        "acts": [
+          "gesture"
+        ],
+        "call": "轉手 2 次"
       },
       {
         "time": 203.25,
@@ -2880,12 +2954,16 @@
         "acts": [
           "gesture"
         ],
-        "call": "轉手 3 次"
+        "call": "轉手 1 次"
       },
       {
         "time": 215.11,
         "jp": "ないなないな",
-        "tr": "沒了沒了"
+        "tr": "沒了沒了",
+        "acts": [
+          "gesture"
+        ],
+        "call": "轉手 2 次"
       },
       {
         "time": 216.5,
@@ -4563,7 +4641,13 @@
       {
         "time": 93.5,
         "jp": "アイ・アイ・ア　アイ・アイ・ア",
-        "tr": "Ai Ai A Ai Ai A"
+        "tr": "Ai Ai A Ai Ai A",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "アイ・アイ・ア"
+        ]
       },
       {
         "time": 97.5,
@@ -4744,20 +4828,43 @@
       {
         "time": 212.7,
         "jp": "アイ・アイ・ア　アイ・アイ・ア",
-        "tr": "Ai Ai A Ai Ai A"
+        "tr": "Ai Ai A Ai Ai A",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "アイ・アイ・ア"
+        ]
       },
       {
         "time": 216.1,
         "jp": "アイ・アイ・ア　アイ・アイ・ア",
-        "tr": "Ai Ai A Ai Ai A"
+        "tr": "Ai Ai A Ai Ai A",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "アイ・アイ・ア"
+        ]
       },
       {
         "time": 219.65,
         "jp": "アイ・アイ・ア　アイ・アイ・ア",
-        "tr": "Ai Ai A Ai Ai A"
+        "tr": "Ai Ai A Ai Ai A",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "アイ・アイ・ア"
+        ]
       },
       {
         "time": 223.1,
+        "jp": "アイアイア　アイアイア　アイアイア　アイアイア",
+        "tr": "Ai Ai A Ai Ai A Ai Ai A Ai Ai A"
+      },
+      {
+        "time": 226.65,
         "jp": "アイアイア　アイアイア　アイアイア　アイアイア",
         "tr": "Ai Ai A Ai Ai A Ai Ai A Ai Ai A",
         "acts": [
@@ -4766,11 +4873,6 @@
         "sing": [
           "アイアイア　アイアイア　アイアイア　アイアイア"
         ]
-      },
-      {
-        "time": 226.65,
-        "jp": "アイアイア　アイアイア　アイアイア　アイアイア",
-        "tr": "Ai Ai A Ai Ai A Ai Ai A Ai Ai A"
       },
       {
         "time": 230.8,
@@ -6180,7 +6282,13 @@
       {
         "time": 46.95,
         "jp": "Wake up Monstruo",
-        "tr": "醒來吧 怪物"
+        "tr": "醒來吧 怪物",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "Wake up Monstruo"
+        ]
       },
       {
         "time": 49.71,
@@ -6411,7 +6519,13 @@
       {
         "time": 158.2,
         "jp": "Wake up Monstruo",
-        "tr": "醒來吧 怪物"
+        "tr": "醒來吧 怪物",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "Wake up Monstruo"
+        ]
       },
       {
         "time": 160.85,
@@ -6982,26 +7096,34 @@
       {
         "time": 49.6,
         "jp": "あぁ今忌々しさにBoooom!",
-        "tr": "啊 現在對忌諱Booom!",
+        "tr": "啊 現在對忌諱Booom!"
+      },
+      {
+        "time": 52.65,
+        "jp": "Check it lout lout!",
+        "tr": "Check it lout lout!",
         "acts": [
           "gesture"
         ],
         "call": "跟 Ado 轉手臂"
       },
       {
-        "time": 52.65,
-        "jp": "Check it lout lout!",
-        "tr": "Check it lout lout!"
-      },
-      {
         "time": 54.26,
         "jp": "Check it lout lout!",
-        "tr": "Check it lout lout!"
+        "tr": "Check it lout lout!",
+        "acts": [
+          "gesture"
+        ],
+        "call": "跟 Ado 轉手臂"
       },
       {
         "time": 55.86,
         "jp": "Check it lout lout Yeah",
-        "tr": "Check it lout lout Yeah"
+        "tr": "Check it lout lout Yeah",
+        "acts": [
+          "gesture"
+        ],
+        "call": "跟 Ado 轉手臂"
       },
       {
         "time": 57.9,
@@ -7032,7 +7154,13 @@
       {
         "time": 66,
         "jp": "Shake it out out!",
-        "tr": "Shake it out out!"
+        "tr": "Shake it out out!",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "Shake it out out!"
+        ]
       },
       {
         "time": 67.9,
@@ -7059,17 +7187,38 @@
       {
         "time": 77.26,
         "jp": "(Keep going forward. Ooh Don’t pull me back)",
-        "tr": "勇敢直前 切勿畏縮"
+        "tr": "勇敢直前 切勿畏縮",
+        "acts": [
+          "sing"
+        ],
+        "call": "想唱再唱",
+        "sing": [
+          "(Keep going forward. Ooh Don’t pull me back)"
+        ]
       },
       {
         "time": 79.94,
         "jp": "(This is the time of rebellion)",
-        "tr": "如今便是反叛之時"
+        "tr": "如今便是反叛之時",
+        "acts": [
+          "sing"
+        ],
+        "call": "想唱再唱",
+        "sing": [
+          "(This is the time of rebellion)"
+        ]
       },
       {
         "time": 82.66,
         "jp": "(Keep going forward. Ooh Don’t pull me back)",
-        "tr": "勇敢直前 切勿畏縮"
+        "tr": "勇敢直前 切勿畏縮",
+        "acts": [
+          "sing"
+        ],
+        "call": "想唱再唱",
+        "sing": [
+          "(Keep going forward. Ooh Don’t pull me back)"
+        ]
       },
       {
         "time": 84.6,
@@ -7180,12 +7329,20 @@
       {
         "time": 135.26,
         "jp": "Check it lout lout!",
-        "tr": "Check it lout lout!"
+        "tr": "Check it lout lout!",
+        "acts": [
+          "gesture"
+        ],
+        "call": "跟 Ado 轉手臂"
       },
       {
         "time": 136.86,
         "jp": "Check it lout lout Yeah",
-        "tr": "Check it lout lout Yeah"
+        "tr": "Check it lout lout Yeah",
+        "acts": [
+          "gesture"
+        ],
+        "call": "跟 Ado 轉手臂"
       },
       {
         "time": 138.9,
@@ -7216,7 +7373,13 @@
       {
         "time": 147,
         "jp": "Shake it out out!",
-        "tr": "Shake it out out!"
+        "tr": "Shake it out out!",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "Shake it out out!"
+        ]
       },
       {
         "time": 148.8,
@@ -7265,17 +7428,38 @@
       {
         "time": 164.93,
         "jp": "(Keep going forward. Ooh Don’t pull me back)",
-        "tr": "勇敢直前 切勿畏縮"
+        "tr": "勇敢直前 切勿畏縮",
+        "acts": [
+          "sing"
+        ],
+        "call": "想唱再唱",
+        "sing": [
+          "(Keep going forward. Ooh Don’t pull me back)"
+        ]
       },
       {
         "time": 167.72,
         "jp": "(This is the time of rebellion)",
-        "tr": "如今便是反叛之時"
+        "tr": "如今便是反叛之時",
+        "acts": [
+          "sing"
+        ],
+        "call": "想唱再唱",
+        "sing": [
+          "(This is the time of rebellion)"
+        ]
       },
       {
         "time": 169.88,
         "jp": "(Keep going forward. Ooh Don’t pull me back)",
-        "tr": "勇敢直前 切勿畏縮"
+        "tr": "勇敢直前 切勿畏縮",
+        "acts": [
+          "sing"
+        ],
+        "call": "想唱再唱",
+        "sing": [
+          "(Keep going forward. Ooh Don’t pull me back)"
+        ]
       },
       {
         "time": 170.2,
@@ -15630,7 +15814,13 @@
       {
         "time": 62.8,
         "jp": "くるくるり　くらくらり",
-        "tr": "轉啊轉 天旋地轉"
+        "tr": "轉啊轉 天旋地轉",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "くるくるり　くらくらり"
+        ]
       },
       {
         "time": 64.7,
@@ -15751,7 +15941,13 @@
       {
         "time": 153.95,
         "jp": "くるくるり　くらくらり",
-        "tr": "轉啊轉 天旋地轉"
+        "tr": "轉啊轉 天旋地轉",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "くるくるり　くらくらり"
+        ]
       },
       {
         "time": 155.85,
@@ -15777,7 +15973,13 @@
       {
         "time": 163.55,
         "jp": "くるくるり　くらくらり",
-        "tr": "轉啊轉 天旋地轉"
+        "tr": "轉啊轉 天旋地轉",
+        "acts": [
+          "sing"
+        ],
+        "sing": [
+          "くるくるり　くらくらり"
+        ]
       },
       {
         "time": 165.58,

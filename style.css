@@ -116,10 +116,10 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { background: var(--ground); max-width: 100%; overflow-x: hidden; }
+html, body { background: var(--ground); max-width: 100%; overflow-x: clip; }
 body { margin: 0; color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.6; font-variant-numeric: tabular-nums; }
 
-.shell { width: 100%; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
+.shell { width: 100%; max-width: 100%; box-sizing: border-box; overflow-x: clip; }
 main.col { width: 100%; max-width: 1180px; box-sizing: border-box; }
 .view { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 a { color: inherit; }
@@ -1435,8 +1435,8 @@ body.no-lights .climax-surge {
   --gesture: #6d28d9;
   --listen: #5b6779;
 }
-/* overflow-x: hidden 會讓外框變成捲動容器，頂欄的 sticky 就黏不住；首頁改用 clip（只裁切、不捲動） */
-html:not(.on-song) body, html:not(.on-song) .shell { overflow-x: clip; }
+/* overflow-x: hidden 會讓外框變成捲動容器，頂欄與工具列的 sticky 就黏不住；改用 clip（只裁切、不捲動） */
+body, .shell { overflow-x: clip; }
 /* 首頁不放舞台燈光，底色乾淨 */
 html:not(.on-song) #fx { display: none; }
 
@@ -2223,8 +2223,10 @@ html[lang="ja"] body { word-break: auto-phrase; }
   @media (hover: hover) { .dock-btn:hover:not(:disabled), .dock-btn[aria-pressed="true"]:hover:not(:disabled) { background: transparent; } }
   .dock-btn:active:not(:disabled) svg, .dock-btn:active:not(:disabled) b { background: var(--fill-press); }
 }
-/* 手機橫拿：工具列在左欄影片下方，左欄很窄，只放圖示（名稱在按鈕的說明文字裡） */
+/* 手機橫拿：工具列固定在左下角（左欄影片下面的空位），左欄很窄，只放圖示（名稱在按鈕的說明文字裡） */
 @media (orientation: landscape) and (max-height: 500px) {
+  .on-song .dock { position: fixed; z-index: 24; left: max(12px, env(safe-area-inset-left, 0px)); bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+  .on-song .left { padding-bottom: 56px; }
   .dock-btn { min-height: 38px; padding: 0 10px; }
   .dock-btn:not(#rateCycle) span { display: none; }
   #rateCycle span { display: none; }
@@ -2234,17 +2236,22 @@ html[lang="ja"] body { word-break: auto-phrase; }
   html:not([lang^="zh"]) .dock-btn:not(.icon) { padding: 0 10px; }
   html:not([lang^="zh"]) .dock-rate button { padding: 0 9px; }
 }
-/* 電腦：工具列浮在畫面下方正中間，離底部 24px；歌詞區跟左欄（MV＋資訊列＋提示框）一樣高，歌詞在裡面捲 */
+/* 電腦：工具列浮在畫面下方正中間，離底部 24px（sticky：捲到最底時停在頁尾上面，不會蓋住頁尾）；
+   歌詞區跟左欄（MV＋資訊列＋提示框）一樣高，歌詞在裡面捲 */
 @media (min-width: 901px) {
-  .on-song .dock { position: fixed; z-index: 24; left: 0; right: 0; bottom: max(24px, env(safe-area-inset-bottom, 0px)); justify-self: auto; width: max-content; max-width: calc(100vw - 32px); margin-inline: auto; }
-  .on-song #song { padding-bottom: 96px; }
-  /* 左欄是 sticky，自己是一個疊層：整個左欄要疊在歌詞區上面，浮出去的工具列才不會被歌詞區蓋住 */
-  .on-song .left { z-index: 24; }
+  .on-song .dock { position: sticky; z-index: 24; bottom: max(24px, env(safe-area-inset-bottom, 0px)); justify-self: center; align-self: end; max-width: calc(100vw - 32px); margin-bottom: 24px; }
+  /* 內容不夠一整個畫面高時：頁尾推到畫面最下面，工具列貼在頁尾上面，中間不留一截空白 */
+  body.on-song .shell { min-height: 100dvh; display: flex; flex-direction: column; }
+  body.on-song main.col { flex: 1; padding-bottom: 0; }
+  body.on-song #song { min-height: 100dvh; grid-template-rows: auto auto 1fr; }
   body.on-song:not(.immersive-mode) .grid { align-items: stretch; }
   /* 高度設 0、最小高度 100%：這一列的高度由左欄決定，歌詞再多也不會把區塊撐高 */
   body.on-song:not(.immersive-mode) .lyrics { position: relative; top: auto; height: 0; min-height: 100%; max-height: none; }
 }
-/* 沉浸模式：工具列跟頂欄一起，閒置 3.5 秒淡出，碰一下畫面又出來 */
+/* 沉浸模式：整個畫面固定，工具列固定在畫面下方正中間；跟頂欄一起，閒置 3.5 秒淡出，碰一下畫面又出來 */
+@media (min-width: 901px) {
+  body.immersive-mode .dock { position: fixed; left: 0; right: 0; bottom: max(24px, env(safe-area-inset-bottom, 0px)); width: max-content; margin: 0 auto; }
+}
 body.immersive-mode .dock { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-slow) var(--ease-out); }
 body.immersive-mode .dock.autohide { opacity: 0; transform: translateY(14px); pointer-events: none; transition: opacity var(--dur-quick) var(--ease-in), transform var(--dur-base) var(--ease-in); }
 /* 速度下拉：數字＋小箭頭，打開時箭頭朝上 */
