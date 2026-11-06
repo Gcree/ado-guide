@@ -1067,7 +1067,7 @@
     "title": "ヒバナ (さいたま (2025))",
     "concert": "さいたま (2025)",
     "youtubeId": "JsZASL6V0QU",
-    "duration": 205,
+    "duration": 257,
     "lyrics": [
       {
         "time": 47.45,
@@ -2182,7 +2182,7 @@
     "title": "モンストロ (日産スタジアム (2026))",
     "concert": "日産スタジアム (2026)",
     "youtubeId": "bVdCJluq0RE",
-    "duration": 194,
+    "duration": 207,
     "lyrics": [
       {
         "time": 2.26,
@@ -2974,7 +2974,7 @@
     "title": "ロックスター (Orlando (2025))",
     "concert": "Orlando (2025)",
     "youtubeId": "NVutx0Olj8E",
-    "duration": 231,
+    "duration": 303,
     "lyrics": [
       {
         "time": 8.07,
@@ -4145,7 +4145,7 @@
     "title": "唱 (日本武道館 (2023))",
     "concert": "日本武道館 (2023)",
     "youtubeId": "Igr6jQJEoNs",
-    "duration": 190,
+    "duration": 204,
     "lyrics": [
       {
         "time": 7.66,
