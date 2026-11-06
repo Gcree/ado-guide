@@ -3305,7 +3305,7 @@
     const cx = want && CLIMAX[want.id];
     if (cx != null) {
       if (t < cx - .3) blasted = false;
-      else if (playing && !blasted && t >= cx - .05 && t < cx + .8 && OPT.light !== false) { blasted = true; blast(penOf(want).cols); }
+      else if (playing && !blasted && t >= cx - .05 && t < cx + .8 && OPT.light !== false) { blasted = true; blast(penOf(want).cols); if (venueOn && venue && venue.fire) venue.fire(); }
     }
     // 「交給觀眾」：沉浸模式播到大合唱的句子，舞台螢幕退暗、字幕和手燈海亮起來
     const cl = isImmersive && playing && LINES.length ? lineAt(t) : -1;
@@ -3334,12 +3334,14 @@
       if (useVenue !== venueOn) { venueOn = useVenue; document.body.classList.toggle("has-venue", useVenue); idleDrawn = false; if (useVenue) venueLayout(); }
       if (useVenue) {
         const ease = Math.min(1, (ms - prevMs) / 1000 * 2.2), look = lampLook(t);
-        // 拍手：手燈舉高不擺，每拍往下一頓再亮一下（反拍拍手只在第 2、4 拍）；跳躍：全場跟著拍子彈
+        // 拍手：手燈放到胸前不擺，跟著拍子一開一合（反拍拍手只在第 2、4 拍合）；跳躍：全場跟著拍子彈
         const offb = !!(cue && isOffbeat(cue.name)), clapOn = playing && (look.cue === "clap" || offb), jumpOn = playing && look.cue === "jump";
         venueRaise += ((crowd ? 1 : 0) - venueRaise) * ease;
         venueClap += ((clapOn ? 1 : 0) - venueClap) * ease * 1.5;
         venueJump += ((jumpOn ? .16 : 0) - venueJump) * ease;
-        const clapPulse = clapOn ? (b ? ((!offb || b.bar % 2 === 1) ? beatPulse(b) : 0) : hit) : 0;
+        // 兩手合起來的程度：拍點上是 1、兩拍中間張最開，用 cos 讓開合是平順的來回，不是一下彈回去
+        // 反拍拍手只拍第 2、4 拍，所以開合週期拉長成兩拍
+        const clapPulse = clapOn ? (b ? .5 + .5 * Math.cos(2 * Math.PI * (offb ? (b.x - 1) / 2 : b.x)) : hit) : 0;
         venue.render({ t: ms / 1000, swing: b ? b.x : ms / 1000 * (playing ? 1.6 : .35), amp: playing ? (look.cue === "listen" && !crowd ? .14 : .42) : .08,
           hit: playing && !reduce ? hit : 0, raise: venueRaise, px: pointer.x, py: pointer.y, still: false,
           colIdx: look.idx, bright: look.bright, clap: venueClap, clapPulse, jump: venueJump });
