@@ -21,7 +21,7 @@
     listen:  { name: T("安靜聽"),   icon: "i-listen",  how: T("留給 Ado 唱") }
   };
 
-  const { SONGS, UT, PEN, BEAT, CLIMAX, SERIES = [], TRIVIA = [] } = window.ADO_SONGS;
+  const { SONGS, UT, PEN, BEAT, CLIMAX, SERIES = [] } = window.ADO_SONGS;
   // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示；沒有 tips 又不是 free 的歌也先視為 hold
   SONGS.forEach(s => { if (s.sug || (!s.free && (!s.tips || !s.tips.length))) s.hold = true; if (s.hold) { s.acts = []; s.tips = []; } });
   SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = (s.tips || []).map(t => T(t)); s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
@@ -307,28 +307,6 @@
   shelf.addEventListener("scroll", () => { if (!shelfTick) shelfTick = requestAnimationFrame(measureShelf); }, { passive: true });
   if (window.ResizeObserver) new ResizeObserver(() => measureShelf()).observe(shelf);
   [[shelfPrev, -1], [shelfNext, 1]].forEach(([b, dir]) => b.addEventListener("click", () => shelf.scrollBy({ left: dir * shelf.clientWidth * .8, behavior: reduce ? "auto" : "smooth" })));
-  // ── Ado 小知識：首頁卡片，每次打開從隨機一則開始，「下一則」照洗過的順序輪完才重複 ──
-  const triviaEl = document.getElementById("trivia");
-  if (triviaEl && TRIVIA.length) {
-    const order = TRIVIA.map((_, i) => i);
-    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-    let at = 0;
-    const txt = document.getElementById("triviaText"), song = document.getElementById("triviaSong"), num = document.getElementById("triviaNum");
-    const paintTrivia = () => {
-      const x = TRIVIA[order[at]], s = x.song && BY[x.song];
-      txt.textContent = T(x.t);
-      num.textContent = `${at + 1} / ${TRIVIA.length}`;
-      song.hidden = !s;
-      if (s) { song.href = `song/${s.id}/`; song.dataset.id = s.id; song.innerHTML = `${T("聽聽看")}<b lang="ja">〈${esc(s.ja)}〉</b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg>`; }
-    };
-    document.getElementById("triviaNext").addEventListener("click", () => {
-      at = (at + 1) % order.length;
-      paintTrivia();
-      if (!reduce) { txt.classList.remove("is-in"); void txt.offsetWidth; txt.classList.add("is-in"); }
-    });
-    paintTrivia();
-    triviaEl.hidden = false;
-  }
   measureShelf();
 
   // 最近看過：記最多 3 首在這台裝置；主視覺顯示「繼續練〈最近那首〉」

@@ -196,22 +196,6 @@
         </div>
       </section>
 
-      <!-- Ado 小知識：app.js 隨機挑一則，按「下一則」換 -->
-      <section class="trivia" id="trivia" aria-labelledby="triviaH" hidden>
-        <div class="sec-head">
-          <h2 id="triviaH">Ado 小知識</h2>
-          <span class="trivia-num" id="triviaNum" aria-hidden="true"></span>
-        </div>
-        <div class="trivia-card">
-          <p class="trivia-text" id="triviaText" aria-live="polite"></p>
-          <div class="trivia-foot">
-            <a class="trivia-song" id="triviaSong" hidden></a>
-            <button type="button" class="pill-btn trivia-next" id="triviaNext">下一則</button>
-          </div>
-        </div>
-        <p class="trivia-src">資料整理自維基百科和新聞報導，查不到出處的傳聞不收。</p>
-      </section>
-
       <!-- 常見問題 -->
       <section class="faq" id="faq" aria-labelledby="faqH">
         <h2 id="faqH">常見問題</h2>
@@ -369,7 +353,7 @@
             <li>實際以現場氣氛和 Ado 的引導為準。</li>
           </ul>
         </div>
-        <!-- 右：五組連結，先本站（網站、手燈程式），再外部（Ado 官方、來源），最後聯絡站長 -->
+        <!-- 右：五組連結 -->
         <div class="foot-links">
           <nav class="foot-nav" aria-label="網站">
             <span class="foot-h">網站</span>
@@ -377,12 +361,6 @@
             <button type="button" id="logBtn" aria-haspopup="dialog" aria-controls="logDlg">更新日誌</button>
             <button type="button" id="feedbackBtn">意見回饋</button>
             <button type="button" id="pwaInstallBtn">加到主畫面</button>
-          </nav>
-          <nav class="foot-nav" aria-label="手燈 App">
-            <span class="foot-h">手燈連動程式</span>
-            <a href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-Windows-x64.zip">Windows 版</a>
-            <a href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-macOS.zip">macOS 版</a>
-            <a href="https://github.com/Gcree/penlight-sync" target="_blank" rel="noopener">GitHub ↗</a>
           </nav>
           <nav class="foot-nav" aria-label="Ado 官方">
             <span class="foot-h">Ado 官方</span>
@@ -392,6 +370,12 @@
             <a href="https://x.com/ado1024imokenp" target="_blank" rel="noopener">X ↗</a>
             <a href="https://www.tiktok.com/@ado1024osenbei" target="_blank" rel="noopener">TikTok ↗</a>
             <a href="https://open.spotify.com/artist/6mEQK9m2krja6X1cfsAjfl" target="_blank" rel="noopener">Spotify ↗</a>
+          </nav>
+          <nav class="foot-nav" aria-label="手燈 App">
+            <span class="foot-h">手燈連動程式</span>
+            <a href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-Windows-x64.zip">Windows 版</a>
+            <a href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-macOS.zip">macOS 版</a>
+            <a href="https://github.com/Gcree/penlight-sync" target="_blank" rel="noopener">GitHub ↗</a>
           </nav>
           <nav class="foot-nav" aria-label="來源與致謝">
             <span class="foot-h">來源與致謝</span>

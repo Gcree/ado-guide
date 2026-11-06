@@ -4787,89 +4787,6 @@ html:not(.on-song) #fx {
 /* 區塊標題 */
 .starter,
 .all-songs,
-/* Ado 小知識：一張卡片一則，下一則換掉文字 */
-.trivia {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-
-.trivia-num {
-  color: var(--faint);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-.trivia-card {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 20px 22px;
-  border-radius: 14px;
-  background: var(--card);
-  border-left: 3px solid var(--tint);
-}
-
-.trivia-text {
-  margin: 0;
-  min-height: 3.4em;
-  font-size: 16px;
-  line-height: 1.7;
-  text-wrap: pretty;
-}
-
-.trivia-text.is-in {
-  animation: trivia-in 240ms var(--ease) both;
-}
-
-@keyframes trivia-in {
-  from { opacity: 0; transform: translateY(4px); }
-}
-
-.trivia-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-}
-
-.trivia-song {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 36px;
-  color: var(--tint);
-  text-decoration: none;
-}
-
-.trivia-song svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-@media (hover: hover) {
-  .trivia-song:hover b {
-    text-decoration: underline;
-  }
-}
-
-.trivia-next {
-  margin-left: auto;
-}
-
-.trivia-src {
-  margin: 0;
-  color: var(--faint);
-  font-size: 12px;
-}
-
 .faq {
   display: flex;
   flex-direction: column;
@@ -5662,7 +5579,7 @@ html:not(.on-song) #fx {
   gap: 40px;
 }
 
-/* 左品牌＋說明、右五組連結；窄畫面上下疊 */
+/* 左品牌＋說明、右三組連結；窄畫面上下疊 */
 /* 桌機：品牌＋五組連結排成 6 欄（.foot-links 用 display: contents 讓五組直接當 .foot-top 的欄） */
 .foot-top {
   display: grid;
