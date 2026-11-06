@@ -7484,8 +7484,24 @@ html[lang="ja"] body {
     grid-template-rows: auto auto 1fr;
   }
 
+  /* 多出來的高度給 MV 和歌詞那一列：至少撐到「畫面高度扣掉上方留白、頂欄、工具列和間距」，左欄的提示框和右邊的歌詞一起往下撐滿 */
   body.on-song:not(.immersive-mode) .grid {
     align-items: stretch;
+    min-height: calc(100dvh - 8px - 48px - 48px - 24px - 2 * var(--gap));
+  }
+
+  body.on-song:not(.immersive-mode) .left {
+    grid-template-rows: auto 1fr;
+  }
+
+  /* 提示框被撐高時內容集中在中間，不要一行一行被拉開 */
+  body.on-song:not(.immersive-mode) .cue {
+    align-content: center;
+  }
+
+  /* 螢幕越高版面越寬，MV 跟著放大：寬度約是「畫面高度扣掉頂欄、資訊列、提示框、工具列」換算成 16:9 影片的寬 */
+  body.on-song:not(.immersive-mode) main.col {
+    max-width: clamp(1180px, (100dvh - 420px) * 3, 2400px);
   }
 
   /* 高度設 0、最小高度 100%：這一列的高度由左欄決定，歌詞再多也不會把區塊撐高 */
@@ -7495,6 +7511,13 @@ html[lang="ja"] body {
     height: 0;
     min-height: 100%;
     max-height: none;
+  }
+}
+
+/* 很高的螢幕：MV 那欄再寬一點（歌詞欄留 380px 以上就夠讀），把高度多給影片，提示框不會空一大塊 */
+@media (min-width: 1280px) and (min-height: 1000px) {
+  body.on-song:not(.immersive-mode) .grid {
+    grid-template-columns: minmax(0, 2fr) minmax(380px, 1fr);
   }
 }
 
