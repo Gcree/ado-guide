@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>歌詞對時工作台 (Timing Studio)｜Ado 應援指南</title>
-  <link rel="stylesheet" href="timing.css?v=20261106_1">
+  <link rel="stylesheet" href="timing.css?v=20261106_2">
 </head>
 <body>
   <div class="app-container">
@@ -316,15 +316,20 @@
             <button id="btnZoomOut" class="btn icon-only" style="padding: 2px 5px;" title="縮小時間軸">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
-            <input id="zoomSlider" class="zoom-slider" type="range" min="10" max="180" value="40" title="時間軸縮放 (Ctrl + 滑鼠滾輪)">
+            <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" value="500" title="時間軸縮放（Ctrl / Alt + 滾輪以滑鼠位置縮放、+ / - 以指針縮放）">
             <button id="btnZoomIn" class="btn icon-only" style="padding: 2px 5px;" title="放大時間軸">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
-            <button id="btnZoomFit" class="btn" style="padding: 2px 8px; font-size: 11px;" title="一鍵縮放至適合整首歌長度">適配全曲</button>
-            <button id="btnZoomFocus" class="btn" style="padding: 2px 8px; font-size: 11px;" title="聚焦目前選取的句子">聚焦選中</button>
+            <button id="btnZoomFit" class="btn" style="padding: 2px 8px; font-size: 11px;" title="一鍵縮放至整首歌剛好塞進畫面">適配全曲</button>
+            <button id="btnZoomFocus" class="btn" style="padding: 2px 8px; font-size: 11px;" title="把選取的句子放大到填滿畫面">聚焦選中</button>
           </div>
 
-          <label class="timeline-toggle-label" title="播放時時間軸視角自動跟隨播放指針移動">
+          <label class="timeline-toggle-label" title="拖曳字幕塊或邊緣時，自動吸附到指針與其他字幕的起點 / 終點（S 切換；拖曳中按住 Shift 暫時反轉）">
+            <input id="chkSnap" type="checkbox" checked>
+            <span>🧲 磁吸 (S)</span>
+          </label>
+
+          <label class="timeline-toggle-label" title="播放時時間軸視角自動跟隨播放指針移動（手動捲動後暫停 2 秒）">
             <input id="chkFollowPlayhead" type="checkbox" checked>
             <span>自動跟隨指針</span>
           </label>
@@ -650,7 +655,7 @@
             </tr>
             <tr>
               <td><span class="hotkey-badge">+</span> / <span class="hotkey-badge">-</span></td>
-              <td>時間軸放大 / 縮小</td>
+              <td>時間軸放大 / 縮小（以播放指針為中心）</td>
             </tr>
             <tr>
               <td><span class="hotkey-badge">清單抓取拖曳</span></td>
@@ -689,8 +694,12 @@
               <td><b>切半分段 (Split)</b>：將選中句切分為兩句，後半段自動插入為下一句</td>
             </tr>
             <tr>
-              <td><span class="hotkey-badge">拉動字幕右緣</span></td>
-              <td>在時間軸上直接滑鼠拖曳字幕塊的右邊緣，即可自由<b>延長或縮短</b>該句的顯示時間</td>
+              <td><span class="hotkey-badge">拖曳字幕左 / 右緣</span></td>
+              <td><b>修剪起點 / 終點</b>（另一端固定不動）；預設不會蓋到前後句</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Alt + 拖曳邊緣</span></td>
+              <td><b>滾動編輯</b>：前一句結尾 / 下一句起點跟著一起動，兩句交界直接挪</td>
             </tr>
             <tr>
               <td><span class="hotkey-badge">← / →</span> 或 <span class="hotkey-badge">J / L</span></td>
@@ -743,7 +752,19 @@
             </tr>
             <tr>
               <td><span class="hotkey-badge">時間軸拖曳</span></td>
-              <td>在時間軸刻度尺上拖曳指針或拖曳字幕塊直接調整位置</td>
+              <td>刻度尺、指針頭、波形軌都能拖指針（按住 Shift 吸附字幕邊界）；點字幕軌空白處＝指針移過去</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">拖曳中 Shift / Esc</span></td>
+              <td>Shift：暫時反轉磁吸；Esc：<b>取消拖曳</b>並還原</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">I</span> / <span class="hotkey-badge">O</span></td>
+              <td>把選取句的<b>起點 / 終點設到播放指針</b>（另一端不動）</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">S</span></td>
+              <td>切換<b>磁吸對齊</b>（指針、其他字幕的起點與終點）</td>
             </tr>
           </tbody>
         </table>
@@ -764,8 +785,8 @@
   <div id="toast" role="status"></div>
 
   <!-- 資料來源 (加上版本號確保瀏覽器抓取最新檔案不讀舊快取) -->
-  <script src="../../songs.js?v=20261106_1"></script>
-  <script src="../../song-lyrics.js?v=20261106_1"></script>
-  <script src="timing.js?v=20261106_1"></script>
+  <script src="../../songs.js?v=20261106_2"></script>
+  <script src="../../song-lyrics.js?v=20261106_2"></script>
+  <script src="timing.js?v=20261106_2"></script>
 </body>
 </html>

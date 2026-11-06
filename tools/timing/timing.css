@@ -1955,3 +1955,56 @@ li.cue-item.changed .cue-time::after {
   color: #facc15;
   border-bottom: 1px solid var(--border-line);
 }
+
+/* ==========================================================================
+   時間軸剪輯軟體式互動 (2026-11-06)
+   ========================================================================== */
+.timeline-ruler-track,
+.track-row-waveform { cursor: text; }
+.timeline-ruler-track #rulerCanvas,
+.track-row-waveform #waveCanvas { pointer-events: none; }
+
+.track-row-subtitles { cursor: crosshair; }
+.timeline-clip { cursor: grab; }
+.timeline-clip.moving { cursor: grabbing; }
+
+/* 邊緣手把：兩側同樣明顯，hover 時亮起；修剪中的邊緣保持亮色 */
+.clip-handle-left,
+.clip-handle-right {
+  width: 7px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.clip-handle-left { border-right: 1px solid rgba(255, 255, 255, 0.12); }
+.clip-handle-right { border-left: 1px solid rgba(255, 255, 255, 0.12); }
+.timeline-clip.selected .clip-handle-left {
+  background: rgba(56, 189, 248, 0.35);
+  border-right: 1px solid #38bdf8;
+}
+.timeline-clip.resizing-left .clip-handle-left {
+  background: #38bdf8;
+  box-shadow: 0 0 14px #38bdf8;
+}
+.timeline-clip.resizing-left {
+  border-color: #38bdf8;
+  z-index: 30;
+}
+
+/* 滾動編輯時被連動的鄰句 */
+.timeline-clip.rolling {
+  border-color: #facc15;
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.6), 0 0 12px rgba(250, 204, 21, 0.35);
+}
+
+/* 拖曳中不要 hover 動畫干擾 */
+.timeline-clip.dragging { transition: none; }
+
+/* 窄字幕塊：收起剪刀與次要文字，手把縮小，保持可抓 */
+.timeline-clip.narrow .clip-split-btn,
+.timeline-clip.narrow .clip-time-tag,
+.timeline-clip.narrow .clip-text-tr { display: none; }
+.timeline-clip.tiny .clip-header-bar,
+.timeline-clip.tiny .clip-body { visibility: hidden; }
+.timeline-clip.tiny .clip-handle-left,
+.timeline-clip.tiny .clip-handle-right { width: 3px; }
+.timeline-clip.narrow .clip-header-bar,
+.timeline-clip.narrow .clip-body { padding-left: 8px; padding-right: 8px; }

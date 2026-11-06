@@ -279,6 +279,7 @@
   let selectedIndices = new Set([0]); // 多重選取的句子集合
   let playingIdx = -1;
   let zoom = 45; // 像素/秒 (px/s)
+  let userScrollUntil = 0; // 使用者手動捲動時間軸後，暫停自動跟隨 2 秒
   let followPlayhead = true;
   let isScrubbing = false;
   let isDraggingClip = false;
@@ -479,13 +480,14 @@
     updatePlayPauseUI();
   }
 
-  function seekTo(sec) {
+  // allowSeekAhead=false：拖曳指針途中用的快速 seek（YouTube 不重新緩衝），放開時再精準 seek 一次
+  function seekTo(sec, allowSeekAhead = true) {
     sec = Math.max(0, Math.min(songDuration, sec));
     lastSeekTime = sec;
     simTime = sec;
     simLastTime = performance.now();
     if (ytPlayer && playerReady && !playerError && typeof ytPlayer.seekTo === "function") {
-      try { ytPlayer.seekTo(sec, true); } catch (e) {}
+      try { ytPlayer.seekTo(sec, allowSeekAhead); } catch (e) {}
     }
     updatePlayheadUI(sec);
   }
@@ -1009,102 +1011,131 @@
   }
 
   // 4. 時間軸渲染 (Ruler, Clips, Waveform)
+  // ── 字幕塊幾何：所有「結尾在哪」的判斷都走這裡，畫面、拖曳、循環才會一致 ──
+  const MIN_CLIP = 0.2; // 字幕塊最短 0.2 秒
+  const IMPLICIT_MAX_GAP = 8; // 沒設 duration 時，距離下一句 ≤ 8 秒就延伸到下一句
+
+  function nextTimedIdx(i) {
+    for (let j = i + 1; j < LINES.length; j++) if (LINES[j].time != null) return j;
+    return -1;
+  }
+  function prevTimedIdx(i) {
+    for (let j = i - 1; j >= 0; j--) if (LINES[j].time != null) return j;
+    return -1;
+  }
+  function clipDuration(i) {
+    const l = LINES[i];
+    if (!l || l.time == null) return 0;
+    if (l.duration != null && l.duration > 0) return l.duration;
+    const n = nextTimedIdx(i);
+    if (n >= 0 && LINES[n].time > l.time) {
+      const gap = LINES[n].time - l.time;
+      return gap <= IMPLICIT_MAX_GAP ? gap : 4.5;
+    }
+    return 3.5;
+  }
+  const clipEnd = i => LINES[i].time + clipDuration(i);
+
   function renderTimeline() {
     if (!timelineViewport || !timelineContentLayer) return;
     const totalWidth = Math.max(timelineViewport.clientWidth, songDuration * zoom + TIMELINE_PAD + 120);
     timelineContentLayer.style.width = `${totalWidth}px`;
 
-    renderRuler(totalWidth);
-    renderWaveform(totalWidth);
+    renderCanvases();
     renderSubtitleClips();
     renderLoopRegion();
   }
 
-  // 4.1 時間刻度尺
-  function renderRuler(totalWidth) {
-    if (!rulerCanvas) return;
+  // 刻度尺與波形只畫「目前看得到的範圍」：整首歌一張畫布在高倍率時會超過瀏覽器畫布上限而變空白
+  function renderCanvases() {
+    renderRuler();
+    renderWaveform();
+  }
+
+  let canvasRaf = 0;
+  function scheduleCanvasRender() {
+    if (canvasRaf) return;
+    canvasRaf = requestAnimationFrame(() => { canvasRaf = 0; renderCanvases(); });
+  }
+
+  function prepVisibleCanvas(canvas, height) {
     const dpr = window.devicePixelRatio || 1;
+    const viewLeft = timelineViewport ? timelineViewport.scrollLeft : 0;
+    const viewWidth = timelineViewport ? timelineViewport.clientWidth : 800;
+    canvas.style.position = "absolute";
+    canvas.style.top = "0";
+    canvas.style.left = `${viewLeft}px`;
+    canvas.style.width = `${viewWidth}px`;
+    canvas.style.height = `${height}px`;
+    if (canvas.width !== Math.round(viewWidth * dpr)) canvas.width = Math.round(viewWidth * dpr);
+    if (canvas.height !== Math.round(height * dpr)) canvas.height = Math.round(height * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, viewWidth, height);
+    // 之後用「內容層座標」作畫：x 直接用 TIMELINE_PAD + t * zoom
+    ctx.translate(-viewLeft, 0);
+    const t0 = Math.max(0, (viewLeft - TIMELINE_PAD) / zoom);
+    const t1 = Math.min(songDuration, (viewLeft + viewWidth - TIMELINE_PAD) / zoom);
+    return { ctx, t0, t1 };
+  }
+
+  function rulerSteps() {
+    if (zoom >= 250) return [1, 0.1];
+    if (zoom >= 100) return [2, 0.5];
+    if (zoom >= 50) return [5, 1];
+    if (zoom >= 25) return [10, 2];
+    if (zoom >= 12) return [30, 5];
+    if (zoom >= 5) return [60, 15];
+    return [120, 30];
+  }
+
+  // 4.1 時間刻度尺
+  function renderRuler() {
+    if (!rulerCanvas) return;
     const height = 28;
-    rulerCanvas.width = totalWidth * dpr;
-    rulerCanvas.height = height * dpr;
-    rulerCanvas.style.width = `${totalWidth}px`;
-    rulerCanvas.style.height = `${height}px`;
-
-    const ctx = rulerCanvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, totalWidth, height);
-
-    let majorStep = 10;
-    let minorStep = 2;
-    if (zoom >= 100) {
-      majorStep = 2;
-      minorStep = 0.5;
-    } else if (zoom >= 50) {
-      majorStep = 5;
-      minorStep = 1;
-    } else if (zoom >= 25) {
-      majorStep = 10;
-      minorStep = 2;
-    } else if (zoom >= 12) {
-      majorStep = 30;
-      minorStep = 5;
-    } else {
-      majorStep = 60;
-      minorStep = 15;
-    }
+    const { ctx, t0, t1 } = prepVisibleCanvas(rulerCanvas, height);
+    const [majorStep, minorStep] = rulerSteps();
 
     ctx.font = '10px ui-monospace, "Cascadia Code", Consolas, monospace';
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
 
-    for (let t = 0; t <= songDuration; t += minorStep) {
+    const startK = Math.floor(t0 / minorStep);
+    const endK = Math.ceil(t1 / minorStep);
+    const ratio = Math.round(majorStep / minorStep);
+    for (let k = startK; k <= endK; k++) {
+      const t = k * minorStep;
+      if (t < 0 || t > songDuration) continue;
       const x = TIMELINE_PAD + t * zoom;
-      const isMajor = Math.abs(t % majorStep) < 0.001;
-
+      const isMajor = k % ratio === 0;
+      ctx.strokeStyle = isMajor ? "rgba(148, 163, 184, 0.4)" : "rgba(148, 163, 184, 0.18)";
+      ctx.lineWidth = isMajor ? 1.5 : 1;
+      ctx.beginPath();
+      ctx.moveTo(x, height);
+      ctx.lineTo(x, height - (isMajor ? 12 : 6));
+      ctx.stroke();
       if (isMajor) {
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.4)";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x, height);
-        ctx.lineTo(x, height - 12);
-        ctx.stroke();
-
         ctx.fillStyle = "#94a3b8";
-        ctx.fillText(fmt(t, false), x + 4, 10);
-      } else {
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.18)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x, height);
-        ctx.lineTo(x, height - 6);
-        ctx.stroke();
+        ctx.fillText(zoom >= 250 ? fmt(t) : fmt(t, false), x + 4, 10);
       }
     }
   }
 
   // 4.2 參考波形與打點標記軌
-  function renderWaveform(totalWidth) {
+  function renderWaveform() {
     if (!waveCanvas) return;
-    const dpr = window.devicePixelRatio || 1;
     const height = 54;
-    waveCanvas.width = totalWidth * dpr;
-    waveCanvas.height = height * dpr;
-    waveCanvas.style.width = `${totalWidth}px`;
-    waveCanvas.style.height = `${height}px`;
-
-    const ctx = waveCanvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, totalWidth, height);
-
+    const { ctx, t0, t1 } = prepVisibleCanvas(waveCanvas, height);
     const centerY = height / 2;
     ctx.fillStyle = currentVersionMode === "live" ? "rgba(244, 63, 94, 0.2)" : "rgba(14, 165, 233, 0.22)";
 
     const barWidth = 3;
     const gap = 1.5;
-    const totalBars = Math.floor((totalWidth - TIMELINE_PAD) / (barWidth + gap));
-
-    for (let i = 0; i < totalBars; i++) {
-      const x = TIMELINE_PAD + i * (barWidth + gap);
+    const pitch = barWidth + gap;
+    const iStart = Math.floor((t0 * zoom) / pitch);
+    const iEnd = Math.ceil((t1 * zoom) / pitch);
+    for (let i = iStart; i <= iEnd; i++) {
+      const x = TIMELINE_PAD + i * pitch;
       const t = (x - TIMELINE_PAD) / zoom;
       const seed = Math.sin(t * 1.8) * Math.cos(t * 0.45) * Math.sin(t * 5.2);
       const amp = Math.min(1, Math.max(0.12, Math.abs(seed) * 0.8 + 0.15));
@@ -1113,19 +1144,17 @@
     }
 
     LINES.forEach((l, idx) => {
-      if (l.time == null) return;
+      if (l.time == null || l.time < t0 - 1 || l.time > t1 + 1) return;
       const x = TIMELINE_PAD + l.time * zoom;
       ctx.save();
       ctx.translate(x, 7);
-
       ctx.beginPath();
       ctx.moveTo(0, -5);
       ctx.lineTo(5, 0);
       ctx.lineTo(0, 5);
       ctx.lineTo(-5, 0);
       ctx.closePath();
-
-      if (idx === sel) {
+      if (selectedIndices.has(idx)) {
         ctx.fillStyle = "#ff334b";
         ctx.shadowColor = "rgba(255, 51, 75, 0.8)";
         ctx.shadowBlur = 8;
@@ -1140,61 +1169,65 @@
   }
 
   // 4.3 字幕軌道區塊 (Clips)
+  // clipDrag：拖曳中的狀態，讓重繪時保留「拖曳中」樣式
+  let clipDrag = null;
+
   function renderSubtitleClips() {
     if (!trackSubtitles) return;
     trackSubtitles.innerHTML = "";
     let count = 0;
+    let lastTime = -Infinity;
+    const frag = document.createDocumentFragment();
 
     LINES.forEach((l, i) => {
       if (l.time == null) return;
       count++;
 
-      let nextTime = null;
-      for (let j = i + 1; j < LINES.length; j++) {
-        if (LINES[j].time != null && LINES[j].time > l.time) {
-          nextTime = LINES[j].time;
-          break;
-        }
-      }
-
-      let duration = 3.5;
-      if (l.duration != null && l.duration > 0) {
-        duration = l.duration;
-      } else if (nextTime != null) {
-        const gap = nextTime - l.time;
-        duration = gap <= 8 ? gap : 4.5;
-      }
-      const width = Math.max(32, duration * zoom);
+      const duration = clipDuration(i);
+      const width = Math.max(6, duration * zoom);
       const left = TIMELINE_PAD + l.time * zoom;
-
-      const prev = LINES.slice(0, i).reverse().find(x => x.time != null);
-      const bad = prev && l.time < prev.time;
+      const bad = l.time < lastTime;
+      lastTime = Math.max(lastTime, l.time);
       const isSel = selectedIndices.has(i);
       const isPlay = i === playingIdx;
+      const inDrag = clipDrag && clipDrag.active && clipDrag.indices.has(i);
+      const sizeCls = width < 28 ? "tiny" : (width < 70 ? "narrow" : "");
+      let dragCls = "";
+      if (inDrag) {
+        if (clipDrag.mode === "move") dragCls = "dragging moving";
+        else if (clipDrag.mode === "trim-left") dragCls = "dragging resizing-left";
+        else dragCls = "dragging resizing-right resizing-active";
+      }
+      const rollCls = clipDrag && clipDrag.active && clipDrag.rollIdx === i ? "rolling" : "";
 
       const clip = document.createElement("div");
-      clip.className = `timeline-clip ${isSel ? "selected" : ""} ${isPlay ? "playing" : ""} ${bad ? "bad" : ""}`;
+      clip.className = `timeline-clip ${isSel ? "selected" : ""} ${isPlay ? "playing" : ""} ${bad ? "bad" : ""} ${sizeCls} ${dragCls} ${rollCls}`;
       clip.style.left = `${left}px`;
       clip.style.width = `${width}px`;
       clip.dataset.i = i;
+      clip.title = `#${i + 1} ${l.jp || ""}\n${fmt(l.time)} → ${fmt(l.time + duration)}（${duration.toFixed(2)}s）\n拖曳塊身移動・拖左右邊緣修剪・Alt+拖邊緣＝連動前後句`;
+
+      const timeLabel = inDrag && clipDrag.mode !== "move"
+        ? `${fmt(l.time)} ➔ ${fmt(l.time + duration)}`
+        : fmt(l.time);
 
       clip.innerHTML = `
-        <div class="clip-handle-left" data-handle="left" data-i="${i}" title="拖曳微調起點時間"></div>
+        <div class="clip-handle-left" data-handle="left" data-i="${i}"></div>
         <div class="clip-header-bar" style="${currentVersionMode === "live" ? "background: #be123c;" : ""}">
           <span class="clip-id-tag">#${i + 1}${(l.acts && l.acts.length) ? ` <span style="font-size:8.5px; opacity:0.95; font-weight:800; color:#38bdf8;">[${l.acts.map(a => ACT_MAP[a]?.icon || a).join("")}]</span>` : ""}</span>
-          <span class="clip-time-tag">${fmt(l.time)}</span>
+          <span class="clip-time-tag">${timeLabel}</span>
           <button class="clip-split-btn" data-action="split" data-i="${i}" title="將此句切半分段 (快捷鍵 C)">✂️</button>
         </div>
         <div class="clip-body">
           <span class="clip-text-jp" lang="ja">${esc(l.jp || "")}</span>
           ${l.tr ? `<span class="clip-text-tr">${esc(l.tr)}</span>` : ""}
         </div>
-        <div class="clip-handle-right" data-handle="right" data-i="${i}" title="拉動延長/縮短此句顯示時間"></div>
+        <div class="clip-handle-right" data-handle="right" data-i="${i}"></div>
       `;
-
-      trackSubtitles.appendChild(clip);
+      frag.appendChild(clip);
     });
 
+    trackSubtitles.appendChild(frag);
     if (subClipCount) subClipCount.textContent = `${count} 塊`;
   }
 
@@ -1263,7 +1296,7 @@
     }
 
     // 時間軸自動捲動跟隨
-    if (followPlayhead && getPlayerState() === 1 && !isScrubbing && !isDraggingClip && timelineViewport) {
+    if (followPlayhead && getPlayerState() === 1 && !isScrubbing && !isDraggingClip && timelineViewport && performance.now() > userScrollUntil) {
       const scrollLeft = timelineViewport.scrollLeft;
       const viewWidth = timelineViewport.clientWidth;
       const buffer = 140;
@@ -1347,146 +1380,167 @@
   }
 
   // ── 時間軸互動事件 ──
-  function handleTimelineScrub(e) {
-    if (!timelineContentLayer) return;
+  const DRAG_THRESHOLD_PX = 4;   // 超過才算拖曳，手抖不會改到時間
+  const SNAP_PX = 8;             // 磁吸距離（螢幕像素）
+  let snapEnabled = store.get("timing-snap") !== "0";
+
+  const pxToTime = clientX => {
     const rect = timelineContentLayer.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const t = Math.max(0, Math.min(songDuration, (clickX - TIMELINE_PAD) / zoom));
+    return (clientX - rect.left - TIMELINE_PAD) / zoom;
+  };
 
-    const displayX = TIMELINE_PAD + t * zoom;
-    if (timelineDragTooltip) {
-      timelineDragTooltip.style.display = "block";
-      timelineDragTooltip.style.left = `${displayX + 10}px`;
-      timelineDragTooltip.textContent = fmt(t);
+  function showTooltipAt(t, html) {
+    if (!timelineDragTooltip) return;
+    timelineDragTooltip.style.display = "block";
+    timelineDragTooltip.style.left = `${TIMELINE_PAD + t * zoom + 12}px`;
+    timelineDragTooltip.innerHTML = html;
+  }
+  function hideDragGuides() {
+    if (timelineDragTooltip) timelineDragTooltip.style.display = "none";
+    const snapLine = $("timelineSnapLine");
+    if (snapLine) snapLine.style.display = "none";
+  }
+  function showSnapLine(t) {
+    const snapLine = $("timelineSnapLine");
+    if (!snapLine) return;
+    if (t == null) { snapLine.style.display = "none"; return; }
+    snapLine.style.display = "block";
+    snapLine.style.transform = `translateX(${TIMELINE_PAD + t * zoom}px)`;
+  }
+
+  // 磁吸目標：播放指針、其他字幕塊的起點與終點、循環區間
+  function collectSnapTargets(exclude) {
+    const targets = [{ t: round(getCurrentTime()), label: "指針" }];
+    LINES.forEach((l, i) => {
+      if (l.time == null || exclude.has(i)) return;
+      targets.push({ t: l.time, label: `#${i + 1} 起點` });
+      targets.push({ t: round(clipEnd(i)), label: `#${i + 1} 終點` });
+    });
+    return targets;
+  }
+  function findSnap(times, targets) {
+    const thr = SNAP_PX / zoom;
+    let best = null;
+    for (const t of times) {
+      for (const tg of targets) {
+        const d = tg.t - t;
+        if (Math.abs(d) <= thr && (!best || Math.abs(d) < Math.abs(best.delta))) {
+          best = { delta: d, at: tg.t, label: tg.label };
+        }
+      }
     }
-
-    seekTo(t);
+    return best;
   }
 
-  if (timelineRulerTrack) {
-    timelineRulerTrack.addEventListener("mousedown", e => {
-      isScrubbing = true;
-      handleTimelineScrub(e);
+  // ── 指針拖曳 (Scrub)：刻度尺、指針頭、波形軌都能拖；Shift 磁吸到字幕邊界 ──
+  function startScrub(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    isScrubbing = true;
+    const wasPlaying = getPlayerState() === 1;
+    if (wasPlaying) pause();
+    let lastT = 0;
 
-      const onMove = ev => {
-        if (!isScrubbing) return;
-        handleTimelineScrub(ev);
-      };
+    const scrubTo = ev => {
+      let t = Math.max(0, Math.min(songDuration, pxToTime(ev.clientX)));
+      let label = "";
+      if (ev.shiftKey) {
+        const s = findSnap([t], collectSnapTargets(new Set()).slice(1));
+        if (s) { t = s.at; label = `🧲 ${s.label}　`; }
+      }
+      showSnapLine(label ? t : null);
+      lastT = t;
+      seekTo(t, false);
+      showTooltipAt(t, `${label}${fmt(t)}`);
+    };
+    scrubTo(e);
 
-      const onUp = () => {
-        isScrubbing = false;
-        if (timelineDragTooltip) timelineDragTooltip.style.display = "none";
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      };
-
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    });
+    const onUp = () => {
+      isScrubbing = false;
+      hideDragGuides();
+      seekTo(lastT, true);
+      if (wasPlaying) play();
+      window.removeEventListener("mousemove", scrubTo);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", scrubTo);
+    window.addEventListener("mouseup", onUp);
   }
 
-  if (playheadHead) {
-    playheadHead.addEventListener("mousedown", e => {
-      e.stopPropagation();
-      isScrubbing = true;
+  timelineRulerTrack?.addEventListener("mousedown", startScrub);
+  trackWaveform?.addEventListener("mousedown", startScrub);
+  playheadHead?.addEventListener("mousedown", e => { e.stopPropagation(); startScrub(e); });
 
-      const onMove = ev => {
-        if (!isScrubbing) return;
-        handleTimelineScrub(ev);
-      };
-
-      const onUp = () => {
-        isScrubbing = false;
-        if (timelineDragTooltip) timelineDragTooltip.style.display = "none";
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      };
-
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
+  // 只更新選取相關的畫面（拖曳開始時不重建時間軸 DOM）
+  function renderSelectionOnly() {
+    renderLyricsList();
+    renderInspector();
+    updatePrompter();
+    trackSubtitles?.querySelectorAll(".timeline-clip").forEach(el => {
+      el.classList.toggle("selected", selectedIndices.has(+el.dataset.i));
     });
+    renderWaveform();
   }
 
   if (trackSubtitles) {
     trackSubtitles.addEventListener("mousedown", e => {
+      if (e.button !== 0) return;
       const clip = e.target.closest(".timeline-clip");
 
-      // ── A. 點擊在字幕軌空白處：啟動框選矩形多選 (Marquee Box Selection) ──
+      // ── A. 點擊在字幕軌空白處：框選多選 (Marquee) ──
       if (!clip) {
-        if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
-          if (selectedIndices.size > 1) {
-            selectSingle(sel);
-          }
-        }
-
+        e.preventDefault();
         const marqueeBox = $("timelineMarqueeBox");
         if (!marqueeBox || !timelineContentLayer) return;
-
+        const additive = e.shiftKey || e.ctrlKey || e.metaKey;
         const rect = timelineContentLayer.getBoundingClientRect();
         const startX = e.clientX - rect.left;
         const startY = e.clientY - rect.top;
-
-        let marqueeActive = true;
-        marqueeBox.style.display = "block";
-        marqueeBox.style.left = `${startX}px`;
-        marqueeBox.style.top = `${startY}px`;
-        marqueeBox.style.width = "0px";
-        marqueeBox.style.height = "0px";
-
-        const baseSelection = (e.shiftKey || e.ctrlKey || e.metaKey) ? new Set(selectedIndices) : new Set();
+        const baseSelection = additive ? new Set(selectedIndices) : new Set();
+        let moved = false;
 
         const onMarqueeMove = ev => {
-          if (!marqueeActive) return;
           const curX = ev.clientX - rect.left;
           const curY = ev.clientY - rect.top;
-
+          if (!moved && Math.abs(curX - startX) < DRAG_THRESHOLD_PX && Math.abs(curY - startY) < DRAG_THRESHOLD_PX) return;
+          moved = true;
           const boxLeft = Math.min(startX, curX);
           const boxTop = Math.min(startY, curY);
           const boxWidth = Math.abs(curX - startX);
           const boxHeight = Math.abs(curY - startY);
-
+          marqueeBox.style.display = "block";
           marqueeBox.style.left = `${boxLeft}px`;
           marqueeBox.style.top = `${boxTop}px`;
           marqueeBox.style.width = `${boxWidth}px`;
           marqueeBox.style.height = `${boxHeight}px`;
 
-          const boxRight = boxLeft + boxWidth;
-          const boxBottom = boxTop + boxHeight;
-
-          // 檢測與所有字幕塊的幾何碰撞
+          const trackTop = trackSubtitles.offsetTop;
           const newSet = new Set(baseSelection);
           const allClips = trackSubtitles.querySelectorAll(".timeline-clip");
-
           allClips.forEach(el => {
-            const elIdx = +el.dataset.i;
-            const cLeft = el.offsetLeft;
-            const cTop = el.offsetTop;
-            const cRight = cLeft + el.offsetWidth;
-            const cBottom = cTop + el.offsetHeight;
-
-            // AABB 碰撞檢測
-            const intersects = !(boxRight < cLeft || boxLeft > cRight || boxBottom < cTop || boxTop > cBottom);
-            if (intersects) {
-              newSet.add(elIdx);
+            const cLeft = el.offsetLeft, cTop = trackTop + el.offsetTop;
+            const cRight = cLeft + el.offsetWidth, cBottom = cTop + el.offsetHeight;
+            if (!(boxLeft + boxWidth < cLeft || boxLeft > cRight || boxTop + boxHeight < cTop || boxTop > cBottom)) {
+              newSet.add(+el.dataset.i);
             }
           });
-
           if (newSet.size > 0) {
             selectedIndices = newSet;
-            sel = [...newSet][0];
-            allClips.forEach(el => {
-              const elIdx = +el.dataset.i;
-              el.classList.toggle("selected", selectedIndices.has(elIdx));
-            });
+            sel = Math.min(...newSet);
+            allClips.forEach(el => el.classList.toggle("selected", selectedIndices.has(+el.dataset.i)));
             renderInspector();
           }
         };
 
-        const onMarqueeUp = () => {
-          marqueeActive = false;
+        const onMarqueeUp = ev => {
           marqueeBox.style.display = "none";
           window.removeEventListener("mousemove", onMarqueeMove);
           window.removeEventListener("mouseup", onMarqueeUp);
+          if (!moved) {
+            // 單擊空白處：像剪輯軟體一樣把指針移過去；有多選就收回成單選
+            if (!additive && selectedIndices.size > 1) setSel(sel);
+            seekTo(Math.max(0, Math.min(songDuration, pxToTime(ev.clientX))));
+          }
           renderAll();
         };
 
@@ -1498,265 +1552,31 @@
       // ── B. 點擊在字幕塊上 ──
       const idx = +clip.dataset.i;
 
-      // 1. 剪刀分割按鈕點擊
-      const splitBtn = e.target.closest(".clip-split-btn");
-      if (splitBtn || e.target.dataset.action === "split") {
+      if (e.target.closest(".clip-split-btn")) {
         e.stopPropagation();
         openSplitModal(idx);
         return;
       }
+      if (e.shiftKey) { selectRange(sel, idx); return; }
+      if (e.ctrlKey || e.metaKey) { toggleSelect(idx); return; }
 
-      // 處理多選按鍵點擊
-      if (e.shiftKey) {
-        e.stopPropagation();
-        selectRange(sel, idx);
-        return;
-      }
-      if (e.ctrlKey || e.metaKey) {
-        e.stopPropagation();
-        toggleSelect(idx);
-        return;
-      }
+      e.preventDefault();
+      const handle = e.target.closest("[data-handle]")?.dataset.handle;
+      const mode = handle === "left" ? "trim-left" : handle === "right" ? "trim-right" : "move";
 
-      // 如果點選的字幕塊不是在已有多選群組中，設為單選
-      if (!selectedIndices.has(idx) || selectedIndices.size <= 1) {
-        sel = idx;
-        selectedIndices = new Set([idx]);
-      } else {
-        sel = idx;
-      }
+      // 修剪一次只動一塊；移動時若點的是已選群組就整組移動
+      if (mode !== "move" || !selectedIndices.has(idx)) setSel(idx);
+      else sel = idx;
+      renderSelectionOnly();
 
-      // 記錄拖曳前的歷史快照，若放開時發生變動則可 Ctrl+Z 復原
-      const dragSnapshot = recordSnapshot();
-
-      // 2. 右側手柄拖曳：拉動延長或縮短框框時長 (Duration)
-      const handleRight = e.target.closest('[data-handle="right"]');
-      if (handleRight) {
-        e.stopPropagation();
-
-        const clipLeft = TIMELINE_PAD + LINES[idx].time * zoom;
-        const currentW = clip.offsetWidth;
-        const origDuration = LINES[idx].duration || round(currentW / zoom);
-
-        // 指針保持在原本的定點，作為最關鍵的對齊標竿！
-        const fixedPlayheadTime = getCurrentTime();
-
-        // 尋找磁吸對齊參考點
-        const snapTargets = [];
-        if (fixedPlayheadTime > LINES[idx].time) {
-          snapTargets.push({ time: round(fixedPlayheadTime), label: "指針定點" });
-        }
-        for (let j = idx + 1; j < LINES.length; j++) {
-          if (LINES[j].time != null && LINES[j].time > LINES[idx].time) {
-            snapTargets.push({ time: LINES[j].time, label: `下一句 #${j + 1}` });
-            break;
-          }
-        }
-
-        isDraggingClip = true;
-        clip.classList.add("resizing-active");
-
-        const snapLine = $("timelineSnapLine");
-        let lastTargetDuration = origDuration;
-        let lastTargetEndTime = round(LINES[idx].time + origDuration);
-
-        const onMove = ev => {
-          if (!isDraggingClip) return;
-          const rect = timelineContentLayer.getBoundingClientRect();
-          const mouseX = ev.clientX - rect.left;
-
-          // 計算目標寬度（框框直接隨滑鼠實時拉長/縮短）
-          let targetWidth = mouseX - clipLeft;
-          let targetDuration = Math.max(0.3, targetWidth / zoom);
-          let targetEndTime = LINES[idx].time + targetDuration;
-
-          // 磁吸檢測 (接近指針或下一句起點時自動吸附)
-          let snapped = false;
-          let snapLabel = "";
-          const snapThresholdSec = 10 / zoom; // 10px 磁吸距離
-
-          for (const target of snapTargets) {
-            if (Math.abs(targetEndTime - target.time) <= snapThresholdSec) {
-              targetEndTime = target.time;
-              targetDuration = Math.max(0.3, targetEndTime - LINES[idx].time);
-              targetWidth = targetDuration * zoom;
-              snapped = true;
-              snapLabel = `🧲 對齊${target.label}`;
-              break;
-            }
-          }
-
-          targetDuration = round(targetDuration);
-          targetEndTime = round(targetEndTime);
-          lastTargetDuration = targetDuration;
-          lastTargetEndTime = targetEndTime;
-          LINES[idx].duration = targetDuration;
-
-          // ★★★ 字幕框本身即時被拉長，指針留在原本定點不動！ ★★★
-          clip.style.width = `${Math.max(28, targetDuration * zoom)}px`;
-
-          // 更新字幕塊頭部時間提示
-          const timeTag = clip.querySelector(".clip-time-tag");
-          if (timeTag) timeTag.textContent = `${fmt(LINES[idx].time)} ➔ ${fmt(targetEndTime)}`;
-
-          // 顯示磁吸對齊線
-          if (snapLine) {
-            if (snapped) {
-              snapLine.style.display = "block";
-              snapLine.style.transform = `translateX(${TIMELINE_PAD + targetEndTime * zoom}px)`;
-            } else {
-              snapLine.style.display = "none";
-            }
-          }
-
-          // 浮動 Tooltip 提示
-          if (timelineContentLayer && timelineDragTooltip) {
-            timelineDragTooltip.style.display = "block";
-            timelineDragTooltip.style.left = `${clipLeft + targetDuration * zoom + 12}px`;
-            if (snapped) {
-              timelineDragTooltip.innerHTML = `<span style="color: #facc15; font-weight:800;">${snapLabel} (${fmt(targetEndTime)})</span><span style="opacity:0.85; margin-left:8px;">[時長 ${targetDuration.toFixed(2)}s]</span>`;
-            } else {
-              timelineDragTooltip.innerHTML = `<span>#${idx + 1} 拉長至: <b>${fmt(targetEndTime)}</b></span><span style="opacity:0.85; margin-left:8px;">(時長 ${targetDuration.toFixed(2)}s)</span>`;
-            }
-          }
-        };
-
-        const onUp = () => {
-          isDraggingClip = false;
-          clip.classList.remove("resizing-active");
-          if (timelineDragTooltip) timelineDragTooltip.style.display = "none";
-          if (snapLine) snapLine.style.display = "none";
-          window.removeEventListener("mousemove", onMove);
-          window.removeEventListener("mouseup", onUp);
-
-          if (lastTargetDuration !== origDuration) {
-            undoStack.push(dragSnapshot);
-            if (undoStack.length > MAX_HISTORY) undoStack.shift();
-            redoStack = [];
-            updateUndoRedoUI();
-          }
-
-          LINES[idx].duration = lastTargetDuration;
-
-          // ★★★ 拉動延長時間後，自動切換到下一個歌詞！ ★★★
-          const nextIdx = Math.min(LINES.length - 1, idx + 1);
-          selectSingle(nextIdx);
-
-          save();
-          renderAll();
-          toast(`第 ${idx + 1} 句框框已延長至 ${fmt(lastTargetEndTime)}（時長 ${lastTargetDuration.toFixed(2)}s），已自動切換至下一句 👉`);
-        };
-
-        window.addEventListener("mousemove", onMove);
-        window.addEventListener("mouseup", onUp);
-        return;
-      }
-
-      // 3. 拖曳字幕塊移動時間 (支援單塊移動 或 多塊批次平移！)
-      renderAll();
-      isDraggingClip = true;
-      const isHandleLeft = e.target.dataset.handle === "left";
-
-      // 標記所有正在被拖曳的 clip
-      const activeClips = [];
-      const initialTimes = new Map();
-
-      if (selectedIndices.size > 1 && !isHandleLeft) {
-        // 多選批次平移！
-        selectedIndices.forEach(k => {
-          if (LINES[k] && LINES[k].time != null) {
-            initialTimes.set(k, LINES[k].time);
-            const cEl = trackSubtitles.querySelector(`.timeline-clip[data-i="${k}"]`);
-            if (cEl) {
-              cEl.classList.add("dragging", "moving");
-              activeClips.push({ idx: k, el: cEl, origTime: LINES[k].time });
-            }
-          }
-        });
-      } else {
-        clip.classList.add("dragging", isHandleLeft ? "resizing-left" : "moving");
-        initialTimes.set(idx, LINES[idx].time);
-        activeClips.push({ idx, el: clip, origTime: LINES[idx].time });
-      }
-
-      const startX = e.clientX;
-      let totalDeltaSec = 0;
-
-      const onMove = ev => {
-        if (!isDraggingClip) return;
-        const deltaSec = (ev.clientX - startX) / zoom;
-        totalDeltaSec = deltaSec;
-
-        // 計算邊界，防止移出 < 0
-        let minAllowedDelta = -Infinity;
-        for (const [k, t] of initialTimes) {
-          if (-t > minAllowedDelta) minAllowedDelta = -t;
-        }
-        const effectiveDelta = Math.max(minAllowedDelta, deltaSec);
-
-        // 批次位移所有選中的字幕塊
-        activeClips.forEach(item => {
-          const newT = round(Math.max(0, item.origTime + effectiveDelta));
-          LINES[item.idx].time = newT;
-          item.el.style.left = `${TIMELINE_PAD + newT * zoom}px`;
-          const timeTag = item.el.querySelector(".clip-time-tag");
-          if (timeTag) timeTag.textContent = fmt(newT);
-        });
-
-        // 浮動 Tooltip 提示
-        if (timelineContentLayer && timelineDragTooltip) {
-          const rect = timelineContentLayer.getBoundingClientRect();
-          const curX = ev.clientX - rect.left;
-          timelineDragTooltip.style.display = "block";
-          timelineDragTooltip.style.left = `${curX + 14}px`;
-          if (activeClips.length > 1) {
-            timelineDragTooltip.innerHTML = `<span>🚚 批次平移 <b>${activeClips.length}</b> 句</span><span style="opacity:0.85; margin-left:6px;">(${effectiveDelta >= 0 ? "+" : ""}${effectiveDelta.toFixed(2)}s)</span>`;
-          } else {
-            timelineDragTooltip.innerHTML = `<span>#${idx + 1} 起始位置: <b>${fmt(LINES[idx].time)}</b></span>`;
-          }
-        }
-
-        if (inspectorTimeLabel) inspectorTimeLabel.textContent = fmt(LINES[sel]?.time);
-        if (manualTimeInput) manualTimeInput.value = LINES[sel]?.time || "";
-      };
-
-      const onUp = () => {
-        isDraggingClip = false;
-        activeClips.forEach(item => item.el.classList.remove("dragging", "resizing-left", "moving"));
-        if (timelineDragTooltip) timelineDragTooltip.style.display = "none";
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-
-        // 檢查是否真的有位移
-        let moved = false;
-        for (const [k, t] of initialTimes) {
-          if (LINES[k].time !== t) { moved = true; break; }
-        }
-
-        if (moved) {
-          undoStack.push(dragSnapshot);
-          if (undoStack.length > MAX_HISTORY) undoStack.shift();
-          redoStack = [];
-          updateUndoRedoUI();
-          save();
-          renderAll();
-          if (activeClips.length > 1) {
-            toast(`已將選取的 ${activeClips.length} 句歌詞整體平移 ${totalDeltaSec >= 0 ? "+" : ""}${totalDeltaSec.toFixed(2)} 秒！`);
-          }
-        } else {
-          renderAll();
-        }
-      };
-
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
+      startClipDrag(e, idx, mode);
     });
 
     trackSubtitles.addEventListener("dblclick", e => {
       const clip = e.target.closest(".timeline-clip");
-      if (!clip) return;
+      if (!clip || e.target.closest(".clip-split-btn")) return;
       const idx = +clip.dataset.i;
-      sel = idx;
+      setSel(idx);
       const l = LINES[idx];
       if (l && l.time != null) {
         seekTo(l.time);
@@ -1766,55 +1586,299 @@
     });
   }
 
-  function setZoom(newZoom) {
-    zoom = Math.max(10, Math.min(180, newZoom));
-    if (zoomSlider) zoomSlider.value = zoom;
+  // ── 字幕塊拖曳引擎：移動 / 修剪起點 / 修剪終點 / Alt 滾動編輯 ──
+  function startClipDrag(e, idx, mode) {
+    const snapshot = recordSnapshot();
+    const startX = e.clientX;
+    const l = LINES[idx];
+    if (!l || l.time == null) return;
+
+    const group = mode === "move"
+      ? [...selectedIndices].filter(k => LINES[k] && LINES[k].time != null).sort((a, b) => a - b)
+      : [idx];
+    const groupSet = new Set(group);
+    const orig = new Map(group.map(k => [k, { time: LINES[k].time, duration: LINES[k].duration, dur: clipDuration(k) }]));
+    const origStart = l.time;
+    const origEnd = clipEnd(idx);
+    const hadExplicit = l.duration != null && l.duration > 0;
+
+    // 鄰居（依清單順序）：移動或修剪都不越過前後句，順序不會顛倒
+    const firstIdx = group[0], lastIdx = group[group.length - 1];
+    const prevI = prevTimedIdx(firstIdx);
+    const nextI = nextTimedIdx(lastIdx);
+    const prev0 = prevI >= 0 ? { time: LINES[prevI].time, duration: LINES[prevI].duration, end: clipEnd(prevI) } : null;
+    const next0 = nextI >= 0 ? { time: LINES[nextI].time, duration: LINES[nextI].duration, end: clipEnd(nextI) } : null;
+    const snapTargets = collectSnapTargets(groupSet);
+
+    clipDrag = { active: false, mode, indices: groupSet, rollIdx: -1 };
+    isDraggingClip = true;
+    let cancelled = false;
+    let lastSummary = "";
+
+    const restoreOrig = () => {
+      orig.forEach((o, k) => {
+        LINES[k].time = o.time;
+        if (o.duration === undefined) delete LINES[k].duration; else LINES[k].duration = o.duration;
+      });
+      if (prevI >= 0) { if (prev0.duration === undefined) delete LINES[prevI].duration; else LINES[prevI].duration = prev0.duration; }
+      if (nextI >= 0) {
+        LINES[nextI].time = next0.time;
+        if (next0.duration === undefined) delete LINES[nextI].duration; else LINES[nextI].duration = next0.duration;
+      }
+    };
+
+    const apply = ev => {
+      const dx = ev.clientX - startX;
+      if (!clipDrag.active) {
+        if (Math.abs(dx) < DRAG_THRESHOLD_PX) return;
+        clipDrag.active = true;
+      }
+      restoreOrig();
+      const dt = dx / zoom;
+      const useSnap = snapEnabled !== ev.shiftKey; // Shift 暫時反轉磁吸
+      const roll = ev.altKey && mode !== "move";
+      clipDrag.rollIdx = -1;
+      let snap = null;
+
+      if (mode === "move") {
+        const gStart = orig.get(firstIdx).time;
+        const gEnd = Math.max(...group.map(k => orig.get(k).time + orig.get(k).dur));
+        let delta = dt;
+        if (useSnap) {
+          const edges = [];
+          group.forEach(k => { edges.push(orig.get(k).time + delta, orig.get(k).time + orig.get(k).dur + delta); });
+          snap = findSnap(edges, snapTargets);
+          if (snap) delta += snap.delta;
+        }
+        // 不越過前一句起點、不越過下一句起點；也不出界
+        const lo = Math.max(-gStart, prev0 ? prev0.time + 0.05 - gStart : -Infinity);
+        const hi = Math.min(songDuration - gEnd, next0 ? next0.time - 0.05 - orig.get(lastIdx).time : Infinity);
+        const clamped = Math.max(lo, Math.min(hi, delta));
+        if (clamped !== delta) snap = null;
+        delta = clamped;
+        group.forEach(k => {
+          const o = orig.get(k);
+          LINES[k].time = round(o.time + delta);
+          // 原本靠「延伸到下一句」決定長度的：仍碰得到下一句就維持自動延伸，否則固定原本長度，畫面才不會伸縮
+          if (o.duration == null && k === lastIdx) {
+            const reachesNext = next0 && o.time + delta + o.dur >= next0.time - 0.005 && next0.time - (o.time + delta) <= IMPLICIT_MAX_GAP;
+            if (!reachesNext) LINES[k].duration = round(o.dur);
+          }
+        });
+        lastSummary = group.length > 1
+          ? `🚚 ${group.length} 句 ${delta >= 0 ? "+" : ""}${delta.toFixed(2)}s`
+          : `#${idx + 1} ${fmt(LINES[idx].time)}（${delta >= 0 ? "+" : ""}${delta.toFixed(2)}s）`;
+      } else if (mode === "trim-left") {
+        let ns = origStart + dt;
+        if (useSnap) { snap = findSnap([ns], snapTargets); if (snap) ns = snap.at; }
+        // 前一句是「自動延伸」且剛好接著這句：本來就會跟著縮放，等同自動滾動編輯
+        const prevAuto = prev0 && prev0.duration == null && Math.abs(prev0.end - origStart) < 0.01;
+        const prevFloor = prev0 ? ((roll || prevAuto) ? prev0.time + MIN_CLIP : Math.min(prev0.end, origStart)) : 0;
+        const lo = Math.max(0, prevFloor);
+        const hi = origEnd - MIN_CLIP;
+        const clamped = Math.max(lo, Math.min(hi, ns));
+        if (clamped !== ns) snap = null;
+        ns = round(clamped);
+        LINES[idx].time = ns;
+        const implicitTouch = !hadExplicit && next0 && Math.abs(origEnd - next0.time) < 0.01 && next0.time - ns <= IMPLICIT_MAX_GAP;
+        if (!implicitTouch) LINES[idx].duration = round(origEnd - ns);
+        if ((roll || prevAuto) && prev0) {
+          if (!prevAuto) LINES[prevI].duration = round(ns - prev0.time);
+          clipDrag.rollIdx = prevI;
+        }
+        lastSummary = `#${idx + 1} 起點 ${fmt(ns)}（長 ${(origEnd - ns).toFixed(2)}s）${(roll || prevAuto) ? "・連動前一句" : ""}`;
+      } else {
+        let ne = origEnd + dt;
+        if (useSnap) { snap = findSnap([ne], snapTargets); if (snap) ne = snap.at; }
+        const lo = origStart + MIN_CLIP;
+        const hi = next0 ? (roll ? next0.end - MIN_CLIP : Math.max(next0.time, origEnd)) : songDuration;
+        const clamped = Math.max(lo, Math.min(hi, ne));
+        if (clamped !== ne) snap = null;
+        ne = round(clamped);
+        LINES[idx].duration = round(ne - origStart);
+        if (roll && next0) {
+          LINES[nextI].time = ne;
+          if (next0.duration != null) LINES[nextI].duration = round(next0.end - ne);
+          clipDrag.rollIdx = nextI;
+        }
+        // 剛好接到下一句起點時改回「自動延伸」，之後移動下一句時會自動跟著
+        if (next0 && Math.abs(ne - LINES[nextI].time) < 0.005 && LINES[nextI].time - origStart <= IMPLICIT_MAX_GAP) {
+          delete LINES[idx].duration;
+        }
+        lastSummary = `#${idx + 1} 終點 ${fmt(ne)}（長 ${(ne - origStart).toFixed(2)}s）${roll ? "・連動下一句" : ""}`;
+      }
+
+      renderSubtitleClips();
+      showSnapLine(snap ? snap.at : null);
+      const anchorT = mode === "trim-right" ? clipEnd(idx) : LINES[idx].time;
+      showTooltipAt(anchorT, snap
+        ? `<span style="color:#facc15;font-weight:800;">🧲 ${snap.label}</span>　${lastSummary}`
+        : lastSummary);
+      if (inspectorTimeLabel) inspectorTimeLabel.textContent = fmt(LINES[sel]?.time);
+    };
+
+    const onKey = ev => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        ev.stopPropagation();
+        cancelled = true;
+        finish();
+      }
+    };
+
+    const finish = () => {
+      window.removeEventListener("mousemove", apply);
+      window.removeEventListener("mouseup", finish);
+      window.removeEventListener("keydown", onKey, true);
+      isDraggingClip = false;
+      hideDragGuides();
+      const wasActive = clipDrag.active;
+      clipDrag = null;
+
+      if (cancelled) {
+        restoreOrig();
+        renderAll();
+        toast("已取消拖曳");
+        return;
+      }
+      if (!wasActive) {
+        // 只是點一下：選取而已，不改任何時間
+        renderAll();
+        return;
+      }
+      const changed = JSON.stringify(snapshot.lines) !== JSON.stringify(LINES);
+      if (changed) {
+        undoStack.push(snapshot);
+        if (undoStack.length > MAX_HISTORY) undoStack.shift();
+        redoStack = [];
+        updateUndoRedoUI();
+        save();
+        toast(`${lastSummary}・Ctrl+Z 可復原`);
+      }
+      renderAll();
+    };
+
+    window.addEventListener("mousemove", apply);
+    window.addEventListener("mouseup", finish);
+    window.addEventListener("keydown", onKey, true);
+  }
+
+  // ── I / O：把選取句的起點 / 終點設到播放指針（終點或起點固定不動） ──
+  function setInPoint() {
+    const l = LINES[sel];
+    if (!l) return;
+    const t = round(getCurrentTime());
+    pushHistory();
+    if (l.time != null) {
+      const end = clipEnd(sel);
+      const explicit = l.duration != null && l.duration > 0;
+      l.time = t;
+      if (explicit) {
+        if (end - t >= MIN_CLIP) l.duration = round(end - t);
+        else delete l.duration;
+      }
+    } else {
+      l.time = t;
+    }
+    save();
+    renderAll();
+    toast(`#${sel + 1} 起點設為 ${fmt(t)}`);
+  }
+
+  function setOutPoint() {
+    const l = LINES[sel];
+    if (!l || l.time == null) return toast("這句還沒有起點，先打點或按 I");
+    const t = round(getCurrentTime());
+    if (t - l.time < MIN_CLIP) return toast("指針要在這句起點之後才能設終點");
+    pushHistory();
+    l.duration = round(t - l.time);
+    save();
+    renderAll();
+    toast(`#${sel + 1} 終點設為 ${fmt(t)}（長 ${l.duration.toFixed(2)}s）`);
+  }
+
+  function toggleSnap(force) {
+    snapEnabled = force != null ? force : !snapEnabled;
+    store.set("timing-snap", snapEnabled ? "1" : "0");
+    const chk = $("chkSnap");
+    if (chk) chk.checked = snapEnabled;
+    toast(snapEnabled ? "🧲 磁吸對齊：開（拖曳時按住 Shift 暫時關閉）" : "磁吸對齊：關（拖曳時按住 Shift 暫時開啟）");
+  }
+  const chkSnap = $("chkSnap");
+  if (chkSnap) {
+    chkSnap.checked = snapEnabled;
+    chkSnap.addEventListener("change", () => toggleSnap(chkSnap.checked));
+  }
+
+  // ── 縮放：對數刻度滑桿，錨點（指針或滑鼠位置）縮放前後停在畫面同一處 ──
+  const ZOOM_MIN = 2, ZOOM_MAX = 400;
+  const zoomToSlider = z => Math.round(1000 * Math.log(z / ZOOM_MIN) / Math.log(ZOOM_MAX / ZOOM_MIN));
+  const sliderToZoom = v => ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, v / 1000);
+  if (zoomSlider) { zoomSlider.min = 0; zoomSlider.max = 1000; zoomSlider.step = 1; zoomSlider.value = zoomToSlider(zoom); }
+
+  function setZoom(newZoom, anchorT, anchorX) {
+    if (!timelineViewport) return;
+    const old = zoom;
+    zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
+    if (zoomSlider) zoomSlider.value = zoomToSlider(zoom);
+    if (anchorT == null) {
+      // 預設以指針為錨；指針不在畫面內就以畫面中央為錨
+      const pt = getCurrentTime();
+      const px = TIMELINE_PAD + pt * old - timelineViewport.scrollLeft;
+      if (px >= 0 && px <= timelineViewport.clientWidth) { anchorT = pt; anchorX = px; }
+      else {
+        anchorX = timelineViewport.clientWidth / 2;
+        anchorT = (timelineViewport.scrollLeft + anchorX - TIMELINE_PAD) / old;
+      }
+    }
     renderTimeline();
+    timelineViewport.scrollLeft = Math.max(0, TIMELINE_PAD + anchorT * zoom - anchorX);
+    renderCanvases();
     updatePlayheadUI(getCurrentTime());
   }
+  const zoomBy = factor => setZoom(zoom * factor);
 
   if (timelineViewport) {
     timelineViewport.addEventListener("wheel", e => {
       if (e.ctrlKey || e.altKey) {
         e.preventDefault();
-        // 以滑鼠所在時間點為中心縮放，畫面不會跳走
         const rect = timelineViewport.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const tAtMouse = (timelineViewport.scrollLeft + mouseX - TIMELINE_PAD) / zoom;
-        const delta = e.deltaY < 0 ? 5 : -5;
-        setZoom(zoom + delta);
-        timelineViewport.scrollLeft = Math.max(0, TIMELINE_PAD + tAtMouse * zoom - mouseX);
+        setZoom(zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15), tAtMouse, mouseX);
       } else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        // 一般滾輪 → 時間軸左右捲動
         e.preventDefault();
         timelineViewport.scrollLeft += e.deltaY;
+        userScrollUntil = performance.now() + 2000;
+      } else {
+        userScrollUntil = performance.now() + 2000;
       }
     }, { passive: false });
+    timelineViewport.addEventListener("scroll", scheduleCanvasRender, { passive: true });
   }
 
-  if (zoomSlider) zoomSlider.addEventListener("input", () => setZoom(+zoomSlider.value));
-  if (btnZoomIn) btnZoomIn.addEventListener("click", () => setZoom(zoom + 10));
-  if (btnZoomOut) btnZoomOut.addEventListener("click", () => setZoom(zoom - 10));
+  if (zoomSlider) zoomSlider.addEventListener("input", () => setZoom(sliderToZoom(+zoomSlider.value)));
+  if (btnZoomIn) btnZoomIn.addEventListener("click", () => zoomBy(1.4));
+  if (btnZoomOut) btnZoomOut.addEventListener("click", () => zoomBy(1 / 1.4));
 
-  if (btnZoomFit) {
-    btnZoomFit.addEventListener("click", () => {
-      if (!timelineViewport) return;
-      const viewWidth = timelineViewport.clientWidth - 40;
-      const fitZoom = Math.max(10, Math.min(180, viewWidth / songDuration));
-      setZoom(fitZoom);
-      timelineViewport.scrollLeft = 0;
-    });
+  function zoomToFit() {
+    if (!timelineViewport) return;
+    const viewWidth = timelineViewport.clientWidth - TIMELINE_PAD - 30;
+    setZoom(viewWidth / songDuration, 0, TIMELINE_PAD);
+    timelineViewport.scrollLeft = 0;
+    renderCanvases();
   }
-
-  if (btnZoomFocus) {
-    btnZoomFocus.addEventListener("click", () => {
-      const l = LINES[sel];
-      if (!l || l.time == null || !timelineViewport) return;
-      setZoom(60);
-      const targetX = TIMELINE_PAD + l.time * zoom;
-      timelineViewport.scrollLeft = Math.max(0, targetX - timelineViewport.clientWidth / 2);
-    });
+  function zoomToSelection() {
+    const idxs = [...selectedIndices].filter(k => LINES[k] && LINES[k].time != null);
+    if (!idxs.length || !timelineViewport) return toast("選取句還沒有時間");
+    const s = Math.min(...idxs.map(k => LINES[k].time));
+    const e2 = Math.max(...idxs.map(k => clipEnd(k)));
+    const span = Math.max(2, e2 - s + 1.5);
+    const viewWidth = timelineViewport.clientWidth;
+    setZoom(Math.min(ZOOM_MAX, (viewWidth * 0.8) / span), s, viewWidth * 0.1);
   }
+  btnZoomFit?.addEventListener("click", zoomToFit);
+  btnZoomFocus?.addEventListener("click", zoomToSelection);
 
   if (chkFollowPlayhead) {
     chkFollowPlayhead.addEventListener("change", () => {
@@ -2713,14 +2777,7 @@
   function getLoopRange() {
     const l = LINES[sel];
     if (!l || l.time == null) return null;
-    let end = null;
-    if (l.duration > 0) end = l.time + l.duration;
-    else {
-      for (let j = sel + 1; j < LINES.length; j++) {
-        if (LINES[j].time != null && LINES[j].time > l.time) { end = LINES[j].time; break; }
-      }
-      if (end == null || end - l.time > 10) end = l.time + 4;
-    }
+    const end = clipEnd(sel);
     return { start: Math.max(0, l.time - 0.5), end: Math.min(songDuration, end + 0.15) };
   }
 
@@ -2779,6 +2836,7 @@
 
   // ── 鍵盤快捷鍵監聽 ──
   window.addEventListener("keydown", e => {
+    const tgtEl = e.target instanceof Element ? e.target : document.body;
     // 彈窗優先：Esc 一律關閉；Enter 送出（貼上歌詞用 Ctrl+Enter）；其他快捷鍵停用
     if (isModalOpen()) {
       if (e.key === "Escape") {
@@ -2788,8 +2846,8 @@
       }
       if (e.key === "Enter" && !e.isComposing) {
         const modal = document.querySelector(".modal-overlay.active");
-        const inTextarea = e.target.tagName === "TEXTAREA";
-        if (modal && (!inTextarea || e.ctrlKey || e.metaKey) && !e.target.closest("button")) {
+        const inTextarea = tgtEl.tagName === "TEXTAREA";
+        if (modal && (!inTextarea || e.ctrlKey || e.metaKey) && !tgtEl.closest("button")) {
           const primary = modal.querySelector(".modal-footer .btn.primary");
           if (primary) {
             e.preventDefault();
@@ -2810,7 +2868,7 @@
 
     // Ctrl+Z: 復原 / 上一步
     if (isCtrlOrMeta && (e.key === "z" || e.key === "Z") && !e.shiftKey) {
-      if (!e.target.closest("input, textarea")) {
+      if (!tgtEl.closest("input, textarea")) {
         e.preventDefault();
         undo();
         return;
@@ -2820,7 +2878,7 @@
     // Ctrl+Y 或 Ctrl+Shift+Z: 重做 / 下一步
     if ((isCtrlOrMeta && (e.key === "y" || e.key === "Y")) ||
         (isCtrlOrMeta && e.shiftKey && (e.key === "z" || e.key === "Z"))) {
-      if (!e.target.closest("input, textarea")) {
+      if (!tgtEl.closest("input, textarea")) {
         e.preventDefault();
         redo();
         return;
@@ -2829,7 +2887,7 @@
 
     // Ctrl+D: 複製選取句
     if (isCtrlOrMeta && (e.key === "d" || e.key === "D")) {
-      if (!e.target.closest("input, textarea")) {
+      if (!tgtEl.closest("input, textarea")) {
         e.preventDefault();
         duplicateSelectedLine();
         return;
@@ -2838,7 +2896,7 @@
 
     // Ctrl+A: 全選所有歌詞
     if (isCtrlOrMeta && (e.key === "a" || e.key === "A")) {
-      if (!e.target.closest("input, textarea")) {
+      if (!tgtEl.closest("input, textarea")) {
         e.preventDefault();
         selectAll();
         return;
@@ -2846,7 +2904,7 @@
     }
 
     const isAltArrow = e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown");
-    if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || (e.altKey && !isAltArrow)) {
+    if (tgtEl.closest("input, textarea, select") || e.metaKey || e.ctrlKey || (e.altKey && !isAltArrow)) {
       return;
     }
 
@@ -2868,6 +2926,21 @@
     if (e.key === "r" || e.key === "R") {
       e.preventDefault();
       toggleLoop();
+      return;
+    }
+    if (e.key === "i" || e.key === "I") {
+      e.preventDefault();
+      setInPoint();
+      return;
+    }
+    if (e.key === "o" || e.key === "O") {
+      e.preventDefault();
+      setOutPoint();
+      return;
+    }
+    if (e.key === "s" || e.key === "S") {
+      e.preventDefault();
+      toggleSnap();
       return;
     }
     if (e.key === "e" || e.key === "E") {
@@ -2937,13 +3010,13 @@
 
     if (e.key === "+" || e.key === "=") {
       e.preventDefault();
-      setZoom(zoom + 10);
+      zoomBy(1.4);
       return;
     }
 
     if (e.key === "-" || e.key === "_") {
       e.preventDefault();
-      setZoom(zoom - 10);
+      zoomBy(1 / 1.4);
       return;
     }
 
@@ -3162,6 +3235,11 @@
     jumpToUntimed,
     selectToEnd,
     toggleLoop,
+    toggleSnap,
+    setInPoint,
+    setOutPoint,
+    setZoom,
+    getZoom: () => zoom,
     deleteSelectedLines,
     parsePastedLyrics,
     getCurrentTime,
