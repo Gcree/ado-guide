@@ -148,7 +148,7 @@ node scripts/build.mjs dist && node scripts/test-ui.mjs dist
 1. 改 `index.html`、`style.css`、`app.js`、`songs.js` 或 `song-lyrics.js`。
 2. 跑 `node scripts/check-data.mjs` 確認資料沒有格式或邏輯錯誤。
 3. 不用改快取版本字串：原始檔寫 `?v=dev`，建置時會依內容自動換成新的，手機不會讀到舊檔。
-4. 在 `CHANGELOG.md` 最上面加一段新版本（標題寫 `## vX.Y.Z — 日期`）；建置時頁尾版本號會自動換成這一版，不用手改 `index.html`。
+4. 在 `CHANGELOG.md` 寫更新內容（標題寫 `## vX.Y.Z — 日期`）：同一天的小更動加進當天那一版，當天還沒有就把第三碼 +1 開一版；新功能或大改版另開新版、第二碼 +1。建置時頁尾版本號會自動換成最上面那一版，不用手改 `index.html`。
 5. 新增歌曲時，`songs.js` 的 `SONGS` 加一筆、`song-lyrics.js` 加歌詞，就會自動多一個獨立頁、歌詞檔，並列進網站地圖。
 6. commit 並推到 `main`，GitHub Actions 會自動檢查並發布。
 
