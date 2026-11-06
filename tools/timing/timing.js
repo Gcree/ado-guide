@@ -2886,7 +2886,8 @@
 
     if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
       e.preventDefault();
-      btnDownload?.click();
+      if (canSaveToFile && btnSaveFile) saveToLyricsFile(e.shiftKey);
+      else btnDownload?.click();
       return;
     }
 
@@ -3209,6 +3210,96 @@
     });
   }
 
+  // ── 直接存回歌詞檔：用瀏覽器的資料夾存取權（Chrome / Edge）寫進專案的 song-lyrics.js / song-lyrics-live.js ──
+  // 第一次存檔選一次 Ado-guide 資料夾，之後記在 IndexedDB；寫入和檢查的規則跟 apply.mjs 共用 lyrics-store.js
+  const canSaveToFile = typeof window.showDirectoryPicker === "function" && !!window.LyricsStore;
+  const btnSaveFile = $("btnSaveFile");
+  let repoDir = null;
+
+  function idbKv(mode, fn) {
+    return new Promise((resolve, reject) => {
+      const open = indexedDB.open("timing-studio", 1);
+      open.onupgradeneeded = () => open.result.createObjectStore("kv");
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const tx = open.result.transaction("kv", mode), req = fn(tx.objectStore("kv"));
+        tx.oncomplete = () => { open.result.close(); resolve(req.result); };
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+  }
+
+  async function isRepoDir(dir) {
+    try { await dir.getFileHandle("song-lyrics.js"); await dir.getFileHandle("songs.js"); return true; } catch (e) { return false; }
+  }
+
+  async function getRepoDir(forcePick) {
+    let dir = forcePick ? null : repoDir || await idbKv("readonly", s => s.get("repo")).catch(() => null);
+    if (dir && dir.queryPermission) {
+      let perm = await dir.queryPermission({ mode: "readwrite" });
+      if (perm !== "granted") perm = await dir.requestPermission({ mode: "readwrite" });
+      if (perm !== "granted") dir = null;
+    }
+    if (!dir) {
+      toast("請選 Ado-guide 專案資料夾（有 song-lyrics.js 的那一層）");
+      dir = await window.showDirectoryPicker({ id: "ado-guide", mode: "readwrite" });
+    }
+    if (!await isRepoDir(dir)) throw new Error(`「${dir.name}」裡沒有 song-lyrics.js 和 songs.js，請選 Ado-guide 專案最上層的資料夾。`);
+    repoDir = dir;
+    idbKv("readwrite", s => s.put(dir, "repo")).catch(() => {});
+    return dir;
+  }
+
+  async function saveToLyricsFile(forcePick = false) {
+    if (!canSaveToFile) {
+      alert("這個瀏覽器不能直接寫檔（要用 Chrome 或 Edge）。\n請改按「下載 JSON」，再跑 node tools/timing/apply.mjs <檔案>。");
+      return;
+    }
+    if (!checkBeforeExport()) return;
+    const data = entry();
+    const { errors, warnings } = LyricsStore.validate(data, S);
+    if (errors.length) {
+      alert(`還不能存，有 ${errors.length} 個問題要先修正：\n\n• ${errors.slice(0, 10).join("\n• ")}${errors.length > 10 ? "\n…" : ""}`);
+      return;
+    }
+
+    let dir;
+    try {
+      dir = await getRepoDir(forcePick);
+    } catch (e) {
+      if (e.name !== "AbortError") alert(e.message);
+      return;
+    }
+
+    const file = LyricsStore.TARGETS[LyricsStore.kindOf(data)].file;
+    try {
+      const fh = await dir.getFileHandle(file);
+      const r = LyricsStore.merge(await (await fh.getFile()).text(), data);
+      if (r.unchanged) { toast(`${file} 裡的 ${data.id} 已經是這個版本，不用再存`); return; }
+      const label = currentVersionMode === "live" ? `現場版（${currentLiveItem?.concert || ""}）` : "MV 版";
+      const msg = `${r.replaced ? "更新" : "新增"}〈${S.ja}〉${label}\n→ ${dir.name}/${file}\n${r.replaced ? `${r.oldCount} 句 → ` : ""}${data.lyrics.length} 句` +
+        (warnings.length ? `\n\n提醒：\n• ${warnings.join("\n• ")}` : "") + "\n\n確定寫入嗎？";
+      if (!confirm(msg)) return;
+      const w = await fh.createWritable();
+      await w.write(r.text);
+      await w.close();
+
+      // 記憶體裡的已發布資料也換成剛存的版本，之後按「還原」會回到這裡
+      const list = r.kind === "live" ? LIVE_LYRICS : LYRICS;
+      const i = list.findIndex(x => x.id === data.id);
+      if (i >= 0) list[i] = data; else list.push(data);
+      ORIG = data.lyrics.map(l => ({ ...l }));
+      toast(`已寫入 ${file}（${data.lyrics.length} 句），記得 commit`);
+    } catch (e) {
+      alert(`存檔失敗：${e.message}`);
+    }
+  }
+
+  if (btnSaveFile) {
+    if (!canSaveToFile) btnSaveFile.title = "這個瀏覽器不能直接寫檔，請用 Chrome 或 Edge，或改按「下載 JSON」";
+    btnSaveFile.addEventListener("click", e => saveToLyricsFile(e.shiftKey));
+  }
+
   if (btnReset) {
     btnReset.addEventListener("click", () => {
       const modeLabel = currentVersionMode === "live" ? `現場版 (${currentLiveItem?.concert})` : "MV 原版";
@@ -3276,7 +3367,9 @@
     getMode: () => currentVersionMode,
     getDuration: () => songDuration,
     isDurationFromVideo: () => durationFromVideo,
-    getLiveItem: () => currentLiveItem
+    getLiveItem: () => currentLiveItem,
+    saveToLyricsFile,
+    _setRepoDir: dir => { repoDir = dir; }
   };
 
   // 啟動加載

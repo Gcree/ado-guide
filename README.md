@@ -45,7 +45,7 @@ assets/                     ← 網站圖示（favicon、主畫面圖示）、�
 scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致性、動作合法性、時間順序等
 scripts/test-ui.mjs         ← 畫面冒煙測試（Playwright）：開 dist/ 走一遍首頁、歌曲頁、分享、測驗模式、離線、手機版面
 scripts/build.mjs           ← 建置：中文、英文（en/）、日文（jp/）各一份首頁與每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
-tools/timing/               ← 歌詞對時工具（只在本機用，不會發布）：邊播 MV 邊按空白鍵打每句的時間，下載 JSON 後用 apply.mjs 寫回 song-lyrics.js
+tools/timing/               ← 歌詞對時工具（只在本機用，不會發布）：邊播 MV 邊按空白鍵打每句的時間，按「存回歌詞檔」直接寫回 song-lyrics.js / song-lyrics-live.js
 tools/romaji/               ← 英文版歌詞的羅馬拼音：建置前用 kuromoji 自動產生 song-romaji.json（不進版控），讀錯的寫在 overrides.json
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
 README.md                   ← 這份說明
@@ -103,7 +103,8 @@ node scripts/build.mjs dist
 1. 在專案資料夾開靜態伺服器（見上面），打開 <http://localhost:8000/tools/timing/>。
 2. 選歌。已經有歌詞的歌直接列出每一句；新歌先貼上歌詞（一行一句，日文和中譯中間用 Tab 隔開）。
 3. 播放影片，每句開始唱的時候按空白鍵；按錯按 Backspace 回上一句重打，`[` `]` 微調 0.05 秒，Enter 從那句前 2 秒重播檢查。反應時間（預設 150 毫秒）會先扣掉。進度存在這台電腦，重新整理不會不見。
-4. 按「下載 JSON」，再寫回歌詞檔（應援動作 acts、sing、call 會保留）：
+4. 按「存回歌詞檔」（或 Ctrl+S）。會先檢查時間順序、曲長、應援動作和合唱詞，沒問題才直接寫進 `song-lyrics.js`（MV 版）或 `song-lyrics-live.js`（現場版），其他歌一個字都不會動。第一次存要選一次 Ado-guide 資料夾，之後瀏覽器會記住；Shift+點擊可以重選。這個功能要用 Chrome 或 Edge。
+   - 其他瀏覽器改按「下載 JSON」，再寫回歌詞檔（檢查規則相同，應援動作 acts、sing、call 會保留）：
 
 ```bash
 node tools/timing/apply.mjs ~/Downloads/<id>.json

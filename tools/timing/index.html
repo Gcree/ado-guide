@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>歌詞對時工作台 (Timing Studio)｜Ado 應援指南</title>
-  <link rel="stylesheet" href="timing.css?v=20261106_3">
+  <link rel="stylesheet" href="timing.css?v=20261107_1">
 </head>
 <body>
   <div class="app-container">
@@ -71,9 +71,13 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </button>
         <button id="btnCopy" class="btn" title="複製 JSON 到剪貼簿">複製 JSON</button>
-        <button id="btnDownload" class="btn primary" title="下載對時 JSON 檔案">
+        <button id="btnDownload" class="btn" title="下載對時 JSON 檔案（之後用 node tools/timing/apply.mjs 寫回）">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           下載 JSON
+        </button>
+        <button id="btnSaveFile" class="btn primary" title="檢查後直接寫進專案的 song-lyrics.js / song-lyrics-live.js (Ctrl+S；Shift+點擊可重選資料夾)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          存回歌詞檔
         </button>
       </div>
     </header>
@@ -740,7 +744,7 @@
             </tr>
             <tr>
               <td><span class="hotkey-badge">Ctrl + S</span></td>
-              <td><b>下載 JSON</b></td>
+              <td><b>存回歌詞檔</b>（檢查後直接寫進 song-lyrics.js / song-lyrics-live.js；Shift 重選資料夾）</td>
             </tr>
             <tr>
               <td><span class="hotkey-badge">彈窗內 Enter / Esc</span></td>
@@ -785,9 +789,10 @@
   <div id="toast" role="status"></div>
 
   <!-- 資料來源 (加上版本號確保瀏覽器抓取最新檔案不讀舊快取) -->
-  <script src="../../songs.js?v=20261106_3"></script>
-  <script src="../../song-lyrics.js?v=20261106_3"></script>
-  <script src="../../song-lyrics-live.js?v=20261106_3"></script>
-  <script src="timing.js?v=20261106_3"></script>
+  <script src="../../songs.js?v=20261107_1"></script>
+  <script src="../../song-lyrics.js?v=20261107_1"></script>
+  <script src="../../song-lyrics-live.js?v=20261107_1"></script>
+  <script src="lyrics-store.js?v=20261107_1"></script>
+  <script src="timing.js?v=20261107_1"></script>
 </body>
 </html>
