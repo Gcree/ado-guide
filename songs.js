@@ -317,6 +317,30 @@
     { name: "動畫《CAT'S EYE 貓眼》", ids: ["magic", "catseye"] },
     { name: "《Adoの歌ってみたアルバム》", ids: ["unravel", "aishite", "kazarijanai", "kamippoina", "kawaikute", "tsumitobatsu", "dryflower", "villain", "burikino"] }
   ];
+  // Ado 小知識：首頁卡片隨機顯示；song＝相關歌曲（可點過去）。依日文維基百科「Ado (歌手)」、TVBS、NOWnews、Anime News Network 報導查證（2026-11），查不到的不收
+  const TRIVIA = [
+    { t: "Ado 的名字來自日本傳統戲劇「狂言」：主角叫「シテ」，配角叫「アド」。首張專輯也就叫《狂言》。" },
+    { t: "Ado 在自家衣櫃裡貼滿隔音材料，窩在裡面錄音，跟《孤獨搖滾！》的小孤獨一樣是「衣櫃派」。", song: "anobando" },
+    { t: "2017 年 1 月，14 歲的 Ado 在 niconico 投稿第一首翻唱〈君の体温〉，從翻唱 VOCALOID 歌曲起步。" },
+    { t: "出道曲〈うっせぇわ〉在 2020 年 10 月 23 日公開，剛好是 Ado 18 歲生日的前一天。", song: "usseewa" },
+    { t: "Ado 的生日是 10 月 24 日。2026 年生日當天，她公開了新歌〈患者A〉。", song: "kanjaa" },
+    { t: "Ado 很欣賞椎名林檎的唱法和表現方式，後來椎名林檎親自為她寫了電影《尋找身體》主題曲〈行方知れず〉。", song: "missing" },
+    { t: "Ado 最尊敬的歌手是中森明菜，也翻唱過中森明菜的名曲〈飾りじゃないのよ涙は〉。", song: "kazarijanai" },
+    { t: "Ado 不露臉，一方面是尊重 VOCALOID 創作者和翻唱歌手不露臉的文化，一方面是不想讓自己的外表變成商品。" },
+    { t: "代替 Ado 臉孔出現的形象插畫，是形象總監 ORIHARA 畫的。" },
+    { t: "演唱會上，Ado 站在金屬網圍成的籠子狀舞台裡，觀眾看到的是她的剪影。" },
+    { t: "2024 年 4 月的「心臓」公演，讓 Ado 成為第一位在國立競技場開唱的女性 solo 歌手，兩天約 14 萬人到場。", song: "sakura" },
+    { t: "〈新時代〉是第一首登上 Apple Music 全球排行榜冠軍的日本歌曲。", song: "shinjidai" },
+    { t: "Ado 的第一次世界巡演叫「Wish」，2024 年 2 月到 4 月共 14 場。" },
+    { t: "Ado 也當製作人，偶像團體ファントムシータ就是她一手打造的，2024 年 6 月以〈おともだち〉出道。" },
+    { t: "Ado 討厭的食物是肉醬（ミートソース）。" },
+    { t: "2024 年 2 月 Wish 世界巡演來到台北流行音樂中心，Ado 當時大讚台灣的「白色珍珠」很好吃。" },
+    { t: "Ado 逛台北安利美特時，剛好看到店裡有人拿著她的演唱會藍光，一行人趕緊溜出店外。她說其實心裡偷偷很開心。" },
+    { t: "巡演期間 Ado 買了好幾條台灣牙膏，因為裡面有可以放進嘴裡的星星亮片，日本沒看過。" },
+    { t: "2025 年再訪台灣時，Ado 說「短短幾天我就跑了兩次夜市」，快變成夜市通了。" },
+    { t: "2024 年 12 月，Ado 透露自己從同年 11 月起就搬到美國生活。" },
+    { t: "Ado 公開的身高是 157 公分。" }
+  ];
   SONGS.forEach(s => {
     s.credit = CREDIT[s.id] || null;
     s.lives = LIVES[s.id] || [];
@@ -332,5 +356,5 @@
       { name: "YouTube Music", url: `https://music.youtube.com/search?q=${q}` }
     ];
   });
-  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS, SERIES };
+  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS, SERIES, TRIVIA };
 });
