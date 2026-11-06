@@ -279,6 +279,14 @@
               <button type="button" class="quiz-pad" id="quizPad">按這裡</button>
               <p class="quiz-tip">該拍手、喊、唱、跳的時候按空白鍵或點「按這裡」。播放／暫停用 K。</p>
             </div>
+            <!-- 電腦版提示框下半部：框夠高才顯示（app.js 依高度決定），測驗中藏起來 -->
+            <div class="cue-more" id="cueMore" hidden>
+              <div class="cue-up" id="cueUpWrap" hidden>
+                <h3>接下來</h3>
+                <ol id="cueUp"></ol>
+              </div>
+              <div class="cue-track" id="cueTrack" role="group" aria-label="整首應援時間軸（點一下跳到那裡）" title="整首應援時間軸：點一下跳到那裡"></div>
+            </div>
           </section>
         </div>
 

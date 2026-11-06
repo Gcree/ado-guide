@@ -7494,9 +7494,10 @@ html[lang="ja"] body {
     grid-template-rows: auto 1fr;
   }
 
-  /* 提示框被撐高時內容集中在中間，不要一行一行被拉開 */
+  /* 提示框被撐高時：標題和現在的動作留在上面，下半部放「接下來」和整首時間軸 */
   body.on-song:not(.immersive-mode) .cue {
-    align-content: center;
+    position: relative;
+    align-content: start;
   }
 
   /* 螢幕越高版面越寬，MV 跟著放大：寬度約是「畫面高度扣掉頂欄、資訊列、提示框、工具列」換算成 16:9 影片的寬 */
@@ -7805,4 +7806,125 @@ body.immersive-mode .dock.autohide {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* ── 電腦版提示框下半部：「接下來」清單＋整首應援時間軸（app.js 依框的高度決定顯示幾樣） ── */
+.cue-more {
+  position: absolute;
+  left: var(--pad);
+  right: var(--pad);
+  bottom: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.cue-more[hidden],
+.cue-up[hidden] {
+  display: none;
+}
+
+.cue-up h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--faint);
+}
+
+.cue-up ol {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cue-up button {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  width: calc(100% + 20px);
+  margin: 0 -10px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--tr-color);
+}
+
+@media (hover: hover) {
+  .cue-up button:hover {
+    background: var(--fill);
+  }
+}
+
+.cue-up .when {
+  flex: none;
+  min-width: 64px;
+  color: var(--faint);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cue-up b {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--act, var(--text));
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cue-up li.end {
+  padding: 6px 0;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.cue-track {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--fill);
+  cursor: pointer;
+}
+
+.cue-track .segs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.cue-track .segs i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--act);
+  opacity: .85;
+}
+
+.cue-track .head {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  left: calc(var(--p, 0) * 100%);
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--text);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* 「接下來」清單出現時，上面那行「下一個」就不重複顯示 */
+.cue[data-more="up"] .next {
+  display: none;
+}
+
+/* 測驗中會洩題，藏起來 */
+.quiz-on .cue-more {
+  display: none !important;
 }

@@ -667,6 +667,8 @@
     return out.join("");
   }
   function renderLines() {
+    // 歌詞換了（換歌、切 MV／Live）：提示框下半部的時間軸重畫、重新看放不放得下
+    queueMicrotask(() => { trackSig = " "; upHtml = ""; fitCueMore(); });
     box.innerHTML = "";
     if (!lyHave(S)) { box.innerHTML = `<div class="empty"><span>${T("正在載入歌詞…")}</span></div>`; legend.innerHTML = ""; singJump.hidden = true; return; }
     if (!LINES.length) {
@@ -1173,6 +1175,18 @@
     if (!l.acts.length) return { key: li, acts: [], name: "", how: "", listen: true };
     return { key: li, acts: l.acts, name: cueLabel(l), how: l.acts.map(a => ACT[a].how).join("，"), claps: S.claps, beat: true };
   }
+  // 接下來的 n 個動作（同一個動作連續好幾句只算一次，安靜聽的句子跳過）
+  function nextChanges(t, n) {
+    const out = [], sig = l => l.acts.join(",") + cueLabel(l);
+    let prev = LINES[lineAt(t)];
+    for (let i = lineAt(t) + 1; i < LINES.length && out.length < n; i++) {
+      const l = LINES[i];
+      if (prev && sig(l) === sig(prev)) continue;
+      prev = l;
+      if (l.acts.length) out.push({ t: l.t, acts: l.acts, name: cueLabel(l) });
+    }
+    return out;
+  }
   function nextChange(t) {
     const li = lineAt(t), cur = LINES[li], sig = l => l.acts.join(",") + cueLabel(l);
     for (let i = li + 1; i < LINES.length; i++) {
@@ -1322,9 +1336,57 @@
 
   // 畫面更新
   const cueBox = document.querySelector(".cue"), cueIcon = document.getElementById("cueIcon"), cueName = document.getElementById("cueName"), cueHow = document.getElementById("cueHow"), cueNext = document.getElementById("cueNext");
+  // ── 電腦版提示框下半部：「接下來」清單＋整首應援時間軸。框夠高才顯示，框矮時只留大字提醒 ──
+  const cueMore = document.getElementById("cueMore"), cueUpWrap = document.getElementById("cueUpWrap"), cueUp = document.getElementById("cueUp"), cueTrack = document.getElementById("cueTrack");
+  let trackSig = "", trackDur = 0, upHtml = "";
+  // 時間軸：每段動作依歌詞時間畫成色塊（同一個動作連續的句子併成一段）
+  function buildTrack() {
+    const d = DUR();
+    const sig = S && LINES.length && TAGGED ? `${S.id}|${Math.round(d)}|${LINES.length}|${LINES[0].t}|${LINES[LINES.length - 1].t}` : "";
+    if (sig === trackSig) return;
+    trackSig = sig; trackDur = d;
+    if (!sig) { cueTrack.innerHTML = ""; return; }
+    const segs = [];
+    LINES.forEach((l, i) => {
+      const a = mainAct(l.acts);
+      if (!a || a === "listen") return;
+      const end = Math.min(d, LINES[i + 1] ? LINES[i + 1].t : l.t + 4), last = segs[segs.length - 1];
+      if (last && last.a === a && Math.abs(last.e - l.t) < .05) last.e = end; else segs.push({ a, s: l.t, e: end });
+    });
+    cueTrack.innerHTML = `<div class="segs">${segs.map(g => `<i class="a-${g.a}" style="left:${(g.s / d * 100).toFixed(2)}%;width:${Math.max(.5, (g.e - g.s) / d * 100).toFixed(2)}%"></i>`).join("")}</div><b class="head"></b>`;
+  }
+  // 依提示框剩下的高度決定顯示幾樣：上面留給標題和現在的動作（或大字提醒字卡）
+  function fitCueMore() {
+    const ok = !!(S && LINES.length && TAGGED) && cueBox.offsetParent !== null;
+    const room = ok ? cueBox.clientHeight - 190 : 0;
+    cueMore.hidden = room < 30;
+    cueUpWrap.hidden = room < 170;
+    cueBox.dataset.more = cueUpWrap.hidden ? (cueMore.hidden ? "" : "track") : "up";
+  }
+  if (window.ResizeObserver) new ResizeObserver(() => fitCueMore()).observe(cueBox);
+  function paintCueMore(t) {
+    if (cueMore.hidden) return;
+    buildTrack();
+    if (trackDur) cueTrack.style.setProperty("--p", Math.min(1, Math.max(0, t / trackDur)).toFixed(4));
+    if (cueUpWrap.hidden) return;
+    const html = nextChanges(t, 3).map(x => {
+      const left = x.t - t;
+      return `<li><button type="button" data-t="${x.t}" title="${esc(T("跳到 {0}", fmt(x.t)))}"><span class="when">${left <= 60 ? T("{0} 秒後", Math.max(1, Math.ceil(left))) : fmt(x.t)}</span><b class="a-${mainAct(x.acts)}">${esc(x.name)}</b></button></li>`;
+    }).join("") || `<li class="end">${T("這首的應援到這裡結束")}</li>`;
+    if (html !== upHtml) { cueUp.innerHTML = html; upHtml = html; }
+  }
+  // 點「接下來」的項目或時間軸：跳到那裡（動作前 2 秒，來得及準備）
+  cueUp.addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) seek(Math.max(0, +b.dataset.t - 2)); });
+  cueTrack.addEventListener("click", e => {
+    if (!trackDur) return;
+    const r = cueTrack.getBoundingClientRect();
+    seek(Math.max(0, (e.clientX - r.left) / r.width * trackDur - 1));
+  });
+
   function update() {
     if (!S || songV.hidden) return null;
     const t = now(), playing = isPlaying();
+    paintCueMore(t);
     document.getElementById("sTitle").classList.toggle("spinning", playing);
     if (SING.length) { singPrev.disabled = singAt(-1, t) == null; singNext.disabled = singAt(1, t) == null; }
     const started = playing || t > 0, cue = cueAt(t);
