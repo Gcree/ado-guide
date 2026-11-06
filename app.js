@@ -845,10 +845,8 @@
   function updateExternalLinks(s = S) {
     if (!s) return;
     const curYt = activeVideoId(s);
-    ["ytLink", "ytLink2"].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.href = `https://www.youtube.com/watch?v=${curYt}`;
-    });
+    const ytLink2 = document.getElementById("ytLink2");
+    if (ytLink2) ytLink2.href = `https://www.youtube.com/watch?v=${curYt}`;
     const cardYt = document.getElementById("cardYt");
     if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${curYt}`;
   }
@@ -1089,18 +1087,9 @@
     // 歌名前的小唱片：首頁唱片架飛過來的落點，播放時會轉
     document.getElementById("sTitle").innerHTML = (window.ADO_CD ? `<span class="sdisc" aria-hidden="true">${window.ADO_CD(s)}</span>` : "") + esc(s.ja) + (sub ? `<span lang="${LANG === "zh" && s.zh !== s.ja ? "zh-Hant-TW" : "en"}">${esc(sub)}</span>` : "");
     updateExternalLinks(s);
-    document.getElementById("lyLink").href = s.ut;
+    // 正版歌詞、現場音源、YouTube 連結都只放在「速覽」
+    document.getElementById("cardLyrics").href = s.ut;
     const lives = s.lives;
-    const liveOpt = document.getElementById("liveOpt");
-    if (liveOpt) {
-      liveOpt.hidden = lives.length === 0;
-      const liveList = document.getElementById("liveList");
-      if (liveList) {
-        liveList.innerHTML = lives.map(l =>
-          `<li><a href="https://www.youtube.com/watch?v=${l.yt}" target="_blank" rel="noopener"><span>${esc(l.concert)}</span><svg class="ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></li>`
-        ).join("");
-      }
-    }
     const p = penOf(s);
     document.getElementById("pen").innerHTML = T("螢光棒") + p.keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")
       + `<b>${p.keys.map(penName).join(T("、"))}${p.none ? T("（沒指定）") : ""}</b>`;

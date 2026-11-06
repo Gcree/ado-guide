@@ -258,11 +258,6 @@
             <div class="mvbar">
               <span class="pen" id="pen"></span>
               <span class="lamp-live-badge" id="lampLiveBadge" hidden title="已透過 PenlightSync 連動實體 Ado 手燈">手燈連動中</span>
-              <!-- 關聯曲：同一位創作者、同一部作品的歌，點了直接換歌 -->
-              <details class="vopt rel-opt" id="relOpt" hidden>
-                <summary aria-label="關聯曲"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg><span class="lbl">關聯曲</span><b id="relCount"></b></summary>
-                <div class="view-opts to-right rel-pop" id="relPop"></div>
-              </details>
               <div class="video-source-pill" id="videoSourcePill" hidden role="group" aria-label="影片版本">
                 <button type="button" class="source-opt active" data-video-source="mv" aria-pressed="true">MV</button>
                 <button type="button" class="source-opt" data-video-source="live" aria-pressed="false">Live</button>
@@ -311,8 +306,8 @@
         <button type="button" class="dock-btn wide-only" data-tool="click" id="tool-click" aria-pressed="false" title="這首沒有拍點資料時不能用"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21 10 3h4l3 18zM12 15l5-7"/></svg><span>拍點聲</span></button>
         <button type="button" class="dock-btn" id="alertTool" aria-pressed="true" aria-label="大字提醒" title="大字提醒：該應援時跳出大字卡"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span>提醒</span></button>
         <button type="button" class="dock-btn" id="toolQuiz" aria-pressed="false" title="測驗模式：藏起應援提示，自己按按看準不準（Q）"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg><span>測驗</span></button>
-        <button type="button" class="dock-btn icon wide-only" id="tool-immersive" aria-pressed="false" aria-label="沉浸模式" title="沉浸模式（F）"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
-        <button type="button" class="dock-btn icon wide-only" id="toolPipBtn" aria-pressed="false" aria-label="歌詞小窗" title="歌詞小窗（P）"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><rect x="11" y="9" width="9" height="7" rx="1"/></svg></button>
+        <button type="button" class="dock-btn wide-only" id="tool-immersive" aria-pressed="false" aria-label="沉浸模式" title="沉浸模式（F）"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><span>沉浸</span></button>
+        <button type="button" class="dock-btn wide-only" id="toolPipBtn" aria-pressed="false" aria-label="歌詞小窗" title="歌詞小窗（P）"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><rect x="11" y="9" width="9" height="7" rx="1"/></svg><span>小窗</span></button>
         <button type="button" class="dock-btn compact-only" id="dockDisp" aria-haspopup="dialog" aria-expanded="false" aria-controls="dispDlg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg><span>顯示</span></button>
         <button type="button" class="dock-btn" id="dockMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="moreDlg"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg><span>更多</span></button>
       </div>
@@ -446,6 +441,7 @@
       <dt>推薦燈色</dt><dd id="cardPen"></dd>
       <dt>應援重點</dt><dd id="cardTips"></dd>
       <dt>官方 MV</dt><dd><a id="cardYt" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd>
+      <dt>正版歌詞</dt><dd><a id="cardLyrics" target="_blank" rel="noopener">歌ネット ↗</a></dd>
       <dt>串流平台</dt><dd id="cardStream"></dd>
       <dt id="cardLiveDt" hidden>現場音源</dt><dd id="cardLiveDd" hidden></dd>
     </dl>
@@ -486,11 +482,13 @@
     <div class="sheet-grip" aria-hidden="true"></div>
     <h2 class="sheet-title" id="moreH">更多</h2>
     <div class="sheet-group compact-only">
+      <p class="sheet-h">練習</p>
       <button type="button" class="pop-item" data-tool="click" aria-pressed="false"><span>拍點聲</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" id="toolImmersiveMenuBtn" aria-pressed="false"><span>沉浸模式</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" id="toolPipMenuBtn" aria-pressed="false"><span>歌詞小窗</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
     </div>
     <div class="sheet-group">
+      <p class="sheet-h">播放</p>
       <button type="button" class="pop-item" data-tool="prefer-live" id="tool-prefer-live" aria-pressed="false"><span>優先播放 Live 版</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-tool="autonext" id="tool-autonext" aria-pressed="false"><span>播完自動下一首</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-tool="shuffle" id="tool-shuffle" aria-pressed="false"><span>隨機播放</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
@@ -498,17 +496,10 @@
       <button type="button" class="pop-item" data-opt="light" aria-pressed="true"><span>舞台燈光</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
     </div>
     <div class="sheet-group">
+      <p class="sheet-h">其他</p>
       <button type="button" class="pop-item" id="shareBtn"><span>分享目前時間</span></button>
       <button type="button" class="pop-item" id="reportBtn"><span>回報錯誤</span></button>
       <button type="button" class="pop-item" id="toolInstallBtn"><span>加到主畫面</span></button>
-    </div>
-    <div class="sheet-group" id="liveOpt" hidden>
-      <p class="sheet-h">現場音源</p>
-      <ul class="live-menu-list" id="liveList"></ul>
-    </div>
-    <div class="sheet-group">
-      <a class="pop-item" id="ytLink" target="_blank" rel="noopener"><span>在 YouTube 開啟</span><span class="pop-meta">↗</span></a>
-      <a class="pop-item" id="lyLink" target="_blank" rel="noopener"><span>正版歌詞</span><span class="pop-meta">↗</span></a>
     </div>
   </div>
 </dialog>
