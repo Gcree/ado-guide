@@ -3300,6 +3300,175 @@
     btnSaveFile.addEventListener("click", e => saveToLyricsFile(e.shiftKey));
   }
 
+  // ── 歌曲資料：網站上顯示、原本由 AI 補的部分（狀態、手燈色、應援動作、應援重點與翻譯、副歌高潮、LIVE 映像） ──
+  // 讀寫規則在 song-meta-store.js；存檔一樣寫進選好的 Ado-guide 資料夾
+  const modalSongMeta = $("modalSongMeta");
+  const PEN_INFO = { 青: ["藍", "#5d9dfe"], 水: ["水藍", "#5fd4ff"], 白: ["白", "#f2efe8"], 赤: ["紅", "#ff4a5a"], 桃: ["粉紅", "#ff7ab8"], 紫: ["紫", "#a374ff"], 橙: ["橘", "#ff9a3c"], 黄: ["黃", "#ffd84a"], 緑: ["綠", "#4ee08a"], 彩: ["彩色", ""] };
+  let metaDraft = null;
+
+  const ytIdOf = v => {
+    v = (v || "").trim();
+    const m = v.match(/(?:v=|youtu\.be\/|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/);
+    return m ? m[1] : v;
+  };
+
+  function setMetaMsg(text, kind = "") {
+    const el = $("metaMsg");
+    if (!el) return;
+    el.textContent = text;
+    el.className = `meta-msg ${kind}`;
+  }
+
+  // 面板裡的輸入 → metaDraft
+  function readMetaForm() {
+    const climax = $("metaClimax").value.trim();
+    const yt = ytIdOf($("metaLiveYt").value), concert = $("metaLiveConcert").value.trim();
+    metaDraft.climax = climax === "" ? null : Math.round(parseFloat(climax) * 100) / 100;
+    metaDraft.liveVideo = yt || concert ? { yt, concert } : null;
+    metaDraft.penGuess = $("metaPenGuess").checked;
+    metaDraft.tips = [...$("metaTips").querySelectorAll(".meta-tip")].map(row => ({
+      zh: row.querySelector(".zh").value.trim(),
+      en: row.querySelector(".en").value.trim(),
+      ja: row.querySelector(".ja").value.trim()
+    }));
+    return metaDraft;
+  }
+
+  function renderMetaForm() {
+    const d = metaDraft;
+    $("songMetaTitle").textContent = `🎨 歌曲資料｜${S.ja}（${S.id}）`;
+    $("metaStatus").querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.status === d.status));
+    $("metaPens").innerHTML = SongMetaStore.PEN_KEYS.map(k => {
+      const [name, col] = PEN_INFO[k], at = d.pen.indexOf(k);
+      return `<button type="button" data-pen="${k}" style="--c:${col || "#e2e8f0"}" class="${at >= 0 ? "active" : ""}"><i class="${k === "彩" ? "rb" : ""}"></i>${name}${at >= 0 ? `<b>${at + 1}</b>` : ""}</button>`;
+    }).join("");
+    $("metaPenPreview").textContent = d.pen ? `網站顯示：${[...d.pen].map(k => PEN_INFO[k][0]).join("、")}` : "網站顯示：藍（沒指定）";
+    $("metaPenGuess").checked = d.penGuess;
+    $("metaActs").querySelectorAll("[data-act]").forEach(b => b.classList.toggle("active", d.acts.includes(b.dataset.act)));
+    $("metaTips").innerHTML = d.tips.map(t => `<div class="meta-tip">
+        <input class="zh" type="text" placeholder="中文應援重點，例如：副歌一起喊「Hey」" value="${esc(t.zh)}">
+        <div class="tr"><input class="en" type="text" placeholder="English（選填）" value="${esc(t.en)}"><input class="ja" type="text" placeholder="日本語（選填）" value="${esc(t.ja)}"></div>
+        <div class="ops"><button type="button" data-op="up" title="上移">↑</button><button type="button" data-op="down" title="下移">↓</button><button type="button" data-op="del" title="刪除">✕</button></div>
+      </div>`).join("");
+    $("metaClimax").value = d.climax == null ? "" : d.climax;
+    $("metaLiveYt").value = d.liveVideo ? d.liveVideo.yt : "";
+    $("metaLiveConcert").value = d.liveVideo ? d.liveVideo.concert : "";
+    $("btnMetaClimaxNow").disabled = currentVersionMode !== "mv";
+  }
+
+  async function openSongMeta() {
+    if (!window.SongMetaStore || !modalSongMeta) return;
+    try {
+      // 每次打開都讀最新的檔案（剛存過、或在別處改過都會反映）
+      const get = f => fetch(`../../${f}?t=${Date.now()}`, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(`${f} 讀取失敗（${r.status}）`); return r.text(); });
+      const [songsSrc, i18nSrc] = await Promise.all([get("songs.js"), get("i18n.js")]);
+      metaDraft = SongMetaStore.readMeta(songsSrc, i18nSrc, S.id);
+    } catch (e) {
+      alert(`讀不到歌曲資料：${e.message}`);
+      return;
+    }
+    if (!metaDraft.tips.length) metaDraft.tips.push({ zh: "", en: "", ja: "" });
+    renderMetaForm();
+    setMetaMsg("");
+    modalSongMeta.classList.add("active");
+  }
+
+  async function saveSongMeta(forcePick = false) {
+    const d = { ...readMetaForm(), tips: metaDraft.tips.filter(t => t.zh) };
+    const { errors, warnings } = SongMetaStore.validate(d);
+    if (errors.length) { setMetaMsg(`還不能存：\n• ${errors.join("\n• ")}`, "err"); return; }
+    if (!canSaveToFile) { setMetaMsg("這個瀏覽器不能直接寫檔，請用 Chrome 或 Edge。", "err"); return; }
+
+    let dir;
+    try { dir = await getRepoDir(forcePick); } catch (e) { if (e.name !== "AbortError") setMetaMsg(e.message, "err"); return; }
+    try {
+      const songsFh = await dir.getFileHandle("songs.js"), i18nFh = await dir.getFileHandle("i18n.js");
+      const r = SongMetaStore.applyMeta(await (await songsFh.getFile()).text(), await (await i18nFh.getFile()).text(), d);
+      if (!r.changes.length) { setMetaMsg("跟檔案裡的一樣，沒有要存的變更。"); return; }
+      const msg = `〈${S.ja}〉要寫入 ${dir.name}/${r.songsChanged ? "songs.js" : ""}${r.songsChanged && r.i18nChanged ? "、" : ""}${r.i18nChanged ? "i18n.js" : ""}：\n• ${r.changes.join("\n• ")}` +
+        (warnings.length ? `\n\n提醒：\n• ${warnings.join("\n• ")}` : "") + "\n\n確定寫入嗎？";
+      if (!confirm(msg)) return;
+      const write = async (fh, text) => { const w = await fh.createWritable(); await w.write(text); await w.close(); };
+      if (r.songsChanged) await write(songsFh, r.songs);
+      if (r.i18nChanged) await write(i18nFh, r.i18n);
+
+      // 同步工作台記憶體裡的這首歌；LIVE 映像有變就重新整理現場版選單
+      const liveChanged = JSON.stringify(S.liveVideo ? { yt: S.liveVideo.yt, concert: S.liveVideo.concert } : null) !== JSON.stringify(d.liveVideo);
+      ["sug", "free", "hold"].forEach(k => delete S[k]);
+      if (d.status) S[d.status] = true;
+      S.acts = d.acts.slice();
+      S.tips = d.tips.map(t => t.zh);
+      S.liveVideo = d.liveVideo ? { ...(S.liveVideo || {}), ...d.liveVideo } : null;
+      modalSongMeta.classList.remove("active");
+      if (liveChanged) pickSong(S.id, currentVersionMode, currentLiveItem?.yt);
+      toast(`已寫入歌曲資料（${r.changes.length} 項），記得 commit`);
+    } catch (e) {
+      setMetaMsg(`存檔失敗：${e.message}`, "err");
+    }
+  }
+
+  if (modalSongMeta && window.SongMetaStore) {
+    $("btnSongMeta")?.addEventListener("click", openSongMeta);
+    $("btnCloseSongMeta")?.addEventListener("click", () => modalSongMeta.classList.remove("active"));
+    $("btnCancelSongMeta")?.addEventListener("click", () => modalSongMeta.classList.remove("active"));
+    $("btnSaveSongMeta")?.addEventListener("click", e => saveSongMeta(e.shiftKey));
+    $("metaStatus").addEventListener("click", e => {
+      const b = e.target.closest("[data-status]");
+      if (!b) return;
+      readMetaForm();
+      metaDraft.status = b.dataset.status;
+      renderMetaForm();
+    });
+    $("metaPens").addEventListener("click", e => {
+      const b = e.target.closest("[data-pen]");
+      if (!b) return;
+      readMetaForm();
+      const k = b.dataset.pen;
+      metaDraft.pen = metaDraft.pen.includes(k) ? metaDraft.pen.replace(k, "") : metaDraft.pen + k;
+      renderMetaForm();
+    });
+    $("metaActs").addEventListener("click", e => {
+      const b = e.target.closest("[data-act]");
+      if (!b) return;
+      readMetaForm();
+      const a = b.dataset.act;
+      metaDraft.acts = metaDraft.acts.includes(a) ? metaDraft.acts.filter(x => x !== a) : ACT_KEYS.filter(x => x === a || metaDraft.acts.includes(x));
+      renderMetaForm();
+    });
+    $("btnMetaActsFromLines").addEventListener("click", () => {
+      readMetaForm();
+      const used = new Set(LINES.flatMap(l => l.acts || []));
+      if (!used.size) { setMetaMsg("目前的逐行歌詞還沒有標應援動作。", "warn"); return; }
+      metaDraft.acts = ACT_KEYS.filter(a => used.has(a));
+      renderMetaForm();
+      setMetaMsg(`已依${currentVersionMode === "live" ? "現場版" : "MV 版"}逐行歌詞帶入：${metaDraft.acts.join(", ")}`);
+    });
+    $("btnMetaAddTip").addEventListener("click", () => {
+      readMetaForm();
+      metaDraft.tips.push({ zh: "", en: "", ja: "" });
+      renderMetaForm();
+      const rows = $("metaTips").querySelectorAll(".meta-tip .zh");
+      rows[rows.length - 1]?.focus();
+    });
+    $("metaTips").addEventListener("click", e => {
+      const b = e.target.closest("[data-op]");
+      if (!b) return;
+      readMetaForm();
+      const i = [...$("metaTips").children].indexOf(b.closest(".meta-tip")), t = metaDraft.tips;
+      if (b.dataset.op === "del") t.splice(i, 1);
+      else {
+        const j = b.dataset.op === "up" ? i - 1 : i + 1;
+        if (j < 0 || j >= t.length) return;
+        [t[i], t[j]] = [t[j], t[i]];
+      }
+      if (!t.length) t.push({ zh: "", en: "", ja: "" });
+      renderMetaForm();
+    });
+    $("btnMetaClimaxNow").addEventListener("click", () => {
+      $("metaClimax").value = (Math.round(getCurrentTime() * 100) / 100).toFixed(2);
+    });
+  }
+
   if (btnReset) {
     btnReset.addEventListener("click", () => {
       const modeLabel = currentVersionMode === "live" ? `現場版 (${currentLiveItem?.concert})` : "MV 原版";
@@ -3369,6 +3538,8 @@
     isDurationFromVideo: () => durationFromVideo,
     getLiveItem: () => currentLiveItem,
     saveToLyricsFile,
+    openSongMeta,
+    saveSongMeta,
     _setRepoDir: dir => { repoDir = dir; }
   };
 

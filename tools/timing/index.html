@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>歌詞對時工作台 (Timing Studio)｜Ado 應援指南</title>
-  <link rel="stylesheet" href="timing.css?v=20261107_1">
+  <link rel="stylesheet" href="timing.css?v=20261107_2">
 </head>
 <body>
   <div class="app-container">
@@ -67,6 +67,7 @@
           貼上新詞
         </button>
         <button id="btnReset" class="btn danger" title="丟掉本機儲存的進度，回到原始檔">還原</button>
+        <button id="btnSongMeta" class="btn" title="編輯網站上顯示的歌曲資料：手燈色、應援重點、應援動作、狀態、副歌高潮、LIVE 映像">🎨 歌曲資料</button>
         <button id="btnHotkeys" class="btn icon-only" title="鍵盤快捷鍵說明 (按 ? 鍵)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </button>
@@ -442,6 +443,78 @@
   </div>
 
   <!-- 編輯單句文字彈窗 -->
+  <!-- 歌曲資料：網站上顯示、原本由 AI 補的部分（songs.js、i18n.js） -->
+  <div id="modalSongMeta" class="modal-overlay">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 id="songMetaTitle">🎨 歌曲資料</h3>
+        <button id="btnCloseSongMeta" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body meta-body">
+        <section class="meta-section">
+          <div class="meta-label">狀態</div>
+          <div class="meta-seg" id="metaStatus">
+            <button type="button" data-status="">✅ 正式（網站顯示應援）</button>
+            <button type="button" data-status="sug">💭 暫定建議（不顯示）</button>
+            <button type="button" data-status="free">🎶 自由應援</button>
+            <button type="button" data-status="hold">⏳ 整理中（不顯示）</button>
+          </div>
+        </section>
+
+        <section class="meta-section">
+          <div class="meta-label">🔦 手燈色 <span class="meta-hint">依點選順序排列，再點一次取消；都不選時網站顯示藍色</span></div>
+          <div class="meta-pens" id="metaPens"></div>
+          <div class="meta-pen-preview" id="metaPenPreview"></div>
+          <label class="meta-check"><input type="checkbox" id="metaPenGuess"> 只是預測（不在網站上顯示）</label>
+        </section>
+
+        <section class="meta-section">
+          <div class="meta-label">🏷️ 應援動作 <span class="meta-hint">歌曲卡片上的動作圖示</span>
+            <button type="button" id="btnMetaActsFromLines" class="btn btn-mini">從逐行歌詞帶入</button>
+          </div>
+          <div class="modal-act-buttons" id="metaActs">
+            <button type="button" class="modal-act-btn act-sing" data-act="sing">🎤 大合唱</button>
+            <button type="button" class="modal-act-btn act-call" data-act="call">🗣 喊聲</button>
+            <button type="button" class="modal-act-btn act-clap" data-act="clap">👏 拍手</button>
+            <button type="button" class="modal-act-btn act-wave" data-act="wave">👋 揮手</button>
+            <button type="button" class="modal-act-btn act-jump" data-act="jump">🦘 跳躍</button>
+            <button type="button" class="modal-act-btn act-gesture" data-act="gesture">👉 手勢</button>
+            <button type="button" class="modal-act-btn act-listen" data-act="listen">🎧 安靜聽</button>
+          </div>
+        </section>
+
+        <section class="meta-section">
+          <div class="meta-label">📝 應援重點 <span class="meta-hint">英文、日文翻譯選填，沒填的語言會顯示中文</span></div>
+          <div id="metaTips" class="meta-tips"></div>
+          <button type="button" id="btnMetaAddTip" class="btn btn-mini">＋ 新增一條</button>
+        </section>
+
+        <section class="meta-section meta-row2">
+          <div>
+            <div class="meta-label">🔥 副歌高潮 <span class="meta-hint">MV 時間，秒</span></div>
+            <div class="meta-inline">
+              <input id="metaClimax" type="number" step="0.01" min="0" placeholder="不指定">
+              <button type="button" id="btnMetaClimaxNow" class="btn btn-mini" title="只有在 MV 版時可用">用目前時間</button>
+            </div>
+          </div>
+          <div>
+            <div class="meta-label">🎬 官方 LIVE 映像 <span class="meta-hint">留空＝沒有</span></div>
+            <div class="meta-inline">
+              <input id="metaLiveYt" type="text" placeholder="YouTube 網址或 11 碼 ID">
+              <input id="metaLiveConcert" type="text" placeholder="演唱會，例如 さいたま (2025)">
+            </div>
+          </div>
+        </section>
+        <div id="metaMsg" class="meta-msg"></div>
+      </div>
+      <div class="modal-footer">
+        <span class="meta-foot-hint">寫進 songs.js（翻譯寫進 i18n.js），其他歌不會動</span>
+        <button id="btnCancelSongMeta" class="btn">取消</button>
+        <button id="btnSaveSongMeta" class="btn primary">存回 songs.js</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modalEditLine" class="modal-overlay">
     <div class="modal-card" style="max-width: 500px;">
       <div class="modal-header">
@@ -789,10 +862,11 @@
   <div id="toast" role="status"></div>
 
   <!-- 資料來源 (加上版本號確保瀏覽器抓取最新檔案不讀舊快取) -->
-  <script src="../../songs.js?v=20261107_1"></script>
-  <script src="../../song-lyrics.js?v=20261107_1"></script>
-  <script src="../../song-lyrics-live.js?v=20261107_1"></script>
-  <script src="lyrics-store.js?v=20261107_1"></script>
-  <script src="timing.js?v=20261107_1"></script>
+  <script src="../../songs.js?v=20261107_2"></script>
+  <script src="../../song-lyrics.js?v=20261107_2"></script>
+  <script src="../../song-lyrics-live.js?v=20261107_2"></script>
+  <script src="lyrics-store.js?v=20261107_2"></script>
+  <script src="song-meta-store.js?v=20261107_2"></script>
+  <script src="timing.js?v=20261107_2"></script>
 </body>
 </html>
