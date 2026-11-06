@@ -5580,11 +5580,11 @@ html:not(.on-song) #fx {
 }
 
 /* 左品牌＋說明、右三組連結；窄畫面上下疊 */
-/* 桌機：品牌＋四組連結排成 5 欄（.foot-links 用 display: contents 讓四組直接當 .foot-top 的欄） */
+/* 桌機：品牌＋五組連結排成 6 欄（.foot-links 用 display: contents 讓五組直接當 .foot-top 的欄） */
 .foot-top {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) repeat(4, minmax(0, auto));
-  gap: 32px 40px;
+  grid-template-columns: minmax(220px, 1fr) repeat(5, minmax(0, auto));
+  gap: 32px 32px;
 }
 
 .foot-brand {
@@ -5789,7 +5789,7 @@ html:not(.on-song) #fx {
 
   .foot-links {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 28px 32px;
   }
 }
@@ -5813,10 +5813,6 @@ html:not(.on-song) #fx {
 
   .foot-links {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .foot-links .foot-nav:last-child {
-    grid-column: 1 / -1;
   }
 
   /* 手機上 Get in touch 自己一列，兩個帳號橫排 */

@@ -1150,13 +1150,15 @@
       const penText = p.keys.map(penName).join(T("、")) + (p.none ? T("（未指定，建議用代表色藍色）") : "");
       document.getElementById("cardPen").textContent = penText;
       const aka = LANG === "zh" ? [...new Set([s.zh !== s.ja ? s.zh : "", ...(s.alias || []), s.en && s.en !== s.ja ? s.en : ""].filter(Boolean))].join("・") : LANG === "en" ? [s.ro && s.ro !== s.en ? s.ro : ""].filter(Boolean).join("・") : "";
-      [["cardAka", aka], ["cardTie", s.tie ? T(s.tie) : ""]].forEach(([k, v]) => {
+      [["cardAka", aka], ["cardTie", s.tie ? T(s.tie) : ""], ["cardAlbum", s.album ? T(s.album) : ""], ["cardDate", (s.date || "").replace(/-/g, "/")]].forEach(([k, v]) => {
         const dt = document.getElementById(k + "Dt"), dd = document.getElementById(k + "Dd");
         if (dt && dd) { dd.textContent = v; dt.hidden = dd.hidden = !v; }
       });
       document.getElementById("cardTips").textContent = s.tips && s.tips.length ? s.tips.join("；") : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。"));
       const cardYt = document.getElementById("cardYt");
       if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${activeVideoId(s)}`;
+      const cardStream = document.getElementById("cardStream");
+      if (cardStream) cardStream.innerHTML = (s.stream || []).map(x => `<a href="${x.url}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ");
       const cardLiveDt = document.getElementById("cardLiveDt");
       const cardLiveDd = document.getElementById("cardLiveDd");
       if (cardLiveDt && cardLiveDd) {

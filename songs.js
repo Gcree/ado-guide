@@ -196,8 +196,35 @@
     shinjidai: "《航海王劇場版：紅髮歌姬》主題曲", saikyo: "《航海王劇場版：紅髮歌姬》插曲", gyakkou: "《航海王劇場版：紅髮歌姬》插曲",
     utakata: "《航海王劇場版：紅髮歌姬》插曲", totmusica: "《航海王劇場版：紅髮歌姬》插曲", sekai: "《航海王劇場版：紅髮歌姬》插曲",
     kaze: "《航海王劇場版：紅髮歌姬》插曲", kurakura: "《SPY×FAMILY 間諜家家酒》片頭曲", show: "日本環球影城 2023 萬聖節主題曲",
-    shinka: "《惡魔的紋章》片頭曲"
+    shinka: "《惡魔的紋章》片頭曲",
+    // 以下依日文維基百科「タイアップ一覧」補上（2026-11 查證）
+    readymade: "ABEMA《ABEMA Prime》片尾曲", odo: "NHK《夜光音樂》主題曲",
+    pierrot: "MBS 日劇《初情事まであと1時間》片頭曲", aitakute: "電影《輝夜姬想讓人告白 最終章》插曲",
+    ashura: "朝日電視台《派遣女醫X》第 7 季主題曲", kokoro: "日劇《Doctor White》主題曲",
+    motherland: "TBS 2022 冬季運動主題曲", missing: "電影《尋找身體》主題曲", rebellion: "電影《尋找身體》插曲",
+    hanabi: "JR 西日本「ハルタビAdo」宣傳曲", ibara: "富士電視台《めざましテレビ》主題曲",
+    himawari: "TBS 日劇《18/40～ふたりなら夢も恋も～》主題曲", dignity: "電影《沉默的艦隊》主題曲",
+    radio: "舞台劇《あの夜であえたら》主題曲", hellosignals: "SoftBank 廣告曲",
+    chocolat: "LOTTE 巧克力 60 週年廣告曲", kittocoaster: "Ado × 藏壽司 原創主題曲",
+    rule: "富士電視台日劇《ビリオン×スクール》主題曲", episodex: "電影《劇場版 Doctor-X》主題曲",
+    elf: "TBS 日劇《クジャクのダンス、誰が見た？》主題曲", rockstar: "丸紅企業廣告曲", hanataba: "GEORGIA 咖啡廣告曲",
+    staygold: "動畫《BEYBLADE X》片尾曲", kitaro: "富士電視台《ゲゲゲの鬼太郎》特別節目片頭曲",
+    magic: "Disney+ 動畫《CAT'S EYE 貓眼》片頭曲", catseye: "Disney+ 動畫《CAT'S EYE 貓眼》片尾曲",
+    kazetowatashi: "電影《沉默的艦隊 北極海大海戰》主題曲", ponpokorin: "富士電視台《櫻桃小丸子》片頭曲",
+    angelseek: "富士電視台月九日劇《ヤンドク!》主題曲", haruni: "ABEMA《今天，喜歡上你了。》主題曲",
+    sukideite: "ABEMA《今天，喜歡上你了。》插曲", kira: "adidas 日本足球代表隊 2026 球衣形象曲",
+    monstruo: "電影《藍色監獄》主題曲", lovemeforever: "Switch《節奏天國 奇蹟之星》遊戲收錄曲",
+    dnd: "三麗鷗 KUROMI 合作曲", ravensky: "電影《Bad Lieutenant: Tokyo》主題曲"
   };
+  // 收錄專輯（錄音室專輯與官方企劃專輯；依維基百科曲目表）
+  const ALBUMS = [
+    { name: "《狂言》（2022）", ids: ["readymade", "odo", "domestic", "freedom", "hanabi", "aitakute", "luckybruto", "giragira", "ashura", "kokoro", "usseewa", "motherland", "kagakushu", "pierrot"] },
+    { name: "《残夢》（2024）", ids: ["nukegara", "missing", "dignity", "chocolat", "kurakura", "mondaisaku", "rebellion", "radio", "himawari", "akuruhi", "mirror", "rule", "show", "ibara", "value", "zero"] },
+    { name: "《ウタの歌 ONE PIECE FILM RED》（2022）", ids: ["shinjidai", "saikyo", "gyakkou", "utakata", "totmusica", "sekai", "kaze"] },
+    { name: "《Adoの歌ってみたアルバム》（2023）", ids: ["dryflower", "kazarijanai", "aishite", "tsumitobatsu", "kawaikute", "villain", "kamippoina", "unravel", "burikino", "hotaru"] }
+  ];
+  const ALBUM = {};
+  ALBUMS.forEach(a => a.ids.forEach(id => { ALBUM[id] = a.name; }));
   // 詞曲：w 作詞、c 作曲、a 編曲（只寫跟作曲不同、而且跟別首有關的）；x 本站沒收、但 Ado 也唱過的同作者作品
   // 整理自 ADO_SONGS_CREDITS.md。名字後面括號裡的團名／本名只顯示，比對時拿掉，所以同一個人要寫成一樣的名字才會串起來
   const CREDIT = {
@@ -296,6 +323,14 @@
     s.liveVideo = LIVE_VIDEOS[s.id] || null;
     s.alias = ALIAS[s.id] || [];
     s.tie = TIE[s.id] || "";
+    s.album = ALBUM[s.id] || "";
+    // 串流平台：沒有每首的正式編號，用各平台的搜尋頁
+    const q = encodeURIComponent("Ado " + s.ja);
+    s.stream = [
+      { name: "Spotify", url: `https://open.spotify.com/search/${q}` },
+      { name: "Apple Music", url: `https://music.apple.com/search?term=${q}` },
+      { name: "YouTube Music", url: `https://music.youtube.com/search?q=${q}` }
+    ];
   });
   return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS, SERIES };
 });
