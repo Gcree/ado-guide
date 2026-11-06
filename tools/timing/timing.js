@@ -103,6 +103,8 @@
   }
 
   const { SONGS, LYRICS } = await loadDataSources();
+  // 已發布的現場版時間軸（song-lyrics-live.js，網站用 baseId 對應歌曲）
+  const LIVE_LYRICS = Array.isArray(window.SONG_LYRICS_LIVE) ? window.SONG_LYRICS_LIVE : [];
 
   // 若依然拿不到歌曲資料，顯示警示橫幅
   const dataLoadErrorBanner = $("dataLoadErrorBanner");
@@ -273,6 +275,7 @@
   let liveList = []; // 當前歌曲所有可選現場版
 
   let songDuration = 200; // 秒
+  let durationFromVideo = false; // 現場版：已從 YouTube 播放器取得影片實際長度
   let LINES = [];
   let ORIG = [];
   let sel = 0;
@@ -546,6 +549,23 @@
     }
   }
 
+  // 現場版：以 YouTube 影片實際長度為準（MV 的 len 不適用）
+  function syncDurationFromPlayer() {
+    if (currentVersionMode !== "live" || durationFromVideo || !ytPlayer || !playerReady || playerError) return;
+    try {
+      if (ytPlayer.getVideoData?.().video_id !== activeYtId()) return;
+      const d = ytPlayer.getDuration?.();
+      if (!(d > 0)) return;
+      durationFromVideo = true;
+      if (Math.abs(d - songDuration) < 0.05) return;
+      songDuration = round(d);
+      if (tcTotal) tcTotal.textContent = fmt(songDuration);
+      renderTimeline();
+      updatePlayheadUI(getCurrentTime());
+    } catch (e) {}
+  }
+  setInterval(syncDurationFromPlayer, 1000);
+
   window.onYouTubeIframeAPIReady = loadVideo;
   if (!window.YT) {
     const yts = document.createElement("script");
@@ -671,11 +691,16 @@
         saved = JSON.parse(store.get(lsKey()) || "null");
       } catch (e) {}
 
-      // 如果還沒有現場版對時資料，檢查是否有以 -live 結尾的資料
-      const liveBuilt = LYRICS.find(x => x.id === `${S.id}-live`);
+      // 已發布的現場版資料：同一首歌、同一支影片才帶入（換場次不能沿用別場的時間）
+      const liveBuilt = LIVE_LYRICS.find(x => (x.baseId || x.id.replace(/-live$/, "")) === S.id && x.youtubeId === currentLiveItem.yt);
       ORIG = liveBuilt && liveBuilt.lyrics ? liveBuilt.lyrics.map(l => ({ ...l })) : [];
 
       LINES = (Array.isArray(saved) && saved.length > 0) ? saved : ORIG.map(l => ({ ...l }));
+
+      // 現場版長度和 MV 不同：先用「MV 長度、已發布長度、最後一句 +10 秒」中最長的暫代，
+      // 播放器載入影片後會改成影片實際長度（syncDurationFromPlayer）
+      const lastTime = LINES.reduce((m, l) => (l.time != null && l.time > m ? l.time : m), 0);
+      songDuration = Math.max(songDuration, liveBuilt?.duration || 0, lastTime ? lastTime + 10 : 0);
 
       // 如果完全沒有資料，顯示引導橫幅
       if (!LINES.length) {
@@ -706,6 +731,7 @@
       LINES = (Array.isArray(saved) && saved.length > 0) ? saved : ORIG.map(l => ({ ...l }));
     }
 
+    durationFromVideo = false;
     if (tcTotal) tcTotal.textContent = fmt(songDuration);
 
     sel = Math.max(0, LINES.findIndex(l => l.time == null));
@@ -3112,7 +3138,7 @@
         title: `${S.ja} (${currentLiveItem.concert})`,
         concert: currentLiveItem.concert,
         youtubeId: activeYtId(),
-        duration: songDuration,
+        duration: Math.round(songDuration),
         lyrics: lines
       };
     }
@@ -3248,6 +3274,8 @@
     getSelectedIndices: () => Array.from(selectedIndices),
     getSongs: () => songs,
     getMode: () => currentVersionMode,
+    getDuration: () => songDuration,
+    isDurationFromVideo: () => durationFromVideo,
     getLiveItem: () => currentLiveItem
   };
 
