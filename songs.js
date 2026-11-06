@@ -120,6 +120,7 @@
     kaze: { yt: "iDvuZ7mRiJ0", concert: "大阪・関西万博 (2025)" },
     sakura: { yt: "Vrr2gFTYMGQ", concert: "国立競技場 (2024)" },
     unravel: { yt: "khplMpm4ctc", concert: "日本武道館 (2023)" },
+    hibana: { yt: "JsZASL6V0QU", concert: "さいたま (2025)" },
     kira: { yt: "Cjtt_BlQ6Us", concert: "Rose Bowl (2024)" }
   };
   // 歷年演唱會現場音源（官方 YouTube 釋出版本，依年代由新至舊）

@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>歌詞對時工作台 (Timing Studio)｜Ado 應援指南</title>
-  <link rel="stylesheet" href="timing.css?v=20261105_2">
+  <link rel="stylesheet" href="timing.css?v=20261106_1">
 </head>
 <body>
   <div class="app-container">
@@ -142,6 +142,12 @@
               <button id="btnPreviewLine" class="transport-btn" title="試聽選取句：從前 2 秒播放 (Enter)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
               </button>
+              <button id="btnLoopLine" class="transport-btn" title="循環播放選取句，搭配 [ ] 微調最順手 (R)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+              </button>
+              <button id="btnNextUntimed" class="transport-btn" title="跳到下一句還沒打點的歌詞 (G；Shift+G 往前找)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+              </button>
             </div>
 
             <!-- 醒目打點按鈕 -->
@@ -197,17 +203,91 @@
               <button id="btnStepPlus5" title="延後 0.05 秒 (])">+0.05s</button>
               <button id="btnStepPlus20" title="延後 0.2 秒 (Shift + ])">+0.2s</button>
             </div>
-            <input id="manualTimeInput" type="text" placeholder="秒數 / mm:ss" title="手動輸入時間秒數或格式">
+            <input id="manualTimeInput" type="text" placeholder="秒數 / mm:ss" title="單選：輸入秒數或 mm:ss；多選：輸入 +1.5 / -0.8 批次平移">
+            <button id="btnSelectToEnd" class="btn" style="padding: 3px 8px; font-size: 11px;" title="選取從這句到最後一句，方便整段一起平移 (Shift+End)">⇥ 選到結尾</button>
             <button id="btnSetNowTime" class="btn" style="padding: 3px 8px; font-size: 11px;" title="將目前播放時間直接套用給這句">📍 設為當前</button>
             <button id="btnClearTime" class="btn danger" style="padding: 3px 8px; font-size: 11px;" title="清除這句的時間 (Delete)">清除</button>
-            <button id="btnEditLine" class="btn" style="padding: 3px 8px; font-size: 11px;" title="修改歌詞日文或中文">✏ 編輯</button>
+            <button id="btnEditLine" class="btn" style="padding: 3px 8px; font-size: 11px;" title="修改歌詞日文或中文 (E)">✏ 編輯</button>
             <button id="btnMoveUp" class="btn" style="padding: 3px 6px; font-size: 11px;" title="將此句順序上移一行 (Alt+↑)">⬆ 上移</button>
             <button id="btnMoveDown" class="btn" style="padding: 3px 6px; font-size: 11px;" title="將此句順序下移一行 (Alt+↓)">⬇ 下移</button>
             <button id="btnDuplicateLine" class="btn" style="padding: 3px 8px; font-size: 11px;" title="複製目前選取句 (快捷鍵 Ctrl+D)">📑 複製句</button>
             <button id="btnSplitLine" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.5); color: #93c5fd;" title="將目前選取句切半分段 (快捷鍵 C)">✂️ 切半分段 (C)</button>
-            <button id="btnAddLine" class="btn" style="padding: 3px 8px; font-size: 11px;" title="在目前選取句後方插入新的一句（例如現場喊話、額外詞）">➕ 新增句</button>
-            <button id="btnDeleteLine" class="btn danger" style="padding: 3px 8px; font-size: 11px;" title="從列表中刪除目前選取句">🗑 刪除句</button>
+            <button id="btnAddLine" class="btn" style="padding: 3px 8px; font-size: 11px;" title="在目前選取句後方插入新的一句（例如現場喊話、額外詞）(N)">➕ 新增句</button>
+            <button id="btnDeleteLine" class="btn danger" style="padding: 3px 8px; font-size: 11px;" title="從列表中刪除選取句，支援多選 (Shift+Delete)">🗑 刪除句</button>
             <button id="btnCloneFromMv" class="btn" style="padding: 3px 8px; font-size: 11px; background: rgba(244, 63, 94, 0.15); border-color: rgba(244, 63, 94, 0.5); color: #fda4af;" title="從官方 MV 版直接複製全部歌詞（文字與標籤完整保留，時間清空重新打點）">📥 從 MV 複製歌詞</button>
+          </div>
+
+          <!-- 應援動作快捷工具列 -->
+          <div class="inspector-acts-row" id="inspectorActsRow">
+            <div class="acts-row-header">
+              <span class="acts-row-title">🏷️ 應援動作標籤</span>
+              <span class="acts-row-shortcuts">按鍵 1~7 快速切換・0 清除</span>
+            </div>
+            <div class="act-chips-grid">
+              <button type="button" class="act-chip act-chip-sing" data-act="sing" title="🎤 大合唱：觀眾跟著一起唱 (快捷鍵 1)">
+                <span class="act-icon">🎤</span>
+                <span class="act-name">大合唱</span>
+                <span class="act-key">1</span>
+              </button>
+              <button type="button" class="act-chip act-chip-call" data-act="call" title="🗣 喊聲：跟著喊短句、呼應 (快捷鍵 2)">
+                <span class="act-icon">🗣</span>
+                <span class="act-name">喊聲</span>
+                <span class="act-key">2</span>
+              </button>
+              <button type="button" class="act-chip act-chip-clap" data-act="clap" title="👏 拍手：跟著節拍拍手 (快捷鍵 3)">
+                <span class="act-icon">👏</span>
+                <span class="act-name">拍手</span>
+                <span class="act-key">3</span>
+              </button>
+              <button type="button" class="act-chip act-chip-wave" data-act="wave" title="👋 揮手：舉手或搖螢光棒 (快捷鍵 4)">
+                <span class="act-icon">👋</span>
+                <span class="act-name">揮手</span>
+                <span class="act-key">4</span>
+              </button>
+              <button type="button" class="act-chip act-chip-jump" data-act="jump" title="🦘 跳躍：跟著節奏跳動 (快捷鍵 5)">
+                <span class="act-icon">🦘</span>
+                <span class="act-name">跳躍</span>
+                <span class="act-key">5</span>
+              </button>
+              <button type="button" class="act-chip act-chip-gesture" data-act="gesture" title="👉 手勢：跟 Ado 做同樣手部動作 (快捷鍵 6)">
+                <span class="act-icon">👉</span>
+                <span class="act-name">手勢</span>
+                <span class="act-key">6</span>
+              </button>
+              <button type="button" class="act-chip act-chip-listen" data-act="listen" title="🎧 安靜聽：留給 Ado 唱、專心聽 (快捷鍵 7)">
+                <span class="act-icon">🎧</span>
+                <span class="act-name">安靜聽</span>
+                <span class="act-key">7</span>
+              </button>
+              <button type="button" id="btnClearActs" class="act-chip act-chip-clear" title="清除選取句的所有動作標籤 (快捷鍵 0)">
+                <span class="act-icon">✕</span>
+                <span class="act-name">清除</span>
+                <span class="act-key">0</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 延伸屬性輸入欄位（大合唱詞 / 喊聲詞 / 備註） -->
+          <div class="inspector-act-details" id="inspectorActDetails" style="display: none;">
+            <div class="act-detail-field" id="actSingField" style="display: none;">
+              <label>
+                <span class="detail-label">🎤 合唱詞 (sing)：</span>
+                <input id="inputActSing" type="text" placeholder="留空預設為整句；指定詞以逗號分隔..." title="例如：サヨナラ 或 Ready for my show">
+              </label>
+              <button id="btnFillSingAll" class="btn" style="padding: 1px 7px; font-size: 11px;" title="將整句日文直接帶入合唱詞">整句帶入</button>
+            </div>
+            <div class="act-detail-field" id="actCallField" style="display: none;">
+              <label>
+                <span class="detail-label">🗣 喊聲詞 (call)：</span>
+                <input id="inputActCall" type="text" placeholder="例如：Hey! 或 Ado 或 反拍..." title="輸入觀眾要喊的字詞">
+              </label>
+            </div>
+            <div class="act-detail-field" id="actHowField" style="display: none;">
+              <label>
+                <span class="detail-label">💡 備註說明 (how)：</span>
+                <input id="inputActHow" type="text" placeholder="例如：跟著節奏輕輕搖、副歌轉手三次..." title="特定動作的自訂備註">
+              </label>
+            </div>
           </div>
         </div>
 
@@ -310,6 +390,9 @@
 
             <!-- 拖曳浮動時間 Tooltip -->
             <div id="timelineDragTooltip" class="timeline-drag-tooltip">00:00.00</div>
+
+            <!-- 循環試聽區間 (Loop Region) -->
+            <div id="timelineLoopRegion" class="timeline-loop-region"></div>
           </div>
         </div>
       </div>
@@ -328,11 +411,21 @@
       </div>
       <div class="modal-body">
         <p style="margin: 0; color: var(--text-muted); font-size: 12.5px;">
-          請貼上歌詞文字，<b>一行一句</b>；若有中文翻譯，日文歌詞與中文翻譯中間請用 <b>Tab</b> 鍵隔開：
+          請貼上歌詞文字，<b>一行一句</b>；若有中文翻譯，日文歌詞與中文翻譯中間請用 <b>Tab</b> 鍵隔開。<br>
+          也可以直接貼上 <b>本工具輸出的 JSON</b>，或 <b>LRC</b>（<code>[01:23.45] 歌詞</code>），會連時間一起帶入。
         </p>
+        <div class="paste-options-row">
+          <label class="paste-option" title="純文字匯入時，第 N 行沿用目前第 N 句的時間與應援標籤（適合只修錯字、補翻譯）">
+            <input id="pasteKeepTimes" type="checkbox" checked>
+            <span>保留現有時間與應援標籤（依行序對應）</span>
+          </label>
+          <button id="btnPasteLoadFile" class="btn" type="button" style="padding: 2px 10px; font-size: 11.5px;">📂 從檔案載入 (.json / .lrc / .txt)</button>
+          <input id="pasteFileInput" type="file" accept=".json,.lrc,.txt,application/json,text/plain" hidden>
+        </div>
         <textarea id="pasteInputText" style="min-height: 240px; font-family: 'Noto Sans JP', var(--font-sans); line-height: 1.6;" placeholder="正しさとは　愚かさとは&#9;何謂正確　何謂愚蠢&#10;それが何か見せつけてやる&#9;我會證明給你看"></textarea>
       </div>
       <div class="modal-footer">
+        <span style="margin-right: auto; font-size: 11px; color: var(--text-faint);">Ctrl+Enter 送出・可 Ctrl+Z 復原</span>
         <button id="btnCancelPaste" class="btn">取消</button>
         <button id="btnConfirmPaste" class="btn primary">開始對時</button>
       </div>
@@ -341,9 +434,9 @@
 
   <!-- 編輯單句文字彈窗 -->
   <div id="modalEditLine" class="modal-overlay">
-    <div class="modal-card" style="max-width: 480px;">
+    <div class="modal-card" style="max-width: 500px;">
       <div class="modal-header">
-        <h3 id="editLineModalTitle">編輯歌詞文字</h3>
+        <h3 id="editLineModalTitle">編輯歌詞與應援標籤</h3>
         <button id="btnCloseEditModal" class="modal-close-btn">&times;</button>
       </div>
       <div class="modal-body">
@@ -354,6 +447,39 @@
         <label style="display: flex; flex-direction: column; gap: 4px; font-weight: 600;">
           <span>中文翻譯 (選填)</span>
           <input id="editTrInput" type="text" style="font-size: 13.5px;">
+        </label>
+
+        <!-- 應援動作標籤 -->
+        <div style="margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border-line);">
+          <label style="font-weight: 600; font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">🏷️ 應援動作標籤 (可複選)</label>
+          <div class="modal-act-buttons" id="modalEditActButtons">
+            <button type="button" class="modal-act-btn act-sing" data-act="sing">🎤 大合唱</button>
+            <button type="button" class="modal-act-btn act-call" data-act="call">🗣 喊聲</button>
+            <button type="button" class="modal-act-btn act-clap" data-act="clap">👏 拍手</button>
+            <button type="button" class="modal-act-btn act-wave" data-act="wave">👋 揮手</button>
+            <button type="button" class="modal-act-btn act-jump" data-act="jump">🦘 跳躍</button>
+            <button type="button" class="modal-act-btn act-gesture" data-act="gesture">👉 手勢</button>
+            <button type="button" class="modal-act-btn act-listen" data-act="listen">🎧 安靜聽</button>
+          </div>
+        </div>
+
+        <div id="modalEditSingGroup" style="display: none; flex-direction: column; gap: 4px; margin-top: 6px;">
+          <label style="display: flex; flex-direction: column; gap: 3px; font-weight: 600; color: #f472b6; font-size: 12px;">
+            <span>🎤 大合唱片段 (sing，選填，留空為整句)：</span>
+            <input id="editSingInput" type="text" placeholder="多個詞以逗號隔開..." style="font-size: 13px;">
+          </label>
+        </div>
+
+        <div id="modalEditCallGroup" style="display: none; flex-direction: column; gap: 4px; margin-top: 6px;">
+          <label style="display: flex; flex-direction: column; gap: 3px; font-weight: 600; color: #818cf8; font-size: 12px;">
+            <span>🗣 喊聲詞 (call，選填)：</span>
+            <input id="editCallInput" type="text" placeholder="例如：Hey! 或 Ado..." style="font-size: 13px;">
+          </label>
+        </div>
+
+        <label style="display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+          <span>💡 動作備註說明 (how，選填)</span>
+          <input id="editHowInput" type="text" placeholder="例如：跟著節奏輕輕搖..." style="font-size: 13px;">
         </label>
       </div>
       <div class="modal-footer">
@@ -499,6 +625,14 @@
               <td>選取句微調 <b>提早 / 延後 0.05 秒</b>（按住 <span class="hotkey-badge">Shift</span>：<b>0.2 秒</b>）</td>
             </tr>
             <tr>
+              <td><span class="hotkey-badge">數字鍵 1 ~ 7</span></td>
+              <td><b>應援動作切換</b>：1:大合唱、2:喊聲、3:拍手、4:揮手、5:跳躍、6:手勢、7:安靜聽（支援多選批次標記）</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">數字鍵 0</span></td>
+              <td><b>清除應援動作</b>：清除當前選取句（或多選句）的所有動作標籤</td>
+            </tr>
+            <tr>
               <td><span class="hotkey-badge">Ctrl + Z</span></td>
               <td><b>復原 / 上一步 (Undo)</b>：還原上一次的打點、微調、長度調整或分割動作</td>
             </tr>
@@ -566,6 +700,47 @@
               <td><span class="hotkey-badge">Home</span></td>
               <td>時間軸與影片跳至曲首 00:00</td>
             </tr>
+            <tr class="hotkey-section"><td colspan="2">✨ 效率強化</td></tr>
+            <tr>
+              <td><span class="hotkey-badge">G</span> / <span class="hotkey-badge">Shift + G</span></td>
+              <td><b>跳到下一句 / 上一句未打點</b>的歌詞，並把影片帶到前一句附近</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">R</span></td>
+              <td><b>循環試聽選取句</b>（含 0.5 秒前導），用 ↑↓ 換句時循環區間會跟著走；搭配 <span class="hotkey-badge">[</span> <span class="hotkey-badge">]</span> 微調</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">,</span> / <span class="hotkey-badge">.</span></td>
+              <td>播放指針 <b>倒退 / 前進 0.1 秒</b>（按住 Shift 改用 <span class="hotkey-badge">&lt;</span> <span class="hotkey-badge">&gt;</span> 調整<b>播放速度</b>）</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Shift + End</span></td>
+              <td><b>選到結尾</b>：選取這句到最後一句，再用 [ ] 或拖曳整段平移（LIVE 版間奏變長時超好用）</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">多選 + 輸入框</span></td>
+              <td>在時間輸入框打 <b>+1.5</b> 或 <b>-0.8</b> 後按 Enter，選取句全部一起平移</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">E</span> / <span class="hotkey-badge">N</span></td>
+              <td><b>編輯</b>選取句 / 在後方<b>新增</b>一句</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Shift + Delete</span></td>
+              <td><b>刪除</b>選取句（支援多選）</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">Ctrl + S</span></td>
+              <td><b>下載 JSON</b></td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">彈窗內 Enter / Esc</span></td>
+              <td>Enter 送出（貼上歌詞用 Ctrl+Enter）、Esc 關閉；彈窗開著時其他快捷鍵自動停用</td>
+            </tr>
+            <tr>
+              <td><span class="hotkey-badge">滑鼠滾輪</span></td>
+              <td>在時間軸上直接滾動 = <b>左右捲動</b>；Ctrl / Alt + 滾輪 = 縮放</td>
+            </tr>
             <tr>
               <td><span class="hotkey-badge">時間軸拖曳</span></td>
               <td>在時間軸刻度尺上拖曳指針或拖曳字幕塊直接調整位置</td>
@@ -589,8 +764,8 @@
   <div id="toast" role="status"></div>
 
   <!-- 資料來源 (加上版本號確保瀏覽器抓取最新檔案不讀舊快取) -->
-  <script src="../../songs.js?v=20261105_2"></script>
-  <script src="../../song-lyrics.js?v=20261105_2"></script>
-  <script src="timing.js?v=20261105_2"></script>
+  <script src="../../songs.js?v=20261106_1"></script>
+  <script src="../../song-lyrics.js?v=20261106_1"></script>
+  <script src="timing.js?v=20261106_1"></script>
 </body>
 </html>

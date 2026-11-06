@@ -26,7 +26,10 @@ for (const f of files) {
   }
   const i = songs.findIndex(s => s.id === entry.id);
   if (i >= 0) songs[i] = entry; else songs.push(entry);
-  console.log(`${i >= 0 ? "更新" : "新增"} ${entry.id}：${entry.lyrics.length} 句`);
+  const actsCount = entry.lyrics.filter(l => l.acts && l.acts.length).length;
+  const uniqueActs = [...new Set(entry.lyrics.flatMap(l => l.acts || []))];
+  const actsSummary = actsCount ? `（包含 ${actsCount} 句應援動作：${uniqueActs.join(", ")}）` : "";
+  console.log(`${i >= 0 ? "更新" : "新增"} ${entry.id}：${entry.lyrics.length} 句 ${actsSummary}`);
 }
 let out = src.slice(0, a + HEAD.length) + JSON.stringify(songs, null, 2) + src.slice(b);
 if (crlf) out = out.replace(/\n/g, "\r\n");

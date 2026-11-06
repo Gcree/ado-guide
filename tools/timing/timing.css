@@ -782,6 +782,230 @@ select:focus, input:focus, textarea:focus {
   padding: 3px 6px;
 }
 
+/* 應援動作快捷工具列 */
+.inspector-acts-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.acts-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.acts-row-title {
+  font-weight: 700;
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.acts-row-shortcuts {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+.act-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.act-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-line);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.act-chip:hover {
+  background: #1e2c47;
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.act-chip .act-key {
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+
+/* 應援動作選取狀態高亮 */
+.act-chip.act-chip-sing.active {
+  background: rgba(236, 72, 153, 0.22);
+  color: #f472b6;
+  border-color: #ec4899;
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.35);
+}
+.act-chip.act-chip-sing.active .act-key { background: rgba(236, 72, 153, 0.4); color: #fff; }
+
+.act-chip.act-chip-call.active {
+  background: rgba(99, 102, 241, 0.22);
+  color: #a5b4fc;
+  border-color: #6366f1;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.35);
+}
+.act-chip.act-chip-call.active .act-key { background: rgba(99, 102, 241, 0.4); color: #fff; }
+
+.act-chip.act-chip-clap.active {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fde047;
+  border-color: #eab308;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.35);
+}
+.act-chip.act-chip-clap.active .act-key { background: rgba(245, 158, 11, 0.4); color: #fff; }
+
+.act-chip.act-chip-wave.active {
+  background: rgba(16, 185, 129, 0.22);
+  color: #6ee7b7;
+  border-color: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+}
+.act-chip.act-chip-wave.active .act-key { background: rgba(16, 185, 129, 0.4); color: #fff; }
+
+.act-chip.act-chip-jump.active {
+  background: rgba(249, 115, 22, 0.22);
+  color: #fdba74;
+  border-color: #f97316;
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.35);
+}
+.act-chip.act-chip-jump.active .act-key { background: rgba(249, 115, 22, 0.4); color: #fff; }
+
+.act-chip.act-chip-gesture.active {
+  background: rgba(168, 85, 247, 0.22);
+  color: #d8b4fe;
+  border-color: #a855f7;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.35);
+}
+.act-chip.act-chip-gesture.active .act-key { background: rgba(168, 85, 247, 0.4); color: #fff; }
+
+.act-chip.act-chip-listen.active {
+  background: rgba(148, 163, 184, 0.22);
+  color: #cbd5e1;
+  border-color: #94a3b8;
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.35);
+}
+.act-chip.act-chip-listen.active .act-key { background: rgba(148, 163, 184, 0.4); color: #fff; }
+
+.act-chip.act-chip-clear {
+  color: var(--text-faint);
+  margin-left: auto;
+}
+.act-chip.act-chip-clear:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* 延伸屬性輸入欄位 */
+.inspector-act-details {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  margin-top: 2px;
+}
+
+.act-detail-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.act-detail-field label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  font-size: 11px;
+}
+
+.act-detail-field .detail-label {
+  flex: none;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.act-detail-field input {
+  flex: 1;
+  height: 24px;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  background: #0b1220;
+  border: 1px solid var(--border-line);
+  border-radius: 4px;
+  color: var(--text-main);
+}
+.act-detail-field input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* 彈窗內的應援按鈕組 */
+.modal-act-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.modal-act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-line);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.modal-act-btn:hover {
+  background: #1e2c47;
+  color: var(--text-main);
+}
+
+.modal-act-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.modal-act-btn.act-sing.active { background: #db2777; border-color: #ec4899; color: #fff; }
+.modal-act-btn.act-call.active { background: #4f46e5; border-color: #6366f1; color: #fff; }
+.modal-act-btn.act-clap.active { background: #d97706; border-color: #f59e0b; color: #fff; }
+.modal-act-btn.act-wave.active { background: #059669; border-color: #10b981; color: #fff; }
+.modal-act-btn.act-jump.active { background: #ea580c; border-color: #f97316; color: #fff; }
+.modal-act-btn.act-gesture.active { background: #9333ea; border-color: #a855f7; color: #fff; }
+.modal-act-btn.act-listen.active { background: #64748b; border-color: #94a3b8; color: #fff; }
+
 /* 歌詞清單滾動區 (Lyrics Cue List) */
 .lyrics-list-wrap {
   flex: 1;
@@ -1403,6 +1627,35 @@ li.cue-item.changed .cue-time::after {
 .act-tag.clap { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.35); }
 .act-tag.call { background: rgba(99, 102, 241, 0.15); color: #818cf8; border-color: rgba(99, 102, 241, 0.35); }
 .act-tag.wave { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.35); }
+.act-tag.jump { background: rgba(249, 115, 22, 0.15); color: #fb923c; border-color: rgba(249, 115, 22, 0.35); }
+.act-tag.gesture { background: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(168, 85, 247, 0.35); }
+.act-tag.listen { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border-color: rgba(148, 163, 184, 0.35); }
+
+.cue-sing-tag {
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  color: #f472b6;
+  background: rgba(236, 72, 153, 0.12);
+  border: 1px dashed rgba(236, 72, 153, 0.35);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.cue-call-tag {
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px dashed rgba(99, 102, 241, 0.35);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
 
 /* 參考波形與標記軌道槽 (A1 Track) */
 .track-row-waveform {
@@ -1653,4 +1906,52 @@ li.cue-item.changed .cue-time::after {
   .track-headers-column {
     width: 110px;
   }
+}
+
+/* ==========================================================================
+   效率強化 (2026-11-06)：循環試聽、貼上選項、快捷鍵分段
+   ========================================================================== */
+.transport-btn.loop-on {
+  color: #0b1120;
+  background: #facc15;
+  border-color: #facc15;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.55);
+}
+
+.timeline-loop-region {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: none;
+  background: rgba(250, 204, 21, 0.08);
+  border-left: 1px dashed rgba(250, 204, 21, 0.7);
+  border-right: 1px dashed rgba(250, 204, 21, 0.7);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.paste-options-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.paste-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.paste-option input { accent-color: var(--accent); }
+
+.hotkey-table .hotkey-section td {
+  padding-top: 14px;
+  font-weight: 800;
+  color: #facc15;
+  border-bottom: 1px solid var(--border-line);
 }

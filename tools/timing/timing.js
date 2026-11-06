@@ -216,6 +216,36 @@
   const btnCloseHotkeysModal = $("btnCloseHotkeysModal");
   const btnCloseHotkeys = $("btnCloseHotkeys");
 
+  // 應援動作工具列元素
+  const inspectorActsRow = $("inspectorActsRow");
+  const inspectorActDetails = $("inspectorActDetails");
+  const actSingField = $("actSingField");
+  const actCallField = $("actCallField");
+  const actHowField = $("actHowField");
+  const inputActSing = $("inputActSing");
+  const inputActCall = $("inputActCall");
+  const inputActHow = $("inputActHow");
+  const btnFillSingAll = $("btnFillSingAll");
+  const btnClearActs = $("btnClearActs");
+
+  const modalEditActButtons = $("modalEditActButtons");
+  const modalEditSingGroup = $("modalEditSingGroup");
+  const modalEditCallGroup = $("modalEditCallGroup");
+  const editSingInput = $("editSingInput");
+  const editCallInput = $("editCallInput");
+  const editHowInput = $("editHowInput");
+
+  const ACT_MAP = {
+    sing:    { name: "大合唱", icon: "🎤" },
+    call:    { name: "喊聲",   icon: "🗣" },
+    clap:    { name: "拍手",   icon: "👏" },
+    wave:    { name: "揮手",   icon: "👋" },
+    jump:    { name: "跳躍",   icon: "🦘" },
+    gesture: { name: "手勢",   icon: "👉" },
+    listen:  { name: "安靜聽", icon: "🎧" }
+  };
+  const ACT_KEYS = ["sing", "call", "clap", "wave", "jump", "gesture", "listen"];
+
   // 頂部動作
   const btnReset = $("btnReset") || $("reset");
   const btnCopy = $("btnCopy") || $("copy");
@@ -254,12 +284,20 @@
   let isDraggingClip = false;
   let editingLineIndex = -1;
 
+  // 只更新選取狀態、不重繪（新增／切分／複製後同步多選集合用）
+  function setSel(idx) {
+    sel = LINES.length ? Math.max(0, Math.min(LINES.length - 1, idx)) : 0;
+    selectedIndices = new Set([sel]);
+  }
+
   function selectSingle(idx) {
     if (!LINES.length) return;
-    sel = Math.max(0, Math.min(LINES.length - 1, idx));
-    selectedIndices = new Set([sel]);
+    setSel(idx);
     renderAll();
   }
+
+  const isModalOpen = () => !!document.querySelector(".modal-overlay.active");
+  const closeAllModals = () => document.querySelectorAll(".modal-overlay.active").forEach(m => m.classList.remove("active"));
 
   function toggleSelect(idx) {
     if (!LINES.length) return;
@@ -529,7 +567,7 @@
       time: applyOffset ? (l.time != null ? round(Math.max(0, l.time + offset)) : null) : null
     }));
 
-    sel = 0;
+    setSel(0);
     save();
     renderAll();
 
@@ -543,6 +581,7 @@
   // ── 選歌與版本切換 ──
   function pickSong(id, requestedMode = null, requestedLiveYt = null) {
     if (!songs.length) return;
+    if (loopOn) { loopOn = false; btnLoopLine?.classList.remove("loop-on"); }
     undoStack = [];
     redoStack = [];
     updateUndoRedoUI();
@@ -753,7 +792,16 @@
       const isSel = selectedIndices.has(i);
       const isPlay = i === playingIdx;
       const actsHtml = (l.acts && l.acts.length)
-        ? l.acts.map(a => `<span class="act-tag ${a}">${a.toUpperCase()}</span>`).join("")
+        ? l.acts.map(a => `<span class="act-tag ${a}" title="${ACT_MAP[a]?.name || a}">${ACT_MAP[a]?.icon || ""} ${ACT_MAP[a]?.name || a.toUpperCase()}</span>`).join("")
+        : "";
+      const singHtml = (l.sing && l.sing.length)
+        ? `<span class="cue-sing-tag" title="大合唱片段：${esc(l.sing.join("、"))}">[唱: ${esc(l.sing.join(" / "))}]</span>`
+        : "";
+      const callHtml = l.call
+        ? `<span class="cue-call-tag" title="喊聲台詞：${esc(l.call)}">[喊: ${esc(l.call)}]</span>`
+        : "";
+      const howHtml = l.how
+        ? `<span style="font-size: 10px; color: var(--text-faint); margin-left: 4px;" title="動作備註：${esc(l.how)}">💡</span>`
         : "";
 
       return `
@@ -762,7 +810,7 @@
           <span class="cue-idx">${i + 1}</span>
           <span class="cue-time ${l.time == null ? "none" : ""}">${fmt(l.time)}</span>
           <div class="cue-texts">
-            <span class="cue-jp" lang="ja">${esc(l.jp || "")}${actsHtml}</span>
+            <span class="cue-jp" lang="ja">${esc(l.jp || "")}${actsHtml}${singHtml}${callHtml}${howHtml}</span>
             ${l.tr ? `<span class="cue-tr">${esc(l.tr)}</span>` : ""}
           </div>
           <div class="cue-actions">
@@ -776,6 +824,7 @@
     // 統計計算
     const timedCount = LINES.filter(l => l.time != null).length;
     const totalCount = LINES.length;
+    const actsCount = LINES.filter(l => l.acts && l.acts.length > 0).length;
     const badCount = lyricsCueList.querySelectorAll(".bad").length;
     const changedCount = lyricsCueList.querySelectorAll(".changed").length;
 
@@ -783,6 +832,7 @@
       statsSummary.innerHTML = `<b>${timedCount} / ${totalCount}</b> 句已對時 ${currentVersionMode === "live" ? `<span style="color: #f43f5e; font-size: 11px;">[LIVE 現場版]</span>` : ""}`;
     }
     let detailText = [];
+    if (actsCount) detailText.push(`<span style="color: #38bdf8; font-weight: 600;">🏷️ ${actsCount} 句有應援</span>`);
     if (changedCount) detailText.push(`改動 ${changedCount} 句`);
     if (badCount) detailText.push(`<span style="color: var(--bad); font-weight: 700;">⚠ ${badCount} 句順序顛倒</span>`);
     if (statsDetails) statsDetails.innerHTML = detailText.join("・");
@@ -808,6 +858,7 @@
       inspectorTimeLabel.textContent = `${selectedIndices.size} 句整體微調`;
       manualTimeInput.value = "";
       manualTimeInput.placeholder = "批次平移";
+      updateInspectorActsUI();
       return;
     }
     manualTimeInput.placeholder = "秒數 / mm:ss";
@@ -816,11 +867,120 @@
       inspectorTitle.innerHTML = "無選取句";
       inspectorTimeLabel.textContent = "—";
       manualTimeInput.value = "";
+      updateInspectorActsUI();
       return;
     }
     inspectorTitle.innerHTML = `選取：<b>#${sel + 1}</b> <span style="font-weight: 400; color: #cbd5e1;">${esc(l.jp || "")}</span>`;
     inspectorTimeLabel.textContent = fmt(l.time);
     manualTimeInput.value = l.time != null ? l.time : "";
+    updateInspectorActsUI();
+  }
+
+  // 應援動作工具箱更新
+  function updateInspectorActsUI() {
+    if (!inspectorActsRow) return;
+    const isMulti = selectedIndices.size > 1;
+    const targetIdx = isMulti ? [...selectedIndices][0] : sel;
+    const l = LINES[targetIdx];
+
+    if (!l && !isMulti) {
+      inspectorActsRow.style.opacity = "0.4";
+      inspectorActsRow.style.pointerEvents = "none";
+      if (inspectorActDetails) inspectorActDetails.style.display = "none";
+      return;
+    }
+    inspectorActsRow.style.opacity = "1";
+    inspectorActsRow.style.pointerEvents = "auto";
+
+    let activeActs = new Set();
+    if (isMulti) {
+      const targets = [...selectedIndices];
+      ACT_KEYS.forEach(act => {
+        if (targets.every(i => LINES[i] && Array.isArray(LINES[i].acts) && LINES[i].acts.includes(act))) {
+          activeActs.add(act);
+        }
+      });
+    } else if (l) {
+      activeActs = new Set(Array.isArray(l.acts) ? l.acts : []);
+    }
+
+    inspectorActsRow.querySelectorAll("[data-act]").forEach(btn => {
+      const act = btn.dataset.act;
+      const isActive = activeActs.has(act);
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-pressed", String(isActive));
+    });
+
+    if (inspectorActDetails) {
+      if (isMulti || !l) {
+        inspectorActDetails.style.display = "none";
+      } else {
+        const hasSing = activeActs.has("sing");
+        const hasCall = activeActs.has("call");
+        const hasAny = activeActs.size > 0;
+        inspectorActDetails.style.display = hasAny ? "flex" : "none";
+        if (actSingField) actSingField.style.display = hasSing ? "flex" : "none";
+        if (actCallField) actCallField.style.display = hasCall ? "flex" : "none";
+        if (actHowField) actHowField.style.display = hasAny ? "flex" : "none";
+
+        if (inputActSing) inputActSing.value = Array.isArray(l.sing) ? l.sing.join(", ") : "";
+        if (inputActCall) inputActCall.value = l.call || "";
+        if (inputActHow) inputActHow.value = l.how || "";
+      }
+    }
+  }
+
+  // 切換選中句之應援動作
+  function toggleActOnSelected(act) {
+    if (sel < 0 || !LINES[sel]) return;
+    pushHistory();
+
+    const targets = selectedIndices.size > 0 ? Array.from(selectedIndices) : [sel];
+    const allHave = targets.every(idx => {
+      const line = LINES[idx];
+      return line && Array.isArray(line.acts) && line.acts.includes(act);
+    });
+
+    targets.forEach(idx => {
+      const line = LINES[idx];
+      if (!line) return;
+      let acts = Array.isArray(line.acts) ? [...line.acts] : [];
+      if (allHave) {
+        acts = acts.filter(a => a !== act);
+      } else {
+        if (!acts.includes(act)) acts.push(act);
+      }
+      if (acts.length) {
+        line.acts = acts;
+      } else {
+        delete line.acts;
+        delete line.sing;
+        delete line.call;
+        delete line.how;
+      }
+    });
+
+    save();
+    renderAll();
+    toast(`${allHave ? "移除" : "加上"}【${ACT_MAP[act]?.name || act}】標籤 (${targets.length} 句)`);
+  }
+
+  // 清除選中句之所有應援動作
+  function clearActsOnSelected() {
+    if (sel < 0 || !LINES[sel]) return;
+    pushHistory();
+    const targets = selectedIndices.size > 0 ? Array.from(selectedIndices) : [sel];
+    targets.forEach(idx => {
+      const line = LINES[idx];
+      if (!line) return;
+      delete line.acts;
+      delete line.sing;
+      delete line.call;
+      delete line.how;
+    });
+    save();
+    renderAll();
+    toast(`已清除 ${targets.length} 句的應援動作標籤`);
   }
 
   // 3. 導讀提示更新
@@ -830,13 +990,19 @@
     const nxt = LINES[sel + 1];
 
     if (cur) {
-      prompterTargetText.innerHTML = `<b>#${sel + 1}</b> ${esc(cur.jp || "")} ${cur.tr ? `<span style="color: #93c5fd; font-weight: normal;">(${esc(cur.tr)})</span>` : ""}`;
+      const actPrefix = (cur.acts && cur.acts.length)
+        ? cur.acts.map(a => `<span class="act-tag ${a}" style="margin: 0 4px 0 0;">${ACT_MAP[a]?.icon || ""} ${ACT_MAP[a]?.name || a}</span>`).join("")
+        : "";
+      prompterTargetText.innerHTML = `<b>#${sel + 1}</b> ${actPrefix}${esc(cur.jp || "")} ${cur.tr ? `<span style="color: #93c5fd; font-weight: normal;">(${esc(cur.tr)})</span>` : ""}`;
     } else {
       prompterTargetText.textContent = "— (已至最後)";
     }
 
     if (nxt) {
-      prompterNextText.innerHTML = `<b>#${sel + 2}</b> ${esc(nxt.jp || "")} ${nxt.tr ? `<span style="color: #93c5fd; font-weight: normal;">(${esc(nxt.tr)})</span>` : ""}`;
+      const nxtPrefix = (nxt.acts && nxt.acts.length)
+        ? nxt.acts.map(a => `<span class="act-tag ${a}" style="margin: 0 4px 0 0;">${ACT_MAP[a]?.icon || ""} ${ACT_MAP[a]?.name || a}</span>`).join("")
+        : "";
+      prompterNextText.innerHTML = `<b>#${sel + 2}</b> ${nxtPrefix}${esc(nxt.jp || "")} ${nxt.tr ? `<span style="color: #93c5fd; font-weight: normal;">(${esc(nxt.tr)})</span>` : ""}`;
     } else {
       prompterNextText.textContent = "— (結尾)";
     }
@@ -851,6 +1017,7 @@
     renderRuler(totalWidth);
     renderWaveform(totalWidth);
     renderSubtitleClips();
+    renderLoopRegion();
   }
 
   // 4.1 時間刻度尺
@@ -1014,7 +1181,7 @@
       clip.innerHTML = `
         <div class="clip-handle-left" data-handle="left" data-i="${i}" title="拖曳微調起點時間"></div>
         <div class="clip-header-bar" style="${currentVersionMode === "live" ? "background: #be123c;" : ""}">
-          <span class="clip-id-tag">#${i + 1}${(l.acts && l.acts.length) ? ` <span style="font-size:8.5px; opacity:0.85; font-weight:800; color:#38bdf8;">[${l.acts.join(",")}]</span>` : ""}</span>
+          <span class="clip-id-tag">#${i + 1}${(l.acts && l.acts.length) ? ` <span style="font-size:8.5px; opacity:0.95; font-weight:800; color:#38bdf8;">[${l.acts.map(a => ACT_MAP[a]?.icon || a).join("")}]</span>` : ""}</span>
           <span class="clip-time-tag">${fmt(l.time)}</span>
           <button class="clip-split-btn" data-action="split" data-i="${i}" title="將此句切半分段 (快捷鍵 C)">✂️</button>
         </div>
@@ -1076,7 +1243,7 @@
 
           if (cur.acts && cur.acts.length) {
             liveSubBadge.style.display = "inline-flex";
-            liveSubBadge.textContent = cur.acts.join(" • ").toUpperCase();
+            liveSubBadge.textContent = cur.acts.map(a => ACT_MAP[a] ? `${ACT_MAP[a].icon} ${ACT_MAP[a].name}` : a).join(" • ");
           } else {
             liveSubBadge.style.display = "none";
           }
@@ -1157,8 +1324,12 @@
     renderAll();
   }
 
-  function stepSelectedTime(delta) {
+  function stepSelectedTime(delta, forceToast = false) {
     if (!selectedIndices.size) return;
+    if (![...selectedIndices].some(i => LINES[i] && LINES[i].time != null)) {
+      toast("選取的句子還沒有時間，無法微調；先按空白鍵打點");
+      return;
+    }
     pushHistory();
     let count = 0;
     selectedIndices.forEach(idx => {
@@ -1170,7 +1341,7 @@
     });
     save();
     renderAll();
-    if (selectedIndices.size > 1) {
+    if (selectedIndices.size > 1 || forceToast) {
       toast(`已將選取的 ${count} 句歌詞整體微調 ${delta > 0 ? "+" : ""}${delta} 秒`);
     }
   }
@@ -1606,8 +1777,17 @@
     timelineViewport.addEventListener("wheel", e => {
       if (e.ctrlKey || e.altKey) {
         e.preventDefault();
+        // 以滑鼠所在時間點為中心縮放，畫面不會跳走
+        const rect = timelineViewport.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const tAtMouse = (timelineViewport.scrollLeft + mouseX - TIMELINE_PAD) / zoom;
         const delta = e.deltaY < 0 ? 5 : -5;
         setZoom(zoom + delta);
+        timelineViewport.scrollLeft = Math.max(0, TIMELINE_PAD + tAtMouse * zoom - mouseX);
+      } else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        // 一般滾輪 → 時間軸左右捲動
+        e.preventDefault();
+        timelineViewport.scrollLeft += e.deltaY;
       }
     }, { passive: false });
   }
@@ -1902,6 +2082,10 @@
     });
 
     manualTimeInput.addEventListener("change", () => {
+      if (selectedIndices.size > 1) {
+        batchShiftFromInput();
+        return;
+      }
       const l = LINES[sel];
       if (!l) return;
       const parsed = parseTime(manualTimeInput.value);
@@ -1912,7 +2096,7 @@
 
         // ★★★ 自動切換到下一個歌詞！ ★★★
         if (sel < LINES.length - 1) {
-          sel = sel + 1;
+          setSel(sel + 1);
           toast(`第 ${completedIdx + 1} 句時間已更新，已自動切換至第 ${sel + 1} 句 👉`);
         }
 
@@ -1922,17 +2106,127 @@
         manualTimeInput.value = l.time != null ? l.time : "";
       }
     });
+
+    // 多選時：輸入 +1.5 / -0.8 / 1.5 → 選取句全部一起平移
+    function batchShiftFromInput() {
+      const raw = manualTimeInput.value.trim().replace(/\s+/g, "").replace(/^＋/, "+").replace(/^[－−]/, "-");
+      manualTimeInput.value = "";
+      if (!/^[+-]?\d+(\.\d+)?$/.test(raw)) {
+        if (raw) toast("批次平移請輸入秒數，例如 +1.5 或 -0.8");
+        return;
+      }
+      const delta = round(+raw);
+      if (!delta) return;
+      stepSelectedTime(delta, true);
+    }
   }
 
-  // 編輯歌詞文字
+  // 應援動作工具列事件
+  if (inspectorActsRow) {
+    inspectorActsRow.addEventListener("click", ev => {
+      const btn = ev.target.closest("[data-act]");
+      if (!btn) return;
+      toggleActOnSelected(btn.dataset.act);
+    });
+  }
+
+  if (btnClearActs) {
+    btnClearActs.addEventListener("click", () => {
+      clearActsOnSelected();
+    });
+  }
+
+  if (inputActSing) {
+    inputActSing.addEventListener("change", () => {
+      const l = LINES[sel];
+      if (!l) return;
+      pushHistory();
+      const val = inputActSing.value.trim();
+      if (val) {
+        l.sing = val.split(/[,，、]+/).map(s => s.trim()).filter(Boolean);
+      } else {
+        delete l.sing;
+      }
+      save();
+      renderAll();
+    });
+  }
+
+  if (btnFillSingAll) {
+    btnFillSingAll.addEventListener("click", () => {
+      const l = LINES[sel];
+      if (!l || !l.jp) return;
+      pushHistory();
+      l.sing = [l.jp.trim()];
+      if (inputActSing) inputActSing.value = l.jp.trim();
+      save();
+      renderAll();
+      toast("已將整句日文設為大合唱詞");
+    });
+  }
+
+  if (inputActCall) {
+    inputActCall.addEventListener("change", () => {
+      const l = LINES[sel];
+      if (!l) return;
+      pushHistory();
+      const val = inputActCall.value.trim();
+      if (val) l.call = val; else delete l.call;
+      save();
+      renderAll();
+    });
+  }
+
+  if (inputActHow) {
+    inputActHow.addEventListener("change", () => {
+      const l = LINES[sel];
+      if (!l) return;
+      pushHistory();
+      const val = inputActHow.value.trim();
+      if (val) l.how = val; else delete l.how;
+      save();
+      renderAll();
+    });
+  }
+
+  // 編輯歌詞與應援標籤
+  let modalEditSelectedActs = new Set();
+  function renderModalEditActsUI() {
+    if (!modalEditActButtons) return;
+    modalEditActButtons.querySelectorAll("[data-act]").forEach(b => {
+      const act = b.dataset.act;
+      const on = modalEditSelectedActs.has(act);
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    if (modalEditSingGroup) modalEditSingGroup.style.display = modalEditSelectedActs.has("sing") ? "flex" : "none";
+    if (modalEditCallGroup) modalEditCallGroup.style.display = modalEditSelectedActs.has("call") ? "flex" : "none";
+  }
+
+  if (modalEditActButtons) {
+    modalEditActButtons.addEventListener("click", ev => {
+      const b = ev.target.closest("[data-act]");
+      if (!b) return;
+      const act = b.dataset.act;
+      if (modalEditSelectedActs.has(act)) modalEditSelectedActs.delete(act);
+      else modalEditSelectedActs.add(act);
+      renderModalEditActsUI();
+    });
+  }
+
   if (btnEditLine && modalEditLine) {
     btnEditLine.addEventListener("click", () => {
       const l = LINES[sel];
       if (!l) return;
       editingLineIndex = sel;
-      if (editLineModalTitle) editLineModalTitle.textContent = `編輯第 ${sel + 1} 句歌詞`;
+      if (editLineModalTitle) editLineModalTitle.textContent = `編輯第 ${sel + 1} 句歌詞與應援標籤`;
       if (editJpInput) editJpInput.value = l.jp || "";
       if (editTrInput) editTrInput.value = l.tr || "";
+      modalEditSelectedActs = new Set(Array.isArray(l.acts) ? l.acts : []);
+      renderModalEditActsUI();
+      if (editSingInput) editSingInput.value = Array.isArray(l.sing) ? l.sing.join(", ") : "";
+      if (editCallInput) editCallInput.value = l.call || "";
+      if (editHowInput) editHowInput.value = l.how || "";
       modalEditLine.classList.add("active");
       editJpInput?.focus();
     });
@@ -1942,12 +2236,40 @@
     btnSaveEdit.addEventListener("click", () => {
       if (editingLineIndex < 0 || !LINES[editingLineIndex]) return;
       pushHistory();
-      if (editJpInput) LINES[editingLineIndex].jp = editJpInput.value.trim();
-      if (editTrInput) LINES[editingLineIndex].tr = editTrInput.value.trim();
+      const line = LINES[editingLineIndex];
+      if (editJpInput) line.jp = editJpInput.value.trim();
+      if (editTrInput) line.tr = editTrInput.value.trim();
+
+      if (modalEditSelectedActs.size > 0) {
+        line.acts = Array.from(modalEditSelectedActs);
+      } else {
+        delete line.acts;
+      }
+
+      if (modalEditSelectedActs.has("sing")) {
+        const singVal = editSingInput ? editSingInput.value.trim() : "";
+        if (singVal) line.sing = singVal.split(/[,，、]+/).map(s => s.trim()).filter(Boolean);
+        else delete line.sing;
+      } else {
+        delete line.sing;
+      }
+
+      if (modalEditSelectedActs.has("call")) {
+        const callVal = editCallInput ? editCallInput.value.trim() : "";
+        if (callVal) line.call = callVal;
+        else delete line.call;
+      } else {
+        delete line.call;
+      }
+
+      const howVal = editHowInput ? editHowInput.value.trim() : "";
+      if (howVal) line.how = howVal;
+      else delete line.how;
+
       modalEditLine.classList.remove("active");
       save();
       renderAll();
-      toast("已儲存歌詞修改");
+      toast("已儲存歌詞與應援修改");
     });
   }
 
@@ -1978,7 +2300,7 @@
       // 插入在當前 sel 之後
       const insertAt = LINES.length ? sel + 1 : 0;
       LINES.splice(insertAt, 0, newLine);
-      sel = insertAt;
+      setSel(insertAt);
       save();
       renderAll();
       modalAddLine.classList.remove("active");
@@ -1989,20 +2311,22 @@
   if (btnCancelAdd && modalAddLine) btnCancelAdd.addEventListener("click", () => modalAddLine.classList.remove("active"));
   if (btnCloseAddModal && modalAddLine) btnCloseAddModal.addEventListener("click", () => modalAddLine.classList.remove("active"));
 
-  // 刪除目前句子
-  if (btnDeleteLine) {
-    btnDeleteLine.addEventListener("click", () => {
-      if (!LINES[sel]) return;
-      const targetText = LINES[sel].jp || `#${sel + 1}`;
-      if (!confirm(`確定要刪除第 ${sel + 1} 句【${targetText}】？`)) return;
-      pushHistory();
-      LINES.splice(sel, 1);
-      sel = Math.max(0, Math.min(sel, LINES.length - 1));
-      save();
-      renderAll();
-      toast("已刪除該句");
-    });
+  // 刪除選取句（支援多選）
+  function deleteSelectedLines() {
+    const targets = [...selectedIndices].filter(i => LINES[i]).sort((a, b) => a - b);
+    if (!targets.length) return;
+    const msg = targets.length === 1
+      ? `確定要刪除第 ${targets[0] + 1} 句【${LINES[targets[0]].jp || ""}】？`
+      : `確定要刪除選取的 ${targets.length} 句（#${targets[0] + 1} ~ #${targets[targets.length - 1] + 1}）？`;
+    if (!confirm(`${msg}\n（可用 Ctrl+Z 復原）`)) return;
+    pushHistory();
+    for (let k = targets.length - 1; k >= 0; k--) LINES.splice(targets[k], 1);
+    setSel(targets[0]);
+    save();
+    renderAll();
+    toast(`已刪除 ${targets.length} 句（Ctrl+Z 可復原）`);
   }
+  btnDeleteLine?.addEventListener("click", deleteSelectedLines);
 
   // ── 切半分段邏輯 (Split Clip) ──
   const modalSplitLine = $("modalSplitLine");
@@ -2173,8 +2497,11 @@
       call: orig.call
     };
 
+    // 移除 undefined 欄位，避免輸出 JSON 時夾帶空鍵
+    Object.keys(part2Line).forEach(k => part2Line[k] === undefined && delete part2Line[k]);
+
     LINES.splice(splittingIndex + 1, 0, part2Line);
-    sel = splittingIndex + 1; // 自動聚焦到切出來的新句
+    setSel(splittingIndex + 1); // 自動聚焦到切出來的新句
 
     modalSplitLine?.classList.remove("active");
     save();
@@ -2195,24 +2522,94 @@
   if (btnClosePasteModal && modalPaste) btnClosePasteModal.addEventListener("click", () => modalPaste.classList.remove("active"));
   if (btnCancelPaste && modalPaste) btnCancelPaste.addEventListener("click", () => modalPaste.classList.remove("active"));
 
-  if (btnConfirmPaste && modalPaste) {
-    btnConfirmPaste.addEventListener("click", () => {
-      if (!pasteInputText) return;
-      const text = pasteInputText.value;
-      const parsed = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean).map(s => {
-        const [jp, tr = ""] = s.split("\t");
-        return { time: null, jp: jp.trim(), tr: tr.trim() };
-      });
-      if (!parsed.length) return toast("沒有貼上任何歌詞內容");
+  // 解析貼上內容：JSON（本工具輸出 / lyrics 陣列）→ LRC → Tab 分隔純文字
+  function parsePastedLyrics(text) {
+    const trimmed = text.trim();
+    if (/^[\[{]/.test(trimmed) && !/^\[\d{1,2}:\d{2}/.test(trimmed)) {
+      try {
+        const data = JSON.parse(trimmed);
+        const arr = Array.isArray(data) ? data : (Array.isArray(data.lyrics) ? data.lyrics : null);
+        if (arr) {
+          const lines = arr.filter(l => l && typeof l.jp === "string").map(l => {
+            const line = { ...l, time: (typeof l.time === "number" && l.time >= 0) ? round(l.time) : null };
+            if (line.tr == null) line.tr = "";
+            return line;
+          });
+          return { kind: "JSON", lines, timed: true, id: Array.isArray(data) ? null : data.id };
+        }
+      } catch (e) {
+        return { kind: "error", error: `JSON 格式有誤：${e.message}` };
+      }
+    }
 
-      LINES = parsed;
-      sel = 0;
-      save();
-      renderAll();
-      modalPaste.classList.remove("active");
-      toast(`已匯入 ${LINES.length} 句新歌詞！`);
+    const rows = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const lrcRe = /^\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]\s*(.*)$/;
+    const lrcRows = rows.filter(r => lrcRe.test(r));
+    if (lrcRows.length && lrcRows.length >= rows.filter(r => !/^\[[a-z]+:/i.test(r)).length * 0.6) {
+      const lines = lrcRows.map(r => {
+        const [, m, s, rest] = r.match(lrcRe);
+        const [jp, tr = ""] = rest.split("\t");
+        return { time: round(+m * 60 + +s.replace(":", ".")), jp: jp.trim(), tr: tr.trim() };
+      }).filter(l => l.jp);
+      return { kind: "LRC", lines, timed: true };
+    }
+
+    const lines = rows.map(s => {
+      const [jp, tr = ""] = s.split("\t");
+      return { time: null, jp: jp.trim(), tr: tr.trim() };
     });
+    return { kind: "文字", lines, timed: false };
   }
+
+  function confirmPaste() {
+    if (!pasteInputText) return;
+    const result = parsePastedLyrics(pasteInputText.value);
+    if (result.kind === "error") return toast(result.error);
+    let parsed = result.lines;
+    if (!parsed.length) return toast("沒有貼上任何歌詞內容");
+    if (result.id && S && result.id !== S.id && result.id !== `${S.id}-live` &&
+        !confirm(`這份 JSON 是「${result.id}」的資料，但目前選的是「${S.id}」。仍要匯入到目前歌曲嗎？`)) return;
+
+    const keep = !result.timed && $("pasteKeepTimes")?.checked && LINES.length > 0;
+    if (keep) {
+      // 依行序沿用既有時間、時長與應援標籤，只換文字
+      parsed = parsed.map((p, i) => {
+        const old = LINES[i];
+        if (!old) return p;
+        const merged = { ...old, jp: p.jp, tr: p.tr };
+        if (Array.isArray(merged.sing)) {
+          merged.sing = merged.sing.filter(w => p.jp.includes(w));
+          if (!merged.sing.length) delete merged.sing;
+        }
+        return merged;
+      });
+    }
+
+    pushHistory();
+    LINES = parsed;
+    setSel(Math.max(0, LINES.findIndex(l => l.time == null)));
+    save();
+    renderAll();
+    modalPaste.classList.remove("active");
+    const timedCnt = LINES.filter(l => l.time != null).length;
+    toast(`已匯入 ${LINES.length} 句（${result.kind}${keep ? "，保留原時間" : ""}，${timedCnt} 句有時間）・Ctrl+Z 可復原`);
+  }
+
+  btnConfirmPaste?.addEventListener("click", confirmPaste);
+
+  const pasteFileInput = $("pasteFileInput");
+  $("btnPasteLoadFile")?.addEventListener("click", () => pasteFileInput?.click());
+  pasteFileInput?.addEventListener("change", async () => {
+    const f = pasteFileInput.files && pasteFileInput.files[0];
+    if (!f) return;
+    try {
+      pasteInputText.value = await f.text();
+      toast(`已讀入 ${f.name}，確認內容後按「開始對時」`);
+    } catch (e) {
+      toast("讀取檔案失敗");
+    }
+    pasteFileInput.value = "";
+  });
 
   // ── 快捷鍵說明彈窗 ──
   if (btnHotkeys && modalHotkeys) btnHotkeys.addEventListener("click", () => modalHotkeys.classList.add("active"));
@@ -2233,7 +2630,7 @@
       time: orig.time != null ? round(orig.time + (orig.duration || 3)) : null
     };
     LINES.splice(sel + 1, 0, dup);
-    sel = sel + 1;
+    setSel(sel + 1);
     save();
     renderAll();
     toast(`已複製第 ${sel} 句為新句 👉`);
@@ -2263,8 +2660,152 @@
     }
   }
 
+  // ── 效率功能：下一句未打點 / 選到結尾 / 指針微步進 / 速度 / 循環試聽 ──
+  function jumpToUntimed(dir = 1) {
+    if (!LINES.length) return;
+    const n = LINES.length;
+    for (let k = 1; k <= n; k++) {
+      const i = (sel + dir * k + n) % n;
+      if (LINES[i].time == null) {
+        setSel(i);
+        // 影片帶到前一句已打點時間附近，方便直接接著打點
+        let prevT = null;
+        for (let j = i - 1; j >= 0; j--) if (LINES[j].time != null) { prevT = LINES[j].time; break; }
+        if (prevT != null) seekTo(Math.max(0, prevT - 0.5));
+        renderAll();
+        toast(`跳到第 ${i + 1} 句（尚未打點）${prevT != null ? `，影片已帶到 ${fmt(Math.max(0, prevT - 0.5))}` : ""}`);
+        return;
+      }
+    }
+    toast("🎉 全部句子都已經打點了");
+  }
+
+  function selectToEnd() {
+    if (!LINES.length) return;
+    const from = Math.min(...selectedIndices);
+    selectedIndices = new Set();
+    for (let i = from; i < LINES.length; i++) selectedIndices.add(i);
+    sel = from;
+    renderAll();
+    toast(`已選取 #${from + 1} ~ #${LINES.length}（${selectedIndices.size} 句），可用 [ ] 或輸入 +秒數 整段平移`);
+  }
+
+  function nudgePlayhead(delta) {
+    if (getPlayerState() === 1) pause();
+    seekTo(round(getCurrentTime() + delta));
+  }
+
+  function changeRate(dir) {
+    if (!rateSelect) return;
+    const opts = [...rateSelect.options];
+    const idx = Math.max(0, Math.min(opts.length - 1, rateSelect.selectedIndex + dir));
+    if (idx === rateSelect.selectedIndex) return toast(`播放速度已是 ${opts[idx].text}`);
+    rateSelect.selectedIndex = idx;
+    rateSelect.dispatchEvent(new Event("change"));
+    toast(`播放速度 ${opts[idx].text}`);
+  }
+
+  // 循環區間：選取句起點前 0.5 秒 → 下一句起點（或自身時長）
+  let loopOn = false;
+  const btnLoopLine = $("btnLoopLine");
+  const timelineLoopRegion = $("timelineLoopRegion");
+
+  function getLoopRange() {
+    const l = LINES[sel];
+    if (!l || l.time == null) return null;
+    let end = null;
+    if (l.duration > 0) end = l.time + l.duration;
+    else {
+      for (let j = sel + 1; j < LINES.length; j++) {
+        if (LINES[j].time != null && LINES[j].time > l.time) { end = LINES[j].time; break; }
+      }
+      if (end == null || end - l.time > 10) end = l.time + 4;
+    }
+    return { start: Math.max(0, l.time - 0.5), end: Math.min(songDuration, end + 0.15) };
+  }
+
+  function renderLoopRegion() {
+    if (!timelineLoopRegion) return;
+    const r = loopOn ? getLoopRange() : null;
+    if (!r) { timelineLoopRegion.style.display = "none"; return; }
+    timelineLoopRegion.style.display = "block";
+    timelineLoopRegion.style.left = `${TIMELINE_PAD + r.start * zoom}px`;
+    timelineLoopRegion.style.width = `${(r.end - r.start) * zoom}px`;
+  }
+
+  function toggleLoop(force) {
+    const next = force != null ? force : !loopOn;
+    if (next && !getLoopRange()) {
+      toast("這句還沒有打點時間，無法循環");
+      return;
+    }
+    loopOn = next;
+    btnLoopLine?.classList.toggle("loop-on", loopOn);
+    renderLoopRegion();
+    if (loopOn) {
+      seekTo(getLoopRange().start);
+      play();
+      toast("🔁 循環試聽選取句（再按 R 關閉）・用 [ ] 微調、↑↓ 換句");
+    } else {
+      toast("已關閉循環試聽");
+    }
+  }
+
+  btnLoopLine?.addEventListener("click", () => toggleLoop());
+  $("btnNextUntimed")?.addEventListener("click", () => jumpToUntimed(1));
+  $("btnSelectToEnd")?.addEventListener("click", selectToEnd);
+
+  (function loopTick() {
+    if (loopOn && !isScrubbing && !isDraggingClip && getPlayerState() === 1) {
+      const r = getLoopRange();
+      if (!r) toggleLoop(false);
+      else {
+        const t = getCurrentTime();
+        if (t >= r.end || t < r.start - 1) seekTo(r.start);
+      }
+    }
+    requestAnimationFrame(loopTick);
+  })();
+
+  // 點完按鈕／下拉選單後把焦點還給頁面，避免空白鍵同時觸發按鈕＋打點、或快捷鍵被選單吃掉
+  document.addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (b && !b.closest(".modal-overlay")) b.blur();
+  });
+  document.querySelectorAll(".top-bar select").forEach(s => s.addEventListener("change", () => s.blur()));
+
+  function openEditModal() { btnEditLine?.click(); }
+  function openAddModal() { btnAddLine?.click(); }
+
   // ── 鍵盤快捷鍵監聽 ──
   window.addEventListener("keydown", e => {
+    // 彈窗優先：Esc 一律關閉；Enter 送出（貼上歌詞用 Ctrl+Enter）；其他快捷鍵停用
+    if (isModalOpen()) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeAllModals();
+        return;
+      }
+      if (e.key === "Enter" && !e.isComposing) {
+        const modal = document.querySelector(".modal-overlay.active");
+        const inTextarea = e.target.tagName === "TEXTAREA";
+        if (modal && (!inTextarea || e.ctrlKey || e.metaKey) && !e.target.closest("button")) {
+          const primary = modal.querySelector(".modal-footer .btn.primary");
+          if (primary) {
+            e.preventDefault();
+            primary.click();
+          }
+        }
+      }
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+      e.preventDefault();
+      btnDownload?.click();
+      return;
+    }
+
     const isCtrlOrMeta = e.ctrlKey || e.metaKey;
 
     // Ctrl+Z: 復原 / 上一步
@@ -2304,7 +2845,49 @@
       }
     }
 
-    if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) {
+    const isAltArrow = e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown");
+    if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || (e.altKey && !isAltArrow)) {
+      return;
+    }
+
+    if (e.key === "Delete" && e.shiftKey) {
+      e.preventDefault();
+      deleteSelectedLines();
+      return;
+    }
+    if (e.key === "End" && e.shiftKey) {
+      e.preventDefault();
+      selectToEnd();
+      return;
+    }
+    if (e.key === "g" || e.key === "G") {
+      e.preventDefault();
+      jumpToUntimed(e.shiftKey ? -1 : 1);
+      return;
+    }
+    if (e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      toggleLoop();
+      return;
+    }
+    if (e.key === "e" || e.key === "E") {
+      e.preventDefault();
+      openEditModal();
+      return;
+    }
+    if (e.key === "n" || e.key === "N" || e.key === "Insert") {
+      e.preventDefault();
+      openAddModal();
+      return;
+    }
+    if (e.key === "<" || e.key === ">") {
+      e.preventDefault();
+      changeRate(e.key === ">" ? 1 : -1);
+      return;
+    }
+    if (e.key === "," || e.key === ".") {
+      e.preventDefault();
+      nudgePlayhead(e.key === "." ? 0.1 : -0.1);
       return;
     }
 
@@ -2314,6 +2897,23 @@
       modalAddLine?.classList.remove("active");
       modalSplitLine?.classList.remove("active");
       modalHotkeys?.classList.remove("active");
+      return;
+    }
+
+    // 應援動作快捷鍵 1~7 與 0 清除
+    if (e.key >= "1" && e.key <= "7") {
+      const actIdx = parseInt(e.key, 10) - 1;
+      const act = ACT_KEYS[actIdx];
+      if (act) {
+        e.preventDefault();
+        toggleActOnSelected(act);
+        return;
+      }
+    }
+
+    if (e.key === "0") {
+      e.preventDefault();
+      clearActsOnSelected();
       return;
     }
 
@@ -2422,7 +3022,14 @@
 
   // ── 輸出與備份 ──
   function entry() {
-    const lines = LINES.filter(l => l.time != null).sort((a, b) => a.time - b.time);
+    const lines = LINES.filter(l => l.time != null).sort((a, b) => a.time - b.time).map(l => {
+      const clean = { ...l };
+      if (!clean.acts || !clean.acts.length) delete clean.acts;
+      if (!clean.sing || !clean.sing.length) delete clean.sing;
+      if (!clean.call) delete clean.call;
+      if (!clean.how) delete clean.how;
+      return clean;
+    });
 
     if (currentVersionMode === "live" && currentLiveItem) {
       return {
@@ -2452,6 +3059,24 @@
     const bad = lyricsCueList ? lyricsCueList.querySelectorAll(".bad").length : 0;
     if (bad && !confirm(`有 ${bad} 句比上一句早（紅色時間），輸出時會照時間重新排序，句子順序會變。要繼續嗎？`)) {
       return false;
+    }
+
+    // 檢查 sing 是否包含在 jp 內
+    const invalidSing = [];
+    LINES.forEach((l, i) => {
+      if (l.sing && Array.isArray(l.sing)) {
+        const jp = l.jp || "";
+        for (const w of l.sing) {
+          if (!jp.includes(w)) {
+            invalidSing.push(`第 ${i + 1} 句合唱詞「${w}」未出現在日文歌詞「${jp}」`);
+          }
+        }
+      }
+    });
+    if (invalidSing.length) {
+      if (!confirm(`發現 ${invalidSing.length} 處合唱詞與日文不符：\n${invalidSing.slice(0, 3).join("\n")}\n${invalidSing.length > 3 ? "...等\n" : "\n"}這可能會導致 check-data 檢查報錯。要繼續輸出嗎？`)) {
+        return false;
+      }
     }
     return true;
   }
@@ -2534,6 +3159,11 @@
     duplicateSelectedLine,
     cloneLyricsFromMv,
     openSplitModal,
+    jumpToUntimed,
+    selectToEnd,
+    toggleLoop,
+    deleteSelectedLines,
+    parsePastedLyrics,
     getCurrentTime,
     getLines: () => LINES,
     getSel: () => sel,

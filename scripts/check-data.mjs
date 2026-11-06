@@ -9,7 +9,7 @@ import { createRequire } from "node:module";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 
-const { SONGS, UT, PEN, BEAT, CLIMAX, LIVES } = require(path.join(root, "songs.js"));
+const { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS } = require(path.join(root, "songs.js"));
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 
 const parseLen = str => str.split(":").reduce((a, b) => a * 60 + +b, 0);
@@ -190,6 +190,25 @@ if (LIVES) {
       if (seen.has(t.yt)) error(`[${id}] LIVES 有重複的影片: ${t.yt}`);
       seen.add(t.yt);
       if (songsMap.get(id)?.yt === t.yt) warn(`[${id}] LIVES 的 ${t.yt} 和主播放影片相同，現場音源選單會重複`);
+    }
+  }
+}
+
+// 8.1 LIVE_VIDEOS 檢查
+if (LIVE_VIDEOS) {
+  for (const [id, item] of Object.entries(LIVE_VIDEOS)) {
+    if (!songsMap.has(id)) {
+      error(`[${id}] 在 LIVE_VIDEOS 表中存在，但不在 songs.js 歌單中`);
+    }
+    if (!item || !item.concert || !item.yt) {
+      error(`[${id}] LIVE_VIDEOS 項目缺少 concert 或 yt: ${JSON.stringify(item)}`);
+      continue;
+    }
+    if (!/^[\w-]{11}$/.test(item.yt)) {
+      error(`[${id}] LIVE_VIDEOS 的 YouTube ID 格式不對（應為 11 碼）: ${item.yt}`);
+    }
+    if (songsMap.get(id)?.yt === item.yt) {
+      warn(`[${id}] LIVE_VIDEOS 的 ${item.yt} 和主 MV 相同`);
     }
   }
 }
