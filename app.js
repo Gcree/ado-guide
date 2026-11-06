@@ -1128,13 +1128,6 @@
     }
     // 測驗要有逐行應援才出得了題
     document.getElementById("toolQuiz").disabled = !TAGGED;
-    const hasTips = TAGGED && s.tips && s.tips.length > 0 && !s.hold;
-    const tipsOpt = document.getElementById("tipsOpt");
-    if (tipsOpt) {
-      tipsOpt.hidden = !hasTips;
-      tipsOpt.open = false;
-      document.getElementById("tipsSummary").innerHTML = hasTips ? s.tips.map(t => `<li>${esc(t)}</li>`).join("") : "";
-    }
     document.getElementById("cueSummary").innerHTML = TAGGED ? s.tips.map(t => `<li>${esc(t)}</li>`).join("") : "";
     document.getElementById("cueIcon").innerHTML = `<use href="#${ACT[s.acts[0] || "listen"].icon}"/>`;
     cueBox.className = "cue";
@@ -1454,37 +1447,11 @@
   const optSub = document.getElementById("optSub");
   if (LANG === "en") optSub.firstElementChild.textContent = T("羅馬拼音");
   if (LANG === "ja") optSub.hidden = true;
-  // 點選單外面就收起來（影片下方的「這首重點」）
-  const menus = [document.getElementById("tipsOpt")].filter(Boolean);
-  document.addEventListener("click", e => menus.forEach(m => { if (m.open && !m.contains(e.target)) m.open = false; }));
-  // 按 Esc 也收起來，焦點回到選單按鈕；這一下不再拿去關沉浸模式
-  document.addEventListener("keydown", e => {
-    const m = e.key === "Escape" && menus.find(x => x.open);
-    if (!m) return;
-    e.stopImmediatePropagation();
-    m.open = false;
-    m.querySelector("summary").focus();
-  }, true);
-  // 下面放不下時往上展開
-  menus.forEach(m => m.addEventListener("toggle", () => {
-    const box = m.querySelector(".view-opts");
-    if (!box) return;
-    box.classList.remove("to-right", "to-up");
-    box.style.maxHeight = "";
-    if (!m.open) return;
-    const r = box.getBoundingClientRect();
-    if (r.left < 8) box.classList.add("to-right");
-    const below = innerHeight - r.top - 8, above = m.getBoundingClientRect().top - 14;
-    if (r.height > below) {
-      if (above > below) box.classList.add("to-up");
-      if (r.height > Math.max(above, below)) box.style.maxHeight = Math.max(above, below) + "px";
-    }
-  }));
-
-  // ── 「顯示」「更多」兩個選單 ──
+  // ── 「速覽」「顯示」「更多」「速度」選單 ──
   // 電腦：貼著按鈕浮出（非強制回應的 dialog，點外面或 Esc 關掉）；手機、平板直放、手機橫拿：從畫面底部拉出的抽屜（強制回應，點暗處、往下滑或 Esc 關掉）
   const SHEET_MQ = matchMedia("(max-width: 900px), (orientation: landscape) and (max-height: 500px)");
   const SHEETS = [
+    { dlg: document.getElementById("guideDlg"), btns: ["guideBtn"] },
     { dlg: document.getElementById("dispDlg"), btns: ["dispBtn", "dockDisp"] },
     { dlg: document.getElementById("moreDlg"), btns: ["dockMore"] },
     { dlg: document.getElementById("rateDlg"), btns: ["rateBtn"] }
@@ -1528,7 +1495,7 @@
     const panel = sh.dlg.firstElementChild;
     let drag = null;
     panel.addEventListener("pointerdown", e => {
-      if (!sh.dlg.classList.contains("as-sheet") || !e.target.closest(".sheet-grip, .sheet-title")) return;
+      if (!sh.dlg.classList.contains("as-sheet") || !e.target.closest(".sheet-grip, .sheet-title, .card-title")) return;
       drag = { y: e.clientY, id: e.pointerId }; panel.setPointerCapture(e.pointerId); sh.dlg.classList.add("dragging");
     });
     panel.addEventListener("pointermove", e => { if (drag && e.pointerId === drag.id) panel.style.transform = `translateY(${Math.max(0, e.clientY - drag.y)}px)`; });
@@ -1663,6 +1630,7 @@
     const a = ev.target.closest("a.rel-link");
     if (!a) return;
     const d = a.closest("details"); if (d) d.open = false;
+    if (a.closest("#guideDlg")) closeSheets();
     if (!PAGE_SONG || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
     ev.preventDefault();
     goSong(a.dataset.id);

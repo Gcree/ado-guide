@@ -293,32 +293,13 @@
             <div class="jump" id="singJump" role="group" aria-label="跳到大合唱段落">
               <button id="singPrev" aria-label="上一段大合唱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg></button><button class="mid" id="singOnly" aria-pressed="false" title="只看大合唱的句子">大合唱</button><button id="singNext" aria-label="下一段大合唱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></button>
             </div>
-            <!-- 手機才顯示：電腦版的重點在「現在要做的事」框裡 -->
-            <details class="vopt tips-opt" id="tipsOpt" hidden>
-              <summary aria-label="這首重點">這首重點</summary>
-              <div class="view-opts" role="group" aria-label="這首重點">
-                <ul class="summary" id="tipsSummary"></ul>
-              </div>
-            </details>
+            <!-- 應援速覽：手燈色、應援重點、出處、現場音源…，不用捲到歌詞最後才看得到 -->
+            <button type="button" class="ly-btn" id="guideBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="guideDlg">速覽</button>
             <button type="button" class="ly-btn" id="dispBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="dispDlg">顯示</button>
           </div>
           <div class="legend" id="legend" aria-label="顏色代表的動作"></div>
           <div class="lyrics-scroll" id="lyScroll">
             <div id="lines"></div>
-            <section class="song-guide-card" id="songGuideCard" aria-label="歌曲應援速覽">
-              <h3 class="card-title">〈<span id="cardJa"></span>〉應援速覽</h3>
-              <dl class="card-dl">
-                <dt id="cardAkaDt" hidden>也叫</dt><dd id="cardAkaDd" hidden></dd>
-                <dt id="cardTieDt" hidden>出處</dt><dd id="cardTieDd" hidden></dd>
-                <dt id="cardAlbumDt" hidden>收錄專輯</dt><dd id="cardAlbumDd" hidden></dd>
-                <dt id="cardDateDt" hidden>發布日期</dt><dd id="cardDateDd" hidden></dd>
-                <dt>推薦燈色</dt><dd id="cardPen"></dd>
-                <dt>應援重點</dt><dd id="cardTips"></dd>
-                <dt>官方 MV</dt><dd><a id="cardYt" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd>
-                <dt>串流平台</dt><dd id="cardStream"></dd>
-                <dt id="cardLiveDt" hidden>現場音源</dt><dd id="cardLiveDd" hidden></dd>
-              </dl>
-            </section>
           </div>
         </section>
       </div>
@@ -451,7 +432,27 @@
   </form>
 </dialog>
 
-<!-- 歌曲頁的兩個選單：電腦貼著按鈕浮出，手機從畫面底部拉出（可以往下滑關掉） -->
+<!-- 歌曲頁的選單：電腦貼著按鈕浮出，手機從畫面底部拉出（可以往下滑關掉） -->
+<dialog class="sheet sheet-guide" id="guideDlg" aria-label="應援速覽">
+  <div class="sheet-panel">
+    <div class="sheet-grip" aria-hidden="true"></div>
+  <section class="song-guide-card" id="songGuideCard" aria-label="歌曲應援速覽">
+    <h3 class="card-title">〈<span id="cardJa"></span>〉應援速覽</h3>
+    <dl class="card-dl">
+      <dt id="cardAkaDt" hidden>也叫</dt><dd id="cardAkaDd" hidden></dd>
+      <dt id="cardTieDt" hidden>出處</dt><dd id="cardTieDd" hidden></dd>
+      <dt id="cardAlbumDt" hidden>收錄專輯</dt><dd id="cardAlbumDd" hidden></dd>
+      <dt id="cardDateDt" hidden>發布日期</dt><dd id="cardDateDd" hidden></dd>
+      <dt>推薦燈色</dt><dd id="cardPen"></dd>
+      <dt>應援重點</dt><dd id="cardTips"></dd>
+      <dt>官方 MV</dt><dd><a id="cardYt" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></dd>
+      <dt>串流平台</dt><dd id="cardStream"></dd>
+      <dt id="cardLiveDt" hidden>現場音源</dt><dd id="cardLiveDd" hidden></dd>
+    </dl>
+  </section>
+  </div>
+</dialog>
+
 <dialog class="sheet" id="dispDlg" aria-labelledby="dispH">
   <div class="sheet-panel">
     <div class="sheet-grip" aria-hidden="true"></div>

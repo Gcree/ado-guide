@@ -556,12 +556,6 @@ function renderLang(L) {
       .replace('<div id="lines"></div>', `<div id="lines">${prerenderedLines}</div>`)
       .replace(/<section class="song-guide-card" id="songGuideCard"[^>]*>[\s\S]*?<\/section>/, cardHtml);
 
-    if (tips.length > 0) {
-      songHtml = songHtml
-        .replace('<details class="vopt tips-opt" id="tipsOpt" hidden>', '<details class="vopt tips-opt" id="tipsOpt">')
-        .replace('<ul class="summary" id="tipsSummary"></ul>', `<ul class="summary" id="tipsSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`);
-    }
-
     if (lives.length > 0) {
       const liveListHtml = lives.map(l => `<li><a href="https://www.youtube.com/watch?v=${l.yt}" target="_blank" rel="noopener"><span>${esc(l.concert)}</span><svg class="ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></li>`).join("");
       songHtml = songHtml

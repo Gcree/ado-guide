@@ -6646,7 +6646,7 @@ html.vt-theme::view-transition-new(root) {
 .quiz-on #lines .ln .call,
 .quiz-on .legend,
 .quiz-on #singJump,
-.quiz-on #tipsOpt,
+.quiz-on #guideBtn,
 .quiz-on .cue .now,
 .quiz-on .cue .next,
 .quiz-on .cue .how,
@@ -7539,6 +7539,36 @@ body.immersive-mode .dock.autohide {
 
 .sheet-sm .sheet-panel {
   width: 180px;
+}
+
+/* 應援速覽：電腦從「速覽」按鈕旁浮出，手機從底部拉出；卡片本身不再另外加框 */
+.sheet-guide .sheet-panel {
+  width: min(440px, calc(100vw - 24px));
+  padding: 4px 4px 8px;
+}
+
+.sheet-guide .song-guide-card {
+  margin: 0;
+  padding: 12px 14px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+/* 手機：「速覽」靠右，放在原本「這首重點」的位置 */
+@media (max-width: 900px) {
+  #guideBtn {
+    margin-left: auto;
+  }
+}
+
+.sheet-guide.as-sheet .song-guide-card {
+  padding-top: 4px;
+}
+
+.sheet-guide.as-sheet .song-guide-card .card-title {
+  font-size: 16px;
+  font-weight: 700;
 }
 
 /* 隨機播放：下一首的箭頭換成隨機圖示，一看就知道下一首是隨機挑的 */
