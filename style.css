@@ -2725,6 +2725,20 @@ body.immersive-mode {
   overflow: hidden !important;
 }
 
+/* 舞台（#song）是 position: fixed，其他內容都收起來後 body、.shell 會只剩 0 高度。
+   html 有 overflow-x: clip，body 的 overflow 不會轉給視窗、會裁自己的框；.shell 也有 overflow-x: clip 和 z-index。
+   iPhone Safari 會把 fixed 的舞台一起裁進這兩個 0 高度的框，影片、提示、字幕全部看不到，只剩背後的 3D 場館。
+   沉浸模式時讓兩層都撐滿畫面，.shell 也不裁切。 */
+body.immersive-mode,
+body.immersive-mode .shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+body.immersive-mode .shell {
+  overflow: visible;
+}
+
 body.immersive-mode .bar,
 body.immersive-mode footer,
 body.immersive-mode #home {
