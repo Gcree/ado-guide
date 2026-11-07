@@ -119,6 +119,24 @@ function songTitle(s, code) {
   const full = `Ado〈${s.ja}〉${n ? n + " " : ""}應援教學`;
   return full.length <= 32 ? full : `Ado〈${s.ja}〉應援教學`;
 }
+// 分頁標題（<title>）：歌名＋這首實際有的應援（只寫真的有的，標題才不會跟內容不符被 Google 改寫）
+// 長度上限約等於搜尋結果顯示得完的寬度，太長就依序拿掉別名、再拿掉後半段
+function songPageTitle(s, code) {
+  const has = a => (s.acts || []).includes(a);
+  const hook = {
+    zh: has("sing") ? "手燈顏色與大合唱" : has("clap") ? "手燈顏色與拍手" : "手燈顏色",
+    en: has("sing") ? "Penlight Colors & Sing-Along" : has("clap") ? "Penlight Colors & Claps" : "Penlight Colors",
+    ja: has("sing") ? "ペンライト色・合唱" : has("clap") ? "ペンライト色・手拍子" : "ペンライト色"
+  }[code];
+  const n = namePart(s, code);
+  const tries = {
+    zh: [`Ado〈${s.ja}〉${n ? n + " " : ""}應援教學｜${hook}`, `Ado〈${s.ja}〉應援教學｜${hook}`],
+    en: [`Ado "${n || s.ja}"${n ? ` (${s.ja})` : ""} Fan Chant Guide | ${hook}`, `Ado "${s.ja}" Fan Chant Guide | ${hook}`],
+    ja: [`Ado「${s.ja}」ライブ応援ガイド｜${hook}`]
+  }[code];
+  const max = code === "en" ? 65 : 34;
+  return tries.find(t => t.length <= max) || songTitle(s, code);
+}
 function songDesc(s, code, p, tips, T) {
   const n = namePart(s, code), tie = s.tie ? T(s.tie) : "";
   if (code === "en") {
@@ -200,8 +218,26 @@ const gaScript = GA_ID ? [
 // 頁尾版本號跟 CHANGELOG 最上面那版走，不用手動同步
 const VERSION = (read("CHANGELOG.md").match(/^## (v\d+\.\d+\.\d+)/m) || [])[1];
 if (!VERSION) throw new Error("CHANGELOG.md 找不到版本標題（## vX.Y.Z）");
+// 最後更新日：CHANGELOG 最新一版的日期。頁尾看得到、結構化資料的 dateModified 和網站地圖的 lastmod 都用它，三邊一致
+const UPDATED = (read("CHANGELOG.md").match(/^## v\d+\.\d+\.\d+ — (\d{4}-\d{2}-\d{2})/m) || [])[1] || new Date().toISOString().slice(0, 10);
+// Ado 本人：維基百科與 Wikidata 讓搜尋引擎、AI 確定是哪一位 Ado（同名的人很多）
+const ADO = {
+  "@type": "MusicGroup",
+  "@id": `${SITE}#ado`,
+  "name": "Ado",
+  "url": "https://www.universal-music.co.jp/ado/",
+  "sameAs": [
+    "https://www.wikidata.org/wiki/Q104012678",
+    "https://en.wikipedia.org/wiki/Ado_(singer)",
+    "https://ja.wikipedia.org/wiki/Ado_(%E6%AD%8C%E6%89%8B)",
+    "https://www.youtube.com/@Ado1024",
+    "https://x.com/ado1024imokenp",
+    "https://www.instagram.com/ado1024sweetadream/",
+    "https://open.spotify.com/artist/6mEQK9m2krja6X1cfsAjfl"
+  ]
+};
 const src = read("index.html")
-  .replace(/<span class="build">[^<]*<\/span>/, `<span class="build">${VERSION}</span>`)
+  .replace(/<span class="build">[^<]*<\/span>/, `<span class="build">${VERSION} · <time datetime="${UPDATED}">${UPDATED}</time></span>`)
   .replace(/style\.css\?v=[^"]*/, `style.css?v=${hash(css)}`)
   .replace("songs.js?v=dev", `songs.js?v=${hash(songsText)}`)
   .replace("song-lyrics-live.js?v=dev", `song-lyrics-live.js?v=${hash(liveLyricsText)}`)
@@ -331,19 +367,19 @@ function renderLang(L) {
   const home = SITE + L.dir;
   const COPY = {
     zh: {
-      title: `Ado 演唱會應援教學｜${SONGS.length} 首歌的手燈顏色與大合唱`,
+      title: `Ado 應援指南｜演唱會手燈顏色、大合唱與拍手教學（${SONGS.length} 首）`,
       desc: `第一次去 Ado 演唱會也不慌：${SONGS.length} 首歌各有一頁，跟著官方 MV 和日中同步歌詞，哪裡拍手、哪裡大合唱、哪裡喊「Hey!」、手燈切什麼顏色都標好了。非官方粉絲製作，不照任何場次歌單，不暴雷。`,
       site: `非官方粉絲製作的 Ado 演唱會應援指南：收錄 ${SONGS.length} 首歌曲教學，看著 MV 跟同步歌詞，練哪裡拍手、哪裡大合唱、哪裡喊聲，還有每首手燈推薦顏色與藍牙手燈連動。`,
       list: "Ado 演唱會歌曲應援清單", listDesc: `Ado ${SONGS.length} 首歌曲的演唱會應援教學與同步歌詞`
     },
     en: {
-      title: `Ado Concert Chant Guide: Penlight Colors & Sing-Alongs for ${SONGS.length} Songs`,
+      title: `Ado Fan Chant Guide | Concert Penlight Colors & Sing-Alongs (${SONGS.length} Songs)`,
       desc: `Going to an Ado concert? Each of ${SONGS.length} songs has its own page: play the official MV with synced lyrics and romaji, and see exactly where to clap, sing along, shout "Hey!", and which penlight color to use. Unofficial, made by fans, spoiler-free.`,
       site: `An unofficial fan-made guide to Ado concert chants: ${SONGS.length} songs with synced lyrics, romaji, sing-along parts, clap and call cues, and penlight colors.`,
       list: "Ado concert chant guide by song", listDesc: `Chant guides and synced lyrics for ${SONGS.length} Ado songs`
     },
     ja: {
-      title: `Adoライブ応援ガイド｜${SONGS.length}曲のペンライト色・コール・合唱パート`,
+      title: `Ado 応援ガイド｜ライブのペンライト色・コール・合唱（全${SONGS.length}曲）`,
       desc: `初めてのAdoライブでも大丈夫。${SONGS.length}曲それぞれに専用ページ、公式MVと同期歌詞で、手拍子・合唱・「Hey!」コールの場所とペンライトの色をチェックできます。ファンによる非公式サイト、セトリのネタバレなし。`,
       site: `ファンが作った非公式のAdoライブ応援ガイド。${SONGS.length}曲の同期歌詞、合唱パート、手拍子・コールのタイミング、ペンライト色をまとめています。`,
       list: "Ado ライブ応援ガイド 曲一覧", listDesc: `Adoの${SONGS.length}曲の応援ガイドと同期歌詞`
@@ -361,15 +397,8 @@ function renderLang(L) {
         "inLanguage": L.html,
         "description": COPY.site,
         "publisher": { "@id": `${SITE}#author` },
-        "about": {
-          "@type": "MusicGroup",
-          "name": "Ado",
-          "url": "https://www.youtube.com/@Ado1024",
-          "sameAs": [
-            "https://twitter.com/ado1024imokenp",
-            "https://www.instagram.com/ado1024sweetadream/"
-          ]
-        }
+        "dateModified": UPDATED,
+        "about": ADO
       },
       {
         "@type": "Person",
@@ -426,7 +455,7 @@ function renderLang(L) {
     const rest = `song/${s.id}/`;
     const url = home + rest;
     if (L.code === "zh") urls.push(rest);
-    const pageTitle = songTitle(s, L.code);
+    const pageTitle = songPageTitle(s, L.code);
     const desc = songDesc(s, L.code, pen, tips, T);
     const dn = namePart(s, L.code);
 
@@ -441,6 +470,9 @@ function renderLang(L) {
           "description": desc,
           "inLanguage": L.html,
           "isPartOf": { "@type": "WebSite", "@id": `${home}#website` },
+          "about": { "@id": `${url}#song` },
+          "dateModified": UPDATED,
+          "primaryImageOfPage": { "@type": "ImageObject", "url": `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg` },
           "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS, INSTAGRAM] },
           "breadcrumb": { "@id": `${url}#breadcrumb` }
         },
@@ -458,11 +490,7 @@ function renderLang(L) {
           "@id": `${url}#song`,
           "name": s.ja,
           "alternateName": [...new Set([s.zh, s.en, s.ro, ...(s.alias || [])])].filter(x => x && x !== s.ja),
-          "byArtist": {
-            "@type": "MusicGroup",
-            "name": "Ado",
-            "url": "https://www.youtube.com/@Ado1024"
-          },
+          "byArtist": ADO,
           "datePublished": s.date,
           "duration": isoDuration(s.len),
           "url": url,
@@ -571,7 +599,7 @@ write("404.html", `<!doctype html><html lang="zh-Hant-TW"><meta charset="utf-8">
 
 // 網站地圖：每個網址列出三種語言版本（xhtml:link），Google 才知道它們是同一頁的不同語言
 // lastmod 用 CHANGELOG 最新一版的日期：只有真的改版才變，Google 才會相信這個日期
-const today = (read("CHANGELOG.md").match(/^## v\d+\.\d+\.\d+ — (\d{4}-\d{2}-\d{2})/m) || [])[1] || new Date().toISOString().slice(0, 10);
+const today = UPDATED;
 const alts = rest => LANGS.map(x => `    <xhtml:link rel="alternate" hreflang="${x.hreflang}" href="${SITE}${x.dir}${rest}"/>`).concat(`    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${rest}"/>`).join("\n");
 write(
   "sitemap.xml",
