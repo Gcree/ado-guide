@@ -2838,7 +2838,7 @@ body.immersive-mode .mv {
     0 0 0 1px rgba(255, 255, 255, .06),
     0 40px 90px -30px #000,
     0 0 calc(70px + var(--beat-hit, 0) * 50px) calc(-8px + var(--beat-hit, 0) * 8px) color-mix(in srgb, var(--mesh-c1, #02b4f5) calc(26% + var(--beat-hit, 0) * 34%), transparent);
-  transition: transform 1.4s var(--ease-out), filter 1.4s var(--ease-out);
+  transition: transform 1.4s var(--ease-out);
 }
 
 body.immersive-mode .mv .screen {
@@ -2849,10 +2849,22 @@ body.immersive-mode .mvbar {
   display: none;
 }
 
-/* 「交給觀眾」：大合唱的句子，螢幕退暗往後縮，把舞台讓給台下 */
-body.immersive-mode.imm-crowd .mv {
-  filter: brightness(.42) saturate(.75);
-  transition: transform 1.1s var(--ease-out), filter 1.1s var(--ease-out);
+/* 「交給觀眾」：大合唱的句子，螢幕退暗，把舞台讓給台下
+   用一層黑幕調暗，不在影片框上套 filter：iPhone 上 YouTube 影片的父層有 filter 可能整個畫不出來 */
+body.immersive-mode .mv::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.4s var(--ease-out);
+}
+
+body.immersive-mode.imm-crowd .mv::after {
+  opacity: .58;
+  transition: opacity 1.1s var(--ease-out);
 }
 
 /* 提示膠囊：現在做什麼｜下一個是什麼 */
@@ -3221,7 +3233,8 @@ body.immersive-mode.has-venue .cue {
   }
 
   body.immersive-mode .mv,
-  body.immersive-mode.imm-crowd .mv,
+  body.immersive-mode .mv::after,
+  body.immersive-mode.imm-crowd .mv::after,
   body.immersive-mode .depth-focus .ln {
     transition: none;
   }

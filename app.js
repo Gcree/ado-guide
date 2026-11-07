@@ -1751,11 +1751,14 @@
       ensureVenue().then(() => requestAnimationFrame(venueLayout));
       toast(T("✨ 已開啟沉浸播放模式（按 Esc 或 F 退出）"));
       resetSongbarAutohide();
-      // 舞台螢幕開機：從全黑亮到過曝再回正常，提示和字幕隨後浮上來
+      // 舞台螢幕開機：從全黑淡入，提示和字幕隨後浮上來
+      // 影片框不用 filter：iPhone 上 YouTube 影片的父層套 filter 可能整個畫不出來。
+      // iPhone Safari 的 delay + fill: backwards 動畫偶爾停在透明的第一格，時間到了一律取消，保證看得到
       if (!reduce) {
         const ease = "cubic-bezier(.2, .7, .2, 1)";
-        document.querySelector("#song .mv")?.animate([{ opacity: 0, filter: "brightness(0)" }, { opacity: 1, filter: "brightness(1.6)", offset: .45 }, { opacity: 1, filter: "brightness(1)" }], { duration: 1100, delay: 200, easing: ease, fill: "backwards" });
-        [cueBox, document.querySelector("#song .lyrics")].forEach((el, i) => el && el.animate([{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "none" }], { duration: 800, delay: 650 + i * 70, easing: ease, fill: "backwards" }));
+        const intro = [document.querySelector("#song .mv")?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 900, delay: 200, easing: ease, fill: "backwards" })];
+        [cueBox, document.querySelector("#song .lyrics")].forEach((el, i) => el && intro.push(el.animate([{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "none" }], { duration: 800, delay: 650 + i * 70, easing: ease, fill: "backwards" })));
+        setTimeout(() => intro.forEach(a => a && a.cancel()), 1800);
       }
     } else {
       [songbar, dockEl].forEach(el => el && el.classList.remove("autohide"));
