@@ -1009,13 +1009,16 @@
   }
 
   // 使用者手勢直接啟動播放，避免瀏覽器與 YouTube 判定為背景自動播放而插入廣告與強制靜音
+  // iPhone／Safari 只讓「點擊當下」叫的播放出聲：換頁有轉場，等 openSong 再播已經不算點擊，所以要在這裡先播
   document.addEventListener("click", e => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;  // 開新分頁：這頁不要出聲
     const a = e.target.closest("a[data-id], a[href^='#'], #prevSong, #nextSong");
     if (!a) return;
     const targetId = getSongIdFromEl(a);
     const targetSong = targetId && BY[targetId];
-    if (!targetSong) return;
-
+    if (targetSong) tapPlay(targetSong);
+  });
+  function tapPlay(targetSong) {
     const targetVid = activeVideoId(targetSong);
     if (!player && window.YT && YT.Player) {
       vid = targetVid;
@@ -1034,7 +1037,14 @@
         }
       } catch (err) {}
     }
-  });
+  }
+  // 第一次從首頁點歌時播放器還沒建好，建好（約 1 秒後）才播就不算點擊，iPhone 只能靜音播。
+  // 手機和 Safari 上，首頁閒下來就先建好空的播放器，點歌那一下直接換片有聲播放；電腦版 Chrome、Edge 點過頁面就能有聲自動播放，不用先載
+  const NEEDS_TAP = matchMedia("(pointer: coarse)").matches || (/Safari\//.test(navigator.userAgent) && !/Chrome\/|Chromium\/|Edg\/|Android/.test(navigator.userAgent));
+  function warmPlayer() {
+    if (!NEEDS_TAP || player || !window.YT || !YT.Player || !navigator.onLine || (navigator.connection && navigator.connection.saveData)) return;
+    (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => { if (!player && songV.hidden) createPlayer(undefined, false); }, { timeout: 3000 });
+  }
   // 瀏覽器不讓有聲音的影片自己播時（直接打開網址、還沒點過畫面，iPhone 常見），改成靜音播放並提醒
   function ensurePlaying() {
     clearTimeout(muteTimer);
@@ -1042,10 +1052,18 @@
       if (!ready || songV.hidden) return;
       const st = player.getPlayerState();
       if (st === 1 || st === 2 || st === 3) return;  // 在播、使用者自己暫停了、或還在緩衝
-      player.mute(); player.playVideo();
-      toast(T("瀏覽器不讓影片自動出聲，先靜音播放；點影片的喇叭開聲音"));
+      player.mute(); player.playVideo(); autoMuted = true;
+      toast(T("瀏覽器不讓影片自動出聲，先靜音播放；點一下畫面就有聲音"));
     }, 3000);
   }
+  // 被迫靜音之後，使用者在頁面上點的第一下（任何地方）就順便開聲音：點擊當下叫 unMute 才算數
+  let autoMuted = false;
+  const unmuteOnTap = () => {
+    if (!autoMuted || !ready) return;
+    autoMuted = false;
+    try { player.unMute(); } catch (e) {}
+  };
+  ["click", "keydown"].forEach(t => document.addEventListener(t, unmuteOnTap, true));
   if (location.protocol === "file:") {
     videoMsg(T("直接點開檔案時 YouTube 不允許嵌入播放。請改用資料夾裡的「開啟網站.command」，或放上 GitHub Pages 再看。"));
   } else {
@@ -1060,7 +1078,7 @@
       yts.onerror = () => { yts.remove(); videoMsg(navigator.onLine ? T("無法載入 YouTube 播放器，請到 YouTube 觀看。") : OFFLINE); };
       document.head.appendChild(yts);
     };
-    window.onYouTubeIframeAPIReady = loadVideo;
+    window.onYouTubeIframeAPIReady = () => { loadVideo(); warmPlayer(); };
     if (!navigator.onLine) videoMsg(OFFLINE);
     loadYT();
     addEventListener("online", () => { if (!ready) { videoMsg(T("正在載入影片…")); loadYT(); } });
@@ -3077,6 +3095,8 @@
       if (swallowClick) return;
       // 手指點：還沒選起來的那張先抽起來，再點一下才打開（滑鼠滑過時已經選好了，點了直接打開）
       if (lastPointer === "touch" && e.detail !== 0 && !wasOn) { setOn(a.parentElement, "tap"); holdCycle(); return; }
+      // 飛行動畫後才換頁，那時已經不算點擊：影片在點下去這一刻先開始播
+      if (!busy && a.parentElement._song) tapPlay(a.parentElement._song);
       // detail 是 0：用鍵盤按 Enter，落地後把焦點交給歌曲頁的返回鍵
       fly(a.parentElement, e.detail === 0);
     });
