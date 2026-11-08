@@ -101,7 +101,9 @@ node scripts/build.mjs dist
 
 ### 新歌工作站
 
-平常用工作站開對時工作台：Windows 點兩下 `工作站.bat`，Mac 點兩下 `工作站.command`（或 `node tools/studio/server.mjs --open`），會打開 <http://localhost:5178/tools/timing/>。
+Windows 點兩下 `工作站.bat`，Mac 點兩下 `工作站.command`（或 `node tools/studio/server.mjs --open`），會打開新歌工作站 <http://localhost:5178/tools/studio/ui/>：左邊歌單、中間預覽（字幕浮在畫面上）和時間軸／歌詞表、右邊編輯選取的句子、歌曲資料和情報包。改的東西先存在這台電腦的草稿（可以復原），按「存檔」（Ctrl+S）才寫回歌詞檔；檔案在你打開後被改過（命令列、自動對時、另一個分頁）會擋下來不蓋掉。快捷鍵跟舊版一樣：空白鍵打點、`[` `]` 微調、Enter 試聽、↑↓ 上下句、1–7 應援、G 下一個要檢查的句子、Ctrl+Z 復原。
+
+現場版（LIVE）的對時、和少數進階編輯還在舊版對時工作台（<http://localhost:5178/tools/timing/>，左下角「舊版對時工作台」）。
 
 **第一次使用**：點兩下就會自動安裝需要的工具（Git、Node.js、FFmpeg、uv，和工作站的 Python 環境：yt-dlp、librosa、PyTorch、Demucs、Whisper；Windows 裝 NVIDIA 顯卡版，約 3–4 GB）。Windows 用 winget，裝完要關掉視窗再點一次；Mac 要先裝好 [Homebrew](https://brew.sh)。安裝腳本在 `tools/studio/setup/`。
 
@@ -114,7 +116,6 @@ node scripts/build.mjs dist
 - **🚀 發布**：跑資料檢查和卡拉OK測試，只 commit 歌曲資料（`songs.js`、`song-lyrics.js`、`song-lyrics-live.js`、`i18n.js`、`research/`），拉遠端最新後推上 `main`，約 2 分鐘網站更新。要在 `main` 分支才能發布；其他檔案的改動不會被帶進去。
 - 網站本身也能在 <http://localhost:5178/> 預覽。
 - **命令列**：介面能做的事都能用指令做（`node tools/studio/cli.mjs help`），例如 `meta shinka --pen "?赤白"`、`line shinka 12 --acts clap`、`check`、`publish -m "…"`。Claude 也是用這套改資料（見 `CLAUDE.md`）。
-- **新介面設計稿**：<http://localhost:5178/tools/studio/ui/>（還不能用，只是給大家看長相）。
 - **翻譯工具試用**：`node tools/studio/agent-cli.mjs --probe` 會試 agy／gemini／claude 哪個叫得動，並把能用的寫進 `tools/studio/config.json`（只存在這台電腦）。
 
 接下來要加的匯入新歌、自動算拍點、自動對時，規劃在 [`docs/studio-plan.md`](docs/studio-plan.md)。

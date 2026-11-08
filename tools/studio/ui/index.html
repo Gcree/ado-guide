@@ -17,7 +17,6 @@
   </script>
 </head>
 <body>
-  <!-- 圖示（細線條） -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
     <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
@@ -58,55 +57,78 @@
     <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
     <symbol id="i-hash" viewBox="0 0 24 24"><path d="M9 4 7 20M17 4l-2 16M4 9h16M3 15h16"/></symbol>
     <symbol id="i-lang" viewBox="0 0 24 24"><path d="M4 5h9M8.5 3v2M6 5c1 4 4 7 7 8M11 5c-1 4-4 7-7 8"/><path d="m13 21 4-9 4 9M14.5 18h5"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></symbol>
+    <symbol id="i-wand" viewBox="0 0 24 24"><path d="m4 20 11-11M14 4v3M19 9h3M17.5 5.5 19.5 3.5M12 4l2 2"/></symbol>
+    <symbol id="i-zin" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5M8.5 11h5M11 8.5v5"/></symbol>
+    <symbol id="i-zout" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5M8.5 11h5"/></symbol>
+    <symbol id="i-magnet" viewBox="0 0 24 24"><path d="M6 4v8a6 6 0 0 0 12 0V4h-4v8a2 2 0 0 1-4 0V4z"/></symbol>
+    <symbol id="i-follow" viewBox="0 0 24 24"><path d="M12 3v18M5 9l-3 3 3 3M19 9l3 3-3 3"/></symbol>
+    <symbol id="i-check2" viewBox="0 0 24 24"><path d="M4 12l5 5 11-11"/></symbol>
+    <symbol id="i-old" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></symbol>
   </svg>
 
   <div class="app">
-    <!-- 側欄 -->
+    <!-- 側欄：搜尋、匯入、歌曲 -->
     <aside class="side">
       <div class="ws"><span class="ws-icon">A</span>Ado Studio <small>新歌工作站</small></div>
-      <nav class="nav">
-        <div class="item"><svg class="ic"><use href="#i-search"/></svg>搜尋<span class="end kbd">/</span></div>
-        <div class="item"><svg class="ic"><use href="#i-inbox"/></svg>情報收件匣<span class="end pill red" style="height:18px;line-height:18px;font-size:11px">1</span></div>
-      </nav>
-      <label class="import-box" title="貼上 YouTube 網址，按 Enter 開始匯入">
+      <label class="search-box"><svg class="ic"><use href="#i-search"/></svg><input id="search" placeholder="搜尋歌名、id"><span class="kbd">/</span></label>
+      <form class="import-box" id="importForm" title="貼上 YouTube 網址匯入新歌">
         <svg class="ic"><use href="#i-link"/></svg>
-        <input placeholder="貼上 YouTube 網址匯入新歌">
-      </label>
+        <input id="importUrl" placeholder="貼上 YouTube 網址匯入新歌" autocomplete="off">
+      </form>
+      <form class="import-more" id="importMore" hidden>
+        <input id="importId" placeholder="英文 id（例如 shinka；英文歌名可留空）" autocomplete="off">
+        <button class="btn primary" type="submit">匯入</button>
+      </form>
       <div class="tree" id="songList"></div>
+      <a class="item old-link" id="oldLink" href="/tools/timing/" title="現場版、其他進階編輯">
+        <svg class="ic"><use href="#i-old"/></svg>舊版對時工作台
+      </a>
     </aside>
 
-    <!-- 中間：只放編輯 —— 預覽（字幕浮在畫面下方）→ 走帶 → 時間軸／歌詞表 -->
+    <!-- 中間：只放編輯 -->
     <main class="main">
       <div class="topbar">
-        <div class="crumbs"><span>歌曲</span><i>/</i><span>處理中</span><i>/</i><b id="crumbTitle"></b></div>
+        <div class="crumbs"><span>歌曲</span><i>/</i><span id="crumbGroup">—</span><i>/</i><b id="crumbTitle">選一首歌</b></div>
         <div class="sp"></div>
-        <span class="pill blue" title="歌詞、BPM、副歌高潮是真的資料；波形、段落、信心、應援、處理進度、情報是假的">設計稿</span>
-        <span class="check"><span class="dot" style="background:var(--green)"></span>檢查通過</span>
+        <span class="dirty" id="dirty" hidden>未存</span>
+        <button class="btn icon" id="btnUndo" title="復原（Ctrl+Z）" disabled><svg class="ic"><use href="#i-undo"/></svg></button>
+        <button class="btn icon" id="btnRedo" title="重做（Ctrl+Shift+Z）" disabled><svg class="ic"><use href="#i-redo"/></svg></button>
+        <button class="btn" id="btnSave" title="存回歌詞檔（Ctrl+S）" disabled><svg class="ic"><use href="#i-save"/></svg><span class="lbl">存檔</span></button>
+        <button class="btn" id="btnCheck" title="跑資料檢查（跟發布前一樣）"><span class="dot" id="checkDot"></span><span class="lbl" id="checkText">檢查</span></button>
         <button class="btn icon" id="btnTheme" title="切換淺色／深色"><svg class="ic"><use href="#i-sun"/></svg></button>
-        <button class="btn">同步</button>
-        <button class="btn primary">發布</button>
+        <button class="btn" id="btnSync" title="從 GitHub 拉最新（例如 Claude 推上來的情報包）"><svg class="ic"><use href="#i-sync"/></svg><span class="lbl">同步</span></button>
+        <button class="btn primary" id="btnPublish" title="檢查後推上 main，約 2 分鐘網站更新">發布</button>
       </div>
+
+      <div class="banner" id="banner" hidden></div>
 
       <section class="monitor" id="monitor">
         <div class="video" id="video">
-          <div class="ph" id="phTitle"></div>
+          <div id="yt"></div>
+          <div class="ph" id="ph"></div>
           <div class="ov-tags" id="ovTags"></div>
           <div class="ov-tc mono" id="ovTc"></div>
-          <div class="caption" id="caption"><div class="jp" id="curJp"></div><div class="tr" id="curTr"></div></div>
+          <div class="caption" id="caption" hidden><div class="jp" id="curJp"></div><div class="tr" id="curTr"></div></div>
         </div>
       </section>
 
       <div class="transport">
-        <button class="btn icon" title="上一句（↑）"><svg class="ic"><use href="#i-prev"/></svg></button>
+        <button class="btn icon" id="btnPrev" title="上一句（↑）"><svg class="ic"><use href="#i-prev"/></svg></button>
         <button class="play" id="btnPlay" title="播放／暫停（K）"><svg class="ic"><use href="#i-play"/></svg></button>
-        <button class="btn icon" title="下一句（↓）"><svg class="ic"><use href="#i-next"/></svg></button>
-        <div class="tc" id="tc"></div>
-        <div class="bb">第 <b id="bbBar"></b> 小節</div>
-        <div class="seg"><button>0.5×</button><button>0.75×</button><button class="on">1×</button></div>
-        <button class="btn" title="循環這句（R）"><svg class="ic"><use href="#i-loop"/></svg><span class="lbl">循環這句</span></button>
-        <button class="btn on-toggle" id="btnCaption" title="預覽畫面上的字幕（C）"><svg class="ic"><use href="#i-text"/></svg><span class="lbl">字幕</span></button>
+        <button class="btn icon" id="btnNext" title="下一句（↓）"><svg class="ic"><use href="#i-next"/></svg></button>
+        <div class="tc" id="tc">0:00.00</div>
+        <div class="bb" id="bb"></div>
+        <div class="seg" id="rateSeg"><button data-rate="0.5">0.5×</button><button data-rate="0.75">0.75×</button><button data-rate="1" class="on">1×</button></div>
+        <button class="btn" id="btnLoop" title="循環這句（R）"><svg class="ic"><use href="#i-loop"/></svg><span class="lbl">循環</span></button>
+        <button class="btn on-toggle on" id="btnCaption" title="預覽畫面上的字幕（C）"><svg class="ic"><use href="#i-text"/></svg><span class="lbl">字幕</span></button>
         <div class="sp"></div>
-        <button class="btn punch" title="把目前時間打給選取的句子，並前進到下一句"><svg class="ic"><use href="#i-mark"/></svg>打點<span class="kbd lbl"> Space</span></button>
+        <label class="lag" title="從聽到唱出到按下的反應時間，打點時自動扣掉"><span class="lbl">反應</span><input id="lag" type="number" value="150" step="10" min="0" max="600">ms</label>
+        <button class="btn punch" id="btnPunch" title="把目前時間打給選取的句子，並前進到下一句（空白鍵）"><svg class="ic"><use href="#i-mark"/></svg>打點<span class="kbd lbl"> Space</span></button>
       </div>
 
       <div class="views">
@@ -114,14 +136,17 @@
         <button class="view" data-view="table"><svg class="ic"><use href="#i-table"/></svg>歌詞表</button>
         <div class="sp"></div>
         <span id="confCount"></span>
-        <button class="btn" id="btnNextRed" title="下一個要檢查的句子（G）"><span class="lbl">下一個紅色 </span><span class="kbd">G</span></button>
-        <button class="btn icon" title="圖例：歌詞左邊的色條＝信心（綠高、黃中、紅要檢查）；粉紅線＝副歌高潮；斜線、虛線＝預測，確認後變實心"><svg class="ic"><use href="#i-info"/></svg></button>
+        <button class="btn" id="btnNextRed" title="下一個要檢查的句子（G；Shift+G 往前）"><span class="lbl">下一個紅色 </span><span class="kbd">G</span></button>
+        <button class="btn icon on-toggle on" id="btnSnap" title="拖曳時吸附拍點（S）"><svg class="ic"><use href="#i-magnet"/></svg></button>
+        <button class="btn icon on-toggle on" id="btnFollow" title="播放時時間軸跟著走"><svg class="ic"><use href="#i-follow"/></svg></button>
+        <button class="btn icon" id="btnZoomOut" title="縮小（Ctrl＋滾輪）"><svg class="ic"><use href="#i-zout"/></svg></button>
+        <button class="btn icon" id="btnZoomIn" title="放大（Ctrl＋滾輪）"><svg class="ic"><use href="#i-zin"/></svg></button>
       </div>
 
       <div class="editor">
         <section class="tl" id="tl">
           <div class="tl-lab ruler"><span class="mono" id="zoomLab" style="font-size:11px"></span></div>
-          <div class="tl-track ruler" id="ruler"></div>
+          <div class="tl-track ruler" id="ruler" title="點一下跳到那裡"></div>
           <div class="tl-lab"><svg class="ic"><use href="#i-layers"/></svg>段落</div>
           <div class="tl-track t-sec" id="trSec"></div>
           <div class="tl-lab"><svg class="ic"><use href="#i-grid"/></svg>拍點</div>
@@ -129,7 +154,7 @@
           <div class="tl-lab"><svg class="ic"><use href="#i-text"/></svg>歌詞</div>
           <div class="tl-track t-lyr" id="trLyr"></div>
           <div class="tl-lab"><svg class="ic"><use href="#i-wave"/></svg>人聲</div>
-          <div class="tl-track t-wave"><canvas id="wave"></canvas></div>
+          <div class="tl-track t-wave" id="trWave"><canvas id="wave"></canvas></div>
           <div class="tl-lab"><svg class="ic"><use href="#i-hand"/></svg>應援</div>
           <div class="tl-track t-act" id="trAct"></div>
           <div class="tl-lab" style="border-bottom:0"><svg class="ic"><use href="#i-map"/></svg>全曲</div>
@@ -140,19 +165,35 @@
       </div>
     </main>
 
-    <!-- 右側：檢查器 —— 句子／歌曲／情報 -->
+    <!-- 右側：檢查器 -->
     <aside class="peek">
       <div class="peek-bar" id="peekTabs">
         <button class="tab on" data-tab="line">句子</button>
         <button class="tab" data-tab="song">歌曲</button>
-        <button class="tab" data-tab="intel">情報 <span class="n">1</span></button>
+        <button class="tab" data-tab="intel">情報 <span class="n" id="intelCount" hidden></span></button>
       </div>
       <div class="peek-body" id="insp"></div>
     </aside>
   </div>
 
-  <script src="../../../songs.js"></script>
-  <script src="../../../song-lyrics.js"></script>
-  <script src="studio.js"></script>
+  <!-- 貼上整首歌詞 -->
+  <dialog class="dlg" id="pasteDlg">
+    <form method="dialog" id="pasteForm">
+      <h2>貼上歌詞</h2>
+      <p class="hint">一行一句：「日文<Tab>中文」，或「時間<Tab>日文<Tab>中文」。整首都不寫時間也可以，會先平均排開，勾「自動對時」就馬上對到人聲上。從試算表複製過來的就是 Tab 分隔。</p>
+      <textarea id="pasteText" spellcheck="false"></textarea>
+      <div class="dlg-row">
+        <label class="hint"><input type="checkbox" id="pasteAlign"> 匯入後自動對時（要音訊，第一次會下載模型）</label>
+        <label class="hint"><input type="checkbox" id="pasteKeep" checked> 保留應援（依日文對回同一句）</label>
+      </div>
+      <div class="dlg-row end">
+        <button class="btn" value="cancel" formnovalidate>取消</button>
+        <button class="btn primary" value="ok" id="pasteOk">取代整首歌詞</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" hidden></div>
+  <script src="app.js"></script>
 </body>
 </html>

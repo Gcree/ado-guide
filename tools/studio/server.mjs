@@ -12,7 +12,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, align, translate, audioFile, commit, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
+import { check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, align, translate, audioFile, commit, songsIndex, songDetail, saveLyrics, setMeta, importLyrics, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -23,7 +23,7 @@ const args = process.argv.slice(2);
 const argVal = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 const PORT = Number(argVal("--port") || process.env.STUDIO_PORT || 5178);
 const HOST = "127.0.0.1";
-const START_PAGE = "/tools/timing/";
+const START_PAGE = "/tools/studio/ui/";
 
 // 可以寫入的檔案，和寫入前怎麼確認內容還是好的
 const WRITABLE = {
@@ -113,6 +113,53 @@ async function api(req, res, url) {
   }
 
   if (p === "/api/status" && req.method === "GET") return send(res, 200, await gitStatus());
+  // 新介面：歌單、一首歌的全部資料、存歌詞、存歌曲資料
+  if (p === "/api/songs" && req.method === "GET") return send(res, 200, songsIndex());
+  if (p === "/api/song" && req.method === "GET") {
+    try { return send(res, 200, songDetail(url.searchParams.get("id"))); } catch (e) { return send(res, 404, { error: e.message }); }
+  }
+  if (p === "/api/lyrics" && req.method === "POST") {
+    const { id, lyrics, base } = JSON.parse(await readBody(req));
+    try {
+      const r = saveLyrics(id, lyrics, base);
+      const w = commit(r);
+      if (w.written.length) console.log(`  寫入 ${id} 的歌詞：${r.changes.join("、")}`);
+      return send(res, 200, { ok: true, changes: r.changes, warnings: r.warnings, written: w.written, base: r.base });
+    } catch (e) {
+      return send(res, e.conflict ? 409 : 200, { ok: false, error: e.message, conflict: !!e.conflict });
+    }
+  }
+  // 貼上整首歌詞（可以不寫時間）；align：匯入後馬上自動對時（沒有時間時順便重補間奏）
+  if (p === "/api/lyrics-import" && req.method === "POST") {
+    const { id, text, align: doAlign, keepActs } = JSON.parse(await readBody(req));
+    try {
+      const r = importLyrics(id, String(text || ""), { keepActs: !!keepActs });
+      commit(r);
+      const out = { ok: true, changes: [...r.changes], warnings: [...r.warnings] };
+      if (doAlign) {
+        if (!audioFile(id)) await fetchAudio(id, { onLog: m => process.stdout.write(`    ${m}`) });
+        const a = await align(id, { apply: true, rebuildGaps: !!r.untimed, onLog: m => process.stdout.write(`    ${m}`) });
+        commit(a);
+        out.changes.push(...a.changes);
+        out.warnings = a.warnings;
+      }
+      console.log(`  ✓ ${id}：${out.changes.join("、")}`);
+      return send(res, 200, out);
+    } catch (e) {
+      return send(res, 200, { ok: false, error: e.message });
+    }
+  }
+  if (p === "/api/meta" && req.method === "POST") {
+    const { id, ...opts } = JSON.parse(await readBody(req));
+    try {
+      const r = setMeta(id, opts);
+      const w = commit(r);
+      if (w.written.length) console.log(`  寫入 ${id} 的歌曲資料：${r.changes.join("、")}`);
+      return send(res, 200, { ok: true, changes: r.changes, warnings: r.warnings, written: w.written });
+    } catch (e) {
+      return send(res, 200, { ok: false, error: e.message });
+    }
+  }
   if (p === "/api/check" && req.method === "POST") return send(res, 200, await check());
   if (p === "/api/sync" && req.method === "POST") return send(res, 200, await sync());
   if (p === "/api/fetch" && req.method === "POST") {
