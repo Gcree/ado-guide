@@ -3212,7 +3212,9 @@
 
   // ── 直接存回歌詞檔：用瀏覽器的資料夾存取權（Chrome / Edge）寫進專案的 song-lyrics.js / song-lyrics-live.js ──
   // 第一次存檔選一次 Ado-guide 資料夾，之後記在 IndexedDB；寫入和檢查的規則跟 apply.mjs 共用 lyrics-store.js
-  const canSaveToFile = typeof window.showDirectoryPicker === "function" && !!window.LyricsStore;
+  // 用工作站（node tools/studio/server.mjs）開的時候，下面的 studio 會換成本機伺服器，任何瀏覽器都能存
+  let canSaveToFile = typeof window.showDirectoryPicker === "function" && !!window.LyricsStore;
+  let studio = null;
   const btnSaveFile = $("btnSaveFile");
   let repoDir = null;
 
@@ -3234,6 +3236,7 @@
   }
 
   async function getRepoDir(forcePick) {
+    if (studio) return (repoDir = studio.dir);
     let dir = forcePick ? null : repoDir || await idbKv("readonly", s => s.get("repo")).catch(() => null);
     if (dir && dir.queryPermission) {
       let perm = await dir.queryPermission({ mode: "readwrite" });
@@ -3252,7 +3255,7 @@
 
   async function saveToLyricsFile(forcePick = false) {
     if (!canSaveToFile) {
-      alert("這個瀏覽器不能直接寫檔（要用 Chrome 或 Edge）。\n請改按「下載 JSON」，再跑 node tools/timing/apply.mjs <檔案>。");
+      alert("這個瀏覽器不能直接寫檔（要用 Chrome 或 Edge，或用「工作站」打開這個頁面）。\n請改按「下載 JSON」，再跑 node tools/timing/apply.mjs <檔案>。");
       return;
     }
     if (!checkBeforeExport()) return;
@@ -3299,6 +3302,100 @@
     if (!canSaveToFile) btnSaveFile.title = "這個瀏覽器不能直接寫檔，請用 Chrome 或 Edge，或改按「下載 JSON」";
     btnSaveFile.addEventListener("click", e => saveToLyricsFile(e.shiftKey));
   }
+
+  // ── 工作站模式：本機伺服器假裝成「選好的資料夾」，存檔流程（確認、寫入）跟原本一樣 ──
+  // 讀檔時記下內容的雜湊，寫入時伺服器會比對：讀了之後檔案被改過（別的分頁、git pull）就擋下來，不會蓋掉
+  async function studioApi(url, body) {
+    const opts = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+    const r = await fetch(url, { cache: "no-store", ...opts });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `工作站回應 ${r.status}`);
+    return r;
+  }
+
+  function studioDir() {
+    const hashes = {};
+    const fileUrl = name => `/api/file?name=${encodeURIComponent(name)}`;
+    return {
+      name: "Ado-guide（工作站）",
+      async getFileHandle(name) {
+        return {
+          async getFile() {
+            const r = await studioApi(fileUrl(name));
+            hashes[name] = r.headers.get("X-Hash");
+            const text = await r.text();
+            return { text: async () => text };
+          },
+          async createWritable() {
+            let buf = "";
+            return {
+              write: async s => { buf += s; },
+              close: async () => {
+                const r = await fetch(fileUrl(name), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: buf, base: hashes[name] }) });
+                const j = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(j.error || `工作站回應 ${r.status}`);
+                hashes[name] = j.hash;
+              }
+            };
+          }
+        };
+      }
+    };
+  }
+
+  const stepLog = log => (log || []).map(s => `${s.ok ? "✓" : "✗"} ${s.name}${s.ok ? "" : `\n${(s.out || "").split("\n").slice(-12).join("\n")}`}`).join("\n");
+
+  async function studioPublish() {
+    const btn = $("btnPublish");
+    try {
+      const st = await (await studioApi("/api/status")).json();
+      if (st.branch !== st.publishBranch) { alert(`目前在「${st.branch}」分支，工作站只從 ${st.publishBranch} 發布。`); return; }
+      if (!st.changed.length && !st.ahead) { toast("歌曲資料沒有變更，不用發布"); return; }
+      let msg = "";
+      if (st.changed.length) {
+        const list = st.changed.map(c => `  ${c.status.padEnd(2)} ${c.file}`).join("\n");
+        msg = prompt(`要把這些變更推上 ${st.publishBranch}（約 2 分鐘後網站更新）：\n\n${list}${st.ahead ? `\n\n（另外還有 ${st.ahead} 個上次沒推上去的 commit）` : ""}\n\ncommit 訊息：`, `fix(songs): 更新〈${S.ja}〉`);
+        if (!msg || !msg.trim()) return;
+      } else if (!confirm(`有 ${st.ahead} 個上次沒推上去的 commit，要再推一次嗎？`)) return;
+      btn.disabled = true;
+      toast("檢查、發布中…");
+      const r = await (await studioApi("/api/publish", { message: msg.trim() || "-" })).json();
+      if (r.ok) toast(`已發布：${r.head}，約 2 分鐘後網站更新`);
+      else alert(`${r.error}\n\n${stepLog(r.log)}`);
+    } catch (e) {
+      alert(`發布失敗：${e.message}`);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function studioSync() {
+    if (!confirm("從 GitHub 拉最新的資料（例如 Claude 推上來的情報包）？\n同步完會重新整理頁面，打點進度存在這台電腦，不會不見。")) return;
+    try {
+      const r = await (await studioApi("/api/sync", {})).json();
+      if (r.ok) { toast("已同步，重新整理中…"); setTimeout(() => location.reload(), 600); }
+      else alert(`${r.error}${r.out ? `\n\n${r.out}` : ""}`);
+    } catch (e) {
+      alert(`同步失敗：${e.message}`);
+    }
+  }
+
+  fetch("/api/health", { cache: "no-store" })
+    .then(r => (r.ok ? r.json() : null))
+    .then(info => {
+      if (!info || info.app !== "ado-studio" || !window.LyricsStore) return;
+      studio = { info, dir: studioDir() };
+      repoDir = studio.dir;
+      canSaveToFile = true;
+      if (btnSaveFile) btnSaveFile.title = "檢查後直接寫進專案的 song-lyrics.js / song-lyrics-live.js（Ctrl+S，經由工作站）";
+      document.body.classList.add("studio-on");
+      [["btnSync", studioSync], ["btnPublish", studioPublish]].forEach(([id, fn]) => {
+        const b = $(id);
+        if (!b) return;
+        b.style.display = "";
+        b.addEventListener("click", fn);
+      });
+    })
+    .catch(() => {});
 
   // ── 歌曲資料：網站上顯示、原本由 AI 補的部分（狀態、手燈色、應援動作、應援重點與翻譯、副歌高潮、LIVE 映像） ──
   // 讀寫規則在 song-meta-store.js；存檔一樣寫進選好的 Ado-guide 資料夾
@@ -3540,6 +3637,9 @@
     saveToLyricsFile,
     openSongMeta,
     saveSongMeta,
+    studioPublish,
+    studioSync,
+    isStudio: () => !!studio,
     _setRepoDir: dir => { repoDir = dir; }
   };
 

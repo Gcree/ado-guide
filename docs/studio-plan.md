@@ -1,6 +1,6 @@
 # 新歌工作站（Ado Studio）規劃
 
-> 狀態：規劃中，還沒開始做。目標是新增歌曲的時候不用每次都透過 Claude：音檔、BPM、拍點、字幕初稿都由工作站自動算好，人只負責「確認和微調」，存檔後就能直接發布。Claude 改成只做「上網找資料、整理別人提供的應援」，產出一份情報包讓工作站匯入。
+> 狀態：M0（本機伺服器、任何瀏覽器存檔、同步、發布）已完成，其餘規劃中。目標是新增歌曲的時候不用每次都透過 Claude：音檔、BPM、拍點、字幕初稿都由工作站自動算好，人只負責「確認和微調」，存檔後就能直接發布。Claude 改成只做「上網找資料、整理別人提供的應援」，產出一份情報包讓工作站匯入。
 
 ## 0. 我的看法
 
@@ -23,7 +23,9 @@
 | 自動對時能多準 | 有人聲分離＋已知歌詞的強制對齊，一般句子誤差大約 0.1–0.3 秒，**Ado 的嘶吼、和聲、極快 rap 段會錯**。所以每句都帶「信心分數」，低分的句子在介面上標紅，人只要檢查這些。 |
 | 應援和手燈色 | 新歌不可能自動「知道」，只能預測。預測一律存成 `sug`／`?` 狀態（網站不顯示或標「暫定」），等 Claude 找到現場資料或你確認後才轉正式。 |
 | YouTube 下載 | 只在自己電腦上做分析用，音檔、分軌放在 `tools/studio/work/`（不進版控、不發布）。 |
-| 發布 | 工作站的「發布」= 跑 `check-data` ＋ `test-karaoke` → commit → push。要直接推 `main`（約 2 分鐘上線）還是開 PR，見最後「要你決定的事」。 |
+| 發布 | 工作站的「發布」= 跑 `check-data` ＋ `test-karaoke` → 只 commit 歌曲資料檔 → 拉遠端最新 → **直接推 `main`**（約 2 分鐘上線）。 |
+| 中文翻譯 | **官方有中文就用官方的**（MV 的 YouTube 字幕由頻道上傳的繁中軌）；沒有才呼叫 `agy` 翻譯。 |
+| 平台 | **Windows 先用，之後搬到 Mac mini**：同一份程式，只有安裝腳本分兩版（見第 10 節）。 |
 
 ## 1. 整體架構
 
@@ -82,7 +84,7 @@ flowchart TB
   subgraph AUTO["自動分析（背景跑，介面看進度）"]
     P1["人聲分離 → vocals.wav／inst.wav"]
     P2["拍點：BPM・第一小節・拍點穩不穩<br/>段落：前奏・主歌・副歌・間奏"]
-    P3["歌詞文字：karaoke 來源<br/>（LRCLIB／QQ／AMLL）或手動貼上"]
+    P3["歌詞文字：官方 YouTube 字幕<br/>→ karaoke 來源（LRCLIB／QQ／AMLL）<br/>→ 手動貼上"]
     P1 --> AL["強制對齊：每句時間＋信心分數"]
     P3 --> AL
     P2 --> CX["副歌高潮 CLIMAX 候選<br/>＝最後一次副歌開頭"]
@@ -97,7 +99,7 @@ flowchart TB
   PRED --> REVIEW
   MC --> REVIEW
 
-  REVIEW["人工微調<br/>先看紅色（低信心）句子・拍點格對不對"] --> TR["補中文翻譯<br/>（自己寫或請 Claude）"]
+  REVIEW["人工微調<br/>先看紅色（低信心）句子・拍點格對不對"] --> TR["中文翻譯：官方繁中字幕<br/>沒有才呼叫 agy，再人工看過"]
   TR --> SAVE["存檔：寫回 songs.js／song-lyrics.js<br/>預測的部分存成 sug／?"]
   SAVE --> CHK{"check-data<br/>test-karaoke"}
   CHK -- 有錯 --> REVIEW
@@ -136,34 +138,60 @@ flowchart LR
   FR --> KM["Lab 色彩空間 k-means<br/>對應到 10 種手燈色"] --> PENOUT[["PEN：?色1色2（預測）"]]
 ```
 
-## 4. 字幕自動對時
+## 4. 字幕自動對時與翻譯
 
-兩條路同時跑，挑比較好的那個當初稿，句子對不起來的部分用另一條補：
+官方字幕最可靠：Ado 的 MV 常有頻道自己上傳的日文、繁中字幕，日文字幕本身就帶每句時間。所以照下面的順序取，取不到才往下：
 
 ```mermaid
 flowchart TB
-  TXT["歌詞文字（一行一句）"] --> A1 & A2
+  YT["yt-dlp --list-subs<br/>只認「頻道上傳」的字幕軌<br/>（不收 YouTube 自動翻譯）"] --> HASJA{"有日文字幕？"}
+  HASJA -- 有 --> OJ["官方日文：文字＋每句時間<br/>→ 直接當初稿（高信心）"]
+  HASJA -- 沒有 --> TXT["歌詞文字：karaoke 來源<br/>或手動貼上"]
 
+  TXT --> A1 & A2
   subgraph SRC1["A. 網路上現成的時間"]
     A1["karaoke-sources.js<br/>LRCLIB・QQ・網易雲・AMLL"] --> A1b["alignToLocalLyrics()<br/>對到我們的句子＋整體偏移"]
   end
-
   subgraph SRC2["B. 自己對齊"]
     A2["stable-ts（Whisper large-v3）<br/>model.align(vocals.wav, 歌詞, ja)"] --> A2b["每句開始時間<br/>＋每個字的機率"]
   end
-
   A1b --> CMP{"兩邊差 &lt; 0.3 秒？"}
   A2b --> CMP
   CMP -- 是 --> HI["高信心（綠）"]
   CMP -- 否 --> MID["取 B，標中信心（黃）"]
   A2b -- "字機率很低／只有一邊有" --> LO["低信心（紅）"]
 
+  OJ --> SNAP
   HI & MID & LO --> SNAP["吸附：開始時間往前找<br/>最近的人聲起音（±0.15 秒）"]
-  SNAP --> DRAFT[["時間初稿<br/>每句 time＋conf"]]
-  DRAFT --> UI["Studio 時間軸：<br/>紅黃句子排前面讓你檢查"]
+  SNAP --> DRAFT[["時間初稿：每句 time＋conf"]]
+
+  YT --> HASZH{"有繁中字幕？<br/>zh-Hant／zh-TW"}
+  HASZH -- 有 --> OZ["官方中文：依時間對到每一句的 tr<br/>標記「官方翻譯」"]
+  HASZH -- 沒有 --> AGY["呼叫 agy 翻譯<br/>整首一次送，附上已有的官方英文／簡中當參考"]
+  AGY --> TRD[["中文初稿：標記「待確認」"]]
+  OZ --> TRD2[["中文：官方"]]
+
+  DRAFT --> UI["Studio 時間軸：<br/>紅黃句子、待確認翻譯排前面"]
+  TRD --> UI
+  TRD2 --> UI
 ```
 
-> 小提醒：信心分數 `conf` 只存在 `work/`，不寫進 `song-lyrics.js`，網站資料格式不用改。
+> 小提醒：信心分數 `conf` 和「官方／待確認」標記只存在 `work/`，不寫進 `song-lyrics.js`，網站資料格式不用改。
+
+### agy 怎麼接
+
+翻譯指令寫在本機設定 `tools/studio/config.json`（不進版控），工作站把整首歌詞（日文＋時間＋可參考的官方英文）用標準輸入送過去，期待它回傳一行一句的繁中。這樣之後換工具只要改設定：
+
+```json
+{
+  "translate": {
+    "command": ["agy", "…這裡填 agy 不開視窗、讀標準輸入的參數…"],
+    "timeoutSec": 180
+  }
+}
+```
+
+翻譯的要求（給 agy 的提示）固定在 `tools/studio/prompts/translate.md`，內容會照網站現有翻譯的風格：台灣用語、短句、保留歌詞換行、專有名詞不翻。
 
 ## 5. 應援預測規則（初版）
 
@@ -280,7 +308,31 @@ stateDiagram-v2
 | LIVE 時間差 | 現有 `align_live_offsets.py` | 改成吃參數、不寫死 ffmpeg 路徑，接進 Studio |
 | 伺服器 | Node 內建 `http` | 不加框架，跟專案現在零依賴的風格一致 |
 
-## 10. 分階段做
+## 10. 兩個平台：先 Windows，之後 Mac mini
+
+程式只有一份（Node 伺服器、Python 分析工具都跨平台），差別只在「怎麼裝」和「用哪種加速」：
+
+```mermaid
+flowchart TB
+  subgraph WIN["現在：Windows"]
+    W1["點兩下 工作站.bat"] --> W2["setup-windows.ps1（第一次）<br/>winget 裝 ffmpeg、uv<br/>uv 裝 Python 套件"]
+    W2 --> W3{"有 NVIDIA 顯卡？<br/>nvidia-smi"}
+    W3 -- 有 --> W4["PyTorch CUDA 版"]
+    W3 -- 沒有 --> W5["PyTorch CPU 版"]
+  end
+  subgraph MAC["之後：Mac mini（Apple 晶片）"]
+    M1["點兩下 工作站.command"] --> M2["setup-mac.command（第一次）<br/>brew 裝 ffmpeg、uv<br/>uv 裝 Python 套件"]
+    M2 --> M3["PyTorch MPS（Apple 晶片加速）<br/>Demucs 用 MPS<br/>Whisper 評估 mlx-whisper"]
+  end
+  W4 & W5 & M3 --> SAME["同一份 tools/studio/<br/>同一份 git 專案"]
+  SAME --> CFG["本機差異只放 config.json<br/>（ffmpeg 位置、agy 指令、連接埠）"]
+```
+
+- **搬家**：歌曲資料都在 git 裡，Mac mini 上 `git clone` ＋ 跑一次 `setup-mac.command` 就好。`work/` 裡的音檔和分析快取不搬，需要時在新電腦重算（結果一樣）。
+- **不寫死路徑**：現在的 `scripts/align_live_offsets.py` 把 ffmpeg 寫死成 Windows 的路徑，M1 會改成自動在 PATH 找（找不到再看 `config.json`）。
+- **兩邊都測**：每個階段做完，安裝腳本和分析工具在兩個平台各跑一次。
+
+## 11. 分階段做
 
 ```mermaid
 flowchart LR
@@ -293,18 +345,23 @@ flowchart LR
 
 | 階段 | 做完你可以 | 主要檔案 |
 | --- | --- | --- |
-| M0 | 用 `node tools/studio/server.mjs` 開工作台，Safari／Firefox 也能直接存檔 | `tools/studio/server.mjs` |
-| M1 | 貼網址就多一首整理中的歌，不用手改 `songs.js` | `py/fetch.py`、`song-meta-store.js` 加「新增歌曲」 |
+| M0 ✅ | 點兩下 `工作站.bat`／`工作站.command` 開工作台，任何瀏覽器都能直接存檔；「⟳ 同步」拉 Claude 推的情報包，「🚀 發布」檢查後推上 main | `tools/studio/server.mjs` |
+| M1 | 貼網址就多一首整理中的歌，不用手改 `songs.js`；官方字幕自動帶入；兩個平台的安裝腳本 | `py/fetch.py`、`song-meta-store.js` 加「新增歌曲」、`setup-windows.ps1`、`setup-mac.command` |
 | M2 | 新歌的 BPM、拍點、副歌高潮不用再請 Claude 算 | `py/beats.py`、`py/sections.py` |
-| M3 | 字幕初稿自動出來，只修紅色句子 | `py/separate.py`、`py/align.py` |
+| M3 | 字幕初稿自動出來，只修紅色句子；沒有官方中文時用 agy 翻 | `py/separate.py`、`py/align.py`、`prompts/translate.md` |
 | M4 | 一個介面做完全部，舊的 `tools/timing/` 退場 | `tools/studio/ui/` |
 | M5 | 匯入 Claude 的情報、勾選採用、按一下就上線 | `research/`、`py/colors.py` |
 
 M0–M2 不需要 GPU、裝起來也輕，建議先做；M3 的模型比較大（Whisper large-v3 約 3 GB），可以等前面順了再加。
 
-## 11. 要你決定的事
+## 12. 已決定的事（2026-11-08）
 
-1. **平常在哪台電腦跑？** Windows、Mac 還是兩台都要？有沒有 NVIDIA 顯卡？（決定 M3 跑一首要幾十秒還是幾分鐘，以及安裝腳本要寫幾份。）
-2. **發布直接推 `main`，還是開 PR？** 直接推最快；開 PR 比較安全，可以先看 Actions 的檢查結果再合併。
-3. **中文翻譯**：自己寫、請 Claude 寫進情報包，還是 Studio 接 Claude API 一鍵翻（要 API 金鑰、會花錢）？
-4. **情報包放哪**：建議 `research/<id>.json` 進版控（留下來源紀錄，之後寫致謝也用得到），但不會被發布到網站。
+1. **平台**：Windows 先用，之後搬到 Mac mini（Apple 晶片），安裝腳本做兩版。
+2. **發布**：直接推 `main`。
+3. **翻譯**：官方有中文就用官方的；沒有才呼叫 `agy`。
+4. **情報包**：`research/<id>.json` 進版控（建置不會把它放上網站）。
+
+還要確認：
+
+- `agy` 不開視窗、直接回傳結果的指令怎麼下（例如要加哪些參數、從標準輸入還是檔案讀）。M3 前確認就好。
+- Windows 那台有沒有 NVIDIA 顯卡（只影響 M3 跑多快，安裝腳本會自己偵測）。
