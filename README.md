@@ -106,6 +106,8 @@ node scripts/build.mjs dist
 - **⟳ 同步**：從 GitHub 拉最新的資料（例如 Claude 推上來的 `research/` 情報包）。
 - **🚀 發布**：跑資料檢查和卡拉OK測試，只 commit 歌曲資料（`songs.js`、`song-lyrics.js`、`song-lyrics-live.js`、`i18n.js`、`research/`），拉遠端最新後推上 `main`，約 2 分鐘網站更新。要在 `main` 分支才能發布；其他檔案的改動不會被帶進去。
 - 網站本身也能在 <http://localhost:5178/> 預覽。
+- **新介面設計稿**：<http://localhost:5178/tools/studio/ui/>（還不能用，只是給大家看長相）。
+- **翻譯工具試用**：`node tools/studio/agent-cli.mjs --probe` 會試 agy／gemini／claude 哪個叫得動，並把能用的寫進 `tools/studio/config.json`（只存在這台電腦）。
 
 接下來要加的匯入新歌、自動算拍點、自動對時，規劃在 [`docs/studio-plan.md`](docs/studio-plan.md)。
 
