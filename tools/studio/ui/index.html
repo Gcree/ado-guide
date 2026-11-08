@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Ado Studio</title>
+  <link rel="stylesheet" href="studio.css">
+  <script>
+    // 主題：記住的選擇 → 系統設定
+    (function () {
+      let t = null;
+      try { t = localStorage.getItem("studio-theme"); } catch (e) {}
+      if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
+</head>
+<body>
+  <!-- 圖示（1.5px 線條） -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-logo" viewBox="0 0 24 24"><path d="M4 18 12 5l8 13"/><path d="M8 13h8"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></symbol>
+    <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.6L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.6L20 16"/><path d="M20 20v-4h-4"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m6 11 6-6 6 6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6 6v12"/><path d="m18 6-9 6 9 6z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M18 6v12"/><path d="m6 6 9 6-9 6z"/></symbol>
+    <symbol id="i-loop" viewBox="0 0 24 24"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></symbol>
+    <symbol id="i-mark" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M5 8h14"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 7v10"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><path d="M6 4v16M12 4v16M18 4v16"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 4 9 5-9 5-9-5z"/><path d="m3 14 9 5 9-5"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 13V6a1.5 1.5 0 0 1 3 0v5"/><path d="M11 11V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M14 11V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-6 6h-.5a6 6 0 0 1-5-2.7L3.5 14a1.5 1.5 0 0 1 2.5-1.6L8 15"/></symbol>
+  </svg>
+
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <div class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></div>
+        <div class="brand-name">ADO STUDIO<small>新歌工作站</small></div>
+      </div>
+      <nav class="pipeline" id="pipeline" aria-label="處理流程"></nav>
+      <div class="top-actions">
+        <span class="tag accent draft-banner" title="歌詞、BPM、副歌高潮是真的資料；波形、段落、信心、應援、處理進度是假的">設計稿</span>
+        <span class="tag ok"><span class="dot"></span>檢查通過</span>
+        <button class="btn ghost icon" id="btnTheme" title="切換深色／淺色"><svg class="ic"><use href="#i-sun"/></svg></button>
+        <button class="btn"><svg class="ic"><use href="#i-sync"/></svg>同步</button>
+        <button class="btn primary"><svg class="ic"><use href="#i-up"/></svg>發布</button>
+      </div>
+    </header>
+
+    <div class="body">
+      <!-- 左：歌曲 -->
+      <aside class="rail">
+        <div class="rail-head">
+          <label class="import" title="貼上 YouTube 網址，按 Enter 開始匯入">
+            <svg class="ic"><use href="#i-link"/></svg>
+            <input placeholder="貼上 YouTube 網址匯入新歌">
+          </label>
+          <label class="search">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input placeholder="搜尋歌名、id">
+            <span class="kbd">/</span>
+          </label>
+        </div>
+        <div class="list" id="songList"></div>
+      </aside>
+
+      <!-- 中：舞台、走帶、時間軸 -->
+      <main class="main">
+        <section class="stage">
+          <div class="video">
+            <div class="ph"><b id="phTitle"></b></div>
+            <span class="tag vtag">MV</span>
+          </div>
+          <div class="now">
+            <div class="now-head">
+              <div>
+                <div class="song-title" id="songTitle"></div>
+                <div class="song-sub" id="songSub"></div>
+              </div>
+              <span class="tag warn" id="songStatus">暫定建議</span>
+            </div>
+            <div class="facts" id="facts"></div>
+            <div class="cur"><div class="jp" id="curJp"></div><div class="tr" id="curTr"></div></div>
+            <div class="nexts" id="nexts"></div>
+          </div>
+        </section>
+
+        <div class="transport">
+          <button class="btn ghost icon" title="上一句"><svg class="ic"><use href="#i-prev"/></svg></button>
+          <button class="play" id="btnPlay" title="播放／暫停（K）"><svg class="ic"><use href="#i-play"/></svg></button>
+          <button class="btn ghost icon" title="下一句"><svg class="ic"><use href="#i-next"/></svg></button>
+          <div class="tc" id="tc"></div>
+          <div class="bb"><b id="bbBar"></b><span>小節．拍</span></div>
+          <div class="seg"><button>0.5×</button><button>0.75×</button><button class="on">1×</button></div>
+          <button class="btn ghost sm"><svg class="ic"><use href="#i-loop"/></svg>循環這句</button>
+          <button class="punch" title="把目前時間打給選取的句子，並前進到下一句"><svg class="ic"><use href="#i-mark"/></svg>打點 <span class="kbd">Space</span></button>
+        </div>
+
+        <section class="tl" id="tl">
+          <div class="tl-lab ruler-lab"><span class="mono" id="zoomLab">全曲</span></div>
+          <div class="tl-track ruler" id="ruler"></div>
+          <div class="tl-lab">段落<svg class="ic"><use href="#i-layers"/></svg></div>
+          <div class="tl-track t-sec" id="trSec"></div>
+          <div class="tl-lab">拍點<svg class="ic"><use href="#i-grid"/></svg></div>
+          <div class="tl-track t-beat" id="trBeat"></div>
+          <div class="tl-lab">人聲<svg class="ic"><use href="#i-wave"/></svg></div>
+          <div class="tl-track t-wave"><canvas id="wave"></canvas></div>
+          <div class="tl-lab">歌詞<svg class="ic"><use href="#i-text"/></svg></div>
+          <div class="tl-track t-lyr" id="trLyr"></div>
+          <div class="tl-lab">應援<svg class="ic"><use href="#i-hand"/></svg></div>
+          <div class="tl-track t-act" id="trAct"></div>
+          <div class="tl-lab">全曲</div>
+          <div class="tl-track t-ov" id="trOv" title="點一下跳到那裡"></div>
+          <div class="tl-legend">
+            <span><i class="sw" style="background:var(--ok)"></i>高信心</span>
+            <span><i class="sw" style="background:var(--warn)"></i>中信心</span>
+            <span><i class="sw" style="background:var(--bad)"></i>要檢查</span>
+            <span><i class="sw" style="background:var(--a-call)"></i>副歌高潮</span>
+            <span><i class="sw" style="background:var(--a-wave);opacity:.45"></i>斜線＝預測的應援</span>
+            <span style="margin-left:auto" id="redCount"></span>
+          </div>
+          <div class="playhead" id="playhead"></div>
+        </section>
+      </main>
+
+      <!-- 右：屬性 -->
+      <aside class="insp">
+        <div class="tabs">
+          <button class="tab on">句子</button>
+          <button class="tab">歌曲</button>
+          <button class="tab">情報 <span class="n">1</span></button>
+        </div>
+        <div class="insp-body" id="insp"></div>
+      </aside>
+    </div>
+  </div>
+
+
+  <script src="../../../songs.js"></script>
+  <script src="../../../song-lyrics.js"></script>
+  <script src="studio.js"></script>
+</body>
+</html>
