@@ -91,7 +91,12 @@ button, input, textarea { font: inherit; color: inherit; }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 
 /* ── 版面：側欄 ｜ 頁面 ｜ 側邊預覽 ── */
-.app { display: grid; grid-template-columns: 240px minmax(0, 1fr) 348px; height: 100vh; }
+.app { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; height: 100vh; }
+.app > .side { grid-column: 1; width: 240px; }
+.app > .main { grid-column: 2; }
+.app > .peek { grid-column: 3; width: 348px; }
+/* 收起兩邊（像剪輯軟體把時間軸放到最大） */
+.app.hide-side > .side, .app.hide-peek > .peek { display: none; }
 
 /* 側欄 */
 .side { background: var(--side); display: flex; flex-direction: column; min-height: 0; }
@@ -117,8 +122,10 @@ button, input, textarea { font: inherit; color: inherit; }
 .ring { width: 14px; height: 14px; border-radius: 50%; background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--line-2) 0); -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4px); mask: radial-gradient(circle, transparent 3.5px, #000 4px); }
 
 /* 中間：編輯區（不捲動）—— 頂部 → 預覽 → 走帶 → 檢視分頁 → 時間軸 */
-.main { display: grid; grid-template-rows: 44px minmax(200px, 1fr) auto auto auto; min-width: 0; min-height: 0; overflow: hidden; container-type: inline-size; }
-.topbar { display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 10px 0 12px; }
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; container-type: inline-size; }
+.main > * { flex: none; }
+.main > .monitor { flex: 1 1 0; min-height: 140px; }
+.topbar { display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 6px; }
 .crumbs { display: flex; align-items: center; gap: 2px; color: var(--ink-2); min-width: 0; }
 .crumbs span { padding: 2px 6px; border-radius: 4px; white-space: nowrap; cursor: pointer; }
 .crumbs span:hover { background: var(--hover); }
@@ -161,7 +168,7 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 
 .editor { padding: 0 12px 10px; min-height: 0; }
-.table-wrap { height: 304px; overflow: auto; }
+.table-wrap { height: calc(304px + var(--tl-extra, 0px)); overflow: auto; }
 .table-wrap thead th { position: sticky; top: 0; background: var(--bg); z-index: 1; }
 
 /* 資料庫區塊：檢視分頁（時間軸／歌詞表） */
@@ -188,7 +195,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .t-beat { height: 22px; }
 .beat { position: absolute; top: 9px; width: 1px; height: 5px; background: var(--line-2); }
 .beat.bar { top: 5px; height: 12px; background: var(--ink-3); }
-.t-lyr { height: 78px; }
+.t-lyr { height: var(--lyr-h, 78px); }
 .ly { position: absolute; top: 8px; bottom: 8px; border-radius: 4px; padding: 5px 7px 0 9px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line-2); font-size: 12.5px; line-height: 1.35; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
 .ly::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--green); }
 .ly.c-mid::before { background: var(--yellow); }
@@ -201,7 +208,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .ly.on { box-shadow: inset 0 0 0 2px var(--accent); }
 .ly.gap { background: none; box-shadow: none; color: var(--ink-3); border: 1px dashed var(--line-2); top: 24px; bottom: 24px; padding-top: 3px; font-size: 12px; }
 .ly.gap::before { display: none; }
-.t-wave { height: 72px; }
+.t-wave { height: var(--wave-h, 72px); }
 .t-wave canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .t-act { height: 30px; }
 .act { position: absolute; top: 9px; height: 12px; border-radius: 3px; }
@@ -380,3 +387,61 @@ button, input, textarea { font: inherit; color: inherit; }
 .suggest { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; margin: 6px 0; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line-2); font-size: 13px; }
 .suggest .why { color: var(--ink-3); font-size: 12px; flex-basis: 100%; }
 .act-block.guess { opacity: .5; background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255, 255, 255, .65) 3px 6px) !important; }
+
+/* ── M6：剪輯軟體式操作（Premiere、剪映、Arctime） ── */
+/* 預覽和時間軸中間的分隔線：上下拖曳 */
+.splitter { height: 7px; margin-top: -3px; margin-bottom: -4px; cursor: row-resize; position: relative; z-index: 4; }
+.splitter::after { content: ""; position: absolute; left: 50%; top: 2px; width: 40px; height: 3px; margin-left: -20px; border-radius: 2px; background: var(--line-2); opacity: 0; transition: opacity .15s; }
+.splitter:hover::after, .splitter.on::after { opacity: 1; background: var(--accent); }
+body.resizing, body.resizing * { cursor: row-resize !important; user-select: none; }
+
+.zoom-range { width: 90px; accent-color: var(--accent); height: 4px; cursor: pointer; }
+@container (max-width: 820px) { .zoom-range { display: none; } }
+
+/* 尺規：拖曳移動播放位置 */
+.tl-track.ruler { cursor: ew-resize; }
+
+/* 句子方塊：兩邊是修剪把手（改開始／結尾），中間拖曳整句 */
+.ly .h { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 2; }
+.ly .h.l { left: 0; }
+.ly .h.r { right: 0; }
+.ly .h::after { content: ""; position: absolute; top: 50%; width: 2px; height: 16px; margin-top: -8px; border-radius: 1px; background: var(--ink-3); opacity: 0; }
+.ly .h.l::after { left: 3px; }
+.ly .h.r::after { right: 2px; }
+.ly:hover .h::after, .ly.sel .h::after { opacity: .8; }
+.ly .h:hover::after { opacity: 1; background: var(--accent); }
+.ly.dur::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: var(--ink-3); opacity: .5; }
+.ly.trimming { z-index: 3; box-shadow: inset 0 0 0 2px var(--accent); }
+body.trimming, body.trimming * { cursor: ew-resize !important; }
+
+/* 滑過時間軸的時間線、吸附線、框選 */
+.hover-line { position: absolute; top: 0; width: 0; border-left: 1px dashed var(--ink-3); pointer-events: none; z-index: 4; }
+.hover-line span { position: absolute; top: 5px; left: 4px; padding: 0 4px; border-radius: 3px; background: var(--ink); color: var(--bg); font: 10.5px/16px var(--mono); white-space: nowrap; }
+.snap-line { position: absolute; top: 0; width: 0; border-left: 1.5px solid var(--yellow); pointer-events: none; z-index: 6; }
+.marquee { position: absolute; border-radius: 3px; background: var(--select); box-shadow: inset 0 0 0 1px var(--accent); pointer-events: none; z-index: 4; }
+
+/* 在時間軸、歌詞表上直接改字 */
+.ly-input { position: absolute; z-index: 7; min-width: 220px; height: 30px; padding: 0 8px; border: 0; border-radius: 4px; outline: none; background: var(--bg); color: var(--ink); box-shadow: 0 0 0 2px var(--accent), 0 6px 18px rgba(0, 0, 0, .18); font-size: 13px; }
+.cell-input { width: 100%; min-width: 60px; height: 26px; margin: -3px 0; padding: 0 6px; border: 0; border-radius: 3px; outline: none; background: var(--bg); color: var(--ink); box-shadow: 0 0 0 2px var(--accent); font: inherit; }
+.table td[data-f] { cursor: text; }
+.table tr.cur td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+/* 打點：按住時 */
+.btn.punch.rec { background: var(--red-bg); color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
+
+/* 右鍵選單 */
+.ctx { position: fixed; z-index: 2500; min-width: 230px; padding: 5px; border-radius: 8px; background: var(--bg); box-shadow: 0 0 0 1px var(--line-2), 0 10px 30px rgba(15, 15, 15, .22); font-size: 13px; }
+.ctx button { display: flex; align-items: center; gap: 8px; width: 100%; height: 28px; padding: 0 8px; border: 0; border-radius: 4px; background: none; color: var(--ink); cursor: pointer; text-align: left; }
+.ctx button:hover:not(:disabled) { background: var(--hover); }
+.ctx button:disabled { color: var(--ink-3); cursor: default; }
+.ctx button .kbd { margin-left: auto; }
+.ctx button.danger { color: var(--red); }
+.ctx hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.ctx .ctx-title { padding: 2px 8px 4px; color: var(--ink-3); font-size: 12px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 快捷鍵對話框 */
+.keys-dlg { width: min(860px, 94vw); }
+.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 0 28px; margin-top: 10px; max-height: 64vh; overflow: auto; outline: none; }
+.keys h3 { grid-column: 1 / -1; margin: 12px 0 2px; font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.keys div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.keys kbd { flex: none; font: 11.5px var(--mono); padding: 0 5px; border-radius: 3px; background: var(--hover); box-shadow: inset 0 -1px 0 var(--line-2); white-space: nowrap; }

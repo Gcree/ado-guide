@@ -1,5 +1,7 @@
 // Ado Studio：新歌工作站的介面（用 node tools/studio/server.mjs 開）
 // 版面像剪輯軟體：左邊歌單、中間只放編輯（預覽＋浮動字幕、走帶、時間軸／歌詞表）、右邊檢查器（句子／歌曲／情報）
+// 操作參考 Premiere、剪映（CapCut）和 Arctime：拖尺規移動播放指針、拖句子兩邊修剪、磁吸、框選、右鍵選單、
+// 在播放指針的位置拆句（Ctrl+B）、設開始／結尾（I／O）、加一句（N），按住空白鍵打出一句的開始和結尾
 // 資料都經過伺服器（/api/…），寫入規則跟命令列共用 tools/studio/core.mjs
 // 編輯在記憶體裡的草稿上做（可復原、自動存在這台電腦），按「存檔」才寫回歌詞檔；存檔時會確認檔案沒被別人先改過
 (function () {
@@ -56,7 +58,7 @@
   let base = null;         // 讀取時的檔案指紋（存檔時比對）
   let savedJSON = "";      // 檔案裡的版本，用來判斷有沒有改
   let sel = new Set(), anchor = 0;
-  let view = "tl", tab = "line", caption = true, follow = true, snap = true, loopOn = false;
+  let view = "tl", tab = "line", caption = true, follow = true, snap = true, loopOn = false, ripple = false;
   let win = [0, 30];
   let history = [], future = [];
   let importing = null;
@@ -119,7 +121,7 @@
       playing() { if (mode === "yt") { try { return yt.getPlayerState() === 1; } catch (e) { return false; } } return fake.playing; },
       play() { if (mode === "yt") yt.playVideo(); else { fake.last = performance.now(); fake.playing = true; } },
       pause() { if (mode === "yt") yt.pauseVideo(); else { tick(); fake.playing = false; } },
-      seek(t) { t = Math.max(0, Math.min(DUR(), t)); if (mode === "yt") yt.seekTo(t, true); else { fake.t = t; fake.last = performance.now(); } },
+      seek(t, final = true) { t = Math.max(0, Math.min(DUR(), t)); if (mode === "yt") yt.seekTo(t, final); else { fake.t = t; fake.last = performance.now(); } },
       rate(r) { rate = r; if (mode === "yt") yt.setPlaybackRate(r); },
       duration() { if (mode === "yt") { try { return yt.getDuration() || 0; } catch (e) { return 0; } } return 0; }
     };
@@ -293,20 +295,125 @@
   function setTimes(map) { // map: index → time；手動改過的句子算「已確認」
     for (const [i, t] of map) { L[i].time = r3(Math.max(0, Math.min(DUR(), t))); if (!isGap(L[i])) L[i]._lvl = "ok"; }
   }
+  const lagS = () => (Number($("lag").value) || 0) / 1000;
   function punch() {
     if (!L.length) return;
     const i = anchor;
-    const t = player.time() - (Number($("lag").value) || 0) / 1000;
     pushHistory();
-    setTimes(new Map([[i, t]]));
+    setTimes(new Map([[i, player.time() - lagS()]]));
     const next = Math.min(L.length - 1, i + 1);
     sel = new Set([next]); anchor = next;
     changed();
   }
+  // 按住空白鍵（像 Arctime 按住 J）：按下＝這句開始，放開＝這句結尾，再跳下一句
+  let hold = null;
+  function punchDown() {
+    if (!L.length || hold) return;
+    const i = anchor;
+    pushHistory();
+    setTimes(new Map([[i, player.time() - lagS()]]));
+    hold = { i, at: performance.now() };
+    $("btnPunch").classList.add("rec");
+    changed();
+  }
+  function punchUp() {
+    const h = hold;
+    if (!h) return;
+    hold = null;
+    $("btnPunch").classList.remove("rec");
+    const l = L[h.i];
+    if (l && (performance.now() - h.at) / 1000 >= 0.35 && player.playing()) {
+      const end = player.time() - lagS();
+      if (end > l.time + 0.1) { l.duration = r3(end - l.time); toast(`第 ${h.i + 1} 句：${fmt(l.time)} – ${fmt(end)}`, 1200); }
+    }
+    const next = Math.min(L.length - 1, h.i + 1);
+    sel = new Set([next]); anchor = next;
+    changed();
+  }
+
+  // ── 用播放指針編輯（像 Premiere 的 I／O、Ctrl+K，剪映的分割） ──
+  const clampStart = (i, t) => Math.max(i > 0 ? (L[i - 1].duration != null ? L[i - 1].time + L[i - 1].duration : L[i - 1].time + 0.01) : 0, Math.min(L[i + 1] ? L[i + 1].time - 0.01 : DUR(), t));
+  function setInNow() {
+    const i = anchor, l = L[i];
+    if (!l) return;
+    const want = player.time(), t = r3(clampStart(i, want));
+    const end = l.duration != null ? l.time + l.duration : null;
+    pushHistory();
+    l.time = t;
+    if (end != null) { if (end - t > 0.05) l.duration = r3(end - t); else delete l.duration; }
+    if (!isGap(l)) l._lvl = "ok";
+    changed();
+    if (Math.abs(t - want) > 0.005) toast("碰到前後句，停在最近能放的位置");
+  }
+  function setOutNow() {
+    const i = anchor, l = L[i];
+    if (!l) return;
+    const t = player.time(), next = L[i + 1];
+    if (t <= l.time + 0.05) { toast("播放指針要在這句開始之後"); return; }
+    pushHistory();
+    if (next && t >= next.time - 0.03) { delete l.duration; if (t > next.time + 0.03) toast("碰到下一句：這句接著下一句"); }
+    else l.duration = r3(t - l.time);
+    changed();
+  }
+  function clearEnd() {
+    const ids = selected().filter(k => L[k].duration != null && !isGap(L[k]));
+    if (!ids.length) return;
+    pushHistory();
+    for (const k of ids) delete L[k].duration;
+    changed();
+  }
+  // 播放指針在哪一句裡（優先選取的那句）
+  function splitTarget() {
+    const t = player.time();
+    const inside = k => L[k] && !isGap(L[k]) && t > L[k].time + 0.05 && t < endOf(k) - 0.05;
+    if (inside(anchor)) return anchor;
+    const c = curIndex(t);
+    return c >= 0 && inside(c) ? c : null;
+  }
+  function splitAtPlayhead() {
+    const i = splitTarget();
+    if (i == null) { toast("把播放指針放在要拆的句子裡（不能在頭尾）"); return; }
+    splitLine(i, player.time());
+  }
+  function newLineAt(t) {
+    t = r3(Math.max(0, Math.min(DUR(), t)));
+    let k = L.findIndex(l => l.time > t);
+    if (k < 0) k = L.length;
+    pushHistory();
+    const prev = L[k - 1];
+    if (prev && prev.duration != null && prev.time + prev.duration > t) { if (t - prev.time > 0.05) prev.duration = r3(t - prev.time); else delete prev.duration; }
+    L.splice(k, 0, { time: t, jp: "", tr: "", _lvl: "ok" });
+    sel = new Set([k]); anchor = k;
+    changed();
+    if (view === "tl") inlineEdit(k); else setTimeout(() => editCell(k, "jp"), 0);
+  }
+  // 複製、貼上應援（動作、喊聲、動作說明；觀眾要唱的字每句不同，不複製）
+  let actClip = null;
+  const actClipLabel = () => [(actClip.acts || []).map(a => ACT_INFO[a]?.[0] || a).join("、") || "沒有動作", actClip.call && `「${actClip.call}」`].filter(Boolean).join(" ");
+  function copyActs() {
+    const l = L[anchor];
+    if (!l || isGap(l)) return;
+    actClip = { acts: (l.acts || []).slice(), call: l.call || "", how: l.how || "" };
+    toast(`已複製應援：${actClipLabel()}；選別的句子按 Ctrl+V 貼上`);
+  }
+  function pasteActs() {
+    if (!actClip) { toast("先在一句上按 Ctrl+C 複製應援"); return; }
+    const ids = selected().filter(k => !isGap(L[k]));
+    if (!ids.length) return;
+    pushHistory();
+    for (const k of ids) {
+      if (actClip.acts.length) L[k].acts = actClip.acts.slice(); else delete L[k].acts;
+      for (const f of ["call", "how"]) { if (actClip[f]) L[k][f] = actClip[f]; else delete L[k][f]; }
+    }
+    changed();
+    toast(`已貼到 ${ids.length} 句：${actClipLabel()}`);
+  }
   function nudge(d) {
     if (!sel.size) return;
+    const ids = selected();
+    if (ripple) for (let k = ids[ids.length - 1] + 1; k < L.length; k++) ids.push(k);
     pushHistory();
-    setTimes(new Map(selected().map(i => [i, L[i].time + d])));
+    setTimes(new Map(ids.map(i => [i, L[i].time + d])));
     changed();
   }
   function toggleAct(a) {
@@ -335,14 +442,15 @@
     changed();
     setTimeout(() => document.querySelector("#insp textarea.jp")?.focus(), 0);
   }
-  function deleteSelected() {
+  function deleteSelected(ask = true) {
     const ids = selected();
-    if (!ids.length || !confirm(`刪除 ${ids.length} 句？（可以按復原救回來）`)) return;
+    if (!ids.length || (ask && !confirm(`刪除 ${ids.length} 句？（可以按復原救回來）`))) return;
     pushHistory();
     for (const i of ids.reverse()) L.splice(i, 1);
     anchor = Math.min(ids[ids.length - 1], L.length - 1);
     sel = new Set([Math.max(0, anchor)]);
     changed();
+    if (!ask) toast(`已刪除 ${ids.length} 句（Ctrl+Z 復原）`);
   }
   function sortByTime() {
     pushHistory();
@@ -461,13 +569,14 @@
     }
     $("trBeat").innerHTML = b;
 
-    const cur = curIndex(player.time());
+    const cur = curIndex(player.time()), tw = trackWidth();
     $("trLyr").innerHTML = L.map((l, i) => {
       const end = endOf(i);
       if (end < win[0] || l.time > win[1]) return "";
       const lv = l._lvl;
       const c = isGap(l) ? " gap" : lv === "low" || lv === "none" ? " c-low" : lv === "mid" ? " c-mid" : lv === "ok" ? " ok" : lv === "high" ? "" : " plain";
-      return `<div class="ly${c}${sel.has(i) ? " sel" : ""}${i === cur ? " cur" : ""}" data-i="${i}" style="${pos(l.time, end - 0.06)}" title="${i + 1}. ${esc(l.jp)}">${esc(l.jp || "（空白）")}${isGap(l) ? "" : `<em>${esc(l.tr || "")}</em><small>${fmt(l.time)}</small>`}</div>`;
+      const wide = ((end - l.time) / span()) * tw > 26;
+      return `<div class="ly${c}${sel.has(i) ? " sel" : ""}${i === cur ? " cur" : ""}${l.duration != null ? " dur" : ""}" data-i="${i}" style="${pos(l.time, end - 0.06)}" title="${i + 1}. ${esc(l.jp)}${l.duration != null ? `（到 ${fmt(end)}）` : ""}&#10;點兩下改字；拖兩邊改開始／結尾；右鍵看更多">${esc(l.jp || "（空白）")}${isGap(l) ? "" : `<em>${esc(l.tr || "")}</em><small>${fmt(l.time)}</small>`}${wide ? '<i class="h l"></i><i class="h r"></i>' : ""}</div>`;
     }).join("");
 
     // 應援：每句的動作，一種動作一條細線
@@ -483,6 +592,8 @@
     drawOverview();
     drawWave();
     placePlayhead(player.time());
+    syncZoomRange();
+    if (inline) placeInline();
   }
 
   function drawOverview() {
@@ -522,6 +633,7 @@
     $("playhead").style.display = px < 0 || px > 100 ? "none" : "";
     $("playhead").style.left = `${lab + (px / 100) * w}px`;
     $("playhead").style.height = `${act.offsetTop + act.offsetHeight}px`;
+    $("hoverLine").style.height = $("snapLine").style.height = $("playhead").style.height;
     const ov = $("ovNow");
     if (ov) ov.style.left = `${(t / (DUR() || 1)) * 100}%`;
   }
@@ -542,12 +654,13 @@
     $("tableView").innerHTML = `<table class="table"><thead><tr>
       <th class="n">#</th><th>${icon("i-clock")}時間</th><th>${icon("i-text")}日文</th><th>${icon("i-lang")}中文</th><th>${icon("i-hand")}應援</th><th>${icon("i-status")}信心</th>
     </tr></thead><tbody>${L.map((l, i) => `<tr data-i="${i}" class="${sel.has(i) ? "on" : ""}${isGap(l) ? " gaprow" : ""}${i === cur ? " cur" : ""}">
-      <td class="n">${i + 1}</td><td class="t mono">${fmt(l.time)}</td><td>${esc(l.jp)}</td><td class="trc">${esc(l.tr || "")}${l._tr === "agy" ? ' <span class="pill yellow">agy</span>' : ""}</td>
+      <td class="n">${i + 1}</td><td class="t mono" data-f="time" title="點兩下改時間">${fmt(l.time)}</td><td data-f="jp" title="點兩下改日文">${esc(l.jp)}</td><td class="trc" data-f="tr" title="點兩下改中文">${esc(l.tr || "")}${l._tr === "agy" ? ' <span class="pill yellow">agy</span>' : ""}</td>
       <td>${(l.acts || []).map(a => `<span class="pill ${ACT_INFO[a]?.[1] || ""}">${ACT_INFO[a]?.[0] || a}</span>`).join(" ")}${l.call ? ` <span class="muted">「${esc(l.call)}」</span>` : ""}</td>
       <td>${!isGap(l) && LEVEL[l._lvl] ? `<span class="pill ${LEVEL[l._lvl][1]}">${LEVEL[l._lvl][0]}</span>` : ""}</td>
     </tr>`).join("")}</tbody></table>`;
     const row = $("tableView").querySelector("tr.on");
     if (row) row.scrollIntoView({ block: "nearest" });
+    cellEdit = null;
   }
 
   // ── 檢查器 ──
@@ -892,27 +1005,34 @@
   let lastCaret = null;
   $("insp").addEventListener("keyup", e => { if (e.target.matches("textarea.jp")) lastCaret = { i: anchor, pos: e.target.selectionStart }; });
   $("insp").addEventListener("mouseup", e => { if (e.target.matches("textarea.jp")) lastCaret = { i: anchor, pos: e.target.selectionStart }; });
-  function splitAt(text, pos) {
+  function splitAt(text, pos, ratio = 0.5) {
     if (pos != null && pos > 0 && pos < text.length) return [text.slice(0, pos).trim(), text.slice(pos).trim()];
-    const mid = text.length / 2;
+    const mid = text.length * ratio;
     let best = -1;
     for (let k = 0; k < text.length; k++) if (/[\s　]/.test(text[k]) && (best < 0 || Math.abs(k - mid) < Math.abs(best - mid))) best = k;
     return best > 0 ? [text.slice(0, best).trim(), text.slice(best + 1).trim()] : null;
   }
-  function splitLine(i) {
+  function splitLine(i, at = null) {
     const l = L[i];
     const caret = lastCaret && lastCaret.i === i ? lastCaret.pos : null;
-    const jp = splitAt(l.jp, caret) || [l.jp.slice(0, Math.ceil(l.jp.length / 2)), l.jp.slice(Math.ceil(l.jp.length / 2))];
-    const tr = splitAt(l.tr || "", null) || [l.tr || "", ""];
+    // 在播放指針拆：日文、中文照時間比例找最近的空白（有游標就用游標）
+    const ratio = at != null ? (at - l.time) / Math.max(0.01, endOf(i) - l.time) : 0.5;
+    const jp = splitAt(l.jp, caret, ratio) || [l.jp.slice(0, Math.ceil(l.jp.length * ratio)), l.jp.slice(Math.ceil(l.jp.length * ratio))];
+    const tr = splitAt(l.tr || "", null, ratio) || [l.tr || "", ""];
     pushHistory();
-    const mid = r3((l.time + endOf(i)) / 2);
-    const second = { time: mid, jp: jp[1], tr: tr[1], _lvl: "ok" };
+    const end = endOf(i);
+    const t2 = r3(at != null ? at : (l.time + end) / 2);
+    const second = { time: t2, jp: jp[1], tr: tr[1], _lvl: "ok" };
+    if (l.acts) second.acts = l.acts.slice();
+    if (l.duration != null) second.duration = r3(end - t2);
     L[i] = { ...l, jp: jp[0], tr: tr[0] };
     delete L[i].sing;
+    delete L[i].duration;
     L.splice(i + 1, 0, second);
     lastCaret = null;
+    sel = new Set([i + 1]); anchor = i + 1;
     changed();
-    toast("拆成兩句：第二句的時間先放在中間，請打點確認");
+    toast(at != null ? `在 ${fmt(t2)} 拆成兩句（字從最接近的空白拆，不對的話點兩下改）` : "拆成兩句：第二句的時間先放在中間，請打點確認", 3500);
   }
 
   // ── 貼上整首歌詞 ──
@@ -970,15 +1090,79 @@
     for (let k = 1; k <= n; k++) { const i = (anchor + dir * k + n) % n; if (isRed(L[i])) return select(i, { seek: true }); }
   }
 
-  // ── 時間軸的滑鼠操作：點選、拖曳改時間、點空白處跳轉、滾輪捲動／縮放 ──
-  let drag = null;
+  // ── 時間軸的滑鼠操作（像 Premiere／剪映） ──
+  // 句子中間拖曳＝整句移動；拖左右兩邊＝修剪開始／結尾；空白處拖曳＝框選、點一下＝跳轉；尺規拖曳＝移動播放指針
+  const tlX = t => { // 時間 → 在 #tl 裡的 x（px）
+    const lab = $("tl").querySelector(".tl-lab").getBoundingClientRect().width;
+    return lab + (x(t) / 100) * trackWidth();
+  };
+  const endTime = k => (L[k].duration != null ? L[k].time + L[k].duration : null); // 有寫結尾才有
+  function showLine(id, t) {
+    const el = $(id);
+    if (t == null || t < win[0] || t > win[1]) { el.hidden = true; return; }
+    el.hidden = false;
+    el.style.left = `${tlX(t)}px`;
+  }
+  // 吸附：拍點（磁鐵開著）、播放指針、其他句子的頭尾、副歌高潮；8px 內才吸
+  function snapTargets(exclude) {
+    const out = [player.time()];
+    for (let k = 0; k < L.length; k++) {
+      if (exclude.has(k)) continue;
+      out.push(L[k].time);
+      const e = endTime(k);
+      if (e != null) out.push(e);
+    }
+    if (climax() != null) out.push(climax());
+    return out;
+  }
+  function snapEdge(edges, exclude, e) { // edges：會動的那幾個時間；回傳要加的修正量和吸到哪裡
+    if (!snap || e.altKey) return { d: 0, at: null };
+    const lim = (8 / trackWidth()) * span();
+    let best = { d: 0, at: null, dist: lim };
+    const targets = snapTargets(exclude);
+    const bt = beat();
+    for (const t of edges) {
+      const cands = targets.slice();
+      if (bt) { const P = 60 / bt[0]; cands.push(bt[1] + Math.round((t - bt[1]) / P) * P); }
+      for (const c of cands) { const dist = Math.abs(c - t); if (dist < best.dist) best = { d: c - t, at: c, dist }; }
+    }
+    return best;
+  }
+
+  let drag = null, lastDown = null;
   $("trLyr").addEventListener("pointerdown", e => {
+    if (e.button !== 0 || !D) return;
+    closeCtx();
     const el = e.target.closest(".ly");
-    if (!el) { player.seek(timeAt($("trLyr"), e.clientX)); return; }
-    const i = +el.dataset.i;
-    if (e.shiftKey || e.ctrlKey || e.metaKey) { select(i, { range: e.shiftKey, add: e.ctrlKey || e.metaKey }); return; }
-    if (!sel.has(i)) select(i);
-    drag = { i, x0: e.clientX, moved: false, orig: new Map(selected().map(k => [k, L[k].time])), snap: JSON.stringify(L) };
+    const mod = e.ctrlKey || e.metaKey;
+    // 點兩下：按下時時間軸會重畫，瀏覽器不會送 dblclick，自己判斷
+    const now = performance.now();
+    const dbl = lastDown && now - lastDown.at < 450 && Math.abs(e.clientX - lastDown.x) < 6 && Math.abs(e.clientY - lastDown.y) < 6 && !mod && !e.shiftKey;
+    lastDown = { at: now, x: e.clientX, y: e.clientY };
+    if (dbl) {
+      lastDown = null;
+      e.preventDefault();
+      if (el) inlineEdit(+el.dataset.i, e.target.closest("em") ? "tr" : "jp");
+      else newLineAt(timeAt($("trLyr"), e.clientX));
+      return;
+    }
+    if (!el) { // 空白處：拖曳框選，沒拖就是跳轉
+      drag = { mode: "box", x0: e.clientX, t0: timeAt($("trLyr"), e.clientX), add: e.shiftKey || mod, base: new Set(sel), moved: false };
+      $("trLyr").setPointerCapture(e.pointerId);
+      return;
+    }
+    const i = +el.dataset.i, h = e.target.closest(".h");
+    if (!h && (e.shiftKey || mod)) { select(i, { range: e.shiftKey, add: mod }); return; }
+    if (h) {
+      if (!(sel.size === 1 && sel.has(i))) select(i);
+      drag = { mode: h.classList.contains("l") ? "l" : "r", i, x0: e.clientX, moved: false, snap: JSON.stringify(L), t: L[i].time, end: endOf(i), dur: L[i].duration };
+      document.body.classList.add("trimming");
+    } else {
+      if (!sel.has(i)) select(i);
+      const ids = selected();
+      if (ripple) for (let k = ids[ids.length - 1] + 1; k < L.length; k++) ids.push(k);
+      drag = { mode: "move", i, x0: e.clientX, moved: false, ids: new Set(ids), orig: new Map(ids.map(k => [k, L[k].time])), snap: JSON.stringify(L) };
+    }
     $("trLyr").setPointerCapture(e.pointerId); // 選取時時間軸會重畫，抓在外框上
   });
   $("trLyr").addEventListener("pointermove", e => {
@@ -987,31 +1171,121 @@
     if (!drag.moved && Math.abs(dx) < 4) return;
     drag.moved = true;
     let dt = (dx / trackWidth()) * span();
-    const bt = beat();
-    if (snap && bt && !e.altKey) { // 吸附：拖的那句對齊最近的拍
-      const P = 60 / bt[0], t = drag.orig.get(drag.i) + dt;
-      dt = bt[1] + Math.round((t - bt[1]) / P) * P - drag.orig.get(drag.i);
+    let snapAt = null;
+    if (drag.mode === "box") {
+      const t1 = timeAt($("trLyr"), e.clientX), a = Math.min(drag.t0, t1), b = Math.max(drag.t0, t1);
+      const hits = L.map((l, k) => k).filter(k => endOf(k) > a && L[k].time < b);
+      sel = new Set(drag.add ? [...drag.base, ...hits] : hits);
+      if (hits.length) anchor = hits[0];
+      if (!sel.size && L.length) sel.add(Math.min(anchor, L.length - 1));
+      const m = $("marquee"), tr = $("trLyr");
+      Object.assign(m.style, { left: `${tlX(Math.max(win[0], a))}px`, width: `${tlX(Math.min(win[1], b)) - tlX(Math.max(win[0], a))}px`, top: `${tr.offsetTop + 4}px`, height: `${tr.offsetHeight - 8}px` });
+      m.hidden = false;
+      drawTimeline();
+      return;
     }
-    const ids = selected(), lo = ids[0], hi = ids[ids.length - 1];
-    const min = lo > 0 ? L[lo - 1].time + 0.01 : 0, max = hi < L.length - 1 ? L[hi + 1].time - 0.01 : DUR();
-    dt = Math.max(min - drag.orig.get(lo), Math.min(max - drag.orig.get(hi), dt));
-    for (const [k, t] of drag.orig) L[k].time = r3(t + dt);
+    if (drag.mode === "move") {
+      const ids = [...drag.ids].sort((a, b) => a - b), o = drag.orig;
+      const sn = snapEdge([o.get(drag.i) + dt, ...(endTime(drag.i) != null ? [o.get(drag.i) + L[drag.i].duration + dt] : [])], drag.ids, e);
+      dt += sn.d; snapAt = sn.at;
+      // 不能越過沒跟著動的前後句（前一句有結尾的話，也不能蓋到它的結尾）
+      let lo = -Infinity, hi = Infinity;
+      for (const k of ids) {
+        if (!drag.ids.has(k - 1)) lo = Math.max(lo, (k > 0 ? (endTime(k - 1) ?? L[k - 1].time + 0.01) : 0) - o.get(k));
+        if (!drag.ids.has(k + 1)) {
+          const myEnd = o.get(k) + (L[k].duration ?? 0.01);
+          hi = Math.min(hi, (k < L.length - 1 ? L[k + 1].time : DUR()) - myEnd);
+        }
+      }
+      if (lo > hi) return;
+      if (dt < lo || dt > hi) snapAt = null;
+      dt = Math.max(lo, Math.min(hi, dt));
+      for (const [k, t] of o) L[k].time = r3(t + dt);
+    } else if (drag.mode === "l") { // 修剪開始：結尾不動
+      const k = drag.i;
+      const sn = snapEdge([drag.t + dt], new Set([k]), e);
+      let t = drag.t + dt + sn.d; snapAt = sn.at;
+      const lo = k > 0 ? (endTime(k - 1) ?? L[k - 1].time + 0.01) : 0, hi = drag.end - 0.05;
+      if (t < lo || t > hi) snapAt = null;
+      t = Math.max(lo, Math.min(hi, t));
+      L[k].time = r3(t);
+      if (drag.dur != null) L[k].duration = r3(drag.end - t);
+    } else { // 修剪結尾：碰到下一句就是「接著下一句」（不寫 duration）
+      const k = drag.i, next = L[k + 1];
+      const sn = snapEdge([drag.end + dt], new Set([k]), e);
+      let t = drag.end + dt + sn.d; snapAt = sn.at;
+      const lo = L[k].time + 0.05, hi = next ? next.time : DUR();
+      if (t < lo || t > hi) snapAt = null;
+      t = Math.max(lo, Math.min(hi, t));
+      if (hi - t < 0.03) delete L[k].duration; else L[k].duration = r3(t - L[k].time);
+    }
+    showLine("snapLine", snapAt);
     drawTimeline();
+    $("trLyr").querySelector(`.ly[data-i="${drag.i}"]`)?.classList.add(drag.mode === "move" ? "dragging" : "trimming");
   });
-  $("trLyr").addEventListener("pointerup", () => {
+  function endDrag() {
     if (!drag) return;
     const d = drag;
     drag = null;
-    if (!d.moved) { player.seek(L[d.i].time); drawTimeline(); return; }
+    document.body.classList.remove("trimming");
+    $("snapLine").hidden = $("marquee").hidden = true;
+    if (d.mode === "box") {
+      if (!d.moved) { player.seek(d.t0); drawTimeline(); return; }
+      drawTimeline(); drawInsp();
+      return;
+    }
+    if (!d.moved) { if (d.mode === "move") { player.seek(L[d.i].time); drawTimeline(); } return; }
+    if (d.snap === JSON.stringify(L)) { drawTimeline(); return; }
     history.push(d.snap); future = [];
-    for (const k of d.orig.keys()) if (!isGap(L[k])) L[k]._lvl = "ok";
+    for (const k of d.mode === "move" ? d.orig.keys() : [d.i]) if (!isGap(L[k])) L[k]._lvl = "ok";
     changed();
+  }
+  $("trLyr").addEventListener("pointerup", endDrag);
+  $("trLyr").addEventListener("pointercancel", endDrag);
+
+  // 尺規、其他軌道：點一下跳轉；尺規可以按住拖（scrub）
+  let scrub = false;
+  $("ruler").addEventListener("pointerdown", e => {
+    if (!D || e.button !== 0) return;
+    scrub = true;
+    $("ruler").setPointerCapture(e.pointerId);
+    player.seek(timeAt($("ruler"), e.clientX), false);
   });
-  for (const id of ["ruler", "trSec", "trBeat", "trWave", "trAct"]) $(id).addEventListener("click", e => { if (D) player.seek(timeAt($(id), e.clientX)); });
-  $("trOv").addEventListener("click", e => {
+  $("ruler").addEventListener("pointermove", e => { if (scrub) player.seek(timeAt($("ruler"), e.clientX), false); });
+  const endScrub = e => { if (!scrub) return; scrub = false; player.seek(timeAt($("ruler"), e.clientX), true); };
+  $("ruler").addEventListener("pointerup", endScrub);
+  $("ruler").addEventListener("pointercancel", endScrub);
+  for (const id of ["trSec", "trBeat", "trWave", "trAct"]) $(id).addEventListener("click", e => { if (D) player.seek(timeAt($(id), e.clientX)); });
+
+  // 滑過時顯示那個位置的時間（虛線）
+  $("tl").addEventListener("pointermove", e => {
+    const tr = e.target.closest(".tl-track");
+    if (!D || !tr || tr.id === "trOv" || (drag && drag.mode !== "box")) { $("hoverLine").hidden = true; return; }
+    const t = timeAt($("trLyr"), e.clientX);
+    showLine("hoverLine", t);
+    $("hoverTime").textContent = fmt(t);
+  });
+  $("tl").addEventListener("pointerleave", () => ($("hoverLine").hidden = true));
+
+  // 全曲縮圖：拖藍框平移，點其他地方跳過去
+  let ovDrag = null;
+  $("trOv").addEventListener("pointerdown", e => {
+    if (!D || e.button !== 0) return;
     const r = e.currentTarget.getBoundingClientRect(), t = ((e.clientX - r.left) / r.width) * DUR();
+    if (t >= win[0] && t <= win[1]) { ovDrag = { x0: e.clientX, w0: win[0], moved: false }; e.currentTarget.setPointerCapture(e.pointerId); return; }
     player.seek(t);
     setWin(t - span() / 2, span());
+  });
+  $("trOv").addEventListener("pointermove", e => {
+    if (!ovDrag) return;
+    const r = e.currentTarget.getBoundingClientRect(), dx = e.clientX - ovDrag.x0;
+    if (Math.abs(dx) > 2) ovDrag.moved = true;
+    setWin(ovDrag.w0 + (dx / r.width) * DUR(), span());
+  });
+  $("trOv").addEventListener("pointerup", e => {
+    const d = ovDrag;
+    ovDrag = null;
+    if (d && !d.moved) { const r = e.currentTarget.getBoundingClientRect(); player.seek(((e.clientX - r.left) / r.width) * DUR()); }
   });
   $("tl").addEventListener("wheel", e => {
     if (!D) return;
@@ -1019,10 +1293,184 @@
     if (e.ctrlKey || e.metaKey || e.altKey) zoom(e.deltaY > 0 ? 1.15 : 1 / 1.15, timeAt($("trLyr"), e.clientX));
     else setWin(win[0] + ((e.deltaX || e.deltaY) / trackWidth()) * span(), span());
   }, { passive: false });
-  $("tableView").addEventListener("click", e => {
-    const tr = e.target.closest("tr[data-i]");
-    if (tr) select(+tr.dataset.i, { seek: !e.shiftKey && !e.ctrlKey && !e.metaKey, range: e.shiftKey, add: e.ctrlKey || e.metaKey });
+
+  // 縮放滑桿（對數刻度：右邊放大）、整首放進畫面
+  const ZMIN = 4, zMax = () => Math.max(10, DUR() + 4);
+  function syncZoomRange() { const v = Math.log(zMax() / span()) / Math.log(zMax() / ZMIN); $("zoomRange").value = Math.round(Math.max(0, Math.min(1, v)) * 1000); }
+  $("zoomRange").addEventListener("input", e => {
+    if (!D) return;
+    const s2 = zMax() * Math.pow(ZMIN / zMax(), e.target.value / 1000);
+    const c = player.time() >= win[0] && player.time() <= win[1] ? player.time() : win[0] + span() / 2;
+    setWin(c - ((c - win[0]) / span()) * s2, s2);
   });
+  const fitAll = () => D && setWin(-1, DUR() + 3);
+
+  // ── 在時間軸上點兩下直接改字（像剪映）；點中文那行改中文 ──
+  let inline = null;
+  function placeInline() {
+    const el = $("trLyr").querySelector(`.ly[data-i="${inline.i}"]`);
+    if (!el) { inline.inp.style.visibility = "hidden"; return; }
+    const tr = $("tl").getBoundingClientRect(), r = el.getBoundingClientRect();
+    inline.inp.style.visibility = "";
+    inline.inp.style.left = `${Math.max(0, Math.min(tr.width - 230, r.left - tr.left))}px`;
+    inline.inp.style.top = `${r.top - tr.top + (inline.field === "tr" ? 22 : 0)}px`;
+    inline.inp.style.width = `${Math.max(220, Math.min(420, r.width))}px`;
+  }
+  function inlineEdit(i, field = "jp") {
+    if (!L[i]) return;
+    commitInline(true);
+    if (view !== "tl") return;
+    if (isGap(L[i])) field = "jp";
+    ensureVisible(L[i].time);
+    if (!(sel.size === 1 && sel.has(i))) select(i);
+    const inp = document.createElement("input");
+    inp.className = "ly-input";
+    inp.value = L[i][field] || "";
+    inp.placeholder = field === "tr" ? "中文" : "日文";
+    $("tl").appendChild(inp);
+    inline = { i, field, inp };
+    placeInline();
+    inp.focus();
+    inp.select();
+    inp.addEventListener("keydown", ev => {
+      if (ev.key === "Escape") { ev.preventDefault(); commitInline(false); }
+      else if (ev.key === "Enter" && !ev.isComposing) { ev.preventDefault(); commitInline(true); }
+      else if (ev.key === "Tab") { // Tab：下一句、Shift+Tab：上一句
+        ev.preventDefault();
+        const k = i + (ev.shiftKey ? -1 : 1);
+        commitInline(true);
+        if (L[k]) { player.seek(L[k].time); inlineEdit(k, field); }
+      }
+    });
+    inp.addEventListener("blur", () => commitInline(true));
+  }
+  function commitInline(keep) {
+    if (!inline) return;
+    const { i, field, inp } = inline;
+    inline = null;
+    inp.remove();
+    if (keep && L[i] && inp.value !== (L[i][field] || "")) {
+      pushHistory();
+      L[i][field] = inp.value;
+      if (field === "tr") L[i]._tr = null;
+      changed();
+    }
+  }
+
+  // ── 歌詞表：點兩下改時間、日文、中文（Enter 往下一列、Tab 換欄，像試算表／Arctime 的字幕列表） ──
+  const CELLS = ["time", "jp", "tr"];
+  let cellEdit = null;
+  function editCell(i, f) {
+    const td = $("tableView").querySelector(`tr[data-i="${i}"] td[data-f="${f}"]`);
+    if (!td) return;
+    if (!sel.has(i) || sel.size > 1) { sel = new Set([i]); anchor = i; drawInsp(); }
+    $("tableView").querySelectorAll("tr").forEach(r => r.classList.toggle("on", +r.dataset.i === i));
+    const inp = document.createElement("input");
+    inp.className = "cell-input" + (f === "time" ? " mono" : "");
+    inp.value = f === "time" ? L[i].time.toFixed(2) : L[i][f] || "";
+    td.innerHTML = "";
+    td.appendChild(inp);
+    cellEdit = { i, f, inp };
+    inp.focus();
+    inp.select();
+    inp.addEventListener("keydown", ev => {
+      if (ev.key === "Escape") { ev.preventDefault(); cellEdit = null; drawTable(); }
+      else if ((ev.key === "Enter" && !ev.isComposing) || ev.key === "Tab") {
+        ev.preventDefault();
+        let ni = i, nf = f;
+        if (ev.key === "Enter") ni = i + (ev.shiftKey ? -1 : 1);
+        else { let c = CELLS.indexOf(f) + (ev.shiftKey ? -1 : 1); if (c >= CELLS.length) { c = 0; ni++; } if (c < 0) { c = CELLS.length - 1; ni--; } nf = CELLS[c]; }
+        commitCell();
+        if (L[ni]) editCell(ni, nf);
+      }
+    });
+    inp.addEventListener("blur", () => setTimeout(() => { if (cellEdit && cellEdit.inp === inp) commitCell(); }, 0));
+  }
+  function commitCell() {
+    if (!cellEdit) return;
+    const { i, f, inp } = cellEdit;
+    cellEdit = null;
+    const v = inp.value;
+    if (f === "time") {
+      const t = parseTime(v);
+      if (t == null) toast("時間要寫成秒數或 m:ss.xx");
+      else if (Math.abs(t - L[i].time) > 0.0005) { pushHistory(); setTimes(new Map([[i, t]])); changed(); return; }
+    } else if (v !== (L[i][f] || "")) {
+      pushHistory();
+      L[i][f] = v;
+      if (f === "tr") L[i]._tr = null;
+      changed();
+      return;
+    }
+    drawTable();
+  }
+  const parseTime = v => {
+    v = String(v).trim();
+    const t = /^\d+:\d/.test(v) ? v.split(":").reduce((a, b) => a * 60 + +b, 0) : Number(v);
+    return v !== "" && Number.isFinite(t) && t >= 0 ? t : null;
+  };
+  // 點一下會重畫表格，瀏覽器不會送 dblclick：自己判斷點兩下
+  let lastCell = null;
+  $("tableView").addEventListener("click", e => {
+    if (e.target.closest(".cell-input")) return;
+    const tr = e.target.closest("tr[data-i]");
+    if (!tr) return;
+    const i = +tr.dataset.i, f = e.target.closest("td[data-f]")?.dataset.f, now = performance.now();
+    const mod = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (f && !mod && lastCell && lastCell.i === i && lastCell.f === f && now - lastCell.at < 450) { lastCell = null; editCell(i, f); return; }
+    lastCell = f && !mod ? { i, f, at: now } : null;
+    select(i, { seek: !mod, range: e.shiftKey, add: e.ctrlKey || e.metaKey });
+  });
+
+  // ── 右鍵選單 ──
+  function openCtx(e, items, title) {
+    e.preventDefault();
+    const m = $("ctx");
+    m.innerHTML = (title ? `<div class="ctx-title">${esc(title)}</div>` : "") + items.map((it, k) => it === "-" ? "<hr>" :
+      `<button data-k="${k}"${it.off ? " disabled" : ""}${it.danger ? ' class="danger"' : ""}>${it.icon ? icon(it.icon) : '<span style="width:16px"></span>'}${esc(it.label)}${it.key ? `<span class="kbd">${esc(it.key)}</span>` : ""}</button>`).join("");
+    m.hidden = false;
+    m.onclick = ev => { const b = ev.target.closest("button[data-k]"); if (!b) return; closeCtx(); items[+b.dataset.k].fn(); };
+    const w = m.offsetWidth, h = m.offsetHeight;
+    m.style.left = `${Math.min(e.clientX, innerWidth - w - 8)}px`;
+    m.style.top = `${Math.min(e.clientY, innerHeight - h - 8)}px`;
+  }
+  function closeCtx() { $("ctx").hidden = true; }
+  addEventListener("pointerdown", e => { if (!$("ctx").hidden && !e.target.closest("#ctx")) closeCtx(); }, true);
+  addEventListener("blur", closeCtx);
+  function lineMenu(e, i) {
+    if (!sel.has(i)) select(i);
+    const n = sel.size, t = player.time(), l = L[i];
+    const cut = splitTarget();
+    openCtx(e, [
+      { label: "試聽這句", key: "Enter", icon: "i-play", fn: preview },
+      { label: "改日文", key: "點兩下", icon: "i-text", fn: () => (view === "tl" ? inlineEdit(i) : editCell(i, "jp")) },
+      "-",
+      { label: `開始設為播放指針（${fmt(t)}）`, key: "I", fn: setInNow, off: n > 1 },
+      { label: `結尾設為播放指針（${fmt(t)}）`, key: "O", fn: setOutNow, off: n > 1 || t <= l.time },
+      { label: "接著下一句（拿掉結尾）", fn: clearEnd, off: !selected().some(k => L[k].duration != null && !isGap(L[k])) },
+      { label: cut ? `在播放指針拆開（${fmt(t)}）` : "在播放指針拆開（指針要在句子裡）", key: "Ctrl+B", icon: "i-mark", fn: splitAtPlayhead, off: !cut },
+      { label: "下面加一句", icon: "i-plus", fn: () => insertAfter(i) },
+      "-",
+      { label: "複製應援", key: "Ctrl+C", fn: copyActs, off: isGap(l) },
+      { label: actClip ? `貼上應援（${actClipLabel()}）` : "貼上應援", key: "Ctrl+V", fn: pasteActs, off: !actClip },
+      { label: "清除應援", key: "0", fn: clearActs },
+      "-",
+      { label: n > 1 ? `刪除這 ${n} 句` : "刪除", key: "Delete", icon: "i-trash", danger: true, fn: () => deleteSelected(false) }
+    ], n > 1 ? `已選 ${n} 句` : `${i + 1}. ${l.jp || "（空白）"}`);
+  }
+  $("trLyr").addEventListener("contextmenu", e => {
+    if (!D) return;
+    const el = e.target.closest(".ly");
+    if (el) return lineMenu(e, +el.dataset.i);
+    const t = timeAt($("trLyr"), e.clientX);
+    openCtx(e, [
+      { label: `在這裡加一句（${fmt(t)}）`, key: "點兩下", icon: "i-plus", fn: () => newLineAt(t) },
+      { label: "從這裡播放", icon: "i-play", fn: () => { player.seek(t); player.play(); } },
+      "-",
+      { label: "整首放進畫面", key: "\\", icon: "i-fit", fn: fitAll }
+    ]);
+  });
+  $("tableView").addEventListener("contextmenu", e => { const tr = e.target.closest("tr[data-i]"); if (tr && D) lineMenu(e, +tr.dataset.i); });
 
   // ── 上方按鈕 ──
   $("btnPlay").onclick = () => (player.playing() ? player.pause() : player.play());
@@ -1031,7 +1479,9 @@
   $("btnPunch").onclick = punch;
   $("btnLoop").onclick = toggleLoop;
   $("btnCaption").onclick = () => { caption = !caption; $("btnCaption").classList.toggle("on", caption); };
-  $("btnSnap").onclick = () => { snap = !snap; $("btnSnap").classList.toggle("on", snap); toast(snap ? "拖曳會吸附拍點（按住 Alt 暫時不吸）" : "拖曳不吸附"); };
+  $("btnSnap").onclick = () => { snap = !snap; $("btnSnap").classList.toggle("on", snap); toast(snap ? "拖曳會吸附拍點、播放指針、其他句子的頭尾（按住 Alt 暫時不吸）" : "拖曳不吸附"); };
+  $("btnRipple").onclick = () => { ripple = !ripple; $("btnRipple").classList.toggle("on", ripple); toast(ripple ? "連動：移動、微調一句時，後面的句子跟著一起移" : "連動關了：只移動選取的句子"); };
+  $("btnFit").onclick = () => fitAll();
   $("btnFollow").onclick = () => { follow = !follow; $("btnFollow").classList.toggle("on", follow); };
   $("btnZoomIn").onclick = () => zoom(1 / 1.4);
   $("btnZoomOut").onclick = () => zoom(1.4);
@@ -1049,6 +1499,7 @@
     drawWave();
   };
   document.querySelectorAll(".view").forEach(b => b.addEventListener("click", () => {
+    commitInline(true);
     view = b.dataset.view;
     document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v === b));
     $("tl").hidden = view !== "tl";
@@ -1138,23 +1589,68 @@
     showBanner(`已匯入〈${r.ja}〉：${r.changes.join("；")}${r.warnings.length ? `。提醒：${r.warnings.join("；")}` : ""}`, [["知道了", hideBanner]]);
   });
 
-  // ── 鍵盤（跟舊版對時工作台一樣） ──
+  // ── 鍵盤：舊版對時工作台的鍵都保留，再加上 Premiere／剪映習慣的鍵（按 ? 看全部） ──
+  const KEYS = [
+    ["播放", [
+      ["K", "播放／暫停"], ["Enter", "從這句前 2 秒試聽"], ["R", "循環這句"], ["J／L", "倒退／快轉 2 秒"],
+      ["← →", "移動 0.1 秒（Shift：1 秒）"], ["Home／End", "到開頭／結尾"], ["↑ ↓", "上一句／下一句"], ["C", "預覽畫面的字幕開關"]
+    ]],
+    ["打點（Arctime 式）", [
+      ["空白鍵（點一下）", "把目前時間打給選取的句子，跳下一句"], ["空白鍵（按住）", "按下＝開始、放開＝結尾，再跳下一句"],
+      ["[ ]", "微調 0.05 秒（Shift：0.2 秒）"], ["G／Shift+G", "下一個／上一個要檢查的句子"]
+    ]],
+    ["用播放指針剪（Premiere／剪映式）", [
+      ["I", "這句的開始＝播放指針"], ["O", "這句的結尾＝播放指針"], ["Ctrl+B／Ctrl+K", "在播放指針拆成兩句"],
+      ["N", "在播放指針加一句"], ["Delete／Backspace", "刪除選取的句子（可以復原）"], ["W", "連動：移動時後面的句子跟著移"]
+    ]],
+    ["時間軸滑鼠", [
+      ["拖句子中間", "整句移動（磁鐵開著會吸附；按住 Alt 不吸）"], ["拖句子兩邊", "修剪開始／結尾"], ["點兩下句子", "直接改日文（點中文那行改中文）"],
+      ["點兩下空白處", "在那裡加一句"], ["空白處拖曳", "框選"], ["拖尺規", "移動播放指針"], ["拖全曲縮圖的藍框", "平移"],
+      ["滾輪／Ctrl+滾輪", "捲動／縮放"], ["右鍵", "這句能做的事"]
+    ]],
+    ["選取與應援", [
+      ["Shift+點／Ctrl+點", "選一段／加選"], ["Ctrl+A", "全選"], ["Shift+Home／End", "選到最前／最後"], ["1–7", "應援動作（大合唱…安靜聽）"],
+      ["0", "清除應援"], ["Ctrl+C／Ctrl+V", "複製／貼上應援到選取的句子"], ["E", "編輯日文（右邊檢查器）"]
+    ]],
+    ["畫面與檔案", [
+      ["= -", "放大／縮小時間軸"], ["\\", "整首放進畫面"], ["S", "吸附開關"], ["`", "收起／打開兩邊面板"], ["/", "搜尋歌曲"],
+      ["Ctrl+Z／Ctrl+Shift+Z", "復原／重做"], ["Ctrl+S", "存檔"], ["?", "這個說明"]
+    ]]
+  ];
+  function showKeys() {
+    $("keysList").innerHTML = KEYS.map(([h, rows]) => `<h3>${esc(h)}</h3>` + rows.map(([k, v]) => `<div><span>${esc(v)}</span><kbd>${esc(k)}</kbd></div>`).join("")).join("");
+    $("keysDlg").showModal();
+  }
   addEventListener("keydown", e => {
-    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+    const typing = /^(TEXTAREA|SELECT)$/.test(e.target.tagName) || (e.target.tagName === "INPUT" && !/^(range|checkbox|button)$/.test(e.target.type));
     const mod = e.ctrlKey || e.metaKey;
-    if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); save(); return; }
+    if (document.querySelector("dialog[open]")) return;
+    if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); commitInline(true); commitCell(); save(); return; }
     if (typing) { if (e.key === "Escape") e.target.blur(); return; }
+    if (e.key === "Escape") { closeCtx(); return; }
     if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
-    if (mod || !D) return;
+    if (e.key === "?") { e.preventDefault(); showKeys(); return; }
+    if (e.key === "`") { e.preventDefault(); togglePanels(); return; }
+    if (!D) return;
+    if (mod) {
+      const c = e.key.toLowerCase();
+      if (c === "a") { e.preventDefault(); sel = new Set(L.map((l, i) => i)); drawTimeline(); if (view === "table") drawTable(); drawInsp(); }
+      else if (c === "c" && !String(getSelection())) { e.preventDefault(); copyActs(); }
+      else if (c === "v") { e.preventDefault(); pasteActs(); }
+      else if (c === "b" || c === "k") { e.preventDefault(); splitAtPlayhead(); }
+      return;
+    }
     const k = e.key;
-    if (k === " ") { e.preventDefault(); punch(); }
+    if (k === " ") { e.preventDefault(); if (!e.repeat) punchDown(); }
     else if (k === "k" || k === "K") player.playing() ? player.pause() : player.play();
     else if (k === "Enter") { e.preventDefault(); preview(); }
     else if (k === "ArrowUp") { e.preventDefault(); select(Math.max(0, anchor - 1), { seek: true, range: e.shiftKey }); }
     else if (k === "ArrowDown") { e.preventDefault(); select(Math.min(L.length - 1, anchor + 1), { seek: true, range: e.shiftKey }); }
-    else if (k === "ArrowLeft" || k === "j" || k === "J") player.seek(player.time() - 2);
-    else if (k === "ArrowRight" || k === "l" || k === "L") player.seek(player.time() + 2);
+    else if (k === "ArrowLeft") { e.preventDefault(); player.seek(player.time() - (e.shiftKey ? 1 : 0.1)); }
+    else if (k === "ArrowRight") { e.preventDefault(); player.seek(player.time() + (e.shiftKey ? 1 : 0.1)); }
+    else if (k === "j" || k === "J") player.seek(player.time() - 2);
+    else if (k === "l" || k === "L") player.seek(player.time() + 2);
     else if (k === "[" || k === "{") nudge(e.shiftKey ? -0.2 : -0.05);
     else if (k === "]" || k === "}") nudge(e.shiftKey ? 0.2 : 0.05);
     else if (/^[1-7]$/.test(k)) toggleAct(ACT_KEYS[+k - 1]);
@@ -1164,13 +1660,64 @@
     else if (k === "r" || k === "R") toggleLoop();
     else if (k === "c" || k === "C") $("btnCaption").click();
     else if (k === "s" || k === "S") $("btnSnap").click();
-    else if (k === "e" || k === "E") { e.preventDefault(); tab = "line"; drawInsp(); document.querySelector("#insp textarea.jp")?.focus(); }
-    else if (k === "/") { e.preventDefault(); $("search").focus(); }
+    else if (k === "w" || k === "W") $("btnRipple").click();
+    else if (k === "i" || k === "I") setInNow();
+    else if (k === "o" || k === "O") setOutNow();
+    else if (k === "n" || k === "N") { e.preventDefault(); newLineAt(player.time()); }
+    else if (k === "Delete" || k === "Backspace") { e.preventDefault(); deleteSelected(false); }
+    else if (k === "=" || k === "+") zoom(1 / 1.4);
+    else if (k === "-" || k === "_") zoom(1.4);
+    else if (k === "\\") fitAll();
+    else if (k === "e" || k === "E") { e.preventDefault(); showPeek(); tab = "line"; drawInsp(); document.querySelector("#insp textarea.jp")?.focus(); }
+    else if (k === "/") { e.preventDefault(); showSide(); $("search").focus(); }
     else if (k === "End" && e.shiftKey) { e.preventDefault(); select(L.length - 1, { range: true }); }
     else if (k === "Home" && e.shiftKey) { e.preventDefault(); select(0, { range: true }); }
+    else if (k === "Home") { e.preventDefault(); player.seek(0); ensureVisible(0); }
+    else if (k === "End") { e.preventDefault(); player.seek(DUR()); ensureVisible(DUR()); }
   });
+  addEventListener("keyup", e => { if (e.key === " ") punchUp(); });
+  addEventListener("blur", () => punchUp());
+
+  // ── 版面：收起兩邊、拖曳調整預覽／時間軸的大小（記在這台電腦） ──
+  const layout = (() => { try { return JSON.parse(store.get("studio-layout") || "{}"); } catch (e) { return {}; } })();
+  function applyLayout() {
+    $("app").classList.toggle("hide-side", !!layout.hideSide);
+    $("app").classList.toggle("hide-peek", !!layout.hidePeek);
+    const extra = Math.max(0, layout.tlExtra ?? 40);
+    const r = document.documentElement.style;
+    r.setProperty("--tl-extra", `${extra}px`);
+    r.setProperty("--lyr-h", `${78 + Math.round(extra * 0.6)}px`);
+    r.setProperty("--wave-h", `${72 + Math.round(extra * 0.4)}px`);
+    store.set("studio-layout", JSON.stringify(layout));
+    fitVideo();
+    if (D) { if (view === "tl") drawTimeline(); }
+  }
+  const togglePanels = () => { const hide = !(layout.hideSide && layout.hidePeek); layout.hideSide = layout.hidePeek = hide; applyLayout(); };
+  const showSide = () => { if (layout.hideSide) { layout.hideSide = false; applyLayout(); } };
+  const showPeek = () => { if (layout.hidePeek) { layout.hidePeek = false; applyLayout(); } };
+  $("btnSide").onclick = () => { layout.hideSide = !layout.hideSide; applyLayout(); };
+  $("btnPeek").onclick = () => { layout.hidePeek = !layout.hidePeek; applyLayout(); };
+  $("btnKeys").onclick = showKeys;
+  let split = null;
+  $("splitter").addEventListener("pointerdown", e => {
+    split = { y0: e.clientY, e0: layout.tlExtra ?? 40, max: layout.tlExtra ?? 40 };
+    split.max = split.e0 + $("monitor").clientHeight - 140;
+    $("splitter").setPointerCapture(e.pointerId);
+    $("splitter").classList.add("on");
+    document.body.classList.add("resizing");
+  });
+  $("splitter").addEventListener("pointermove", e => {
+    if (!split) return;
+    layout.tlExtra = Math.round(Math.max(0, Math.min(split.max, split.e0 + split.y0 - e.clientY, 600)));
+    applyLayout();
+  });
+  const endSplit = () => { if (!split) return; split = null; $("splitter").classList.remove("on"); document.body.classList.remove("resizing"); };
+  $("splitter").addEventListener("pointerup", endSplit);
+  $("splitter").addEventListener("pointercancel", endSplit);
+  $("splitter").addEventListener("dblclick", () => { layout.tlExtra = 40; applyLayout(); });
+
   addEventListener("beforeunload", e => { if (D && JSON.stringify(clean(L)) !== savedJSON) { saveDraft(); } });
-  addEventListener("resize", () => { fitVideo(); drawWave(); placePlayhead(player.time()); });
+  addEventListener("resize", () => { fitVideo(); if (D && view === "tl") drawTimeline(); });
 
   // ── 每一格：時間碼、字幕、播放指針、跟著走、循環 ──
   let lastCur = -2, lastWave = 0;
@@ -1193,10 +1740,10 @@
       const sec = sections().find(s => t >= s.start && t < s.end);
       $("ovTags").innerHTML = (sec ? `<span class="pill">${sec.name}</span>` : "") + (l?.acts || []).map(a => `<span class="pill"><i class="sw" style="background:var(--${ACT_INFO[a]?.[1] || "gray"});box-shadow:none"></i>${ACT_INFO[a]?.[0] || a}</span>`).join("");
       if (view === "tl" && !drag) { $("trLyr").querySelectorAll(".ly.cur").forEach(x => x.classList.remove("cur")); $("trLyr").querySelector(`.ly[data-i="${ci}"]`)?.classList.add("cur"); }
-      if (view === "table") $("tableView").querySelectorAll("tr").forEach(r => r.classList.toggle("cur", +r.dataset.i === ci));
+      if (view === "table") $("tableView").querySelectorAll("tr[data-i]").forEach(r => r.classList.toggle("cur", +r.dataset.i === ci));
     } else if ($("caption").hidden === caption && L[ci] && !isGap(L[ci])) $("caption").hidden = !caption;
     if (view === "tl" && !drag) {
-      if (follow && player.playing() && (t > win[1] - span() * 0.12 || t < win[0])) setWin(t - span() * 0.2, span());
+      if (follow && player.playing() && !inline && !scrub && (t > win[1] - span() * 0.12 || t < win[0])) setWin(t - span() * 0.2, span());
       else { placePlayhead(t); if (now - lastWave > 250 && player.playing()) { lastWave = now; drawWave(); } }
     }
   }
@@ -1208,6 +1755,7 @@
       document.body.innerHTML = `<div class="empty-state" style="padding:40px">要用工作站打開這個頁面：Windows 點兩下「工作站.bat」，Mac 點兩下「工作站.command」。</div>`;
       return;
     }
+    applyLayout();
     await loadSongs();
     const want = decodeURIComponent(location.hash.slice(1)) || store.get("studio-last");
     if (want && songs.some(s => s.id === want)) await openSong(want);

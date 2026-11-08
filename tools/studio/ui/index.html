@@ -68,10 +68,15 @@
     <symbol id="i-magnet" viewBox="0 0 24 24"><path d="M6 4v8a6 6 0 0 0 12 0V4h-4v8a2 2 0 0 1-4 0V4z"/></symbol>
     <symbol id="i-follow" viewBox="0 0 24 24"><path d="M12 3v18M5 9l-3 3 3 3M19 9l3 3-3 3"/></symbol>
     <symbol id="i-check2" viewBox="0 0 24 24"><path d="M4 12l5 5 11-11"/></symbol>
+    <symbol id="i-panel-l" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+    <symbol id="i-panel-r" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+    <symbol id="i-ripple" viewBox="0 0 24 24"><path d="M3 12h4M10 12h11"/><path d="m17 8 4 4-4 4"/><path d="M7 7v10"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><path d="M8 12h8"/></symbol>
+    <symbol id="i-keys" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h1M10 10h1M14 10h1M18 10h0M7 14h10"/></symbol>
     <symbol id="i-old" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></symbol>
   </svg>
 
-  <div class="app">
+  <div class="app" id="app">
     <!-- 側欄：搜尋、匯入、歌曲 -->
     <aside class="side">
       <div class="ws"><span class="ws-icon">A</span>Ado Studio <small>新歌工作站</small></div>
@@ -93,6 +98,7 @@
     <!-- 中間：只放編輯 -->
     <main class="main">
       <div class="topbar">
+        <button class="btn icon" id="btnSide" title="收起／打開歌單（` 同時收起兩邊）"><svg class="ic"><use href="#i-panel-l"/></svg></button>
         <div class="crumbs"><span>歌曲</span><i>/</i><span id="crumbGroup">—</span><i>/</i><b id="crumbTitle">選一首歌</b></div>
         <select class="ver-sel" id="verSel" title="MV 版或現場版（LIVE）" hidden></select>
         <div class="sp"></div>
@@ -101,9 +107,11 @@
         <button class="btn icon" id="btnRedo" title="重做（Ctrl+Shift+Z）" disabled><svg class="ic"><use href="#i-redo"/></svg></button>
         <button class="btn" id="btnSave" title="存回歌詞檔（Ctrl+S）" disabled><svg class="ic"><use href="#i-save"/></svg><span class="lbl">存檔</span></button>
         <button class="btn" id="btnCheck" title="跑資料檢查（跟發布前一樣）"><span class="dot" id="checkDot"></span><span class="lbl" id="checkText">檢查</span></button>
+        <button class="btn icon" id="btnKeys" title="快捷鍵（?）"><svg class="ic"><use href="#i-keys"/></svg></button>
         <button class="btn icon" id="btnTheme" title="切換淺色／深色"><svg class="ic"><use href="#i-sun"/></svg></button>
         <button class="btn" id="btnSync" title="從 GitHub 拉最新（例如 Claude 推上來的情報包）"><svg class="ic"><use href="#i-sync"/></svg><span class="lbl">同步</span></button>
         <button class="btn primary" id="btnPublish" title="檢查後推上 main，約 2 分鐘網站更新">發布</button>
+        <button class="btn icon" id="btnPeek" title="收起／打開右邊的檢查器（` 同時收起兩邊）"><svg class="ic"><use href="#i-panel-r"/></svg></button>
       </div>
 
       <div class="banner" id="banner" hidden></div>
@@ -118,6 +126,8 @@
         </div>
       </section>
 
+      <div class="splitter" id="splitter" title="上下拖曳：調整預覽和時間軸的大小（點兩下還原）"></div>
+
       <div class="transport">
         <button class="btn icon" id="btnPrev" title="上一句（↑）"><svg class="ic"><use href="#i-prev"/></svg></button>
         <button class="play" id="btnPlay" title="播放／暫停（K）"><svg class="ic"><use href="#i-play"/></svg></button>
@@ -129,7 +139,7 @@
         <button class="btn on-toggle on" id="btnCaption" title="預覽畫面上的字幕（C）"><svg class="ic"><use href="#i-text"/></svg><span class="lbl">字幕</span></button>
         <div class="sp"></div>
         <label class="lag" title="從聽到唱出到按下的反應時間，打點時自動扣掉"><span class="lbl">反應</span><input id="lag" type="number" value="150" step="10" min="0" max="600">ms</label>
-        <button class="btn punch" id="btnPunch" title="把目前時間打給選取的句子，並前進到下一句（空白鍵）"><svg class="ic"><use href="#i-mark"/></svg>打點<span class="kbd lbl"> Space</span></button>
+        <button class="btn punch" id="btnPunch" title="點一下：把目前時間打給選取的句子，並前進到下一句（空白鍵）&#10;按住：放開的時間當這句的結尾（像 Arctime 按住 J）"><svg class="ic"><use href="#i-mark"/></svg>打點<span class="kbd lbl"> Space</span></button>
       </div>
 
       <div class="views">
@@ -138,10 +148,13 @@
         <div class="sp"></div>
         <span id="confCount"></span>
         <button class="btn" id="btnNextRed" title="下一個要檢查的句子（G；Shift+G 往前）"><span class="lbl">下一個紅色 </span><span class="kbd">G</span></button>
-        <button class="btn icon on-toggle on" id="btnSnap" title="拖曳時吸附拍點（S）"><svg class="ic"><use href="#i-magnet"/></svg></button>
+        <button class="btn icon on-toggle on" id="btnSnap" title="吸附：拍點、播放指針、其他句子的頭尾（S；拖曳時按住 Alt 暫時不吸）"><svg class="ic"><use href="#i-magnet"/></svg></button>
+        <button class="btn icon on-toggle" id="btnRipple" title="連動：移動、微調一句時，後面的句子跟著一起移（W）"><svg class="ic"><use href="#i-ripple"/></svg></button>
         <button class="btn icon on-toggle on" id="btnFollow" title="播放時時間軸跟著走"><svg class="ic"><use href="#i-follow"/></svg></button>
-        <button class="btn icon" id="btnZoomOut" title="縮小（Ctrl＋滾輪）"><svg class="ic"><use href="#i-zout"/></svg></button>
-        <button class="btn icon" id="btnZoomIn" title="放大（Ctrl＋滾輪）"><svg class="ic"><use href="#i-zin"/></svg></button>
+        <button class="btn icon" id="btnZoomOut" title="縮小（-，或 Ctrl＋滾輪）"><svg class="ic"><use href="#i-zout"/></svg></button>
+        <input type="range" class="zoom-range" id="zoomRange" min="0" max="1000" value="500" title="時間軸縮放">
+        <button class="btn icon" id="btnZoomIn" title="放大（=，或 Ctrl＋滾輪）"><svg class="ic"><use href="#i-zin"/></svg></button>
+        <button class="btn icon" id="btnFit" title="整首放進畫面（\）"><svg class="ic"><use href="#i-fit"/></svg></button>
       </div>
 
       <div class="editor">
@@ -161,6 +174,9 @@
           <div class="tl-lab" style="border-bottom:0"><svg class="ic"><use href="#i-map"/></svg>全曲</div>
           <div class="tl-track t-ov" id="trOv" title="點一下跳到那裡"></div>
           <div class="playhead" id="playhead"></div>
+          <div class="hover-line" id="hoverLine" hidden><span id="hoverTime"></span></div>
+          <div class="snap-line" id="snapLine" hidden></div>
+          <div class="marquee" id="marquee" hidden></div>
         </section>
         <section class="table-wrap" id="tableView" hidden></section>
       </div>
@@ -212,6 +228,17 @@
     </form>
   </dialog>
 
+  <!-- 快捷鍵 -->
+  <dialog class="dlg keys-dlg" id="keysDlg">
+    <form method="dialog">
+      <h2>快捷鍵</h2>
+      <p class="hint">操作方式參考 Premiere、剪映（CapCut）和 Arctime：播放指針放到哪裡，就在哪裡剪、打點、加句子。</p>
+      <div class="keys" id="keysList"></div>
+      <div class="dlg-row end"><button class="btn primary" value="ok" autofocus>知道了</button></div>
+    </form>
+  </dialog>
+
+  <div class="ctx" id="ctx" hidden></div>
   <div class="toast" id="toast" hidden></div>
   <script src="app.js"></script>
 </body>
