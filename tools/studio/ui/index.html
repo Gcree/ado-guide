@@ -53,6 +53,9 @@
     <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></symbol>
     <symbol id="i-timeline" viewBox="0 0 24 24"><path d="M3 6h10M7 12h12M5 18h8"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
     <symbol id="i-hash" viewBox="0 0 24 24"><path d="M9 4 7 20M17 4l-2 16M4 9h16M3 15h16"/></symbol>
     <symbol id="i-lang" viewBox="0 0 24 24"><path d="M4 5h9M8.5 3v2M6 5c1 4 4 7 7 8M11 5c-1 4-4 7-7 8"/><path d="m13 21 4-9 4 9M14.5 18h5"/></symbol>
   </svg>
@@ -72,93 +75,77 @@
       <div class="tree" id="songList"></div>
     </aside>
 
-    <!-- 頁面 -->
+    <!-- 中間：只放編輯 —— 預覽（字幕浮在畫面下方）→ 走帶 → 時間軸／歌詞表 -->
     <main class="main">
       <div class="topbar">
         <div class="crumbs"><span>歌曲</span><i>/</i><span>處理中</span><i>/</i><b id="crumbTitle"></b></div>
         <div class="sp"></div>
-        <span class="pill blue" title="歌詞、BPM、副歌高潮是真的資料；波形、段落、信心、應援、處理進度是假的">設計稿</span>
+        <span class="pill blue" title="歌詞、BPM、副歌高潮是真的資料；波形、段落、信心、應援、處理進度、情報是假的">設計稿</span>
         <span class="check"><span class="dot" style="background:var(--green)"></span>檢查通過</span>
         <button class="btn icon" id="btnTheme" title="切換淺色／深色"><svg class="ic"><use href="#i-sun"/></svg></button>
         <button class="btn">同步</button>
         <button class="btn primary">發布</button>
       </div>
 
-      <div class="scroll">
-        <article class="doc">
-          <div class="doc-icon"><svg class="ic"><use href="#i-music"/></svg></div>
-          <h1 id="songTitle"></h1>
-          <div class="props" id="props"></div>
-          <div class="divider"></div>
+      <section class="monitor" id="monitor">
+        <div class="video" id="video">
+          <div class="ph" id="phTitle"></div>
+          <div class="ov-tags" id="ovTags"></div>
+          <div class="ov-tc mono" id="ovTc"></div>
+          <div class="caption" id="caption"><div class="jp" id="curJp"></div><div class="tr" id="curTr"></div></div>
+        </div>
+      </section>
 
-          <div class="callout" id="callout"></div>
+      <div class="transport">
+        <button class="btn icon" title="上一句（↑）"><svg class="ic"><use href="#i-prev"/></svg></button>
+        <button class="play" id="btnPlay" title="播放／暫停（K）"><svg class="ic"><use href="#i-play"/></svg></button>
+        <button class="btn icon" title="下一句（↓）"><svg class="ic"><use href="#i-next"/></svg></button>
+        <div class="tc" id="tc"></div>
+        <div class="bb">第 <b id="bbBar"></b> 小節</div>
+        <div class="seg"><button>0.5×</button><button>0.75×</button><button class="on">1×</button></div>
+        <button class="btn" title="循環這句（R）"><svg class="ic"><use href="#i-loop"/></svg><span class="lbl">循環這句</span></button>
+        <button class="btn on-toggle" id="btnCaption" title="預覽畫面上的字幕（C）"><svg class="ic"><use href="#i-text"/></svg><span class="lbl">字幕</span></button>
+        <div class="sp"></div>
+        <button class="btn punch" title="把目前時間打給選取的句子，並前進到下一句"><svg class="ic"><use href="#i-mark"/></svg>打點<span class="kbd lbl"> Space</span></button>
+      </div>
 
-          <section class="stage">
-            <div class="video"><div class="ph" id="phTitle"></div></div>
-            <div class="now">
-              <div class="h3">現在</div>
-              <div class="quote"><div class="jp" id="curJp"></div><div class="tr" id="curTr"></div></div>
-              <div class="h3">接下來</div>
-              <div class="todo" id="nexts"></div>
-            </div>
-          </section>
+      <div class="views">
+        <button class="view on" data-view="tl"><svg class="ic"><use href="#i-timeline"/></svg>時間軸</button>
+        <button class="view" data-view="table"><svg class="ic"><use href="#i-table"/></svg>歌詞表</button>
+        <div class="sp"></div>
+        <span id="confCount"></span>
+        <button class="btn" id="btnNextRed" title="下一個要檢查的句子（G）"><span class="lbl">下一個紅色 </span><span class="kbd">G</span></button>
+        <button class="btn icon" title="圖例：歌詞左邊的色條＝信心（綠高、黃中、紅要檢查）；粉紅線＝副歌高潮；斜線、虛線＝預測，確認後變實心"><svg class="ic"><use href="#i-info"/></svg></button>
+      </div>
 
-          <div class="transport">
-            <button class="btn icon" title="上一句"><svg class="ic"><use href="#i-prev"/></svg></button>
-            <button class="play" id="btnPlay" title="播放／暫停（K）"><svg class="ic"><use href="#i-play"/></svg></button>
-            <button class="btn icon" title="下一句"><svg class="ic"><use href="#i-next"/></svg></button>
-            <div class="tc" id="tc"></div>
-            <div class="bb">第 <b id="bbBar"></b> 小節</div>
-            <div class="seg"><button>0.5×</button><button>0.75×</button><button class="on">1×</button></div>
-            <button class="btn"><svg class="ic"><use href="#i-loop"/></svg>循環這句</button>
-            <div class="sp"></div>
-            <button class="btn" title="把目前時間打給選取的句子，並前進到下一句"><svg class="ic"><use href="#i-mark"/></svg>打點 <span class="kbd">Space</span></button>
-          </div>
-
-          <!-- 資料庫區塊：時間軸／歌詞表 -->
-          <div class="views">
-            <button class="view on" data-view="tl"><svg class="ic"><use href="#i-timeline"/></svg>時間軸</button>
-            <button class="view" data-view="table"><svg class="ic"><use href="#i-table"/></svg>歌詞表</button>
-            <div class="sp"></div>
-            <div class="legend">
-              <span><i style="background:var(--green)"></i>高信心</span>
-              <span><i style="background:var(--yellow)"></i>中信心</span>
-              <span><i style="background:var(--red)"></i>要檢查</span>
-              <span><i style="background:var(--pink)"></i>副歌高潮</span>
-              <span><i style="background:repeating-linear-gradient(135deg,var(--yellow) 0 3px,transparent 3px 5px)"></i>預測</span>
-            </div>
-          </div>
-
-          <section class="tl" id="tl">
-            <div class="tl-lab ruler"><span class="mono" id="zoomLab" style="font-size:11px"></span></div>
-            <div class="tl-track ruler" id="ruler"></div>
-            <div class="tl-lab"><svg class="ic"><use href="#i-layers"/></svg>段落</div>
-            <div class="tl-track t-sec" id="trSec"></div>
-            <div class="tl-lab"><svg class="ic"><use href="#i-grid"/></svg>拍點</div>
-            <div class="tl-track t-beat" id="trBeat"></div>
-            <div class="tl-lab"><svg class="ic"><use href="#i-text"/></svg>歌詞</div>
-            <div class="tl-track t-lyr" id="trLyr"></div>
-            <div class="tl-lab"><svg class="ic"><use href="#i-wave"/></svg>人聲</div>
-            <div class="tl-track t-wave"><canvas id="wave"></canvas></div>
-            <div class="tl-lab"><svg class="ic"><use href="#i-hand"/></svg>應援</div>
-            <div class="tl-track t-act" id="trAct"></div>
-            <div class="tl-lab" style="border-bottom:0"><svg class="ic"><use href="#i-map"/></svg>全曲</div>
-            <div class="tl-track t-ov" id="trOv" title="點一下跳到那裡"></div>
-            <div class="playhead" id="playhead"></div>
-          </section>
-          <section id="tableView" hidden></section>
-        </article>
+      <div class="editor">
+        <section class="tl" id="tl">
+          <div class="tl-lab ruler"><span class="mono" id="zoomLab" style="font-size:11px"></span></div>
+          <div class="tl-track ruler" id="ruler"></div>
+          <div class="tl-lab"><svg class="ic"><use href="#i-layers"/></svg>段落</div>
+          <div class="tl-track t-sec" id="trSec"></div>
+          <div class="tl-lab"><svg class="ic"><use href="#i-grid"/></svg>拍點</div>
+          <div class="tl-track t-beat" id="trBeat"></div>
+          <div class="tl-lab"><svg class="ic"><use href="#i-text"/></svg>歌詞</div>
+          <div class="tl-track t-lyr" id="trLyr"></div>
+          <div class="tl-lab"><svg class="ic"><use href="#i-wave"/></svg>人聲</div>
+          <div class="tl-track t-wave"><canvas id="wave"></canvas></div>
+          <div class="tl-lab"><svg class="ic"><use href="#i-hand"/></svg>應援</div>
+          <div class="tl-track t-act" id="trAct"></div>
+          <div class="tl-lab" style="border-bottom:0"><svg class="ic"><use href="#i-map"/></svg>全曲</div>
+          <div class="tl-track t-ov" id="trOv" title="點一下跳到那裡"></div>
+          <div class="playhead" id="playhead"></div>
+        </section>
+        <section class="table-wrap" id="tableView" hidden></section>
       </div>
     </main>
 
-    <!-- 側邊預覽 -->
+    <!-- 右側：檢查器 —— 句子／歌曲／情報 -->
     <aside class="peek">
-      <div class="peek-bar">
-        <button class="tab on">句子</button>
-        <button class="tab">歌曲</button>
-        <button class="tab">情報 <span class="n">1</span></button>
-        <div class="sp"></div>
-        <button class="btn icon" title="關閉"><svg class="ic"><use href="#i-x"/></svg></button>
+      <div class="peek-bar" id="peekTabs">
+        <button class="tab on" data-tab="line">句子</button>
+        <button class="tab" data-tab="song">歌曲</button>
+        <button class="tab" data-tab="intel">情報 <span class="n">1</span></button>
       </div>
       <div class="peek-body" id="insp"></div>
     </aside>
