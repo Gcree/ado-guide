@@ -27,6 +27,13 @@ const HELP = `新歌工作站命令列：node tools/studio/cli.mjs <指令> [參
   fetch-audio <id>                          已經在歌單裡的歌，補下載音訊
   bench [id …] [--download] [--fresh]       拿現有的 BEAT／CLIMAX 對答案，量分析準不準（結果存 tools/studio/work/bench.json）
 
+自動對時與翻譯（M3）
+  separate <id> [--fresh]                   分離人聲 → tools/studio/work/<id>/vocals.wav（Demucs）
+  align <id> [--apply] [--model large-v3] [--rebuild-gaps]
+                                            把目前的日文歌詞對到人聲上，列出每句的新時間和信心；--apply 寫回
+                                            --rebuild-gaps 依對齊結果重新補（間奏）（尾奏）（貼的是沒時間的歌詞時用）
+  translate <id> [--apply] [--all]          沒有中文的句子交給 agy 翻（--all 全部重翻）；--apply 寫進 tr，標記待確認
+
 歌曲資料
   meta <id> [--status ok|sug|free|hold] [--acts clap,wave|none] [--tips "重點1|重點2"] [--tips-en "…|…"] [--tips-ja "…|…"]
             [--pen 赤白|?赤白|none] [--climax 148.08|none] [--live-yt <ID|none>] [--live-concert "名稱"] [--beat 195,0.124,1|none]
@@ -38,8 +45,9 @@ const HELP = `新歌工作站命令列：node tools/studio/cli.mjs <指令> [參
   lines <id> --file edits.json [--live]     一次改很多句；edits.json＝[{"n":3,"tr":"…","acts":["clap"]}, …]（--file - 從標準輸入讀）
   shift <id> --by 0.3 [--from N] [--to M] [--live]
                                             整段平移時間
-  lyrics-import <id> --file 歌詞.json|.tsv [--keep-acts] [--live]
+  lyrics-import <id> --file 歌詞.json|.tsv [--keep-acts] [--live] [--align]
                                             整首換掉；.tsv 每行「時間<Tab>日文<Tab>中文」，.json 是 [{time,jp,tr,…}]
+                                            沒有時間也可以：每行「日文<Tab>中文」，加 --align 匯入後馬上自動對時
 
 檢查與發布
   check                                     資料檢查＋卡拉OK測試＋工作站提醒
@@ -219,7 +227,40 @@ async function main() {
       const f = need(opt.file, "要給 --file");
       const text = readInput(f);
       const input = /\.json$/i.test(f) || text.trim().startsWith("[") || text.trim().startsWith("{") ? JSON.parse(text) : text;
-      return write(core.importLyrics(need(id, "要給 id"), input, { live: !!opt.live, keepActs: !!opt.keepActs }));
+      const r = core.importLyrics(need(id, "要給 id"), input, { live: !!opt.live, keepActs: !!opt.keepActs });
+      if (!opt.align) return write(r);
+      if (opt.dryRun) return write(r);
+      core.commit(r);
+      const a = await core.align(id, { apply: true, rebuildGaps: !!r.untimed, onLog: m => process.stderr.write(`  ${m}`) });
+      return write({ files: a.files, changes: [...r.changes, ...a.changes], warnings: a.warnings });
+    }
+
+    case "separate": {
+      const f = await core.separateVocals(need(id, "要給 id"), { fresh: !!opt.fresh, onLog: m => process.stderr.write(`  ${m}`) });
+      return out(opt, { ok: true, file: f }, `人聲：${f}`);
+    }
+
+    case "align": {
+      need(id, "要給 id，例如 align shinka");
+      const r = await core.align(id, { apply: !!opt.apply, model: opt.model === true ? undefined : opt.model, fresh: !!opt.fresh, rebuildGaps: !!opt.rebuildGaps, onLog: opt.json ? undefined : m => process.stderr.write(`  ${m}`) });
+      const res = core.commit(r, { dryRun: !!opt.dryRun });
+      if (opt.json) { const { files, ...rest } = r; return out(opt, { ok: true, ...rest, written: res.written }, ""); }
+      const NAME = { high: "高", mid: "中", low: "低", none: "—" };
+      console.log(r.rows.map(x => `${String(x.n).padStart(3)}  ${core.fmtTime(x.old)} → ${x.start == null ? "  沒對上 " : core.fmtTime(x.start)}  ${x.delta == null ? "      " : (x.delta >= 0 ? "+" : "") + x.delta.toFixed(2).padStart(5)}  信心 ${NAME[x.level]}  ${x.jp}`).join("\n"));
+      const s = r.summary;
+      console.log(`\n${r.model}（${r.device}，${r.seconds} 秒）：${s.of} 句，信心高 ${s.high}、中 ${s.mid}、低 ${s.low}、沒對上 ${s.none}`);
+      if (opt.apply) report(opt, res); else { r.warnings.forEach(w => console.log(`提醒：${w}`)); console.log(`\n要寫回：align ${id} --apply`); }
+      return;
+    }
+
+    case "translate": {
+      need(id, "要給 id");
+      const r = await core.translate(id, { apply: !!opt.apply, all: !!opt.all, onLog: opt.json ? undefined : m => process.stderr.write(`  ${m}`) });
+      const res = core.commit(r, { dryRun: !!opt.dryRun });
+      if (opt.json) { const { files, ...rest } = r; return out(opt, { ok: true, ...rest, written: res.written }, ""); }
+      if (r.rows.length) console.log(r.rows.map(x => `${String(x.n).padStart(3)}  ${x.jp}\n     → ${x.tr}${x.old ? `（原本：${x.old}）` : ""}`).join("\n"));
+      if (opt.apply) report(opt, res); else { r.warnings.forEach(w => console.log(`提醒：${w}`)); if (r.rows.length) console.log(`\n要寫進去：translate ${id} --apply`); }
+      return;
     }
 
     case "check": {

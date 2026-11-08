@@ -13,9 +13,13 @@ fi
 for p in git node ffmpeg uv; do
   if command -v "$p" >/dev/null 2>&1; then echo "OK  $p"; else echo "安裝 $p…"; brew install "$p" || exit 1; fi
 done
-echo "建立 Python 環境（第一次要下載，請稍等）…"
+echo "建立 Python 環境（第一次要下載 PyTorch 等，約 1–2 GB，請稍等）…"
 uv sync --project tools/studio/py || { echo "Python 環境建立失敗，請把上面的訊息貼給 Claude 看。"; exit 1; }
-# 之後的人聲分離、自動對時（M3）會用 Apple 晶片的 GPU（MPS）
-if [ "$(uname -m)" = "arm64" ]; then echo "OK  Apple 晶片：之後的分析會用 MPS 加速"; fi
+# 人聲分離、自動對時會用 Apple 晶片的 GPU（MPS）：確認 PyTorch 用得到
+if [ "$(uv run --project tools/studio/py python -c "import torch; print('yes' if torch.backends.mps.is_available() else 'no')" 2>/dev/null)" = "yes" ]; then
+  echo "OK  PyTorch 可以用 Apple 晶片的 GPU（人聲分離、自動對時會加速）"
+else
+  echo "--  PyTorch 用不到 GPU：人聲分離、自動對時會用 CPU，比較慢"
+fi
 echo ""
 echo "安裝完成。"

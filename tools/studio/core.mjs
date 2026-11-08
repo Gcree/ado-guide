@@ -212,7 +212,8 @@ export function importLyrics(id, input, { live = false, keepActs = false } = {},
   const song = songOrThrow(db, id);
   // 現場版要先在對時工作台建好（需要演唱會名稱、影片），這裡只換歌詞
   const e = live ? lyricsEntry(db, id, true) : (() => { try { return lyricsEntry(db, id, false); } catch { return { id, title: song.ja, youtubeId: song.yt, duration: lenToSec(song.len), lyrics: [] }; } })();
-  let lines = typeof input === "string" ? parseText(input) : input;
+  let untimed = false;
+  let lines = typeof input === "string" ? (() => { const p = parseText(input, e.duration || lenToSec(song.len)); untimed = p.untimed; return p.lines; })() : input;
   if (!Array.isArray(lines)) lines = lines.lyrics;
   lines = lines.map(l => {
     const x = { time: round(+l.time), jp: l.jp || "", tr: l.tr || "" };
@@ -222,16 +223,27 @@ export function importLyrics(id, input, { live = false, keepActs = false } = {},
   if (keepActs) lines.forEach((l, i) => { const o = e.lyrics[i]; if (o) for (const k of ["acts", "sing", "call", "how"]) if (o[k] && l[k] == null) l[k] = o[k]; });
   const old = e.lyrics.length;
   e.lyrics = lines;
-  return writeLyrics(e, song, live, db, [`歌詞整首換掉：${old} 句 → ${lines.length} 句${keepActs ? "（保留同一行的應援）" : ""}`]);
+  const r = writeLyrics(e, song, live, db, [`歌詞整首換掉：${old} 句 → ${lines.length} 句${keepActs ? "（保留同一行的應援）" : ""}${untimed ? "；還沒有時間（先平均排開）" : ""}`]);
+  if (untimed) { r.untimed = true; r.warnings.push(`歌詞沒有時間：先平均排開，請跑 align ${id} --apply 自動對時（或在對時工作台打點）`); }
+  return r;
 }
 
-function parseText(text) {
-  return text.replace(/\r\n/g, "\n").split("\n").filter(s => s.trim()).map((row, i) => {
+// 每行「時間<Tab>日文<Tab>中文」；沒有時間的寫法「日文<Tab>中文」也收，先平均排開（之後用 align 對時）
+function parseText(text, duration) {
+  const rows = text.replace(/\r\n/g, "\n").split("\n").filter(s => s.trim());
+  const isTime = t => /^\s*(\d+:\d+(\.\d+)?|\d+(\.\d+)?)\s*$/.test(t || "");
+  const untimed = !rows.some(r => isTime(r.split("\t")[0]));
+  const lines = rows.map((row, i) => {
+    if (untimed) {
+      const [jp, tr = ""] = row.split("\t");
+      return { time: Math.round((1 + (i * (duration - 2)) / rows.length) * 100) / 100, jp: jp.trim(), tr: tr.trim() };
+    }
     const [t, jp, tr = ""] = row.split("\t");
     const time = /^\d+:\d/.test(t) ? t.split(":").reduce((a, b) => a * 60 + +b, 0) : parseFloat(t);
-    if (!Number.isFinite(time) || jp == null) throw new Error(`第 ${i + 1} 行要寫成「時間<Tab>日文<Tab>中文」：${row}`);
+    if (!Number.isFinite(time) || jp == null) throw new Error(`第 ${i + 1} 行要寫成「時間<Tab>日文<Tab>中文」（或整首都不寫時間：「日文<Tab>中文」）：${row}`);
     return { time, jp: jp.trim(), tr: tr.trim() };
   });
+  return { lines, untimed };
 }
 
 function writeLyrics(e, song, live, db, changes) {
@@ -531,10 +543,10 @@ export async function fetchSong(url, o = {}, { dryRun = false, onLog = () => {} 
     Object.assign(files, imp.files);
     const nTr = trFrom.filter(Boolean).length, nJp = built.lines.filter(l => !/^（.*）$/.test(l.jp)).length;
     changes.splice(changes.indexOf("song-lyrics.js 加一筆空歌詞"), 1, `歌詞：官方日文字幕 ${nJp} 句${cues.zh ? `，官方中文對上 ${nTr} 句` : ""}`);
-    if (!cues.zh) warnings.push(`沒有官方繁中字幕${cues.zhHans ? "（有簡中，可以參考）" : ""}：之後用 agy 翻（M3），或自己補`);
+    if (!cues.zh) warnings.push(`沒有官方繁中字幕${cues.zhHans ? "（有簡中，可以參考）" : ""}：用「翻譯缺的中文」（命令列：translate ${id} --apply）交給 agy 翻，或自己補`);
     else if (nTr < nJp) warnings.push(`有 ${nJp - nTr} 句沒對到官方中文`);
   } else {
-    warnings.push("沒有官方日文字幕：用 lyrics-import 貼歌詞，之後 M3 會自動對時");
+    warnings.push(`沒有官方日文字幕：貼上歌詞（可以不寫時間）再自動對時（命令列：lyrics-import ${id} --file 歌詞.tsv --align）`);
   }
   if (t.extra.length) warnings.push(`標題裡的其他資訊（可以寫進「合作」）：${t.extra.join("、")}`);
 
@@ -733,4 +745,138 @@ export async function bench(ids, { download = false, fresh = false, onLog = () =
   fs.mkdirSync(WORK, { recursive: true });
   fs.writeFileSync(path.join(WORK, "bench.json"), JSON.stringify({ at: new Date().toISOString(), summary, rows }, null, 2));
   return { summary, rows };
+}
+
+// ── M3：分離人聲、自動對時、翻譯 ──
+const GAP = /^[（(](間奏|尾奏|前奏)[^）)]*[）)]$/;
+const r2t = v => Math.round(v * 100) / 100;
+
+// 分離人聲（Demucs）：work/<id>/vocals.wav；有快取
+export async function separateVocals(id, { fresh = false, onLog = () => {} } = {}) {
+  const audio = audioFile(id);
+  if (!audio) throw new Error(`還沒有 ${id} 的音訊：先跑 fetch-audio ${id}（要能連 YouTube）`);
+  const out = path.join(WORK, id, "vocals.wav");
+  if (!fresh && fs.existsSync(out) && fs.statSync(out).mtimeMs > fs.statSync(audio).mtimeMs) return out;
+  onLog("分離人聲（第一次會下載模型；沒有顯卡要幾分鐘）…\n");
+  const [cmd, ...pre] = pythonCommand();
+  const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "separate.py"), audio, "--out", out]);
+  if (r.code !== 0) throw new Error(`分離人聲失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
+  return out;
+}
+
+const level = c => (c == null ? "none" : c >= 0.5 ? "high" : c >= 0.3 ? "mid" : "low");
+const LEVEL_NAME = { high: "高", mid: "中", low: "低", none: "沒對上" };
+
+// 空檔超過 6 秒補（間奏）／（尾奏），跟匯入官方字幕時一樣
+function withGaps(lines, ends, duration) {
+  const out = [];
+  lines.forEach((l, i) => {
+    out.push(l);
+    const end = ends[i], next = lines[i + 1], until = next ? next.time : duration;
+    if (end != null && until - end > 6) out.push({ time: r2t(end), jp: next ? "（間奏）" : "（尾奏）", tr: "", duration: r2t(until - end) });
+  });
+  return out;
+}
+
+// 自動對時：把目前的歌詞（日文）對到人聲上。apply 時寫回時間；沒對上的句子夾在前後之間平均排
+// rebuildGaps：拿掉舊的（間奏）（尾奏），依對齊結果重新補（給「沒有時間的歌詞」用）
+export async function align(id, { apply = false, model, fresh = false, rebuildGaps = false, onLog = () => {} } = {}, db = load()) {
+  const song = songOrThrow(db, id);
+  const e = lyricsEntry(db, id, false);
+  if (!e.lyrics.length) throw new Error(`${id} 還沒有歌詞：先用 lyrics-import 貼上（可以不寫時間）`);
+  const vocals = await separateVocals(id, { fresh, onLog });
+  const src = rebuildGaps ? e.lyrics.filter(l => !GAP.test(l.jp)) : e.lyrics;
+  const todo = src.map((l, i) => ({ n: i + 1, text: l.jp })).filter(x => !GAP.test(x.text));
+  const dir = path.join(WORK, id);
+  fs.writeFileSync(path.join(dir, "align-lines.json"), JSON.stringify(todo));
+  onLog(`對齊 ${todo.length} 句歌詞（Whisper）…\n`);
+  const out = path.join(dir, "align.json");
+  const [cmd, ...pre] = pythonCommand();
+  const m = model || studioConfig().whisperModel;
+  const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "align.py"), vocals, "--lines", path.join(dir, "align-lines.json"), "--out", out, ...(m ? ["--model", m] : [])]);
+  if (r.code !== 0) throw new Error(`自動對時失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
+  const res = JSON.parse(fs.readFileSync(out, "utf8"));
+  const byN = new Map(res.lines.map(x => [x.n, x]));
+  const rows = todo.map(x => {
+    const a = byN.get(x.n) || {}, old = src[x.n - 1].time;
+    return { n: x.n, jp: x.text, old, start: a.start ?? null, end: a.end ?? null, conf: a.conf ?? null, level: a.start == null ? "none" : level(a.conf), delta: a.start == null ? null : r2t(a.start - old) };
+  });
+  const count = k => rows.filter(x => x.level === k).length;
+  const result = {
+    id, ja: song.ja, model: res.model, device: res.device, seconds: res.seconds, rows,
+    summary: { high: count("high"), mid: count("mid"), low: count("low"), none: count("none"), of: rows.length },
+    files: {}, changes: [], warnings: []
+  };
+  if (result.summary.none) result.warnings.push(`${result.summary.none} 句沒對上：時間夾在前後句之間平均排，要人工打點`);
+  if (result.summary.low) result.warnings.push(`${result.summary.low} 句信心低：請試聽確認`);
+
+  if (apply) {
+    // 新時間：對上的用對齊結果；沒對上的在前後已知時間之間平均排
+    const lines = src.map(l => ({ ...l }));
+    const known = lines.map((l, i) => { const row = rows.find(x => x.n === i + 1); return row && row.start != null ? row.start : null; });
+    const ends = lines.map((l, i) => rows.find(x => x.n === i + 1)?.end ?? null);
+    for (let i = 0; i < lines.length; i++) {
+      if (GAP.test(lines[i].jp) && !rebuildGaps) continue;
+      if (known[i] != null) { lines[i].time = r2t(known[i]); continue; }
+      let a = i - 1; while (a >= 0 && known[a] == null) a--;
+      let b = i + 1; while (b < lines.length && known[b] == null) b++;
+      const t0 = a >= 0 ? known[a] : 0, t1 = b < lines.length ? known[b] : e.duration;
+      lines[i].time = r2t(t0 + ((i - a) * (t1 - t0)) / (b - a));
+    }
+    // 保持由小到大（萬一對齊結果交錯）
+    for (let i = 1; i < lines.length; i++) if (lines[i].time < lines[i - 1].time) lines[i].time = r2t(lines[i - 1].time + 0.05);
+    for (const l of lines) if (l.duration != null && GAP.test(l.jp)) delete l.duration;
+    const finalLines = rebuildGaps ? withGaps(lines, ends, e.duration) : lines;
+    // 原本的（間奏）長度依新時間重算
+    if (!rebuildGaps) finalLines.forEach((l, i) => { if (GAP.test(l.jp)) { const next = finalLines[i + 1]; l.duration = r2t((next ? next.time : e.duration) - l.time); } });
+    const s = result.summary;
+    const w = writeLyrics({ ...e, lyrics: finalLines }, song, false, db, [`自動對時 ${s.of - s.none} 句（信心高 ${s.high}、中 ${s.mid}、低 ${s.low}）${s.none ? `，沒對上 ${s.none} 句` : ""}${rebuildGaps ? "；重新補間奏" : ""}`]);
+    Object.assign(result.files, w.files); result.changes.push(...w.changes); result.warnings.push(...w.warnings);
+    // 給介面上色用：每一句的對時來源和信心
+    fs.writeFileSync(path.join(dir, "timing-source.json"), JSON.stringify({ at: new Date().toISOString(), model: res.model, lines: rows.map(x => ({ jp: x.jp, conf: x.conf, level: x.level })) }, null, 2));
+  }
+  return result;
+}
+
+// 翻譯：沒有中文的句子交給設定好的 AI 命令列（agy 等，見 agent-cli.mjs），apply 時寫進 tr
+export async function translate(id, { apply = false, all = false, onLog = () => {} } = {}, db = load()) {
+  const { runAgentJob } = await import("./agent-cli.mjs");
+  const song = songOrThrow(db, id);
+  const e = lyricsEntry(db, id, false);
+  const command = studioConfig().translate?.command;
+  if (!Array.isArray(command) || !command.length) throw new Error("還沒設定翻譯工具：先在這台電腦跑 node tools/studio/agent-cli.mjs --probe");
+  const todo = e.lyrics.map((l, i) => ({ n: i + 1, jp: l.jp, tr: l.tr, time: l.time })).filter(x => !GAP.test(x.jp) && x.jp.trim() && (all || !(x.tr || "").trim()));
+  if (!todo.length) return { id, rows: [], files: {}, changes: [], warnings: ["每一句都有中文了（要全部重翻加 --all）"] };
+
+  // 官方英文字幕當參考（有的話）
+  const enFile = path.join(WORK, id, "sub.en.vtt");
+  const en = fs.existsSync(enFile) ? parseVtt(fs.readFileSync(enFile, "utf8")) : [];
+  const enAt = t => en.find(c => t >= c.start - 0.3 && t < c.end)?.text || "";
+  // 網站現有翻譯的風格範例
+  const examples = ["usseewa", "odo", "shinjidai"].flatMap(sid => (db.lyrics.find(x => x.id === sid)?.lyrics || []).filter(l => l.tr && !GAP.test(l.jp)).slice(2, 5).map(l => `${l.jp}　→　${l.tr}`));
+  const tpl = fs.readFileSync(path.join(here, "prompts", "translate.md"), "utf8");
+  const ctx = e.lyrics.filter(l => !GAP.test(l.jp)).map(l => l.jp).join("\n");
+  const instructions = tpl
+    .replace("{{title}}", `${song.ja}${song.zh && song.zh !== song.ja ? `（${song.zh}）` : ""}`)
+    .replace("{{examples}}", examples.join("\n"))
+    .replace("{{context}}", ctx)
+    .replace("{{lines}}", todo.map(x => `${x.n}. ${x.jp}${enAt(x.time) ? `　［英文字幕：${enAt(x.time)}］` : ""}`).join("\n"))
+    .replace("{{count}}", String(todo.length));
+  const want = new Set(todo.map(x => x.n));
+  const isWanted = v => v && Array.isArray(v.lines) && v.lines.length >= todo.length && todo.every(x => v.lines.some(y => y.n === x.n && typeof y.tr === "string" && y.tr.trim()));
+  onLog(`翻譯 ${todo.length} 句（${command[0]}）…\n`);
+  const job = await runAgentJob({ command, jobDir: path.join(WORK, id, "translate"), instructions, isWanted, timeoutSec: studioConfig().translate?.timeoutSec || 300 });
+  if (!job.ok) throw new Error(`翻譯工具沒有回傳可用的結果（exit ${job.code}${job.stdoutEmpty ? "，輸出是空的" : ""}）。紀錄：${path.relative(root, job.log)}\n可以打開 ${path.relative(root, path.join(WORK, id, "translate", "request.md"))}，貼進 agy 手動翻，再用 lines 指令寫回。`);
+  const rows = job.data.lines.filter(y => want.has(y.n)).map(y => ({ n: y.n, jp: e.lyrics[y.n - 1].jp, old: e.lyrics[y.n - 1].tr || "", tr: y.tr.trim() }));
+  const result = { id, ja: song.ja, tool: command[0], via: job.via, seconds: job.secs, rows, files: {}, changes: [], warnings: ["機器翻譯：請看過再發布"] };
+  if (apply) {
+    const w = editLines(id, rows.map(x => ({ n: x.n, tr: x.tr })), {}, db);
+    Object.assign(result.files, w.files);
+    result.changes.push(`翻譯 ${rows.length} 句（${command[0]}，待確認）`);
+    const rec = path.join(WORK, id, "translate.json");
+    const prev = fs.existsSync(rec) ? JSON.parse(fs.readFileSync(rec, "utf8")) : {};
+    for (const x of rows) prev[x.jp] = { tr: x.tr, by: command[0], at: new Date().toISOString() };
+    fs.writeFileSync(rec, JSON.stringify(prev, null, 2));
+  }
+  return result;
 }
