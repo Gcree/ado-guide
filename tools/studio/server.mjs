@@ -12,7 +12,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { check, gitStatus, publish, sync, fetchSong, commit, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
+import { check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, audioFile, commit, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -125,6 +125,20 @@ async function api(req, res, url) {
       return send(res, 200, { ok: true, ...r.summary, changes: r.changes, warnings: r.warnings, written: w.written });
     } catch (e) {
       console.log(`  ✗ ${e.message.split("\n")[0]}`);
+      return send(res, 200, { ok: false, error: e.message });
+    }
+  }
+  // 音訊分析：沒有音訊會先下載；apply 時寫進 BEAT（only: "beat"）或 BEAT＋CLIMAX
+  if (p === "/api/analyze" && req.method === "POST") {
+    const { id, apply, overwrite, only, bpm, climax } = JSON.parse(await readBody(req));
+    try {
+      if (!audioFile(id)) await fetchAudio(id, { onLog: m => process.stdout.write(`    ${m}`) });
+      const r = await analyze(id, { apply, overwrite, only, bpm, climax, onLog: m => process.stdout.write(`    ${m}`) });
+      const w = commit(r);
+      if (w.written.length) console.log(`  ✓ 寫入 ${id} 的 ${r.changes.join("、")}`);
+      const { files, ...rest } = r;
+      return send(res, 200, { ok: true, ...rest, written: w.written });
+    } catch (e) {
       return send(res, 200, { ok: false, error: e.message });
     }
   }

@@ -2051,3 +2051,12 @@ li.cue-item.changed .cue-time::after {
 body.studio-on #btnCopy,
 body.studio-on #btnDownload { display: none; }
 body.studio-on .brand-title { display: none; }
+
+/* 歌曲資料面板：音訊分析結果 */
+.meta-analyze { display: grid; gap: 8px; font-size: 12.5px; color: var(--text-muted); }
+.meta-analyze:empty { display: none; }
+.meta-analyze .row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.meta-analyze .k { min-width: 64px; color: var(--text-muted); }
+.meta-analyze b { color: var(--text-main, #e2e8f0); font-weight: 600; }
+.meta-chip.active { border-color: #38bdf8; background: rgba(56, 189, 248, .16); color: #e0f2fe; }
+.meta-analyze .warn { color: #fbbf24; }

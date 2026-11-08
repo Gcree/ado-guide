@@ -12,12 +12,14 @@ node tools/studio/cli.mjs list --json              # 歌單
 node tools/studio/cli.mjs show <id> --json         # 一首歌的全部資料
 node tools/studio/cli.mjs lyrics <id> --json       # 逐句（n 從 1 開始）
 node tools/studio/cli.mjs fetch <網址> --id <id>   # 匯入新歌（要能連 YouTube，雲端 session 通常不行）
+node tools/studio/cli.mjs analyze <id> --json      # 拍點、BPM、副歌高潮建議（要有 work/<id>/ 的音訊）
 ```
 
 - 要改之前先 `show`／`lyrics` 看現況；不確定時加 `--dry-run`，確認變更摘要再真的寫。
 - 一次改很多句用 `lines <id> --file edits.json`（`[{"n":12,"acts":["clap"],"call":"Hey!"}]`），不要一句一句跑。
 - 加 `--json` 拿結構化結果；失敗時 exit code 是 1，`--json` 會回 `{"ok":false,"error":"…"}`。
 - 改完跑 `node tools/studio/cli.mjs check`。
+- BEAT／CLIMAX 已有人工調過的值時，不要用 `analyze --apply --overwrite` 蓋掉，除非使用者要求；`bench` 的結果（`tools/studio/work/bench.json`）是用來調分析參數的。
 
 ## 應援資料的規矩
 
