@@ -12,7 +12,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, align, translate, audioFile, commit, songsIndex, songDetail, saveLyrics, setMeta, importLyrics, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
+import { check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, align, vocalEnvelope, translate, audioFile, commit, songsIndex, songDetail, saveLyrics, setMeta, importLyrics, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -185,6 +185,17 @@ async function api(req, res, url) {
       if (w.written.length) console.log(`  ✓ 寫入 ${id} 的 ${r.changes.join("、")}`);
       const { files, ...rest } = r;
       return send(res, 200, { ok: true, ...rest, written: w.written });
+    } catch (e) {
+      return send(res, 200, { ok: false, error: e.message });
+    }
+  }
+  // 人聲音量曲線（貼齊聲音用）：沒有音訊會先下載，沒有人聲會先分離
+  if (p === "/api/vocal-env" && req.method === "POST") {
+    const { id } = JSON.parse(await readBody(req));
+    try {
+      if (!audioFile(id)) await fetchAudio(id, { onLog: m => process.stdout.write(`    ${m}`) });
+      const env = await vocalEnvelope(id, { onLog: m => process.stdout.write(`    ${m}`) });
+      return send(res, 200, { ok: true, ...env });
     } catch (e) {
       return send(res, 200, { ok: false, error: e.message });
     }

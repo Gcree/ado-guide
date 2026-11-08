@@ -412,6 +412,66 @@
     changed();
     toast(`第 ${i + 1} 句：切掉 ${cut.toFixed(2)} 秒，開始 ${fmt(t)}`, 1400);
   }
+  // 貼齊聲音：選到的句子，開頭貼到附近人聲最明顯的起音點（要先分離人聲，第一次會等一下）
+  let vocEnv = null; // { id, hop, values（dB） }
+  async function loadVocEnv() {
+    if (vocEnv && vocEnv.id === D.song.id) return vocEnv;
+    toast("分離人聲、算音量曲線中…（第一次要等一下）", 120000);
+    const r = await api("/api/vocal-env", { id: D.song.id });
+    if (!r.ok) { toast(r.error || "算不出人聲音量", 5000); return null; }
+    vocEnv = { id: D.song.id, hop: r.hop, values: r.values.map(v => v / r.scale) };
+    return vocEnv;
+  }
+  // 在 [lo, hi] 秒之間找「停頓後的人聲起音點」：前 80 毫秒到後 80 毫秒的平均音量差大、之後夠大聲、前面有停頓，挑離 t0 最近的。
+  // 用〈Mirror〉、〈Shinka〉對過：沒有停頓的起音點會把句首移離人工校正的時間（平均偏 0.2 秒），所以只貼有停頓的
+  function vocalOnset(env, t0, lo, hi) {
+    const e = env.values, h = env.hop, W = 8;
+    const mean = (a, b) => { let s = 0; for (let k = a; k < b; k++) s += e[k]; return s / (b - a); };
+    const a0 = Math.max(W, Math.floor(lo / h)), b0 = Math.min(e.length - W - 1, Math.ceil(hi / h));
+    const near = e.slice(Math.max(0, Math.floor((t0 - 1) / h)), Math.min(e.length, Math.ceil((t0 + 3) / h))).sort((x, y) => x - y);
+    const loud = near.length ? near[Math.floor(near.length * 0.95)] : -20;
+    const rise = [];
+    for (let k = a0; k <= b0; k++) rise.push([k, mean(k, k + W) - mean(k - W, k)]);
+    let best = null;
+    for (let n = 1; n < rise.length - 1; n++) {
+      const [k, r] = rise[n];
+      if (r < 10 || r < rise[n - 1][1] || r < rise[n + 1][1]) continue; // 要升 10 dB 以上，而且是局部最大
+      if (mean(k, k + W) < loud - 20) continue; // 之後要夠大聲（不是雜音）
+      if (k - 30 >= 0 && mean(k - 30, k - 1) > loud - 25) continue; // 前面要有停頓（0.3 秒內很小聲）：唱到一半的字不算句首
+      const cost = Math.abs(k * h - t0) - r * 0.004;
+      if (!best || cost < best.cost) best = { cost, t: k * h - 0.01 };
+    }
+    return best ? best.t : null;
+  }
+  async function snapToVocal() {
+    if (ver) { toast("貼齊聲音只能用在 MV 版（現場版的音訊不一樣）"); return; }
+    const ids = selected().filter(i => !isGap(L[i]));
+    if (!ids.length) { toast("先選一句或多句歌詞"); return; }
+    const env = await loadVocEnv();
+    if (!env) return;
+    const plan = [];
+    let miss = 0;
+    for (const i of ids) {
+      const l = L[i], prev = L[i - 1];
+      const lo = Math.max(l.time - 0.8, prev ? (prev.duration != null ? prev.time + prev.duration : prev.time + 0.05) : 0);
+      const hi = Math.min(l.time + 0.8, endOf(i) - 0.1);
+      const t = hi > lo ? vocalOnset(env, l.time, lo, hi) : null;
+      if (t == null) { miss++; continue; }
+      if (Math.abs(t - l.time) >= 0.02) plan.push([i, r3(t)]);
+    }
+    if (!plan.length) { toast(miss ? `${miss} 句附近（前後 0.8 秒）找不到「停頓後的人聲起音點」，沒有動` : "已經貼齊了"); return; }
+    pushHistory();
+    let sum = 0;
+    for (const [i, t] of plan) {
+      const l = L[i], end = l.duration != null ? l.time + l.duration : null;
+      sum += t - l.time;
+      l.time = t;
+      if (end != null) { if (end - t > 0.05) l.duration = r3(end - t); else delete l.duration; }
+      l._lvl = "ok";
+    }
+    changed();
+    toast(`貼齊 ${plan.length} 句，平均 ${sum / plan.length >= 0 ? "晚" : "早"} ${Math.abs(sum / plan.length).toFixed(2)} 秒${miss ? `；${miss} 句附近沒有停頓後的起音點，沒動` : ""}（Ctrl+Z 可以復原）`, 5000);
+  }
   function clearEnd() {
     const ids = selected().filter(k => L[k].duration != null && !isGap(L[k]));
     if (!ids.length) return;
@@ -449,13 +509,13 @@
   const actClipLabel = () => [(actClip.acts || []).map(a => ACT_INFO[a]?.[0] || a).join("、") || "沒有動作", actClip.call && `「${actClip.call}」`].filter(Boolean).join(" ");
   function copyActs() {
     const l = L[anchor];
-    if (!l || isGap(l)) return;
+    if (!l) return;
     actClip = { acts: (l.acts || []).slice(), call: l.call || "", how: l.how || "" };
     toast(`已複製應援：${actClipLabel()}；選別的句子按 Ctrl+V 貼上`);
   }
   function pasteActs() {
     if (!actClip) { toast("先在一句上按 Ctrl+C 複製應援"); return; }
-    const ids = selected().filter(k => !isGap(L[k]));
+    const ids = selected();
     if (!ids.length) return;
     pushHistory();
     for (const k of ids) {
@@ -474,8 +534,8 @@
     changed();
   }
   function toggleAct(a) {
-    const ids = selected().filter(i => !isGap(L[i]));
-    if (!ids.length) return;
+    const ids = selected();
+    if (!ids.length) { toast("先在時間軸選一句（歌詞或間奏），再加應援"); return; }
     pushHistory();
     const all = ids.every(i => (L[i].acts || []).includes(a));
     for (const i of ids) {
@@ -633,7 +693,7 @@
       const lv = l._lvl;
       const c = isGap(l) ? " gap" : lv === "low" || lv === "none" ? " c-low" : lv === "mid" ? " c-mid" : lv === "ok" ? " ok" : lv === "high" ? "" : " plain";
       const wide = ((end - l.time) / span()) * tw > 26;
-      return `<div class="ly${c}${sel.has(i) ? " sel" : ""}${i === cur ? " cur" : ""}${l.duration != null ? " dur" : ""}" data-i="${i}" style="${pos(l.time, end - 0.06)}" title="${i + 1}. ${esc(l.jp)}${l.duration != null ? `（到 ${fmt(end)}）` : ""}&#10;點兩下改字；拖兩邊改開始／結尾；右鍵看更多">${esc(l.jp || "（空白）")}${isGap(l) ? "" : `<em>${esc(l.tr || "")}</em><small>${fmt(l.time)}</small>`}${wide ? '<i class="h l"></i><i class="h r"></i>' : ""}</div>`;
+      return `<div class="ly${c}${sel.has(i) ? " sel" : ""}${i === cur ? " cur" : ""}${l.duration != null ? " dur" : ""}" data-i="${i}" style="${pos(l.time, end - 0.06)}" title="${i + 1}. ${esc(l.jp)}${l.duration != null ? `（到 ${fmt(end)}）` : ""}&#10;點兩下改字；拖兩邊改開始／結尾；右鍵看更多">${esc(l.jp || "（空白）")}${isGap(l) ? "" : `<em>${esc(l.tr || "")}</em><small>${fmt(l.time)}</small>`}${l.acts && l.acts.length ? `<span class="ly-acts">${l.acts.map(k => `<b style="--c:var(--${ACT_INFO[k]?.[1] || "gray"});--c-bg:var(--${ACT_INFO[k]?.[1] || "gray"}-bg)">${wide ? ACT_INFO[k]?.[0] || k : ""}</b>`).join("")}</span>` : ""}${wide ? '<i class="h l"></i><i class="h r"></i>' : ""}</div>`;
     }).join("");
 
     // 應援：每句的動作，一種動作一條細線
@@ -643,7 +703,7 @@
       if (!l.acts || !l.acts.length) return "";
       const end = endOf(i);
       if (end < win[0] || l.time > win[1]) return "";
-      return l.acts.map((a, k) => `<div class="act-block" style="${pos(l.time, end - 0.06)};top:${4 + k * 6}px;background:var(--${ACT_INFO[a]?.[1] || "gray"})" title="${ACT_INFO[a]?.[0] || a}${l.call ? `：${esc(l.call)}` : ""}"></div>`).join("");
+      return l.acts.map((a, k) => `<div class="act-block" style="${pos(l.time, end - 0.06)};top:${3 + k * 9}px;background:var(--${ACT_INFO[a]?.[1] || "gray"})" title="${ACT_INFO[a]?.[0] || a}${l.call ? `：${esc(l.call)}` : ""}"></div>`).join("");
     }).join("");
 
     drawOverview();
@@ -755,17 +815,18 @@
       ${isGap(l) ? "" : prop("i-status", "對齊信心", lv ? `<span class="pill ${lv[1]}">${lv[0]}</span>${l._lvl === "low" || l._lvl === "none" ? '<span class="muted">按 Enter 試聽確認</span>' : ""}` : '<span class="muted">—</span>')}
       ${prop("i-layers", "段落", sec ? `<span class="pill ${sec.color}">${sec.name}</span>` : '<span class="muted">—</span>')}
       ${isGap(l) ? "" : prop("i-lang", "中文來源", l._tr === "official" ? '<span class="pill green">官方字幕</span>' : l._tr === "agy" ? '<span class="pill yellow">agy 翻譯・待確認</span>' : '<span class="muted">—</span>')}
-      ${isGap(l) ? "" : prop("i-hand", "應援", `<div class="acts">${acts}</div>`)}
+      ${prop("i-hand", "應援", `<div class="acts">${acts}</div>`)}
       ${(() => { const sg = sugFor(l); return sg ? `<div class="suggest">建議：<b>${sg.acts.map(a => ACT_INFO[a]?.[0]).join("、")}</b><button class="btn outline" data-op="adoptSug">採用</button><span class="why">${esc(sg.why)}；只是候選，請對照現場資料</span></div>` : ""; })()}
       <div class="block-label">日文</div>
       <textarea class="edit jp" rows="1" data-field="jp">${esc(l.jp)}</textarea>
       ${isGap(l) ? "" : `<div class="block-label">中文</div><textarea class="edit" rows="1" data-field="tr">${esc(l.tr || "")}</textarea>
-      <div class="block-label">觀眾要唱的字 <span>逗號分開；空白＝整句</span></div><input class="field-input" data-field="sing" value="${esc((l.sing || []).join(", "))}" placeholder="空白">
-      <div class="block-label">喊聲</div><input class="field-input" data-field="call" value="${esc(l.call || "")}" placeholder="例如 Hey!">
+      <div class="block-label">觀眾要唱的字 <span>逗號分開；空白＝整句</span></div><input class="field-input" data-field="sing" value="${esc((l.sing || []).join(", "))}" placeholder="空白">`}
+      ${`<div class="block-label">喊聲</div><input class="field-input" data-field="call" value="${esc(l.call || "")}" placeholder="例如 Hey!">
       <div class="block-label">動作說明</div><input class="field-input" data-field="how" value="${esc(l.how || "")}" placeholder="例如 跟著節奏輕輕搖">`}
       <div class="peek-actions">
         <button class="btn outline" data-op="preview">${icon("i-play")}試聽這句 <span class="kbd">Enter</span></button>
         <button class="btn outline" data-op="now">設為目前時間</button>
+        ${isGap(l) ? "" : `<button class="btn outline" data-op="snap" title="開頭貼到附近（前後 0.8 秒內）人聲最明顯的起音點（B）">貼齊聲音 <span class="kbd">B</span></button>`}
       </div>
       <div class="peek-actions">
         <button class="btn" data-op="insert">${icon("i-plus")}下面加一句</button>
@@ -796,7 +857,7 @@
       ${prop("i-status", "狀態", `<div class="status-seg">${Object.entries(STATUS).map(([k, [name, c]]) => `<button data-status="${k}" class="${m.status === k ? "on" : ""}" style="--c-bg:var(--${c}-bg)">${name}</button>`).join("")}</div>`)}
       ${prop("i-light", "手燈", `<div class="acts">${pens}</div>`)}
       ${prop("", "", `<label class="hint"><input type="checkbox" id="penGuess" ${m.penGuess ? "checked" : ""}> 只是預測（網站不顯示）</label>`)}
-      ${prop("i-hand", "應援動作", `<div class="acts">${acts}</div>`)}
+      ${prop("i-hand", "整首應援動作", `<div class="acts">${acts}</div><div class="hint" style="margin-top:4px">這是整首歌的標籤（歌曲清單用），要按「存歌曲資料」；要加在某一句上，請到「句子」分頁選歌詞</div>`)}
       <div class="block-label">應援重點 <button class="btn" data-op="addTip">${icon("i-plus")}新增</button></div>
       ${m.tips.map((t, i) => `<div class="tip-row"><input class="field-input" data-tip="${i}" data-k="zh" value="${esc(t.zh)}" placeholder="中文"><input class="field-input sm" data-tip="${i}" data-k="en" value="${esc(t.en)}" placeholder="English（選填）"><input class="field-input sm" data-tip="${i}" data-k="ja" value="${esc(t.ja)}" placeholder="日本語（選填）"><button class="btn x" data-deltip="${i}">${icon("i-x")}</button></div>`).join("") || '<div class="hint">沒有</div>'}
       ${prop("i-flag", "副歌高潮", `<input class="inline-input" id="climaxIn" value="${m.climax ?? ""}" placeholder="秒"><button class="btn" data-op="climaxNow">用目前時間</button>`)}
@@ -935,6 +996,7 @@
     if (t.dataset.climax) { meta.climax = Number(t.dataset.climax); return drawInsp(); }
     switch (t.dataset.op) {
       case "preview": return preview();
+      case "snap": return snapToVocal();
       case "now": pushHistory(); setTimes(new Map([[i, player.time()]])); return changed();
       case "insert": return insertAfter(i);
       case "delete": return deleteSelected();
@@ -1504,13 +1566,14 @@
       "-",
       { label: `開始設為播放指針（${fmt(t)}）`, key: "I", fn: setInNow, off: n > 1 },
       { label: `結尾設為播放指針（${fmt(t)}）`, key: "O", fn: setOutNow, off: n > 1 || t <= l.time },
+      { label: n > 1 ? `貼齊聲音（這 ${n} 句）` : "貼齊聲音（開頭貼到人聲起音點）", key: "B", fn: snapToVocal, off: !!ver },
       { label: `切掉指針前面（${fmt(t)}）`, key: "Z", fn: trimStartNow, off: n > 1 || t <= l.time + 0.02 || t >= endOf(i) - 0.05 },
       { label: `切掉指針後面（${fmt(t)}）`, key: "C", fn: trimEndNow, off: n > 1 || t <= l.time || t >= endOf(i) - 0.02 },
       { label: "接著下一句（拿掉結尾）", fn: clearEnd, off: !selected().some(k => L[k].duration != null && !isGap(L[k])) },
       { label: cut ? `在播放指針拆開（${fmt(t)}）` : "在播放指針拆開（指針要在句子裡）", key: "X", icon: "i-mark", fn: splitAtPlayhead, off: !cut },
       { label: "下面加一句", icon: "i-plus", fn: () => insertAfter(i) },
       "-",
-      { label: "複製應援", key: "Ctrl+C", fn: copyActs, off: isGap(l) },
+      { label: "複製應援", key: "Ctrl+C", fn: copyActs },
       { label: actClip ? `貼上應援（${actClipLabel()}）` : "貼上應援", key: "Ctrl+V", fn: pasteActs, off: !actClip },
       { label: "清除應援", key: "0", fn: clearActs },
       "-",
@@ -1659,7 +1722,7 @@
       ["[ ]", "微調 0.05 秒（Shift：0.2 秒）"], ["G／Shift+G", "下一個／上一個要檢查的句子"]
     ]],
     ["用播放指針剪（Premiere／剪映式）", [
-      ["I", "這句的開始＝播放指針"], ["O", "這句的結尾＝播放指針"], ["Z／X／C", "ZXC 剪法：Z 切掉指針前面、X 在指針拆成兩句、C 切掉指針後面（連動開著，後面的句子往前補）"], ["Ctrl+B／Ctrl+K", "在播放指針拆成兩句"],
+      ["I", "這句的開始＝播放指針"], ["O", "這句的結尾＝播放指針"], ["B", "貼齊聲音：選到的句子，開頭貼到附近人聲起音點（要先分離人聲，可復原）"], ["Z／X／C","ZXC 剪法：Z 切掉指針前面、X 在指針拆成兩句、C 切掉指針後面（連動開著，後面的句子往前補）"], ["Ctrl+B／Ctrl+K", "在播放指針拆成兩句"],
       ["N", "在播放指針加一句"], ["Delete／Backspace", "刪除選取的句子（可以復原）"], ["W", "連動：移動時後面的句子跟著移"]
     ]],
     ["時間軸滑鼠", [
@@ -1721,6 +1784,7 @@
     else if (k === "w" || k === "W") $("btnRipple").click();
     else if (k === "i" || k === "I") setInNow();
     else if (k === "o" || k === "O") setOutNow();
+    else if (k === "b" || k === "B") snapToVocal();
     else if (k === "z" || k === "Z") trimStartNow();
     else if (k === "x" || k === "X") splitAtPlayhead();
     else if (k === "c" || k === "C") trimEndNow();

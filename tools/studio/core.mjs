@@ -634,6 +634,42 @@ export async function runAnalysis(id, { fresh = false, onLog = () => {} } = {}) 
 }
 const ANALYSIS_VERSION = 2;
 
+// 副歌要有人在唱：音訊分析只看音色和音量，重複出現又最大聲的間奏會被當成副歌（例如〈Charles〉）。
+// 有「有時間的歌詞」時，用歌詞改判：沒人唱的段落（間奏、尾奏）不當副歌，副歌挑「歌詞在整首裡重複最多」的那一類，音量只當同分的決勝。
+// 歌詞沒有時間（平均排開）或太少時不動，維持音訊分析的結果。
+export function refineAnalysis(a, entry) {
+  const lines = (entry?.lyrics || []).filter(l => l.jp && Number.isFinite(l.time));
+  if (!a?.sections?.length || lines.length < 6) return a;
+  const gaps = lines.slice(1).map((l, i) => l.time - lines[i].time);
+  const mean = gaps.reduce((x, y) => x + y, 0) / gaps.length;
+  const sd = Math.sqrt(gaps.reduce((x, y) => x + (y - mean) ** 2, 0) / gaps.length);
+  if (mean > 0 && sd / mean < 0.03) return a; // 間隔幾乎一樣＝還沒對時，歌詞時間不可信
+  const dur = a.duration || entry.duration || lines[lines.length - 1].time + 5;
+  const iv = lines.map((l, i) => ({ s: l.time, e: l.duration != null ? l.time + l.duration : lines[i + 1] ? lines[i + 1].time : dur, gap: GAP.test(l.jp), key: normLine(l.jp) }));
+  const freq = new Map();
+  for (const x of iv) if (!x.gap && x.key.length >= 4) freq.set(x.key, (freq.get(x.key) || 0) + 1);
+  const sections = a.sections.map(sec => {
+    const len = Math.max(0.1, sec.end - sec.start);
+    const sung = iv.filter(x => !x.gap).reduce((t, x) => t + Math.max(0, Math.min(sec.end, x.e) - Math.max(sec.start, x.s)), 0) / len;
+    const inside = iv.filter(x => !x.gap && x.s >= sec.start && x.s < sec.end);
+    const rep = inside.length ? inside.filter(x => (freq.get(x.key) || 0) >= 2).length / inside.length : 0;
+    return { ...sec, sung: Math.round(Math.min(1, sung) * 100) / 100, rep: Math.round(rep * 100) / 100 };
+  });
+  const byLabel = new Map();
+  for (const sec of sections) { const g = byLabel.get(sec.label) || []; g.push(sec); byLabel.set(sec.label, g); }
+  const avg = (g, k) => g.reduce((t, x) => t + x[k], 0) / g.length;
+  const groups = [...byLabel.entries()].map(([label, g]) => ({ label, n: g.length, sung: avg(g, "sung"), rep: avg(g, "rep"), energy: avg(g, "energy") }));
+  const singing = groups.filter(g => g.sung >= 0.5);
+  const pool = singing.filter(g => g.n >= 2).length ? singing.filter(g => g.n >= 2) : singing;
+  if (!pool.length) return a;
+  const best = pool.reduce((m, g) => (g.rep * 10 + g.energy * 0.2 > m.rep * 10 + m.energy * 0.2 ? g : m)).label;
+  a.sections = sections.map(sec => ({ ...sec, chorus: sec.label === best && sec.sung >= 0.5 }));
+  const inGap = t => iv.some(x => x.gap && t >= x.s && t < x.e);
+  if (Array.isArray(a.climaxAudio)) a.climaxAudio = a.climaxAudio.filter(c => !inGap(c.t));
+  a.refinedByLyrics = true;
+  return a;
+}
+
 // 歌詞找「最後一次副歌開頭」：後半段裡，跟前面某段連續重複最長的那句（最多三個候選）
 // 用現有 78 首的 CLIMAX 量過：第一個候選對（差 1.5 秒內）60%，前三個裡有對的 77%
 const normLine = s => String(s).replace(/[（(][^）)]*[）)]/g, "").replace(/[\s、。，,.!！?？…~〜ー\-「」『』"'’()]/g, "").toLowerCase();
@@ -674,6 +710,7 @@ export async function analyze(id, { apply = false, overwrite = false, only, bpm:
   const s = songOrThrow(db, id);
   const a = await runAnalysis(id, { fresh, onLog });
   const l = db.lyrics.find(x => x.id === id);
+  refineAnalysis(a, l);
   const lyricC = l && l.lyrics.length ? lyricClimax(l.lyrics, l.duration) : [];
   const climaxC = pickClimax(lyricC, a.climaxAudio);
 
@@ -780,6 +817,19 @@ export async function separateVocals(id, { fresh = false, onLog = () => {} } = {
   const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "separate.py"), audio, "--out", out]);
   if (r.code !== 0) throw new Error(`分離人聲失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
   return out;
+}
+
+// 人聲音量曲線（給時間軸「貼齊聲音」用）：work/<id>/vocal-env.json；沒有人聲檔會先分離
+export async function vocalEnvelope(id, { onLog = () => {} } = {}) {
+  const vocals = await separateVocals(id, { onLog });
+  const out = path.join(WORK, id, "vocal-env.json");
+  if (!(fs.existsSync(out) && fs.statSync(out).mtimeMs > fs.statSync(vocals).mtimeMs)) {
+    onLog("算人聲音量曲線…\n");
+    const [cmd, ...pre] = pythonCommand();
+    const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "vocal_env.py"), vocals, "--out", out]);
+    if (r.code !== 0) throw new Error(`算人聲音量失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
+  }
+  return JSON.parse(fs.readFileSync(out, "utf8"));
 }
 
 const level = c => (c == null ? "none" : c >= 0.5 ? "high" : c >= 0.3 ? "mid" : "low");
@@ -917,6 +967,7 @@ export function songDetail(id, db = load()) {
   const song = songOrThrow(db, id);
   const e = db.lyrics.find(x => x.id === id) || null;
   const a = readWork(id, "analysis.json");
+  if (a) refineAnalysis(a, e);
   let research = null;
   try { research = JSON.parse(fs.readFileSync(path.join(root, "research", `${id}.json`), "utf8")); } catch {}
   return {
