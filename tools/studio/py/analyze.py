@@ -25,7 +25,7 @@ import librosa
 
 SR = 22050
 HOP = 512
-VERSION = 1
+VERSION = 2
 # 起音偵測比實際打下去晚一格（onset_strength 是拿這一格減上一格）：合成測試三首都晚約 25 毫秒，扣掉一格
 # 真實歌曲的誤差用 bench 量（tools/studio/cli.mjs bench），需要的話再調
 ONSET_LATENCY = HOP / SR
@@ -82,6 +82,47 @@ def nice_bpm(bpm):
     return float(r) if abs(bpm - r) < 0.15 else round(bpm, 2)
 
 
+def comb_phase(env, per, dur):
+    """固定間隔 per 的格子，找最能對上起音的起點。回傳（起點秒數, 平均起音強度）。"""
+    fps = SR / HOP
+    xs = np.arange(len(env))
+    best = (-1.0, 0.0)
+    for ph in np.arange(0, per, 0.004):
+        t = np.arange(ph, dur - 0.1, per)
+        v = float(np.interp(t * fps, xs, env).mean())
+        if v > best[0]:
+            best = (v, float(ph))
+    return best[1], best[0]
+
+
+def pulse_candidates(env, dur):
+    """拍點追蹤（beat_track）有時會抓到「每 3 個 16 分音符」的錯位格子（例如〈Shinka〉：真正是 195，卻抓成 130）。
+    所以另外找整首歌最穩的「最小脈衝」（16 分或 8 分音符），再列出它的 2、3、4 倍當一拍的候選，讓人和下面的小節第一拍比較去挑。"""
+    # 粗掃：脈衝間隔 0.10–0.26 秒（約 230–600 下／分），格子上的起音越強越像
+    fps = SR / HOP
+    xs = np.arange(len(env))
+    scores = []
+    for g in np.arange(0.10, 0.26, 0.001):
+        top = 0.0
+        for ph in np.arange(0, g, 0.01):
+            t = np.arange(ph, dur - 0.1, g)
+            top = max(top, float(np.interp(t * fps, xs, env).mean()))
+        scores.append((top, g))
+    g0 = max(scores)[1]
+    # 細掃：±1.5% 之間
+    fine = []
+    for g in np.arange(g0 * 0.985, g0 * 1.015, g0 * 0.0003):
+        ph, v = comb_phase(env, g, dur)
+        fine.append((v, g, ph))
+    g = max(fine)[1]
+    out = []
+    for k in (2, 3, 4):
+        bpm = 60 / (k * g)
+        if 70 <= bpm <= 210:
+            out.append(bpm)
+    return g, out
+
+
 def analyze(path):
     y = decode(path)
     dur = len(y) / SR
@@ -112,6 +153,16 @@ def analyze(path):
     # 兩倍／一半都像真的：鼓的打法常常分不出來（例如 97.5 和 195），交給人決定
     octave_uncertain = any(70 <= b <= 210 for b in alternatives) and not doubled
 
+    # 脈衝候選：目前的速度不可靠（落在格子上的拍太少）時，另外從最小脈衝推出 2、3、4 倍當備選
+    pulse_bpms = []
+    pulse_g = None
+    if inliers < 0.85:
+        pulse_g, pc = pulse_candidates(env, dur)
+        known = [bpm] + [b for b in alternatives]
+        pulse_bpms = [nice_bpm(b) for b in pc if all(abs(b - k) / k > 0.03 for k in known)]
+        alternatives = alternatives + pulse_bpms
+        octave_uncertain = octave_uncertain or bool(pulse_bpms)
+
     # ── 小節第一拍：大鼓低頻＋和弦變化 ──
     mel = librosa.feature.melspectrogram(y=y, sr=SR, hop_length=HOP, n_mels=64, fmax=8000)
     low_bins = librosa.mel_frequencies(n_mels=64, fmax=8000) < 160
@@ -119,8 +170,9 @@ def analyze(path):
     chroma = librosa.feature.chroma_cqt(y=y, sr=SR, hop_length=HOP)
     reliable = inliers >= 0.85 and rms < 0.03
 
-    def make_grid(per):
-        return phase + per * np.arange(max(0, int(np.ceil(-phase / per))), int((dur - phase) / per))
+    def make_grid(per, ph=None):
+        ph = phase if ph is None else ph
+        return ph + per * np.arange(max(0, int(np.ceil(-ph / per))), int((dur - ph) / per))
 
     def downbeat(g, per):
         """四種可能的第一拍，各算「大鼓低頻＋和弦變化」平均落在第一拍有多強，回傳第一小節時間和勝出幅度。"""
@@ -144,8 +196,14 @@ def analyze(path):
     alts = []
     for b in alternatives:
         per = 60 / b
-        fb, mg, _ = downbeat(make_grid(per), per)
-        alts.append({"bpm": b, "firstBar": round(fb, 3), "barKnown": bool(reliable and mg > 0.35), "downbeatMargin": round(mg, 3)})
+        if b in pulse_bpms:  # 脈衝推出來的候選，起點要自己找（beat_track 的起點是錯位的那組）
+            ph, _ = comb_phase(env, per, dur)
+            ph -= ONSET_LATENCY
+            fb, mg, _ = downbeat(make_grid(per, ph), per)
+            alts.append({"bpm": b, "firstBar": round(fb, 3), "barKnown": False, "downbeatMargin": round(mg, 3), "pulse": True})
+        else:
+            fb, mg, _ = downbeat(make_grid(per), per)
+            alts.append({"bpm": b, "firstBar": round(fb, 3), "barKnown": bool(reliable and mg > 0.35), "downbeatMargin": round(mg, 3)})
 
     # 兩倍／一半都說得通時：選「小節第一拍最明顯」的那個速度（對的速度下，和弦變化會整齊落在小節開頭）
     octave_pick = None

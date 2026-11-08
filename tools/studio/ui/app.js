@@ -83,34 +83,49 @@
     let yt = null, ready = false, mode = "none", rate = 1;
     const fake = { t: 0, playing: false, last: 0 };
     const tick = () => { if (fake.playing) { const n = performance.now(); fake.t = Math.min(DUR(), fake.t + ((n - fake.last) / 1000) * rate); fake.last = n; if (fake.t >= DUR()) fake.playing = false; } };
+    let apiP = null;
     function loadApi() {
       if (window.YT && window.YT.Player) return Promise.resolve();
-      return new Promise(res => {
+      if (apiP) return apiP;
+      return (apiP = new Promise(res => {
         const s = document.createElement("script");
         s.src = "https://www.youtube.com/iframe_api";
         window.onYouTubeIframeAPIReady = () => res();
         s.onerror = () => res();
         document.head.appendChild(s);
         setTimeout(res, 6000);
-      });
+      }));
+    }
+    let want = null; // 最後一次要載入的影片；播放器還沒好、或快速連切歌時，以最後一個為準
+    const showReady = () => { mode = "yt"; $("video").classList.add("ready"); };
+    function cue() {
+      if (!want) return;
+      const id = want; want = null;
+      try { yt.setPlaybackRate(rate); yt.cueVideoById(id); showReady(); } catch (e) { useFake(); }
     }
     async function load(videoId) {
       fake.t = 0; fake.playing = false;
+      want = videoId;
       await loadApi();
+      if (want !== videoId) return; // 等 API 的時候又切歌了，交給最後一次
       if (!(window.YT && window.YT.Player)) { useFake(); return; }
       if (!yt) {
+        want = null;
         yt = new YT.Player("yt", {
           videoId,
           playerVars: { controls: 0, rel: 0, modestbranding: 1, playsinline: 1, disablekb: 1, iv_load_policy: 3, fs: 0 },
-          events: { onReady: () => { ready = true; mode = "yt"; yt.setPlaybackRate(rate); $("video").classList.add("ready"); } }
+          events: {
+            onReady: () => { ready = true; yt.setPlaybackRate(rate); if (want) cue(); else showReady(); },
+            onError: () => { $("video").classList.remove("ready"); useFake(true); }
+          }
         });
         setTimeout(() => { if (!ready) useFake(); }, 8000);
       } else if (ready) {
-        yt.cueVideoById(videoId);
-      }
+        cue();
+      } // 還沒 ready：want 留著，onReady 時載入
     }
-    function useFake() {
-      if (mode === "yt") return;
+    function useFake(force) {
+      if (mode === "yt" && !force) return;
       mode = "fake";
       $("ph").innerHTML = `<div style="text-align:center;font-size:15px;font-weight:500;line-height:1.7;padding:20px;letter-spacing:normal">YouTube 載入不了<br><span style="opacity:.7;font-size:13px">先用模擬時鐘：時間軸、打點照常可以用，只是沒有畫面和聲音</span></div>`;
     }
@@ -122,6 +137,7 @@
       play() { if (mode === "yt") yt.playVideo(); else { fake.last = performance.now(); fake.playing = true; } },
       pause() { if (mode === "yt") yt.pauseVideo(); else { tick(); fake.playing = false; } },
       seek(t, final = true) { t = Math.max(0, Math.min(DUR(), t)); if (mode === "yt") yt.seekTo(t, final); else { fake.t = t; fake.last = performance.now(); } },
+      jump(t) { this.seek(t, true); this.play(); }, // 點到哪就從哪播
       rate(r) { rate = r; if (mode === "yt") yt.setPlaybackRate(r); },
       duration() { if (mode === "yt") { try { return yt.getDuration() || 0; } catch (e) { return 0; } } return 0; }
     };
@@ -354,6 +370,47 @@
     if (next && t >= next.time - 0.03) { delete l.duration; if (t > next.time + 0.03) toast("碰到下一句：這句接著下一句"); }
     else l.duration = r3(t - l.time);
     changed();
+  }
+  // 切掉尾巴（像剪輯軟體的 ZXC 剪法）：指針所在這句的結尾切到播放指針，指針後面那一段不要了。
+  // 連動（W）開著：後面的句子一起往前補上被切掉的長度。
+  function trimEndNow() {
+    const t = player.time();
+    const c = curIndex(t);
+    const i = c >= 0 && !isGap(L[c]) ? c : anchor, l = L[i];
+    if (!l) return;
+    const end = endOf(i);
+    if (t <= l.time + 0.05) { toast("播放指針要在這句開始之後"); return; }
+    if (t >= end - 0.02) { toast("播放指針要在這句裡面才能切掉後面"); return; }
+    const cut = end - t, hadEnd = l.duration != null;
+    pushHistory();
+    sel = new Set([i]); anchor = i;
+    if (ripple) {
+      for (let k = i + 1; k < L.length; k++) L[k].time = r3(Math.max(0, L[k].time - cut));
+      if (!hadEnd) delete l.duration; else l.duration = r3(t - l.time);
+    } else {
+      const next = L[i + 1];
+      if (next && t >= next.time - 0.03) delete l.duration; else l.duration = r3(t - l.time);
+    }
+    changed();
+    toast(`第 ${i + 1} 句：切掉 ${cut.toFixed(2)} 秒，結尾 ${fmt(t)}`, 1400);
+  }
+  // 切掉頭：這句的開始切到播放指針，結尾不動，指針前面那一段不要了
+  function trimStartNow() {
+    const t = player.time();
+    const c = curIndex(t);
+    const i = c >= 0 && !isGap(L[c]) ? c : anchor, l = L[i];
+    if (!l) return;
+    const end = endOf(i);
+    if (t <= l.time + 0.02) { toast("播放指針要在這句開始之後才能切掉前面"); return; }
+    if (t >= end - 0.05) { toast("播放指針要在這句裡面"); return; }
+    const cut = t - l.time, hadEnd = l.duration != null;
+    pushHistory();
+    sel = new Set([i]); anchor = i;
+    l.time = r3(t);
+    if (hadEnd) l.duration = r3(end - t);
+    if (!isGap(l)) l._lvl = "ok";
+    changed();
+    toast(`第 ${i + 1} 句：切掉 ${cut.toFixed(2)} 秒，開始 ${fmt(t)}`, 1400);
   }
   function clearEnd() {
     const ids = selected().filter(k => L[k].duration != null && !isGap(L[k]));
@@ -1230,11 +1287,11 @@
     document.body.classList.remove("trimming");
     $("snapLine").hidden = $("marquee").hidden = true;
     if (d.mode === "box") {
-      if (!d.moved) { player.seek(d.t0); drawTimeline(); return; }
+      if (!d.moved) { player.jump(d.t0); drawTimeline(); return; }
       drawTimeline(); drawInsp();
       return;
     }
-    if (!d.moved) { if (d.mode === "move") { player.seek(L[d.i].time); drawTimeline(); } return; }
+    if (!d.moved) { if (d.mode === "move") { player.jump(L[d.i].time); drawTimeline(); } return; }
     if (d.snap === JSON.stringify(L)) { drawTimeline(); return; }
     history.push(d.snap); future = [];
     for (const k of d.mode === "move" ? d.orig.keys() : [d.i]) if (!isGap(L[k])) L[k]._lvl = "ok";
@@ -1252,10 +1309,10 @@
     player.seek(timeAt($("ruler"), e.clientX), false);
   });
   $("ruler").addEventListener("pointermove", e => { if (scrub) player.seek(timeAt($("ruler"), e.clientX), false); });
-  const endScrub = e => { if (!scrub) return; scrub = false; player.seek(timeAt($("ruler"), e.clientX), true); };
+  const endScrub = e => { if (!scrub) return; scrub = false; player.jump(timeAt($("ruler"), e.clientX)); };
   $("ruler").addEventListener("pointerup", endScrub);
   $("ruler").addEventListener("pointercancel", endScrub);
-  for (const id of ["trSec", "trBeat", "trWave", "trAct"]) $(id).addEventListener("click", e => { if (D) player.seek(timeAt($(id), e.clientX)); });
+  for (const id of ["trSec", "trBeat", "trWave", "trAct"]) $(id).addEventListener("click", e => { if (D) player.jump(timeAt($(id), e.clientX)); });
 
   // 滑過時顯示那個位置的時間（虛線）
   $("tl").addEventListener("pointermove", e => {
@@ -1273,7 +1330,7 @@
     if (!D || e.button !== 0) return;
     const r = e.currentTarget.getBoundingClientRect(), t = ((e.clientX - r.left) / r.width) * DUR();
     if (t >= win[0] && t <= win[1]) { ovDrag = { x0: e.clientX, w0: win[0], moved: false }; e.currentTarget.setPointerCapture(e.pointerId); return; }
-    player.seek(t);
+    player.jump(t);
     setWin(t - span() / 2, span());
   });
   $("trOv").addEventListener("pointermove", e => {
@@ -1285,7 +1342,7 @@
   $("trOv").addEventListener("pointerup", e => {
     const d = ovDrag;
     ovDrag = null;
-    if (d && !d.moved) { const r = e.currentTarget.getBoundingClientRect(); player.seek(((e.clientX - r.left) / r.width) * DUR()); }
+    if (d && !d.moved) { const r = e.currentTarget.getBoundingClientRect(); player.jump(((e.clientX - r.left) / r.width) * DUR()); }
   });
   $("tl").addEventListener("wheel", e => {
     if (!D) return;
@@ -1447,8 +1504,10 @@
       "-",
       { label: `開始設為播放指針（${fmt(t)}）`, key: "I", fn: setInNow, off: n > 1 },
       { label: `結尾設為播放指針（${fmt(t)}）`, key: "O", fn: setOutNow, off: n > 1 || t <= l.time },
+      { label: `切掉指針前面（${fmt(t)}）`, key: "Z", fn: trimStartNow, off: n > 1 || t <= l.time + 0.02 || t >= endOf(i) - 0.05 },
+      { label: `切掉指針後面（${fmt(t)}）`, key: "C", fn: trimEndNow, off: n > 1 || t <= l.time || t >= endOf(i) - 0.02 },
       { label: "接著下一句（拿掉結尾）", fn: clearEnd, off: !selected().some(k => L[k].duration != null && !isGap(L[k])) },
-      { label: cut ? `在播放指針拆開（${fmt(t)}）` : "在播放指針拆開（指針要在句子裡）", key: "Ctrl+B", icon: "i-mark", fn: splitAtPlayhead, off: !cut },
+      { label: cut ? `在播放指針拆開（${fmt(t)}）` : "在播放指針拆開（指針要在句子裡）", key: "X", icon: "i-mark", fn: splitAtPlayhead, off: !cut },
       { label: "下面加一句", icon: "i-plus", fn: () => insertAfter(i) },
       "-",
       { label: "複製應援", key: "Ctrl+C", fn: copyActs, off: isGap(l) },
@@ -1593,14 +1652,14 @@
   const KEYS = [
     ["播放", [
       ["K", "播放／暫停"], ["Enter", "從這句前 2 秒試聽"], ["R", "循環這句"], ["J／L", "倒退／快轉 2 秒"],
-      ["← →", "移動 0.1 秒（Shift：1 秒）"], ["Home／End", "到開頭／結尾"], ["↑ ↓", "上一句／下一句"], ["C", "預覽畫面的字幕開關"]
+      ["← →", "移動 0.1 秒（Shift：1 秒）"], ["Home／End", "到開頭／結尾"], ["↑ ↓", "上一句／下一句"], ["V", "預覽畫面的字幕開關"]
     ]],
     ["打點（Arctime 式）", [
       ["空白鍵（點一下）", "把目前時間打給選取的句子，跳下一句"], ["空白鍵（按住）", "按下＝開始、放開＝結尾，再跳下一句"],
       ["[ ]", "微調 0.05 秒（Shift：0.2 秒）"], ["G／Shift+G", "下一個／上一個要檢查的句子"]
     ]],
     ["用播放指針剪（Premiere／剪映式）", [
-      ["I", "這句的開始＝播放指針"], ["O", "這句的結尾＝播放指針"], ["Ctrl+B／Ctrl+K", "在播放指針拆成兩句"],
+      ["I", "這句的開始＝播放指針"], ["O", "這句的結尾＝播放指針"], ["Z／X／C", "ZXC 剪法：Z 切掉指針前面、X 在指針拆成兩句、C 切掉指針後面（連動開著，後面的句子往前補）"], ["Ctrl+B／Ctrl+K", "在播放指針拆成兩句"],
       ["N", "在播放指針加一句"], ["Delete／Backspace", "刪除選取的句子（可以復原）"], ["W", "連動：移動時後面的句子跟著移"]
     ]],
     ["時間軸滑鼠", [
@@ -1658,11 +1717,14 @@
     else if (k === "g") nextRed(1);
     else if (k === "G") nextRed(-1);
     else if (k === "r" || k === "R") toggleLoop();
-    else if (k === "c" || k === "C") $("btnCaption").click();
     else if (k === "s" || k === "S") $("btnSnap").click();
     else if (k === "w" || k === "W") $("btnRipple").click();
     else if (k === "i" || k === "I") setInNow();
     else if (k === "o" || k === "O") setOutNow();
+    else if (k === "z" || k === "Z") trimStartNow();
+    else if (k === "x" || k === "X") splitAtPlayhead();
+    else if (k === "c" || k === "C") trimEndNow();
+    else if (k === "v" || k === "V") $("btnCaption").click();
     else if (k === "n" || k === "N") { e.preventDefault(); newLineAt(player.time()); }
     else if (k === "Delete" || k === "Backspace") { e.preventDefault(); deleteSelected(false); }
     else if (k === "=" || k === "+") zoom(1 / 1.4);

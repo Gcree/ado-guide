@@ -632,7 +632,7 @@ export async function runAnalysis(id, { fresh = false, onLog = () => {} } = {}) 
   if (r.code !== 0) throw new Error(`音訊分析失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
   return JSON.parse(fs.readFileSync(out, "utf8"));
 }
-const ANALYSIS_VERSION = 1;
+const ANALYSIS_VERSION = 2;
 
 // 歌詞找「最後一次副歌開頭」：後半段裡，跟前面某段連續重複最長的那句（最多三個候選）
 // 用現有 78 首的 CLIMAX 量過：第一個候選對（差 1.5 秒內）60%，前三個裡有對的 77%
