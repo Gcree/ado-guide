@@ -86,7 +86,7 @@
       </form>
       <div class="tree" id="songList"></div>
       <a class="item old-link" id="oldLink" href="/tools/timing/" title="現場版、其他進階編輯">
-        <svg class="ic"><use href="#i-old"/></svg>舊版對時工作台
+        <svg class="ic"><use href="#i-old"/></svg>舊版對時工作台（之後會拿掉）
       </a>
     </aside>
 
@@ -94,6 +94,7 @@
     <main class="main">
       <div class="topbar">
         <div class="crumbs"><span>歌曲</span><i>/</i><span id="crumbGroup">—</span><i>/</i><b id="crumbTitle">選一首歌</b></div>
+        <select class="ver-sel" id="verSel" title="MV 版或現場版（LIVE）" hidden></select>
         <div class="sp"></div>
         <span class="dirty" id="dirty" hidden>未存</span>
         <button class="btn icon" id="btnUndo" title="復原（Ctrl+Z）" disabled><svg class="ic"><use href="#i-undo"/></svg></button>
@@ -189,6 +190,24 @@
       <div class="dlg-row end">
         <button class="btn" value="cancel" formnovalidate>取消</button>
         <button class="btn primary" value="ok" id="pasteOk">取代整首歌詞</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 發布 -->
+  <dialog class="dlg" id="pubDlg">
+    <form method="dialog">
+      <h2>發布到網站</h2>
+      <p class="hint">檢查資料後只 commit 歌曲資料，推上 <span class="mono" id="pubBranch">main</span>，約 2 分鐘後網站更新。</p>
+      <div class="block-label">要發布的變更</div>
+      <pre class="pub-files" id="pubFiles"></pre>
+      <div class="block-label">commit 訊息</div>
+      <input class="field-input" id="pubMsg" style="box-shadow:inset 0 0 0 1px var(--line-2);margin:0">
+      <div class="block-label"><label><input type="checkbox" id="pubLogOn"> 寫進更新日誌（網站頁尾看得到）</label><span id="pubLogVer"></span></div>
+      <textarea id="pubLog" class="pub-log" placeholder="一行一項，例如：〈シンカ〉補上大合唱的段落"></textarea>
+      <div class="dlg-row end">
+        <button class="btn" value="cancel" formnovalidate>取消</button>
+        <button class="btn primary" value="ok">發布</button>
       </div>
     </form>
   </dialog>

@@ -103,7 +103,11 @@ node scripts/build.mjs dist
 
 Windows 點兩下 `工作站.bat`，Mac 點兩下 `工作站.command`（或 `node tools/studio/server.mjs --open`），會打開新歌工作站 <http://localhost:5178/tools/studio/ui/>：左邊歌單、中間預覽（字幕浮在畫面上）和時間軸／歌詞表、右邊編輯選取的句子、歌曲資料和情報包。改的東西先存在這台電腦的草稿（可以復原），按「存檔」（Ctrl+S）才寫回歌詞檔；檔案在你打開後被改過（命令列、自動對時、另一個分頁）會擋下來不蓋掉。快捷鍵跟舊版一樣：空白鍵打點、`[` `]` 微調、Enter 試聽、↑↓ 上下句、1–7 應援、G 下一個要檢查的句子、Ctrl+Z 復原。
 
-現場版（LIVE）的對時、和少數進階編輯還在舊版對時工作台（<http://localhost:5178/tools/timing/>，左下角「舊版對時工作台」）。
+- **現場版**：標題旁的選單切換 MV 版或某一場現場（官方 LIVE 映像、現場音源）。還沒有時間軸的場次可以「從 MV 複製歌詞」，再整段平移（點第一句、Shift＋End 選到最後）或一句句打點。一首歌只存一場現場版，換場存檔前會先問。
+- **應援建議**：時間軸上的斜線是「可能有應援」的句子，只依量過的歌詞特徵（括號裡的和聲、英文重複句、出現 3 次以上的句子），附現有歌曲裡的命中率；不會自動寫進去，要按「採用」。歌曲狀態維持「暫定建議」時網站不會顯示。
+- **發布**：會列出要發布的檔案、commit 訊息，網站看得到的改動預設順便寫一條更新日誌（同一天併進當天那一版，不然第三碼 +1）。
+
+舊版對時工作台（<http://localhost:5178/tools/timing/>）還留著備用，之後會拿掉。
 
 **第一次使用**：點兩下就會自動安裝需要的工具（Git、Node.js、FFmpeg、uv，和工作站的 Python 環境：yt-dlp、librosa、PyTorch、Demucs、Whisper；Windows 裝 NVIDIA 顯卡版，約 3–4 GB）。Windows 用 winget，裝完要關掉視窗再點一次；Mac 要先裝好 [Homebrew](https://brew.sh)。安裝腳本在 `tools/studio/setup/`。
 

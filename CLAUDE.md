@@ -15,6 +15,8 @@ node tools/studio/cli.mjs fetch <網址> --id <id>   # 匯入新歌（要能連 
 node tools/studio/cli.mjs analyze <id> --json      # 拍點、BPM、副歌高潮建議（要有 work/<id>/ 的音訊）
 node tools/studio/cli.mjs align <id> --json        # 自動對時預覽（要音訊；--apply 寫回）
 node tools/studio/cli.mjs translate <id> --json    # 用 agy 翻沒有中文的句子（要設定好；--apply 寫回）
+node tools/studio/cli.mjs suggest <id> --json      # 可能有應援的句子（只是候選，附命中率）
+node tools/studio/cli.mjs lyrics <id> --live --json  # 現場版
 ```
 
 - 要改之前先 `show`／`lyrics` 看現況；不確定時加 `--dry-run`，確認變更摘要再真的寫。
@@ -28,14 +30,15 @@ node tools/studio/cli.mjs translate <id> --json    # 用 agy 翻沒有中文的�
 - 查不到現場資料的應援、手燈色都是**預測**：狀態用 `sug`（暫定建議），手燈色開頭加 `?`（`--pen "?赤白"`）。網站不會把預測當真的顯示。
 - 有來源（note、X、演唱會心得、粉絲整理）才能轉正式。來源寫進 `research/<id>.json`（格式見 `docs/studio-plan.md` 第 6 節），之後寫致謝也用得到。
 - 中文翻譯：官方有中文字幕就用官方的；台灣用語、短句、像歌詞。在雲端沒有 agy 時，Claude 可以直接翻，用 `lines` 寫進 `tr`，並告訴使用者哪些句子是 Claude 翻的。
-- 應援動作只有：sing, call, clap, wave, jump, gesture, listen。手燈色只有：青 水 白 赤 桃 紫 橙 黄 緑 彩。
+- 應援動作只有：sing, call, clap, wave, jump, gesture, listen。手燈色只有：青 水 白 赤 桃 紫 橙 黄 緑 彩。反拍拍手寫成 `acts: ["clap"]`、`call: "反拍"`。
+- `suggest` 的建議只是候選（現有歌曲裡命中率 23–71%），不要當成應援資料；有來源才寫進去。
 
 ## 發布
 
 - 在使用者電腦上（工作站所在的地方）：`node tools/studio/cli.mjs publish -m "…"`，會檢查後只 commit 歌曲資料並推上 `main`。
 - 在雲端 session：照 session 指定的分支 commit、push，不要推 `main`；使用者合併後網站才會更新。
 - commit 訊息照現有習慣：`fix(songs): …`、`feat(songs): …`、`fix(lyrics): …`，中文寫。
-- 網站上看得到的改動要寫 `CHANGELOG.md`（規則見 `README.md` 第 5 節）；工作站、工具的改動不用。
+- 網站上看得到的改動要寫 `CHANGELOG.md`（規則見 `README.md` 第 5 節）：用 `publish --changelog "…"` 或 `changelog "…"`，會自動判斷併進當天那一版或開新版；工作站、工具的改動不用寫。
 
 ## 雲端 session 做不到的事
 
