@@ -46,11 +46,13 @@ scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致
 scripts/test-ui.mjs         ← 畫面冒煙測試（Playwright）：開 dist/ 走一遍首頁、歌曲頁、分享、測驗模式、離線、手機版面
 scripts/build.mjs           ← 建置：中文、英文（en/）、日文（jp/）各一份首頁與每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
 tools/timing/               ← 歌詞對時工具（只在本機用，不會發布）：邊播 MV 邊按空白鍵打每句的時間，按「存回歌詞檔」直接寫回 song-lyrics.js / song-lyrics-live.js
+tools/studio/               ← 新歌工作站（只在本機用）：本機伺服器開對時工作台，任何瀏覽器都能存檔，另有「同步」「發布」；規劃見 docs/studio-plan.md
 tools/romaji/               ← 英文版歌詞的羅馬拼音：建置前用 kuromoji 自動產生 song-romaji.json（不進版控），讀錯的寫在 overrides.json
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
 README.md                   ← 這份說明
 google….html               ← Google Search Console 的擁有權驗證檔，不要刪
 開啟網站.command             ← 在自己的 Mac 上看網站時點兩下（開一個本機伺服器）
+工作站.bat／工作站.command    ← 點兩下打開新歌工作站（Windows／Mac）
 ```
 
 資料表說明：
@@ -96,9 +98,20 @@ node scripts/build.mjs dist
 
 直接開原始檔時沒有拆好的歌詞，網頁會自動改讀整份 `song-lyrics.js`；建置後的網頁（`<html data-lyrics="…">`）才會一首一首讀 `lyrics/`。
 
+### 新歌工作站
+
+平常用工作站開對時工作台：Windows 點兩下 `工作站.bat`，Mac 點兩下 `工作站.command`（或 `node tools/studio/server.mjs --open`），會打開 <http://localhost:5178/tools/timing/>。要先裝 [Node.js](https://nodejs.org/) 和 git。
+
+- **存回歌詞檔**、**歌曲資料**：任何瀏覽器都能直接存，不用選資料夾。存檔前會確認檔案在你打開之後沒被改過，避免蓋掉別的分頁或 git pull 的內容。
+- **⟳ 同步**：從 GitHub 拉最新的資料（例如 Claude 推上來的 `research/` 情報包）。
+- **🚀 發布**：跑資料檢查和卡拉OK測試，只 commit 歌曲資料（`songs.js`、`song-lyrics.js`、`song-lyrics-live.js`、`i18n.js`、`research/`），拉遠端最新後推上 `main`，約 2 分鐘網站更新。要在 `main` 分支才能發布；其他檔案的改動不會被帶進去。
+- 網站本身也能在 <http://localhost:5178/> 預覽。
+
+接下來要加的匯入新歌、自動算拍點、自動對時，規劃在 [`docs/studio-plan.md`](docs/studio-plan.md)。
+
 ### 歌詞對時
 
-新增歌曲或修正時間時，用 `tools/timing/` 邊播 MV 邊打時間：
+新增歌曲或修正時間時，用 `tools/timing/` 邊播 MV 邊打時間（建議用上面的工作站開）：
 
 1. 在專案資料夾開靜態伺服器（見上面），打開 <http://localhost:8000/tools/timing/>。
 2. 選歌。已經有歌詞的歌直接列出每一句；新歌先貼上歌詞（一行一句，日文和中譯中間用 Tab 隔開）。

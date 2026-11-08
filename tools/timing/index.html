@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>歌詞對時工作台 (Timing Studio)｜Ado 應援指南</title>
-  <link rel="stylesheet" href="timing.css?v=20261107_2">
+  <link rel="stylesheet" href="timing.css?v=20261108_1">
 </head>
 <body>
   <div class="app-container">
@@ -80,6 +80,9 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
           存回歌詞檔
         </button>
+        <!-- 用工作站（node tools/studio/server.mjs）開的時候才會出現 -->
+        <button id="btnSync" class="btn" style="display: none;" title="從 GitHub 拉最新的資料（例如 Claude 推上來的情報包）">⟳ 同步</button>
+        <button id="btnPublish" class="btn primary" style="display: none;" title="檢查資料後 commit 並推上 main，約 2 分鐘後網站更新">🚀 發布</button>
       </div>
     </header>
 
@@ -862,11 +865,11 @@
   <div id="toast" role="status"></div>
 
   <!-- 資料來源 (加上版本號確保瀏覽器抓取最新檔案不讀舊快取) -->
-  <script src="../../songs.js?v=20261107_2"></script>
-  <script src="../../song-lyrics.js?v=20261107_2"></script>
-  <script src="../../song-lyrics-live.js?v=20261107_2"></script>
-  <script src="lyrics-store.js?v=20261107_2"></script>
-  <script src="song-meta-store.js?v=20261107_2"></script>
-  <script src="timing.js?v=20261107_2"></script>
+  <script src="../../songs.js?v=20261108_1"></script>
+  <script src="../../song-lyrics.js?v=20261108_1"></script>
+  <script src="../../song-lyrics-live.js?v=20261108_1"></script>
+  <script src="lyrics-store.js?v=20261108_1"></script>
+  <script src="song-meta-store.js?v=20261108_1"></script>
+  <script src="timing.js?v=20261108_1"></script>
 </body>
 </html>

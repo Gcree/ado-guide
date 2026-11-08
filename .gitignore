@@ -17,3 +17,8 @@ song-romaji.json
 node_modules/
 __pycache__/
 *.pyc
+
+# 新歌工作站：音檔、分析快取和本機設定（tools/studio/）
+tools/studio/work/
+tools/studio/config.json
+*.studio-tmp
