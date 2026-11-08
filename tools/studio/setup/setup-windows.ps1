@@ -30,12 +30,14 @@ foreach ($p in $need) {
   }
 }
 
-Write-Host "建立 Python 環境（第一次要下載，請稍等）…"
+Write-Host "建立 Python 環境（第一次要下載 PyTorch 顯卡版等，約 3–4 GB，請稍等）…"
 uv sync --project tools/studio/py
 if ($LASTEXITCODE -ne 0) { Write-Host "Python 環境建立失敗，請把上面的訊息貼給 Claude 看。"; exit 1 }
 
-# 之後的人聲分離、自動對時（M3）會用顯卡
-if (Has "nvidia-smi") { Write-Host "OK  偵測到 NVIDIA 顯卡：之後的分析會用它加速" }
-else { Write-Host "--  沒偵測到 NVIDIA 顯卡：之後的分析會用 CPU，比較慢" }
+# 人聲分離、自動對時會用顯卡：確認 PyTorch 真的用得到
+$cuda = uv run --project tools/studio/py python -c "import torch; print('yes' if torch.cuda.is_available() else 'no')"
+if ($cuda -match "yes") { Write-Host "OK  PyTorch 可以用 NVIDIA 顯卡（人聲分離、自動對時會加速）" }
+elseif (Has "nvidia-smi") { Write-Host "--  有 NVIDIA 顯卡，但 PyTorch 用不到：請到 NVIDIA 官網更新顯示卡驅動程式（需要 570 版以上），更新前會用 CPU，比較慢" }
+else { Write-Host "--  沒偵測到 NVIDIA 顯卡：人聲分離、自動對時會用 CPU，比較慢" }
 Write-Host ""
 Write-Host "安裝完成。"

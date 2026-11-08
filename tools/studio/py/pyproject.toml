@@ -1,14 +1,40 @@
 # 新歌工作站的 Python 工具（用 uv 管理，跟系統的 Python 分開）
-# 安裝：uv sync --project tools/studio/py（Windows／Mac 的安裝腳本會自動跑）
-# M1：yt-dlp；M2：librosa（拍點、段落）；M3 會加 demucs、stable-ts（Windows 用 CUDA 版 PyTorch，Mac 用 MPS）
+# 安裝：uv sync --project tools/studio/py（Windows／Mac 的安裝腳本、工作站.bat／.command 會自動跑）
+# M1：yt-dlp；M2：librosa（拍點、段落）；M3：demucs（分離人聲）、stable-ts（Whisper 對齊歌詞）
+# PyTorch：Windows 裝 CUDA 12.8 版（NVIDIA 顯卡加速）；Mac 用一般版（Apple 晶片的 MPS）；Linux 用 CPU 版
 [project]
 name = "ado-studio-tools"
 version = "0.1.0"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 dependencies = [
   "yt-dlp[default]>=2025.10.22",  # default 內含 yt-dlp-ejs：解 YouTube 的 JS 驗證（搭配 --js-runtimes node）
   "librosa>=0.11",                # 拍點、BPM、段落、能量（analyze.py）
+  "soundfile>=0.12",              # 寫 wav（不靠 torchaudio 的存檔，新版改來改去）
+  "torch>=2.7",
+  "torchaudio>=2.7",
+  "demucs>=4.0.1",                # 分離人聲（separate.py）
+  "stable-ts>=2.19",              # Whisper 對齊歌詞（align.py）
 ]
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu128", marker = "sys_platform == 'win32'" },
+  { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+]
+torchaudio = [
+  { index = "pytorch-cu128", marker = "sys_platform == 'win32'" },
+  { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

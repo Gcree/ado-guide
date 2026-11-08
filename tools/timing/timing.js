@@ -3400,6 +3400,53 @@
     }
   }
 
+  // ＋ 工具選單：匯入新歌、自動對時這首、翻譯缺的中文
+  function hasLocalDraft() { return !!store.get(lsKey()); }
+  async function studioLyricsJob(kind) {
+    if (currentVersionMode !== "mv") { alert("自動對時、翻譯目前只做 MV 版。"); return; }
+    if (hasLocalDraft() && !confirm(`〈${S.ja}〉在這台電腦有還沒存回檔案的打點進度。\n${kind === "align" ? "自動對時" : "翻譯"}會用歌詞檔裡的版本，完成後本機進度會被丟掉。\n\n要先存的話按「取消」，再按「存回歌詞檔」。繼續嗎？`)) return;
+    const missing = LINES.filter(l => l.jp && !/^[（(]/.test(l.jp) && !(l.tr || "").trim()).length;
+    const msg = kind === "align"
+      ? `把〈${S.ja}〉目前的日文歌詞對到人聲上，寫回每句的時間？\n（沒有音訊會先下載；第一次會下載模型，沒有顯卡要幾分鐘）`
+      : `把〈${S.ja}〉沒有中文的 ${missing} 句交給 agy 翻譯，寫進歌詞檔？（之後請看過再發布）`;
+    if (kind === "translate" && !missing) { toast("每一句都有中文了"); return; }
+    if (!confirm(msg)) return;
+    toast(kind === "align" ? "自動對時中…" : "翻譯中…");
+    try {
+      const r = await (await studioApi(kind === "align" ? "/api/align" : "/api/translate", { id: S.id, apply: true })).json();
+      if (!r.ok) { alert(`${kind === "align" ? "自動對時" : "翻譯"}失敗：\n${r.error}`); return; }
+      alert(`${r.changes.join("\n") || "沒有變更"}${r.warnings.length ? `\n\n提醒：\n• ${r.warnings.join("\n• ")}` : ""}\n\n按確定重新載入。`);
+      store.set(lsKey(), null);
+      location.reload();
+    } catch (e) {
+      alert(`失敗：${e.message}`);
+    }
+  }
+
+  function studioMenu(e) {
+    e.stopPropagation();
+    document.querySelector(".studio-menu")?.remove();
+    const r = e.currentTarget.getBoundingClientRect();
+    const m = document.createElement("div");
+    m.className = "studio-menu";
+    m.innerHTML = `
+      <button data-act="import">＋ 匯入新歌<small>貼 YouTube 網址：影片資訊、官方字幕、音訊、拍點</small></button>
+      <button data-act="align">⏱ 自動對時這首<small>把目前的日文歌詞對到人聲上（Whisper）</small></button>
+      <button data-act="translate">🌐 翻譯缺的中文<small>沒有中文的句子交給 agy 翻</small></button>`;
+    m.style.top = `${r.bottom + 6}px`;
+    m.style.right = `${Math.max(8, innerWidth - r.right)}px`;
+    document.body.appendChild(m);
+    const close = () => { m.remove(); document.removeEventListener("click", close); };
+    setTimeout(() => document.addEventListener("click", close), 0);
+    m.addEventListener("click", ev => {
+      const b = ev.target.closest("[data-act]");
+      if (!b) return;
+      close();
+      if (b.dataset.act === "import") studioImport();
+      else studioLyricsJob(b.dataset.act);
+    });
+  }
+
   fetch("/api/health", { cache: "no-store" })
     .then(r => (r.ok ? r.json() : null))
     .then(info => {
@@ -3409,7 +3456,7 @@
       canSaveToFile = true;
       if (btnSaveFile) btnSaveFile.title = "檢查後直接寫進專案的 song-lyrics.js / song-lyrics-live.js（Ctrl+S，經由工作站）";
       document.body.classList.add("studio-on");
-      [["btnImport", studioImport], ["btnSync", studioSync], ["btnPublish", studioPublish]].forEach(([id, fn]) => {
+      [["btnImport", studioMenu], ["btnSync", studioSync], ["btnPublish", studioPublish]].forEach(([id, fn]) => {
         const b = $(id);
         if (!b) return;
         b.style.display = "";

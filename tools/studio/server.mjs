@@ -12,7 +12,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, audioFile, commit, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
+import { check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, align, translate, audioFile, commit, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -136,6 +136,23 @@ async function api(req, res, url) {
       const r = await analyze(id, { apply, overwrite, only, bpm, climax, onLog: m => process.stdout.write(`    ${m}`) });
       const w = commit(r);
       if (w.written.length) console.log(`  ✓ 寫入 ${id} 的 ${r.changes.join("、")}`);
+      const { files, ...rest } = r;
+      return send(res, 200, { ok: true, ...rest, written: w.written });
+    } catch (e) {
+      return send(res, 200, { ok: false, error: e.message });
+    }
+  }
+  // 自動對時、翻譯（沒有音訊會先下載）；apply 時寫回歌詞檔
+  if ((p === "/api/align" || p === "/api/translate") && req.method === "POST") {
+    const body = JSON.parse(await readBody(req));
+    const log = m => process.stdout.write(`    ${m}`);
+    try {
+      if (p === "/api/align" && !audioFile(body.id)) await fetchAudio(body.id, { onLog: log });
+      const r = p === "/api/align"
+        ? await align(body.id, { apply: !!body.apply, rebuildGaps: !!body.rebuildGaps, onLog: log })
+        : await translate(body.id, { apply: !!body.apply, all: !!body.all, onLog: log });
+      const w = commit(r);
+      if (w.written.length) console.log(`  ✓ ${body.id}：${r.changes.join("、")}`);
       const { files, ...rest } = r;
       return send(res, 200, { ok: true, ...rest, written: w.written });
     } catch (e) {

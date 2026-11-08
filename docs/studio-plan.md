@@ -1,6 +1,6 @@
 # 新歌工作站（Ado Studio）規劃
 
-> 狀態：M0（本機伺服器、存檔、同步、發布）、M1（貼網址匯入、官方字幕、兩個平台的安裝）、M2（拍點、BPM、段落、副歌高潮）已完成；新介面有設計稿；M3 起規劃中。目標是新增歌曲的時候不用每次都透過 Claude：音檔、BPM、拍點、字幕初稿都由工作站自動算好，人只負責「確認和微調」，存檔後就能直接發布。Claude 改成只做「上網找資料、整理別人提供的應援」，產出一份情報包讓工作站匯入。
+> 狀態：M0（本機伺服器、存檔、同步、發布）、M1（貼網址匯入、官方字幕、兩個平台的安裝）、M2（拍點、BPM、段落、副歌高潮）、M3（分離人聲、自動對時、翻譯）已完成；新介面有設計稿；M4 起規劃中。目標是新增歌曲的時候不用每次都透過 Claude：音檔、BPM、拍點、字幕初稿都由工作站自動算好，人只負責「確認和微調」，存檔後就能直接發布。Claude 改成只做「上網找資料、整理別人提供的應援」，產出一份情報包讓工作站匯入。
 
 ## 0. 我的看法
 
@@ -216,6 +216,15 @@ flowchart TB
 
 翻譯的要求（給 agy 的提示）固定在 `tools/studio/prompts/translate.md`，內容會照網站現有翻譯的風格：台灣用語、短句、保留歌詞換行、專有名詞不翻。
 
+### M3 實際做法與準確度（2026-11-08）
+
+- **分離人聲**：Demucs `htdemucs`（`py/separate.py`），存 `work/<id>/vocals.wav`。有 NVIDIA 用 CUDA、Apple 晶片用 MPS，否則 CPU（60 秒的音訊 CPU 約 24 秒）。
+- **自動對時**：stable-ts 的 `align`（`py/align.py`）：把已知的日文歌詞對到人聲上，一行一段；每句信心＝字的機率平均（≥0.5 高、≥0.3 中、其他低，初步門檻）。漢字後的讀音標注（模(かたど)る）對齊時拿掉、檔案裡保留；和聲括號照樣要唱。沒對上的句子夾在前後句之間平均排。模型：有顯卡 `large-v3`，沒有 `medium`（`config.json` 的 `whisperModel` 可改）。
+- **沒有時間的歌詞**：`lyrics-import` 收「日文<Tab>中文」（不寫時間），先平均排開；加 `--align` 馬上對時，並依結果重新補（間奏）（尾奏）。
+- **翻譯**：只翻沒有中文的句子（`--all` 全部重翻）；說明檔 `prompts/translate.md` 附整首上下文、官方英文字幕（有的話）和網站現有翻譯當風格範例；寫入後記在 `work/<id>/translate.json`（之後介面標「agy 翻譯・待確認」）。
+- **量過的**（雲端沒有真的歌聲：用語音合成念〈シンカ〉8 句、疊在合成音樂上，已知每句開始時間）：Whisper `base` 在分離後的人聲上 8 句全對上，平均差 0.07 秒、最多 0.17 秒；直接用混音平均 0.13、最多 0.29 秒（分離有幫助）。真的歌聲（嘶吼、和聲、長音）會比較難，你的顯卡會用 `large-v3`。
+- **對時工作台**：「＋ 工具」選單：匯入新歌、自動對時這首、翻譯缺的中文；本機有沒存的打點進度會先提醒，完成後重新載入。
+
 ## 5. 應援預測規則（初版）
 
 全部都只是「建議」，寫入時一律是 `sug: true`，逐行動作也只填在 Studio 裡讓你確認。
@@ -391,7 +400,7 @@ flowchart LR
 | M0 ✅ | 點兩下 `工作站.bat`／`工作站.command` 開工作台，任何瀏覽器都能直接存檔；「⟳ 同步」拉 Claude 推的情報包，「🚀 發布」檢查後推上 main | `tools/studio/server.mjs` |
 | M1 ✅ | 貼網址就多一首整理中的歌，不用手改 `songs.js`；官方字幕自動帶入；兩個平台的安裝腳本 | `core.mjs` 的 `fetchSong`（yt-dlp）、`song-meta-store.js` 的 `addSong`、`setup/setup-windows.ps1`、`setup/setup-mac.sh` |
 | M2 ✅ | 新歌的 BPM、拍點、副歌高潮不用再請 Claude 算 | `py/analyze.py`、`core.mjs` 的 `analyze`／`bench` |
-| M3 | 字幕初稿自動出來，只修紅色句子；沒有官方中文時用 agy 翻 | `py/separate.py`、`py/align.py`、`prompts/translate.md` |
+| M3 ✅ | 字幕初稿自動出來，只修紅色句子；沒有官方中文時用 agy 翻 | `py/separate.py`、`py/align.py`、`prompts/translate.md` |
 | M4 | 一個介面做完全部，舊的 `tools/timing/` 退場 | `tools/studio/ui/` |
 | M5 | 匯入 Claude 的情報、勾選採用、按一下就上線 | `research/`、`py/colors.py` |
 
@@ -443,8 +452,8 @@ flowchart TB
 | 貼上歌詞 | `lyrics-import <id> --file …` | ✅ |
 | 檢查燈號、同步、發布 | `check`、`status`、`sync`、`publish -m …` | ✅ |
 | 處理流程：拍點與段落 | `analyze <id> [--apply] [--bpm …]`、`bench`（對答案） | ✅ |
-| 處理流程：分離人聲、字幕對齊 | `analyze <id> --steps separate,align` | M3 |
-| 翻譯 | `translate <id>`（官方字幕 → agy） | M3 |
+| 處理流程：分離人聲、字幕對齊 | `separate <id>`、`align <id> [--apply]`、`lyrics-import … --align` | ✅ |
+| 翻譯 | `translate <id> [--apply]`（官方字幕優先，沒有才 agy） | ✅ |
 | 情報分頁：逐項採用 | `research <id>`（列出差異）、`research <id> --apply 1,3,5` | M5 |
 
 ## 13. 已決定的事（2026-11-08）
