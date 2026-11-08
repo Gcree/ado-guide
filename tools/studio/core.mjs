@@ -2,6 +2,7 @@
 // 每個「改資料」的操作都只回傳「要寫的檔案內容＋變更摘要」，由 commit() 一次寫入；dryRun 時只回報不寫
 // 寫入規則沿用 tools/timing/ 的 lyrics-store.js、song-meta-store.js：只改碰到的那幾行，排版不對就丟錯不冒險
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
@@ -220,10 +221,19 @@ export function importLyrics(id, input, { live = false, keepActs = false } = {},
     for (const k of ["duration", "acts", "sing", "call", "how"]) if (l[k] != null && !(Array.isArray(l[k]) && !l[k].length)) x[k] = l[k];
     return x;
   });
-  if (keepActs) lines.forEach((l, i) => { const o = e.lyrics[i]; if (o) for (const k of ["acts", "sing", "call", "how"]) if (o[k] && l[k] == null) l[k] = o[k]; });
+  // 保留應援：用日文對回原本那一句（不是用第幾行，句數變了也不會錯位）
+  if (keepActs) {
+    const pool = e.lyrics.map(o => ({ o, k: normLine(o.jp), used: false }));
+    for (const l of lines) {
+      const hit = pool.find(x => !x.used && x.k && x.k === normLine(l.jp));
+      if (!hit) continue;
+      hit.used = true;
+      for (const k of ["acts", "sing", "call", "how"]) if (hit.o[k] && l[k] == null) l[k] = hit.o[k];
+    }
+  }
   const old = e.lyrics.length;
   e.lyrics = lines;
-  const r = writeLyrics(e, song, live, db, [`歌詞整首換掉：${old} 句 → ${lines.length} 句${keepActs ? "（保留同一行的應援）" : ""}${untimed ? "；還沒有時間（先平均排開）" : ""}`]);
+  const r = writeLyrics(e, song, live, db, [`歌詞整首換掉：${old} 句 → ${lines.length} 句${keepActs ? "（保留同一句的應援）" : ""}${untimed ? "；還沒有時間（先平均排開）" : ""}`]);
   if (untimed) { r.untimed = true; r.warnings.push(`歌詞沒有時間：先平均排開，請跑 align ${id} --apply 自動對時（或在對時工作台打點）`); }
   return r;
 }
@@ -569,6 +579,8 @@ export async function fetchSong(url, o = {}, { dryRun = false, onLog = () => {} 
 
   const summary = { url: link, id, ja, title: info.title, channel: info.channel, len, date, subs: pick, audio, at: new Date().toISOString() };
   fs.writeFileSync(path.join(dir, "fetch.json"), JSON.stringify({ ...summary, trFrom }, null, 2));
+  // 每一句的來源（給介面標「官方字幕」）：用日文對回去，之後改了順序也對得上
+  if (builtLines.length) fs.writeFileSync(path.join(dir, "sources.json"), JSON.stringify({ timing: "official", lines: builtLines.map((l, i) => ({ jp: l.jp, tr: trFrom[i] || null })) }, null, 2));
   return { files, changes, warnings, summary };
 }
 
@@ -879,4 +891,65 @@ export async function translate(id, { apply = false, all = false, onLog = () => 
     fs.writeFileSync(rec, JSON.stringify(prev, null, 2));
   }
   return result;
+}
+
+
+// ── M4：新介面用 ──
+export const entryHash = e => crypto.createHash("sha1").update(JSON.stringify(e || null)).digest("hex").slice(0, 16);
+const readWork = (id, f) => { try { return JSON.parse(fs.readFileSync(path.join(WORK, id, f), "utf8")); } catch { return null; } };
+
+// 側欄：歌單＋每首在工作站的狀態
+export function songsIndex(db = load()) {
+  return list(db).map(r => {
+    const t = readWork(r.id, "timing-source.json");
+    return { ...r, studio: fs.existsSync(path.join(WORK, r.id)), low: t ? t.lines.filter(x => x.level === "low" || x.level === "none").length : 0 };
+  });
+}
+
+// 一首歌在介面上要的全部資料
+export function songDetail(id, db = load()) {
+  const song = songOrThrow(db, id);
+  const e = db.lyrics.find(x => x.id === id) || null;
+  const a = readWork(id, "analysis.json");
+  let research = null;
+  try { research = JSON.parse(fs.readFileSync(path.join(root, "research", `${id}.json`), "utf8")); } catch {}
+  return {
+    song: { ...show(id, db), credit: song.credit || null, tie: song.tie || "" },
+    lyrics: e ? e.lyrics : [],
+    duration: e?.duration ?? lenToSec(song.len),
+    base: entryHash(e),
+    analysis: a && { bpm: a.bpm, firstBar: a.firstBar, barKnown: a.barKnown, beat: a.beat, sections: a.sections, climaxAudio: a.climaxAudio, envelope: a.envelope },
+    timing: readWork(id, "timing-source.json"),
+    translated: readWork(id, "translate.json"),
+    sources: readWork(id, "sources.json"),
+    research,
+    hasAudio: !!audioFile(id),
+    hasVocals: fs.existsSync(path.join(WORK, id, "vocals.wav")),
+    acts: ACTS, pens: PEN_KEYS
+  };
+}
+
+// 介面存檔：整首歌詞換成介面上的版本。base 是讀取時的指紋：之後檔案被改過（命令列、另一個分頁）就擋下來
+export function saveLyrics(id, lines, base, db = load()) {
+  const song = songOrThrow(db, id);
+  const e = lyricsEntry(db, id, false);
+  if (base && base !== entryHash(db.lyrics.find(x => x.id === id))) {
+    const err = new Error("歌詞檔在你打開之後被改過了（例如命令列、自動對時或另一個分頁）。請重新載入這首歌再改。");
+    err.conflict = true;
+    throw err;
+  }
+  const clean = lines.map(l => {
+    const x = { time: Math.round(Number(l.time) * 1000) / 1000, jp: String(l.jp ?? ""), tr: String(l.tr ?? "") };
+    if (l.duration != null && l.duration !== "") x.duration = Math.round(Number(l.duration) * 100) / 100;
+    for (const k of ["acts", "sing"]) if (Array.isArray(l[k]) && l[k].length) x[k] = l[k].slice();
+    for (const k of ["call", "how"]) if (l[k]) x[k] = String(l[k]);
+    return x;
+  });
+  const before = e.lyrics;
+  let changed = 0;
+  for (let i = 0; i < Math.max(before.length, clean.length); i++) if (JSON.stringify(before[i]) !== JSON.stringify(clean[i])) changed++;
+  const r = writeLyrics({ ...e, lyrics: clean }, song, false, db, [`歌詞：改了 ${changed} 句（共 ${clean.length} 句）`]);
+  const after = loadFrom({ ...db.src, ...r.files });
+  r.base = entryHash(after.lyrics.find(x => x.id === id));
+  return r;
 }
