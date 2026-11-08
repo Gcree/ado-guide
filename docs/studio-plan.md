@@ -1,6 +1,6 @@
 # 新歌工作站（Ado Studio）規劃
 
-> 狀態：M0（本機伺服器、存檔、同步、發布）、M1（貼網址匯入、官方字幕、兩個平台的安裝）已完成；新介面有設計稿；M2 起規劃中。目標是新增歌曲的時候不用每次都透過 Claude：音檔、BPM、拍點、字幕初稿都由工作站自動算好，人只負責「確認和微調」，存檔後就能直接發布。Claude 改成只做「上網找資料、整理別人提供的應援」，產出一份情報包讓工作站匯入。
+> 狀態：M0（本機伺服器、存檔、同步、發布）、M1（貼網址匯入、官方字幕、兩個平台的安裝）、M2（拍點、BPM、段落、副歌高潮）已完成；新介面有設計稿；M3 起規劃中。目標是新增歌曲的時候不用每次都透過 Claude：音檔、BPM、拍點、字幕初稿都由工作站自動算好，人只負責「確認和微調」，存檔後就能直接發布。Claude 改成只做「上網找資料、整理別人提供的應援」，產出一份情報包讓工作站匯入。
 
 ## 0. 我的看法
 
@@ -137,6 +137,18 @@ flowchart LR
   MV["MV 影片（低畫質即可）"] --> FR["ffmpeg 每 2 秒抽一格"]
   FR --> KM["Lab 色彩空間 k-means<br/>對應到 10 種手燈色"] --> PENOUT[["PEN：?色1色2（預測）"]]
 ```
+
+### M2 實際做法與準確度（2026-11-08）
+
+- **拍點**：librosa 找拍，再用「相鄰兩拍各自四捨五入」累加拍數、套固定速度的格子（直接用總時間除會因為 23 毫秒的量化誤差，上百拍後整個套歪）。套得好不好（落在格子上的比例、平均誤差）決定可不可靠；起音偵測固定晚一格（23 毫秒），已扣掉。
+- **兩倍／一半速度**：鼓的打法常常分不出來（〈シンカ〉195 vs 97.5 就是這種）。兩個都說得通時，選「小節第一拍最明顯」的那個速度，並一律列出備選讓人改選。
+- **小節第一拍**：四種可能裡，看大鼓低頻＋和弦變化最常落在哪一拍；明顯勝出才把 BEAT 第三個值寫 1（網站用它標第一拍）。
+- **副歌高潮**：歌詞（後半段裡跟前面重複最長的那句）＋音訊（後半段能量跳升、副歌段落開頭），3 秒內的候選合併計分。
+- **量過的**：
+  - 合成測試歌（128／96／150／195 BPM，已知答案）：BPM 全對（195 靠第一拍判斷選對）、第一小節差 3 毫秒內、最後一次副歌開頭全對；沒有鼓的抒情歌和雜訊會標「不穩」，不會假裝有把握。
+  - 歌詞找副歌高潮，對現有 78 首的 CLIMAX：第一個候選對（差 1.5 秒內）47 首（60%），前三個候選裡有對的 60 首（77%）。
+  - 真實音訊還沒量（雲端連不到 YouTube）：在你的電腦跑 `node tools/studio/cli.mjs bench --download`，會下載現有歌曲的音訊、拿人工調好的 BEAT／CLIMAX 對答案，結果貼給 Claude 調參數。
+- **用法**：匯入新歌時自動分析並填 BEAT／CLIMAX；已有的歌在對時工作台「🎨 歌曲資料」→「分析音訊」，或 `analyze <id>`（`--apply` 寫入，已有人工值要 `--overwrite`）。
 
 ## 4. 字幕自動對時與翻譯
 
@@ -331,7 +343,7 @@ stateDiagram-v2
 | 下載 | `yt-dlp`、`ffmpeg` | 已經在用 |
 | Python 環境 | `uv` | 一行裝好、Windows／Mac 都一樣，不用自己管 venv |
 | 人聲分離 | `demucs`（htdemucs） | 穩定；想要更乾淨的人聲可以換 `audio-separator` 的 BS-Roformer 模型 |
-| 拍點＋小節 | `beat_this`（CPJKU, 2024） | 比 librosa／madmom 準，直接給小節起點，Python 新版本也能裝 |
+| 拍點＋小節 | `librosa`＋固定速度格子（M2 用這個） | 輕、不用顯卡；bench 結果不夠好的話，M3 裝 PyTorch 時再加 `beat_this`（CPJKU, 2024） |
 | 段落 | `librosa`（自相似＋重複） | 進階可試 `allin1`（直接標 verse／chorus），但它在 Windows 上很難裝，列為選配 |
 | 歌詞對齊 | `stable-ts`（Whisper large-v3） | `model.align()` 是「已知歌詞對時間」，比單純辨識準；沒有 GPU 時一首約數分鐘 |
 | 網路時間 | 現有 `karaoke-sources.js` | 直接在 Node 端呼叫 |
@@ -378,7 +390,7 @@ flowchart LR
 | --- | --- | --- |
 | M0 ✅ | 點兩下 `工作站.bat`／`工作站.command` 開工作台，任何瀏覽器都能直接存檔；「⟳ 同步」拉 Claude 推的情報包，「🚀 發布」檢查後推上 main | `tools/studio/server.mjs` |
 | M1 ✅ | 貼網址就多一首整理中的歌，不用手改 `songs.js`；官方字幕自動帶入；兩個平台的安裝腳本 | `core.mjs` 的 `fetchSong`（yt-dlp）、`song-meta-store.js` 的 `addSong`、`setup/setup-windows.ps1`、`setup/setup-mac.sh` |
-| M2 | 新歌的 BPM、拍點、副歌高潮不用再請 Claude 算 | `py/beats.py`、`py/sections.py` |
+| M2 ✅ | 新歌的 BPM、拍點、副歌高潮不用再請 Claude 算 | `py/analyze.py`、`core.mjs` 的 `analyze`／`bench` |
 | M3 | 字幕初稿自動出來，只修紅色句子；沒有官方中文時用 agy 翻 | `py/separate.py`、`py/align.py`、`prompts/translate.md` |
 | M4 | 一個介面做完全部，舊的 `tools/timing/` 退場 | `tools/studio/ui/` |
 | M5 | 匯入 Claude 的情報、勾選採用、按一下就上線 | `research/`、`py/colors.py` |
@@ -430,7 +442,7 @@ flowchart TB
 | 多選一起改、整段平移 | `lines <id> --file …`、`shift <id> --by …` | ✅ |
 | 貼上歌詞 | `lyrics-import <id> --file …` | ✅ |
 | 檢查燈號、同步、發布 | `check`、`status`、`sync`、`publish -m …` | ✅ |
-| 處理流程：拍點與段落 | `analyze <id> --steps beats,sections` | M2 |
+| 處理流程：拍點與段落 | `analyze <id> [--apply] [--bpm …]`、`bench`（對答案） | ✅ |
 | 處理流程：分離人聲、字幕對齊 | `analyze <id> --steps separate,align` | M3 |
 | 翻譯 | `translate <id>`（官方字幕 → agy） | M3 |
 | 情報分頁：逐項採用 | `research <id>`（列出差異）、`research <id> --apply 1,3,5` | M5 |

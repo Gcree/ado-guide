@@ -105,6 +105,7 @@ node scripts/build.mjs dist
 
 **第一次使用**：點兩下就會自動安裝需要的工具（Git、Node.js、FFmpeg、uv，和工作站的 Python 環境 yt-dlp）。Windows 用 winget，裝完要關掉視窗再點一次；Mac 要先裝好 [Homebrew](https://brew.sh)。安裝腳本在 `tools/studio/setup/`。
 
+- **拍點與副歌高潮**：匯入新歌時會從音訊自動算 BPM、第一小節、副歌高潮，填進 BEAT、CLIMAX（速度可能是兩倍或一半時會提醒）。已有的歌在「🎨 歌曲資料」→「分析音訊」，可以改選速度、點選副歌高潮候選、寫入 BEAT。命令列：`analyze <id>`；`bench --download` 拿現有資料對答案，量準確度。
 - **＋ 匯入**：貼 YouTube 網址，新增一首「整理中」的歌：歌名、長度、日期從影片資訊來；頻道有上傳日文字幕的話直接當歌詞初稿（含時間），有繁中字幕就對到每一句的中文（YouTube 自動產生、自動翻譯的字幕不收）；音訊存在 `tools/studio/work/<id>/`，給之後自動算拍點、對時用。命令列：`node tools/studio/cli.mjs fetch <網址> --id <英文 id>`。
 
 - **存回歌詞檔**、**歌曲資料**：任何瀏覽器都能直接存，不用選資料夾。存檔前會確認檔案在你打開之後沒被改過，避免蓋掉別的分頁或 git pull 的內容。

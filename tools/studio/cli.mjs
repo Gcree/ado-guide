@@ -20,6 +20,13 @@ const HELP = `新歌工作站命令列：node tools/studio/cli.mjs <指令> [參
   add --id <id> --yt <網址或ID> --ja <日文歌名> --len m:ss [--zh 中文] [--en 英文] [--ro 羅馬拼音] [--date YYYY-MM-DD] [--cover]
                                             新增一首「整理中」的歌（songs.js＋空的歌詞）
 
+拍點與副歌高潮（音訊分析）
+  analyze <id> [--apply] [--overwrite] [--bpm 195] [--climax 148.08] [--fresh]
+                                            從 work/<id>/ 的音訊算 BPM、第一小節、段落、副歌高潮候選，和現有資料比較
+                                            --apply 寫進 BEAT／CLIMAX（已經有值要加 --overwrite）；--bpm 選兩倍／一半速度的備選
+  fetch-audio <id>                          已經在歌單裡的歌，補下載音訊
+  bench [id …] [--download] [--fresh]       拿現有的 BEAT／CLIMAX 對答案，量分析準不準（結果存 tools/studio/work/bench.json）
+
 歌曲資料
   meta <id> [--status ok|sug|free|hold] [--acts clap,wave|none] [--tips "重點1|重點2"] [--tips-en "…|…"] [--tips-ja "…|…"]
             [--pen 赤白|?赤白|none] [--climax 148.08|none] [--live-yt <ID|none>] [--live-concert "名稱"] [--beat 195,0.124,1|none]
@@ -125,6 +132,57 @@ async function main() {
       if (opt.json) return out(opt, { ok: true, dryRun: !!opt.dryRun, ...r.summary, changes: r.changes, warnings: r.warnings, written: res.written }, "");
       report(opt, res);
       console.log(`\n下一步：node tools/studio/cli.mjs lyrics ${r.summary.id}　看歌詞初稿；在工作台打開 ?song=${r.summary.id} 對時`);
+      return;
+    }
+
+    case "fetch-audio": {
+      const f = await core.fetchAudio(need(id, "要給 id"), { onLog: m => process.stderr.write(`  ${m}`) });
+      return out(opt, { ok: true, file: f }, `音訊：${f}`);
+    }
+
+    case "analyze": {
+      need(id, "要給 id，例如 analyze shinka");
+      const r = await core.analyze(id, {
+        apply: !!opt.apply, overwrite: !!opt.overwrite, fresh: !!opt.fresh,
+        bpm: opt.bpm === true ? undefined : opt.bpm, climax: opt.climax === true ? undefined : opt.climax,
+        onLog: opt.json ? undefined : m => process.stderr.write(`  ${m}`)
+      });
+      const res = core.commit(r, { dryRun: !!opt.dryRun });
+      if (opt.json) { const { files, ...rest } = r; return out(opt, { ok: true, ...rest, written: res.written }, ""); }
+      const b = r.beat, cur = r.current;
+      console.log([
+        `〈${r.ja}〉`,
+        `BPM ${b.bpm}${b.alternatives.length ? `（備選：${b.alternatives.map(x => `${x.bpm}`).join("、")}）` : ""}　第一小節 ${b.firstBar} 秒　第一拍${b.barKnown ? "確定" : "不確定"}`,
+        `　拍點穩定度：${Math.round(b.inliers * 100)}% 落在格子上，平均差 ${b.rmsMs} 毫秒${b.reliable ? "" : "（不穩）"}`,
+        `副歌高潮候選：${r.climaxCandidates.slice(0, 3).map(c => `${core.fmtTime(c.t)}（${c.from}）`).join("、") || "—"}`,
+        `段落：${r.sections.map(s => `${s.label}${s.chorus ? "★" : ""} ${core.fmtTime(s.start)}`).join("　")}`,
+        "",
+        `建議　BEAT ${JSON.stringify(r.suggest.beat)}　CLIMAX ${r.suggest.climax ?? "—"}`,
+        `現在　BEAT ${cur.beat ? JSON.stringify(cur.beat) : "—"}　CLIMAX ${cur.climax ?? "—"}`
+      ].join("\n"));
+      if (opt.apply) report(opt, res);
+      else r.warnings.forEach(w => console.log(`提醒：${w}`));
+      if (!opt.apply) console.log(`\n要寫進去：analyze ${id} --apply${cur.beat || cur.climax != null ? " --overwrite" : ""}`);
+      return;
+    }
+
+    case "bench": {
+      const ids = pos.slice(1);
+      const r = await core.bench(ids, { download: !!opt.download, fresh: !!opt.fresh, onLog: opt.json ? () => {} : m => process.stderr.write(`  ${m}`) });
+      if (opt.json) return out(opt, r, "");
+      const s = r.summary;
+      console.log([
+        `分析了 ${s.songs} 首（沒有音訊略過 ${s.skipped}、失敗 ${s.errors}）`,
+        `BPM：對 ${s.bpm.ok}、差兩倍 ${s.bpm.octave}、錯 ${s.bpm.wrong}；正確答案在備選裡 ${s.bpm.inAlternatives}`,
+        `拍點位置（BPM 對的歌）：${s.beatPhase.within50ms}/${s.beatPhase.of} 首差 50 毫秒內，中位數 ${s.beatPhase.medianMs} 毫秒`,
+        `小節第一拍：${s.bar.ok}/${s.bar.of} 對`,
+        `副歌高潮（差 1.5 秒內）：合併 ${s.climax.ok}/${s.climax.of}，前三個候選 ${s.climax.top3}/${s.climax.of}，只看歌詞 ${s.climax.lyricOnly}/${s.climax.of}`,
+        "",
+        ...r.rows.filter(x => x.error || (x.bpm && x.bpm !== "ok") || x.bar === "wrong" || x.climaxOk === false).map(x =>
+          `  ${x.id.padEnd(14)}${x.error ? "失敗：" + x.error : `BPM ${x.got?.[0]}／${x.want?.[0] ?? "—"} ${x.bpm || ""}${x.bar === "wrong" ? "　第一拍錯" : ""}${x.climaxOk === false ? `　高潮 ${x.climax}／${x.climaxWant}` : ""}`}`),
+        "",
+        "完整結果：tools/studio/work/bench.json（貼給 Claude 看）"
+      ].join("\n"));
       return;
     }
 

@@ -3488,6 +3488,8 @@
     if (!metaDraft.tips.length) metaDraft.tips.push({ zh: "", en: "", ja: "" });
     renderMetaForm();
     setMetaMsg("");
+    // 音訊分析只在工作站模式出現；換歌時清掉上一首的結果
+    if ($("metaAnalyze")) { $("metaAnalyze").style.display = studio ? "" : "none"; $("metaAnalyzeOut").innerHTML = ""; }
     modalSongMeta.classList.add("active");
   }
 
@@ -3525,7 +3527,53 @@
     }
   }
 
+  // ── 歌曲資料面板：音訊分析（工作站模式） ──
+  let analysisPick = null;
+  async function runMetaAnalyze() {
+    const btn = $("btnMetaAnalyze"), box = $("metaAnalyzeOut");
+    btn.disabled = true;
+    box.innerHTML = "分析中…（沒有音訊會先下載，第一次大約半分鐘）";
+    try {
+      const r = await (await studioApi("/api/analyze", { id: S.id })).json();
+      if (!r.ok) { box.innerHTML = `<span class="warn">${esc(r.error)}</span>`; return; }
+      const b = r.beat, options = [{ bpm: b.bpm, firstBar: b.firstBar, barKnown: b.barKnown }, ...b.alternatives];
+      analysisPick = options[0];
+      const cur = r.current.beat ? `[${r.current.beat.join(", ")}]` : "（沒有）";
+      box.innerHTML = `
+        <div class="row"><span class="k">BPM</span>${options.map((o, i) => `<button type="button" class="btn btn-mini meta-chip${i ? "" : " active"}" data-bpm="${i}">${o.bpm}${i ? "" : "（建議）"}</button>`).join("")}
+          <span id="metaBeatDesc"></span></div>
+        <div class="row"><span class="k">穩定度</span>${Math.round(b.inliers * 100)}% 的拍落在格子上，平均差 ${b.rmsMs} 毫秒${b.reliable ? "" : "（不穩，請確認）"}</div>
+        <div class="row"><span class="k">目前</span>BEAT ${cur}<button type="button" id="btnMetaBeatWrite" class="btn btn-mini">寫入 BEAT</button></div>
+        <div class="row"><span class="k">副歌高潮</span>${r.climaxCandidates.slice(0, 3).map(c => `<button type="button" class="btn btn-mini meta-chip" data-climax="${c.t}" title="${esc(c.note || "")}">${c.t} 秒（${esc(c.from)}）</button>`).join("") || "找不到"}<span>點一下填進下面的欄位</span></div>
+        ${r.warnings.map(w => `<div class="warn">• ${esc(w)}</div>`).join("")}`;
+      const desc = () => { $("metaBeatDesc").innerHTML = `第一小節 <b>${analysisPick.firstBar}</b> 秒，第一拍${analysisPick.barKnown ? "確定" : "不確定"}`; };
+      desc();
+      box.querySelectorAll("[data-bpm]").forEach(el => el.addEventListener("click", () => {
+        box.querySelectorAll("[data-bpm]").forEach(x => x.classList.toggle("active", x === el));
+        analysisPick = options[+el.dataset.bpm];
+        desc();
+      }));
+      box.querySelectorAll("[data-climax]").forEach(el => el.addEventListener("click", () => {
+        $("metaClimax").value = el.dataset.climax;
+        box.querySelectorAll("[data-climax]").forEach(x => x.classList.toggle("active", x === el));
+      }));
+      $("btnMetaBeatWrite").addEventListener("click", async () => {
+        const beat = `[${analysisPick.bpm}, ${analysisPick.firstBar}, ${analysisPick.barKnown ? 1 : 0}]`;
+        if (!confirm(`〈${S.ja}〉的 BEAT\n${cur} → ${beat}\n\n確定寫入 songs.js 嗎？`)) return;
+        const w = await (await studioApi("/api/analyze", { id: S.id, apply: true, overwrite: true, only: "beat", bpm: analysisPick.bpm })).json();
+        if (!w.ok) { alert(w.error); return; }
+        toast(w.changes.length ? `已寫入 ${w.changes.join("、")}，記得發布` : "BEAT 跟檔案裡的一樣，沒有變更");
+        if (window.ADO_SONGS?.BEAT) window.ADO_SONGS.BEAT[S.id] = JSON.parse(beat);
+      });
+    } catch (e) {
+      box.innerHTML = `<span class="warn">分析失敗：${esc(e.message)}</span>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   if (modalSongMeta && window.SongMetaStore) {
+    $("btnMetaAnalyze")?.addEventListener("click", runMetaAnalyze);
     $("btnSongMeta")?.addEventListener("click", openSongMeta);
     $("btnCloseSongMeta")?.addEventListener("click", () => modalSongMeta.classList.remove("active"));
     $("btnCancelSongMeta")?.addEventListener("click", () => modalSongMeta.classList.remove("active"));

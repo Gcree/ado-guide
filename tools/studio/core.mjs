@@ -521,9 +521,10 @@ export async function fetchSong(url, o = {}, { dryRun = false, onLog = () => {} 
   const add = addSong({ id, yt: vid, ja, zh: o.zh, en: o.en, ro: o.ro, len, date, cover: o.cover ?? t.cover }, db);
   const changes = [...add.changes], warnings = [];
   const files = { ...add.files };
-  let trFrom = [];
+  let trFrom = [], builtLines = [];
   if (cues.ja?.length) {
     const built = lyricsFromSubs(cues.ja, cues.zh, duration);
+    builtLines = built.lines;
     trFrom = built.trFrom;
     const db2 = loadFrom({ ...db.src, ...files });
     const imp = importLyrics(id, built.lines, {}, db2);
@@ -537,7 +538,199 @@ export async function fetchSong(url, o = {}, { dryRun = false, onLog = () => {} 
   }
   if (t.extra.length) warnings.push(`標題裡的其他資訊（可以寫進「合作」）：${t.extra.join("、")}`);
 
+  // 有音訊就順便分析：新歌還沒有 BEAT／CLIMAX，直接填建議值（失敗不影響匯入）
+  if (audio) {
+    try {
+      const a = await runAnalysis(id, { onLog });
+      const cc = pickClimax(builtLines.length ? lyricClimax(builtLines, duration) : [], a.climaxAudio);
+      let src = files["songs.js"];
+      src = MetaStore.setMapEntry(src, "BEAT", id, [a.bpm, a.firstBar, a.barKnown ? 1 : 0]);
+      if (cc[0] && cc[0].t > 0 && cc[0].t <= duration) src = MetaStore.setMapEntry(src, "CLIMAX", id, cc[0].t);
+      files["songs.js"] = src;
+      changes.push(`拍點：${a.bpm} BPM，第一小節 ${a.firstBar} 秒${a.barKnown ? "" : "（第一拍不確定）"}${cc[0] ? `；副歌高潮 ${fmtTime(cc[0].t)}（${cc[0].from}）` : ""}`);
+      if (a.beat.octaveUncertain) warnings.push(`速度也可能是 ${a.beat.alternatives.map(x => x.bpm).join(" 或 ")}：到「歌曲資料」→ 分析音訊改選（命令列：analyze ${id} --bpm）`);
+      if (!a.beat.reliable) warnings.push("拍點不太穩，BPM 要人確認（「歌曲資料」→ 分析音訊看細節）");
+    } catch (e) {
+      warnings.push(`音訊分析失敗（匯入照常完成）：${e.message.split("\n")[0]}`);
+    }
+  }
+
   const summary = { url: link, id, ja, title: info.title, channel: info.channel, len, date, subs: pick, audio, at: new Date().toISOString() };
   fs.writeFileSync(path.join(dir, "fetch.json"), JSON.stringify({ ...summary, trFrom }, null, 2));
   return { files, changes, warnings, summary };
+}
+
+// ── M2：拍點、BPM、段落、副歌高潮 ──
+// 音訊分析在 py/analyze.py（librosa）；這裡負責叫它、加上歌詞的線索、比對現有資料、寫回 BEAT／CLIMAX
+
+// Python 從哪裡叫：config.json 的 python → 工作站的 Python 環境（uv）→ python3
+export function pythonCommand() {
+  const cfg = studioConfig().python;
+  if (Array.isArray(cfg) && cfg.length) return cfg;
+  if (fs.existsSync(path.join(STUDIO_PY, ".venv"))) return ["uv", "run", "--project", STUDIO_PY, "python"];
+  return [process.platform === "win32" ? "python" : "python3"];
+}
+
+export function audioFile(id) {
+  const dir = path.join(WORK, id);
+  const f = fs.existsSync(dir) && fs.readdirSync(dir).find(x => /^audio\./.test(x) && !/\.part$/.test(x));
+  return f ? path.join(dir, f) : null;
+}
+
+// 已經在歌單裡的歌，補下載音訊（分析、bench 用）
+export async function fetchAudio(id, { onLog = () => {} } = {}) {
+  const s = songOrThrow(load(), id);
+  if (audioFile(id)) return audioFile(id);
+  const dir = path.join(WORK, id);
+  fs.mkdirSync(dir, { recursive: true });
+  onLog(`下載〈${s.ja}〉的音訊…\n`);
+  await ytdlp(["-f", "bestaudio", "-o", path.join(dir, "audio.%(ext)s"), `https://www.youtube.com/watch?v=${s.yt}`]);
+  return audioFile(id);
+}
+
+// 跑音訊分析（有快取：音訊沒變、分析程式版本一樣就直接讀）
+export async function runAnalysis(id, { fresh = false, onLog = () => {} } = {}) {
+  const audio = audioFile(id);
+  if (!audio) throw new Error(`還沒有 ${id} 的音訊：先跑 fetch-audio ${id}（要能連 YouTube）`);
+  const out = path.join(WORK, id, "analysis.json");
+  if (!fresh && fs.existsSync(out) && fs.statSync(out).mtimeMs > fs.statSync(audio).mtimeMs) {
+    try { const a = JSON.parse(fs.readFileSync(out, "utf8")); if (a.version === ANALYSIS_VERSION) return a; } catch {}
+  }
+  onLog("分析音訊（拍點、段落）…\n");
+  const [cmd, ...pre] = pythonCommand();
+  const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "analyze.py"), audio, "--out", out]);
+  if (r.code !== 0) throw new Error(`音訊分析失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
+  return JSON.parse(fs.readFileSync(out, "utf8"));
+}
+const ANALYSIS_VERSION = 1;
+
+// 歌詞找「最後一次副歌開頭」：後半段裡，跟前面某段連續重複最長的那句（最多三個候選）
+// 用現有 78 首的 CLIMAX 量過：第一個候選對（差 1.5 秒內）60%，前三個裡有對的 77%
+const normLine = s => String(s).replace(/[（(][^）)]*[）)]/g, "").replace(/[\s、。，,.!！?？…~〜ー\-「」『』"'’()]/g, "").toLowerCase();
+export function lyricClimax(lines, duration) {
+  const L = lines.map(l => ({ time: l.time, jp: l.jp, k: normLine(l.jp) })).filter(l => l.k);
+  const same = (a, b) => a.k === b.k || (a.k.length >= 8 && a.k.slice(0, 8) === b.k.slice(0, 8));
+  const n = L.length, cands = [];
+  for (let c = 1; c < n; c++) {
+    if (L[c].time < 0.55 * duration) continue;
+    let run = 0;
+    for (let j = 0; j < c; j++) { let m = 0; while (c + m < n && j + m < c && same(L[j + m], L[c + m])) m++; run = Math.max(run, m); }
+    if (run >= 1) cands.push({ t: L[c].time, run, line: L[c].jp });
+  }
+  cands.sort((a, b) => b.run - a.run || b.t - a.t);
+  const uniq = [];
+  for (const x of cands) if (!uniq.some(u => Math.abs(u.t - x.t) < 5)) uniq.push(x);
+  return uniq.slice(0, 3);
+}
+
+// 歌詞和音訊的候選合在一起：3 秒內算同一個，分數相加；有歌詞的用那句的開始時間
+export function pickClimax(lyricC, audioC) {
+  const all = [
+    ...lyricC.map((c, i) => ({ t: c.t, score: 3 - i, from: "歌詞", note: c.line })),
+    ...(audioC || []).slice(0, 3).map((c, i) => ({ t: c.t, score: i === 0 ? 2 : 1, from: "音訊", note: c.why }))
+  ];
+  const groups = [];
+  for (const c of all) {
+    const g = groups.find(g => Math.abs(g.t - c.t) < 3);
+    if (g) { g.score += c.score; g.from.add(c.from); g.notes.push(c.note); if (c.from === "歌詞" && !g.lyric) { g.t = c.t; g.lyric = true; } }
+    else groups.push({ t: c.t, score: c.score, from: new Set([c.from]), notes: [c.note], lyric: c.from === "歌詞" });
+  }
+  groups.sort((a, b) => b.score - a.score || b.t - a.t);
+  return groups.map(g => ({ t: Math.round(g.t * 100) / 100, score: g.score, from: [...g.from].join("＋"), note: g.notes.filter(Boolean).join("／") }));
+}
+
+// 分析一首歌：回傳建議的 BEAT、CLIMAX、和現有資料的比較；apply 時寫回（現有值要 overwrite 才蓋）
+export async function analyze(id, { apply = false, overwrite = false, only, bpm: chooseBpm, climax: chooseClimax, fresh = false, onLog } = {}, db = load()) {
+  const s = songOrThrow(db, id);
+  const a = await runAnalysis(id, { fresh, onLog });
+  const l = db.lyrics.find(x => x.id === id);
+  const lyricC = l && l.lyrics.length ? lyricClimax(l.lyrics, l.duration) : [];
+  const climaxC = pickClimax(lyricC, a.climaxAudio);
+
+  // 選用的速度：預設分析結果，也可以指定備選（例如兩倍速）
+  let pick = { bpm: a.bpm, firstBar: a.firstBar, barKnown: a.barKnown };
+  if (chooseBpm != null) {
+    const alt = [pick, ...a.beat.alternatives].find(x => Math.abs(x.bpm - Number(chooseBpm)) < 0.6);
+    if (!alt) throw new Error(`沒有 ${chooseBpm} BPM 這個選項；可以選：${[a.bpm, ...a.beat.alternatives.map(x => x.bpm)].join("、")}`);
+    pick = alt;
+  }
+  const beat = [pick.bpm, pick.firstBar, pick.barKnown ? 1 : 0];
+  const climax = chooseClimax != null ? Math.round(Number(chooseClimax) * 100) / 100 : climaxC[0]?.t ?? null;
+  const cur = { beat: db.songs.BEAT[id] || null, climax: db.songs.CLIMAX[id] ?? null };
+
+  const result = {
+    id, ja: s.ja,
+    suggest: { beat, climax },
+    current: cur,
+    beat: { ...a.beat, bpm: a.bpm, firstBar: a.firstBar, barKnown: a.barKnown },
+    climaxCandidates: climaxC,
+    sections: a.sections,
+    files: {}, changes: [], warnings: []
+  };
+  if (!a.beat.reliable) result.warnings.push(`拍點不太穩（${Math.round(a.beat.inliers * 100)}% 的拍落在格子上，平均差 ${a.beat.rmsMs} 毫秒）：可能有變速、或是抒情歌，BPM 要人確認`);
+  if (a.beat.octaveUncertain) result.warnings.push(`速度可能是 ${[a.bpm, ...a.beat.alternatives.map(x => x.bpm)].join(" 或 ")}（鼓的打法分不太出來）${a.beat.octavePick ? "，依小節第一拍最明顯的那個選了 " + a.bpm : ""}；不對的話改選另一個（命令列：--bpm）`);
+  if (!pick.barKnown) result.warnings.push("小節第一拍不確定：BEAT 第三個值寫 0，網站只打拍、不標第一拍");
+
+  if (apply) {
+    let src = db.src["songs.js"];
+    const setIf = (name, val, label, old) => {
+      if (val == null) return;
+      if (old != null && !overwrite) { if (JSON.stringify(old) !== JSON.stringify(val)) result.warnings.push(`${label} 已經有值（${JSON.stringify(old)}），沒有蓋掉；要蓋掉加 --overwrite`); return; }
+      const next = MetaStore.setMapEntry(src, name, id, val);
+      if (next !== src) { result.changes.push(`${label}：${old != null ? JSON.stringify(old) + " → " : ""}${JSON.stringify(val)}`); src = next; }
+    };
+    if (only !== "climax") setIf("BEAT", beat, "BEAT", cur.beat);
+    if (only === "beat") { /* 只寫 BEAT */ }
+    else if (climax != null && !(climax > 0 && climax <= lenToSec(s.len))) result.warnings.push(`副歌高潮 ${climax} 不在 MV 長度內，沒有寫入`);
+    else setIf("CLIMAX", climax, "副歌高潮", cur.climax);
+    if (src !== db.src["songs.js"]) result.files["songs.js"] = src;
+  }
+  return result;
+}
+
+// 拿現有（人工調好的）BEAT／CLIMAX 對答案，量分析準不準
+export async function bench(ids, { download = false, fresh = false, onLog = () => {} } = {}) {
+  const db = load();
+  const list = (ids && ids.length ? ids : db.songs.SONGS.map(s => s.id)).filter(id => db.songs.BEAT[id] || db.songs.CLIMAX[id] != null);
+  const rows = [];
+  for (const id of list) {
+    try {
+      if (!audioFile(id)) { if (!download) { rows.push({ id, skip: "沒有音訊" }); continue; } await fetchAudio(id, { onLog }); }
+      onLog(`[${rows.length + 1}/${list.length}] ${id}\n`);
+      const r = await analyze(id, { fresh }, db);
+      const row = { id, got: r.suggest.beat, want: r.current.beat, climax: r.suggest.climax, climaxWant: r.current.climax };
+      const [wb, wf, wk] = r.current.beat || [];
+      if (wb) {
+        const [gb, gf] = r.suggest.beat;
+        const near = (x, y) => Math.abs(x - y) / y < 0.01;
+        row.bpm = near(gb, wb) ? "ok" : near(gb * 2, wb) || near(gb / 2, wb) ? "octave" : "wrong";
+        row.bpmInAlts = row.bpm === "ok" || r.beat.alternatives.some(x => near(x.bpm, wb));
+        if (row.bpm === "ok") {
+          const P = 60 / wb, bar = 4 * P, mod = (x, m) => ((x % m) + m) % m;
+          row.phaseMs = Math.round((mod(gf - wf + P / 2, P) - P / 2) * 1000);
+          if (wk) row.bar = Math.abs(mod(gf - wf + bar / 2, bar) - bar / 2) < 0.06 ? "ok" : "wrong";
+        }
+      }
+      if (r.current.climax != null) {
+        const lyr = r.climaxCandidates.find(c => c.from.includes("歌詞"));
+        row.climaxOk = r.suggest.climax != null && Math.abs(r.suggest.climax - r.current.climax) <= 1.5;
+        row.climaxTop3 = r.climaxCandidates.slice(0, 3).some(c => Math.abs(c.t - r.current.climax) <= 1.5);
+        row.climaxLyricOnly = !!lyr && Math.abs(lyricClimax(db.lyrics.find(x => x.id === id).lyrics, db.lyrics.find(x => x.id === id).duration)[0]?.t - r.current.climax) <= 1.5;
+      }
+      rows.push(row);
+    } catch (e) { rows.push({ id, error: e.message.split("\n")[0] }); }
+  }
+  const done = rows.filter(r => !r.skip && !r.error);
+  const cnt = f => done.filter(f).length;
+  const phases = done.map(r => r.phaseMs).filter(v => v != null).sort((a, b) => a - b);
+  const summary = {
+    songs: done.length, skipped: rows.filter(r => r.skip).length, errors: rows.filter(r => r.error).length,
+    bpm: { ok: cnt(r => r.bpm === "ok"), octave: cnt(r => r.bpm === "octave"), wrong: cnt(r => r.bpm === "wrong"), inAlternatives: cnt(r => r.bpmInAlts) },
+    beatPhase: { within50ms: phases.filter(v => Math.abs(v) <= 50).length, of: phases.length, medianMs: phases.length ? phases[Math.floor(phases.length / 2)] : null },
+    bar: { ok: cnt(r => r.bar === "ok"), of: cnt(r => r.bar) },
+    climax: { ok: cnt(r => r.climaxOk), top3: cnt(r => r.climaxTop3), lyricOnly: cnt(r => r.climaxLyricOnly), of: cnt(r => r.climaxOk != null) }
+  };
+  fs.mkdirSync(WORK, { recursive: true });
+  fs.writeFileSync(path.join(WORK, "bench.json"), JSON.stringify({ at: new Date().toISOString(), summary, rows }, null, 2));
+  return { summary, rows };
 }
