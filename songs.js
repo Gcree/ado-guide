@@ -69,7 +69,7 @@
     { id: "zero", ja: "0", zh: "0", en: "0", ro: "Zero", date: "2025-10-24", yt: "8vm3Tkv43jw", len: "3:01", acts: ["clap"], tips: ["B 段整段拍手"]  },
     { id: "hellosignals", ja: "Hello Signals", zh: "Hello Signals", en: "Hello Signals", ro: "Hello Signals", date: "2025-04-09", yt: "IH-u0Mk_xEY", len: "3:19", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "kittocoaster", ja: "きっとコースター", zh: "Kitto Coaster", en: "Kitto Coaster", ro: "Kitto Coaster", date: "2024-06-18", yt: "nV5SHldicJY", len: "3:02", acts: ["sing"], tips: ["副歌那句疊字由觀眾唱"]  },
-    { id: "lovemeforever", ja: "Love me forever!", zh: "Love me forever!", en: "Love me forever!", ro: "Love me forever!", date: "2026-07-03", yt: "WSuAVkaSC38", len: "4:10", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
+    { id: "lovemeforever", ja: "Love me forever!", zh: "Love me forever!", en: "Love me forever!", ro: "Love me forever!", date: "2026-07-03", yt: "WSuAVkaSC38", len: "4:10", acts: ["call"], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "dnd", ja: "DND feat. KUROMI", zh: "DND feat. KUROMI", en: "DND feat. KUROMI", ro: "DND feat. KUROMI", date: "2026-10-07", yt: "__qvPGatwus", len: "3:08", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "ravensky", ja: "Raven Sky", zh: "Raven Sky", en: "Raven Sky", ro: "Raven Sky", date: "2026-10-16", yt: "7DBSMzbPQzc", len: "4:12", acts: [], tips: ["演唱會尚未公開演唱，目前沒有固定應援，自由跟著節奏"], free: true  },
     { id: "kanjaa", ja: "患者A", zh: "Patient A", en: "Patient A", ro: "Kanja A", date: "2026-10-24", yt: "JO66tA5Yngs", len: "4:49", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
