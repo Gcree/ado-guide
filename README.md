@@ -46,7 +46,8 @@ scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致
 scripts/test-ui.mjs         ← 畫面冒煙測試（Playwright）：開 dist/ 走一遍首頁、歌曲頁、分享、測驗模式、離線、手機版面
 scripts/build.mjs           ← 建置：中文、英文（en/）、日文（jp/）各一份首頁與每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
 tools/timing/               ← 歌詞對時工具（只在本機用，不會發布）：邊播 MV 邊按空白鍵打每句的時間，按「存回歌詞檔」直接寫回 song-lyrics.js / song-lyrics-live.js
-tools/studio/               ← 新歌工作站（只在本機用）：本機伺服器開對時工作台，任何瀏覽器都能存檔，另有「同步」「發布」；規劃見 docs/studio-plan.md
+tools/studio/               ← 新歌工作站（只在本機用）：server.mjs 開介面、cli.mjs 命令列，兩者共用 core.mjs；規劃見 docs/studio-plan.md
+CLAUDE.md                   ← 給 Claude 的工作說明（改資料用工作站命令列、應援資料的規矩、怎麼發布）
 tools/romaji/               ← 英文版歌詞的羅馬拼音：建置前用 kuromoji 自動產生 song-romaji.json（不進版控），讀錯的寫在 overrides.json
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
 README.md                   ← 這份說明
@@ -106,6 +107,7 @@ node scripts/build.mjs dist
 - **⟳ 同步**：從 GitHub 拉最新的資料（例如 Claude 推上來的 `research/` 情報包）。
 - **🚀 發布**：跑資料檢查和卡拉OK測試，只 commit 歌曲資料（`songs.js`、`song-lyrics.js`、`song-lyrics-live.js`、`i18n.js`、`research/`），拉遠端最新後推上 `main`，約 2 分鐘網站更新。要在 `main` 分支才能發布；其他檔案的改動不會被帶進去。
 - 網站本身也能在 <http://localhost:5178/> 預覽。
+- **命令列**：介面能做的事都能用指令做（`node tools/studio/cli.mjs help`），例如 `meta shinka --pen "?赤白"`、`line shinka 12 --acts clap`、`check`、`publish -m "…"`。Claude 也是用這套改資料（見 `CLAUDE.md`）。
 - **新介面設計稿**：<http://localhost:5178/tools/studio/ui/>（還不能用，只是給大家看長相）。
 - **翻譯工具試用**：`node tools/studio/agent-cli.mjs --probe` 會試 agy／gemini／claude 哪個叫得動，並把能用的寫進 `tools/studio/config.json`（只存在這台電腦）。
 

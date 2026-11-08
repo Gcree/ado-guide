@@ -209,5 +209,52 @@
     return { songs: songsOut, i18n: i18nOut, changes, songsChanged: songsOut !== songsSrc, i18nChanged: i18nOut !== i18nSrc };
   }
 
-  return { PEN_KEYS, VALID_ACTS, STATUSES, STATUS_NAME, evalUmd, readMeta, validate, applyMeta };
+  // ── 一行對照表（BEAT、PEN、CLIMAX…）的單一項：值可以是數字、字串或陣列；null 就拿掉 ──
+  // 回傳新的 songs.js 內容；其他項一個字都不動
+  function setMapEntry(songsSrc, name, id, value) {
+    const data = evalUmd(songsSrc);
+    if (!(name in data)) throw new Error(`songs.js 沒有輸出 ${name}`);
+    const p = splitLines(songsSrc), lines = p.lines;
+    const i = findMapLine(lines, name), line = lines[i];
+    const re = new RegExp(`(\\{ |, )${id}: ("[^"]*"|-?[\\d.]+|\\[[^\\]]*\\])(?=, | \\})`);
+    const m = line.match(re), has = id in data[name];
+    if (has !== !!m) throw new Error(`songs.js 的 ${name} 裡 ${id} 那一項的寫法跟預期不同，為了不改壞，沒有寫入`);
+    const empty = value == null || value === "";
+    if (m && !empty && str(JSON.parse(m[2])) === str(value)) return songsSrc;
+    if (!m && empty) return songsSrc;
+    let nl;
+    if (m && empty) nl = m[1] === "{ " ? line.replace(`{ ${id}: ${m[2]}${line.includes(`{ ${id}: ${m[2]}, `) ? ", " : ""}`, "{ ") : line.replace(m[0], "");
+    else if (m) nl = line.replace(m[0], `${m[1]}${id}: ${val(value)}`);
+    else nl = line.replace(/ \};$/, `${Object.keys(data[name]).length ? "," : ""} ${id}: ${val(value)} };`);
+    lines[i] = nl;
+    const out = joinLines(p, lines);
+    const after = evalUmd(out)[name];
+    if (str(empty ? undefined : value) !== str(after[id]) || Object.keys(after).length !== Object.keys(data[name]).length + (empty ? -1 : has ? 0 : 1)) {
+      throw new Error(`songs.js 的 ${name} 寫入後讀回來不一致，沒有寫入`);
+    }
+    return out;
+  }
+
+  // ── 新增一首歌到 SONGS：原創曲放在「// 翻唱」那行前面，翻唱曲（cover: true）放在最後 ──
+  function addSong(songsSrc, song) {
+    const data = evalUmd(songsSrc);
+    if (data.SONGS.some(s => s.id === song.id)) throw new Error(`songs.js 已經有 ${song.id}`);
+    const p = splitLines(songsSrc), lines = p.lines;
+    const a = lines.indexOf("  const SONGS = ["), b = a < 0 ? -1 : lines.indexOf("  ];", a);
+    if (a < 0 || b < 0) throw new Error("songs.js 裡找不到 const SONGS = [ … ];");
+    const cover = lines.findIndex((l, k) => k > a && k < b && l.trim() === "// 翻唱");
+    const at = song.cover || cover < 0 ? b : cover;
+    // 插入位置前一行要有逗號
+    let prev = at - 1;
+    while (prev > a && !lines[prev].trim().startsWith("{")) prev--;
+    if (prev > a && !lines[prev].endsWith(",")) lines[prev] += ",";
+    lines.splice(at, 0, `    ${objLine(song)}${at === b ? "" : ","}`);
+    const out = joinLines(p, lines);
+    const after = evalUmd(out).SONGS;
+    const got = after.find(s => s.id === song.id);
+    if (after.length !== data.SONGS.length + 1 || !got || got.yt !== song.yt || got.len !== song.len) throw new Error("songs.js 新增後讀回來不一致，沒有寫入");
+    return out;
+  }
+
+  return { PEN_KEYS, VALID_ACTS, STATUSES, STATUS_NAME, evalUmd, readMeta, validate, applyMeta, setMapEntry, addSong };
 });

@@ -378,7 +378,57 @@ flowchart LR
 
 M0–M2 不需要 GPU、裝起來也輕，建議先做；M3 的模型比較大（Whisper large-v3 約 3 GB），可以等前面順了再加。
 
-## 12. 已決定的事（2026-11-08）
+## 12. Claude 也能操作：同一套核心、兩個入口
+
+工作站是你我共用的。原則：**介面上的每個按鈕都對應一個命令列指令，兩邊呼叫同一份 `tools/studio/core.mjs`**，所以不管誰操作，檢查和寫入規則都一樣，也不會出現「介面能做、指令做不到」的事。
+
+```mermaid
+flowchart TB
+  subgraph WHO["誰在操作"]
+    YOU["你：瀏覽器介面"]
+    CLL["Claude（你電腦上的 Claude Code）"]
+    CLC["Claude（雲端 session）"]
+  end
+  YOU --> SRV["server.mjs<br/>HTTP API"]
+  CLL --> CLI["cli.mjs<br/>一行一個指令，--json 輸出"]
+  CLC --> CLI
+  SRV --> CORE["core.mjs<br/>list・show・lyrics・add・meta<br/>line・lines・shift・lyrics-import<br/>check・status・sync・publish"]
+  CLI --> CORE
+  CORE --> STORE["lyrics-store.js・song-meta-store.js<br/>只改那幾行、寫入前檢查"]
+  STORE --> REPO[("songs.js・song-lyrics.js<br/>song-lyrics-live.js・i18n.js")]
+  CORE --> PY["Python 分析工具<br/>（M1 起：fetch・analyze・align・translate）"]
+  PY -. "只在你的電腦" .-> WORK[("work/&lt;id&gt;/")]
+  CORE --> GIT{"發布"}
+  GIT -- "你的電腦" --> MAIN["推 main → 網站更新"]
+  GIT -- "雲端 Claude" --> BR["推自己的分支 → 你合併"]
+```
+
+**給 Claude 的設計**（`CLAUDE.md` 會告訴之後每個 session 怎麼用）：
+
+- 每個指令都能加 `--json` 拿結構化結果，失敗時 exit code 1、回 `{"ok":false,"error":"…"}`；錯誤訊息直接說哪裡不對、可以填什麼。
+- 每個改資料的指令都能加 `--dry-run`：先看變更摘要，確認了再寫。
+- 句子用編號（從 1）指定，`lines` 一次吃一份 JSON 改很多句，不用一句一句跑。
+- 介面開著時 Claude 用指令改了檔案，介面存檔前會發現檔案被改過而擋下來，不會互相蓋掉。
+- 雲端 session 不能下載 YouTube、沒有顯卡：查資料、整理情報包、改歌曲資料和歌詞、跑檢查都能做；分析類的指令要在你的電腦上跑。
+
+**按鈕 ↔ 指令對照**（✅ 已經有；其他跟著各階段一起做）：
+
+| 介面 | 指令 | 階段 |
+| --- | --- | --- |
+| 歌曲清單 | `list`、`show <id>` | ✅ |
+| 歌詞列表 | `lyrics <id>` | ✅ |
+| 貼網址匯入 | `add --id … --yt … --ja … --len …`（手動填）→ M1 起 `fetch <網址>` 自動填 | ✅／M1 |
+| 歌曲資料面板 | `meta <id> --status … --acts … --tips … --pen … --climax … --beat …` | ✅ |
+| 時間軸改一句、拖曳 | `line <id> <N> --time … --tr … --acts …` | ✅ |
+| 多選一起改、整段平移 | `lines <id> --file …`、`shift <id> --by …` | ✅ |
+| 貼上歌詞 | `lyrics-import <id> --file …` | ✅ |
+| 檢查燈號、同步、發布 | `check`、`status`、`sync`、`publish -m …` | ✅ |
+| 處理流程：拍點與段落 | `analyze <id> --steps beats,sections` | M2 |
+| 處理流程：分離人聲、字幕對齊 | `analyze <id> --steps separate,align` | M3 |
+| 翻譯 | `translate <id>`（官方字幕 → agy） | M3 |
+| 情報分頁：逐項採用 | `research <id>`（列出差異）、`research <id> --apply 1,3,5` | M5 |
+
+## 13. 已決定的事（2026-11-08）
 
 1. **平台**：Windows 先用，之後搬到 Mac mini（Apple 晶片），安裝腳本做兩版。
 2. **發布**：直接推 `main`。
@@ -386,6 +436,7 @@ M0–M2 不需要 GPU、裝起來也輕，建議先做；M3 的模型比較大�
 4. **情報包**：`research/<id>.json` 進版控（建置不會把它放上網站）。
 5. **顯卡**：Windows 那台有 NVIDIA → 安裝腳本裝 PyTorch CUDA 版，人聲分離和 Whisper 對齊都用顯卡（預估一首一兩分鐘，實際看顯卡）。
 6. **介面**：另做一套新設計「Backstage」（第 8 節），不沿用對時工作台。
+7. **你我共用**：每個功能都要有命令列指令，Claude 也能直接操作（第 12 節）。
 
 還要確認：
 
