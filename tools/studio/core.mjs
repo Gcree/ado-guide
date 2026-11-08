@@ -23,7 +23,11 @@ const read = f => fs.readFileSync(path.join(root, f), "utf8");
 
 // ── 讀 ──
 export function load() {
-  const src = Object.fromEntries(FILES.map(f => [f, read(f)]));
+  return loadFrom(Object.fromEntries(FILES.map(f => [f, read(f)])));
+}
+
+// 從檔案內容（而不是磁碟）建資料；串連多個操作時用（例如先新增歌曲、再匯入歌詞）
+export function loadFrom(src) {
   const songs = MetaStore.evalUmd(src["songs.js"]);
   const lyrics = MetaStore.evalUmd(src["song-lyrics.js"]);
   const live = MetaStore.evalUmd(src["song-lyrics-live.js"]);
@@ -354,4 +358,186 @@ export function notes(db = load()) {
 
 export async function check() {
   return { ...(await runChecks()), notes: notes() };
+}
+
+// ── M1：從 YouTube 匯入新歌 ──
+// 只認頻道「上傳」的字幕（info.subtitles），不收 YouTube 自動產生／自動翻譯的（automatic_captions）
+const STUDIO_PY = path.join(here, "py");
+export const WORK = path.join(here, "work");
+const SUB_LANGS = { ja: ["ja", "ja-JP"], zh: ["zh-Hant", "zh-TW", "zh-HK"], zhHans: ["zh-Hans", "zh-CN", "zh"], en: ["en", "en-US", "en-GB"] };
+
+export function studioConfig() {
+  try { return JSON.parse(fs.readFileSync(path.join(here, "config.json"), "utf8")); } catch { return {}; }
+}
+
+// yt-dlp 從哪裡叫：config.json 的 ytdlp → 工作站的 Python 環境（uv）→ PATH 上的 yt-dlp
+export function ytdlpCommand() {
+  const cfg = studioConfig().ytdlp;
+  if (Array.isArray(cfg) && cfg.length) return cfg;
+  if (fs.existsSync(path.join(STUDIO_PY, ".venv"))) return ["uv", "run", "--project", STUDIO_PY, "yt-dlp"];
+  return ["yt-dlp"];
+}
+
+function runSplit(cmd, args, { onLog } = {}) {
+  return new Promise(resolve => {
+    const p = spawn(cmd, args, { cwd: root, env: { ...process.env, PYTHONIOENCODING: "utf-8" }, windowsHide: true });
+    let out = "", err = "";
+    p.stdout.on("data", d => (out += d));
+    p.stderr.on("data", d => { err += d; onLog?.(String(d)); });
+    p.on("error", e => resolve({ code: -1, out, err: err + e.message }));
+    p.on("close", code => resolve({ code, out, err }));
+  });
+}
+
+async function ytdlp(args, opts) {
+  const [cmd, ...pre] = ytdlpCommand();
+  // YouTube 要跑 JS 驗證：用工作站自己的 Node，不用另外裝 deno
+  const r = await runSplit(cmd, [...pre, "--js-runtimes", `node:${process.execPath}`, "--no-playlist", "--no-progress", ...args], opts);
+  if (r.code !== 0) {
+    const tail = r.err.trim().split("\n").slice(-6).join("\n");
+    throw new Error(`yt-dlp 失敗（${r.code}）：\n${tail}\n\n常見原因：網路、影片不公開，或 yt-dlp 太舊（更新：uv lock --upgrade-package yt-dlp --project tools/studio/py && uv sync --project tools/studio/py）`);
+  }
+  return r;
+}
+
+export const youtubeId = url => String(url || "").match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/|\/live\/|^)([\w-]{11})(?:[&?#/]|$)/)?.[1] || null;
+
+// 影片標題 → 日文歌名：拿掉【Ado】、Ado -、(Music Video)、MV 這些；「歌ってみた」視為翻唱
+export function cleanTitle(title) {
+  let t = String(title || "");
+  const cover = /歌ってみた|歌いました|cover/i.test(t);
+  const extra = [];
+  const NOISE = /ado|music\s*video|\bmv\b|official|lyric|歌ってみた|歌いました|cover/i;
+  const TIE = /主題歌|主題曲|挿入歌|\bOP\b|\bED\b|\bCM\b|テーマ|タイアップ|from |ドラマ|映画|アニメ/i;
+  // 【Ado】【歌ってみた】這類標記拿掉；其他【】當補充資訊
+  t = t.replace(/【([^】]*)】/g, (m, inner) => (NOISE.test(inner) ? " " : (extra.push(inner.trim()), " ")));
+  // 括號：MV／Official 之類拿掉，主題曲之類當補充資訊
+  t = t.replace(/[(（[［]([^)）\]］]*)[)）\]］]/g, (m, inner) => {
+    if (NOISE.test(inner)) return " ";
+    if (TIE.test(inner)) { extra.push(inner.trim()); return " "; }
+    return m;
+  });
+  t = t.replace(/歌ってみた|歌いました/g, " ").replace(/\b(Official\s+)?(Music\s+Video|MV|Lyric\s+Video)\b/gi, " ");
+  // Ado『曲名』／Ado「曲名」：曲名在引號裡
+  const q = t.match(/[『「]([^』」]+)[』」]/);
+  if (q && /^\s*(Ado)?\s*$/i.test(t.replace(q[0], ""))) t = q[1];
+  t = t.replace(/^\s*Ado\s*[-–—|｜:：/／]?\s+/i, "").replace(/\s*[-–—|｜/／]\s*Ado\s*$/i, "");
+  t = t.replace(/\s+/g, " ").replace(/^[\s\-–—|｜/／:：]+|[\s\-–—|｜/／:：]+$/g, "").trim();
+  return { ja: t, cover, extra };
+}
+
+const toSec = s => s.split(":").reduce((a, b) => a * 60 + parseFloat(b), 0);
+const r2 = v => Math.round(v * 100) / 100;
+
+// WebVTT → [{ start, end, text }]；拿掉標籤、♪，相同文字連續的 cue 合成一個
+export function parseVtt(text) {
+  const cues = [];
+  for (const block of String(text).replace(/\r/g, "").split(/\n{2,}/)) {
+    const rows = block.split("\n");
+    const i = rows.findIndex(l => l.includes("-->"));
+    if (i < 0) continue;
+    const [a, z] = rows[i].split("-->").map(x => toSec(x.trim().split(/\s+/)[0]));
+    const t = rows.slice(i + 1).join(" ")
+      .replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ")
+      .replace(/[♪♫]/g, "").replace(/\s+/g, " ").trim();
+    if (!t || !Number.isFinite(a) || !Number.isFinite(z)) continue;
+    const prev = cues[cues.length - 1];
+    if (prev && prev.text === t && a - prev.end < 0.3) prev.end = z;
+    else cues.push({ start: a, end: z, text: t });
+  }
+  return cues;
+}
+
+// 官方日文字幕 → 歌詞；中文字幕依時間重疊對到每一句；空檔超過 6 秒補（間奏）／（尾奏）
+export function lyricsFromSubs(ja, zh, duration) {
+  const lines = [], trFrom = [];
+  ja.forEach((c, k) => {
+    let best = null, bestOv = 0;
+    for (const z of zh || []) {
+      const ov = Math.min(c.end, z.end) - Math.max(c.start, z.start);
+      if (ov > bestOv) { bestOv = ov; best = z; }
+    }
+    const ok = best && bestOv >= 0.3 * Math.min(c.end - c.start, best.end - best.start);
+    lines.push({ time: r2(c.start), jp: c.text, tr: ok ? best.text : "" });
+    trFrom.push(ok ? "official" : null);
+    const next = ja[k + 1], until = next ? next.start : duration;
+    if (until - c.end > 6) {
+      lines.push({ time: r2(c.end), jp: next ? "（間奏）" : "（尾奏）", tr: "", duration: r2(until - c.end) });
+      trFrom.push(null);
+    }
+  });
+  return { lines, trFrom };
+}
+
+// 貼網址 → 新增一首「整理中」的歌：歌曲資料用影片資訊，歌詞用官方字幕（有的話），音訊存到 work/<id>/
+export async function fetchSong(url, o = {}, { dryRun = false, onLog = () => {} } = {}) {
+  const vid = youtubeId(url);
+  if (!vid) throw new Error("不是 YouTube 網址");
+  const db = load();
+  const dup = db.songs.SONGS.find(s => s.yt === vid);
+  if (dup) throw new Error(`這支影片已經在歌單裡了：〈${dup.ja}〉（${dup.id}）`);
+  const link = `https://www.youtube.com/watch?v=${vid}`;
+
+  onLog("讀取影片資訊…\n");
+  const info = JSON.parse((await ytdlp(["-J", "--skip-download", link])).out);
+  const t = cleanTitle(info.title);
+  const ja = o.ja || t.ja;
+  const id = o.id || (/^[\x20-\x7e]+$/.test(ja) ? ja.toLowerCase().replace(/[^a-z0-9]/g, "") : "");
+  if (!id) throw new Error(`歌名「${ja}」不是英文，請用 --id 指定網址用的英文 id（小寫英文和數字），例如 --id shinka`);
+  if (db.songs.SONGS.some(s => s.id === id)) throw new Error(`id「${id}」已經有人用了`);
+  const duration = Math.round(info.duration || 0);
+  if (!duration) throw new Error("讀不到影片長度");
+  const len = `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, "0")}`;
+  const d = info.release_date || info.upload_date || "";
+  const date = /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` : undefined;
+
+  const dir = path.join(WORK, id);
+  fs.mkdirSync(dir, { recursive: true });
+  const keep = ["id", "title", "channel", "channel_id", "uploader", "duration", "upload_date", "release_date", "description", "webpage_url"];
+  fs.writeFileSync(path.join(dir, "info.json"), JSON.stringify({ ...Object.fromEntries(keep.map(k => [k, info[k]])), subtitles: Object.keys(info.subtitles || {}), automatic_captions: Object.keys(info.automatic_captions || {}).length }, null, 2));
+
+  // 頻道上傳的字幕
+  const have = Object.keys(info.subtitles || {});
+  const pick = Object.fromEntries(Object.entries(SUB_LANGS).map(([k, list]) => [k, list.find(l => have.includes(l)) || null]));
+  const want = Object.values(pick).filter(Boolean);
+  const cues = {};
+  if (want.length) {
+    onLog(`下載官方字幕：${want.join("、")}…\n`);
+    await ytdlp(["--skip-download", "--write-subs", "--sub-langs", want.join(","), "--sub-format", "vtt", "-o", path.join(dir, "sub.%(ext)s"), link]);
+    for (const [k, lang] of Object.entries(pick)) {
+      const f = path.join(dir, `sub.${lang}.vtt`);
+      if (lang && fs.existsSync(f)) cues[k] = parseVtt(fs.readFileSync(f, "utf8"));
+    }
+  }
+
+  let audio = null;
+  if (!dryRun && !o.noAudio) {
+    onLog("下載音訊…\n");
+    await ytdlp(["-f", "bestaudio", "-o", path.join(dir, "audio.%(ext)s"), link]);
+    audio = fs.readdirSync(dir).find(f => f.startsWith("audio.")) || null;
+  }
+
+  // 歌曲＋歌詞（同一次寫入）
+  const add = addSong({ id, yt: vid, ja, zh: o.zh, en: o.en, ro: o.ro, len, date, cover: o.cover ?? t.cover }, db);
+  const changes = [...add.changes], warnings = [];
+  const files = { ...add.files };
+  let trFrom = [];
+  if (cues.ja?.length) {
+    const built = lyricsFromSubs(cues.ja, cues.zh, duration);
+    trFrom = built.trFrom;
+    const db2 = loadFrom({ ...db.src, ...files });
+    const imp = importLyrics(id, built.lines, {}, db2);
+    Object.assign(files, imp.files);
+    const nTr = trFrom.filter(Boolean).length, nJp = built.lines.filter(l => !/^（.*）$/.test(l.jp)).length;
+    changes.splice(changes.indexOf("song-lyrics.js 加一筆空歌詞"), 1, `歌詞：官方日文字幕 ${nJp} 句${cues.zh ? `，官方中文對上 ${nTr} 句` : ""}`);
+    if (!cues.zh) warnings.push(`沒有官方繁中字幕${cues.zhHans ? "（有簡中，可以參考）" : ""}：之後用 agy 翻（M3），或自己補`);
+    else if (nTr < nJp) warnings.push(`有 ${nJp - nTr} 句沒對到官方中文`);
+  } else {
+    warnings.push("沒有官方日文字幕：用 lyrics-import 貼歌詞，之後 M3 會自動對時");
+  }
+  if (t.extra.length) warnings.push(`標題裡的其他資訊（可以寫進「合作」）：${t.extra.join("、")}`);
+
+  const summary = { url: link, id, ja, title: info.title, channel: info.channel, len, date, subs: pick, audio, at: new Date().toISOString() };
+  fs.writeFileSync(path.join(dir, "fetch.json"), JSON.stringify({ ...summary, trFrom }, null, 2));
+  return { files, changes, warnings, summary };
 }

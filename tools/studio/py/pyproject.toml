@@ -1,0 +1,13 @@
+# 新歌工作站的 Python 工具（用 uv 管理，跟系統的 Python 分開）
+# 安裝：uv sync --project tools/studio/py（Windows／Mac 的安裝腳本會自動跑）
+# M1 只需要 yt-dlp；M2 起會加 librosa、beat_this，M3 加 demucs、stable-ts（Windows 用 CUDA 版 PyTorch，Mac 用 MPS）
+[project]
+name = "ado-studio-tools"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "yt-dlp[default]>=2025.10.22",  # default 內含 yt-dlp-ejs：解 YouTube 的 JS 驗證（搭配 --js-runtimes node）
+]
+
+[tool.uv]
+package = false

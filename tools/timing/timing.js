@@ -3379,6 +3379,27 @@
     }
   }
 
+  // 匯入新歌：貼網址 → 工作站讀影片資訊和官方字幕，新增一首「整理中」的歌，完成後打開它
+  async function studioImport() {
+    const url = prompt("貼上 YouTube 網址（Ado 官方 MV）：");
+    if (!url || !url.trim()) return;
+    const id = prompt("這首歌網址用的英文 id（小寫英文和數字，例如 shinka）。\n歌名是英文的話可以留空，會自動產生：", "");
+    if (id === null) return;
+    const btn = $("btnImport");
+    btn.disabled = true;
+    toast("匯入中：讀影片資訊、下載字幕和音訊…（大約半分鐘）");
+    try {
+      const r = await (await studioApi("/api/fetch", { url: url.trim(), id: id.trim() })).json();
+      if (!r.ok) { alert(`匯入失敗：\n${r.error}`); return; }
+      alert(`已新增〈${r.ja}〉（${r.id}）\n\n• ${r.changes.join("\n• ")}${r.warnings.length ? `\n\n提醒：\n• ${r.warnings.join("\n• ")}` : ""}\n\n按確定打開這首歌。`);
+      location.href = `?song=${encodeURIComponent(r.id)}`;
+    } catch (e) {
+      alert(`匯入失敗：${e.message}`);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   fetch("/api/health", { cache: "no-store" })
     .then(r => (r.ok ? r.json() : null))
     .then(info => {
@@ -3388,7 +3409,7 @@
       canSaveToFile = true;
       if (btnSaveFile) btnSaveFile.title = "檢查後直接寫進專案的 song-lyrics.js / song-lyrics-live.js（Ctrl+S，經由工作站）";
       document.body.classList.add("studio-on");
-      [["btnSync", studioSync], ["btnPublish", studioPublish]].forEach(([id, fn]) => {
+      [["btnImport", studioImport], ["btnSync", studioSync], ["btnPublish", studioPublish]].forEach(([id, fn]) => {
         const b = $(id);
         if (!b) return;
         b.style.display = "";

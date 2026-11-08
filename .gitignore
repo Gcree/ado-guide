@@ -22,3 +22,6 @@ __pycache__/
 tools/studio/work/
 tools/studio/config.json
 *.studio-tmp
+
+# 新歌工作站的 Python 環境
+tools/studio/py/.venv/

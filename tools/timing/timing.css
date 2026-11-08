@@ -2050,3 +2050,4 @@ li.cue-item.changed .cue-time::after {
 /* 工作站模式（node tools/studio/server.mjs）：任何瀏覽器都能直接存檔，用不到複製／下載 JSON，讓位給「同步」「發布」 */
 body.studio-on #btnCopy,
 body.studio-on #btnDownload { display: none; }
+body.studio-on .brand-title { display: none; }

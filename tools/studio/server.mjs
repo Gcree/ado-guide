@@ -12,7 +12,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { check, gitStatus, publish, sync, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
+import { check, gitStatus, publish, sync, fetchSong, commit, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -115,6 +115,19 @@ async function api(req, res, url) {
   if (p === "/api/status" && req.method === "GET") return send(res, 200, await gitStatus());
   if (p === "/api/check" && req.method === "POST") return send(res, 200, await check());
   if (p === "/api/sync" && req.method === "POST") return send(res, 200, await sync());
+  if (p === "/api/fetch" && req.method === "POST") {
+    const { url, id, ja, cover, noAudio } = JSON.parse(await readBody(req));
+    console.log(`  匯入：${url}`);
+    try {
+      const r = await fetchSong(url, { id: id || undefined, ja: ja || undefined, cover, noAudio }, { onLog: m => process.stdout.write(`    ${m}`) });
+      const w = commit(r);
+      console.log(`  ✓ 新增 ${r.summary.id}：${w.written.join("、")}`);
+      return send(res, 200, { ok: true, ...r.summary, changes: r.changes, warnings: r.warnings, written: w.written });
+    } catch (e) {
+      console.log(`  ✗ ${e.message.split("\n")[0]}`);
+      return send(res, 200, { ok: false, error: e.message });
+    }
+  }
   if (p === "/api/publish" && req.method === "POST") {
     const { message } = JSON.parse(await readBody(req));
     const msg = String(message || "").trim();

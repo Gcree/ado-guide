@@ -14,6 +14,9 @@ const HELP = `新歌工作站命令列：node tools/studio/cli.mjs <指令> [參
   lyrics <id> [--from N] [--to M] [--live]  逐句列出（編號、時間、日文、中文、應援）
 
 新增
+  fetch <YouTube 網址> [--id <id>] [--ja 歌名] [--zh 中文] [--en 英文] [--ro 羅馬拼音] [--cover] [--no-audio]
+                                            貼網址匯入新歌：讀影片資訊、官方日文／繁中字幕當歌詞初稿、音訊存到 tools/studio/work/<id>/
+                                            日文歌名要給 --id（網址用的英文）；--dry-run 只下載資訊和字幕來看，不改歌單
   add --id <id> --yt <網址或ID> --ja <日文歌名> --len m:ss [--zh 中文] [--en 英文] [--ro 羅馬拼音] [--date YYYY-MM-DD] [--cover]
                                             新增一首「整理中」的歌（songs.js＋空的歌詞）
 
@@ -112,6 +115,17 @@ async function main() {
         const extra = [l.acts?.length ? `[${l.acts.join(",")}]` : "", l.sing ? `唱:${l.sing.join(",")}` : "", l.call ? `喊:${l.call}` : ""].filter(Boolean).join(" ");
         return `${String(l.n).padStart(3)}  ${core.fmtTime(l.time)}  ${l.jp}${l.tr ? `　｜${l.tr}` : ""}${extra ? `　${extra}` : ""}`;
       }).join("\n"));
+    }
+
+    case "fetch": {
+      const url = need(id, "要給 YouTube 網址，例如 fetch https://youtu.be/xxxxxxxxxxx --id shinka");
+      const onLog = opt.json ? () => {} : m => process.stderr.write(`  ${m}`);
+      const r = await core.fetchSong(url, { id: opt.id === true ? undefined : opt.id, ja: opt.ja, zh: opt.zh, en: opt.en, ro: opt.ro, cover: opt.cover ? true : undefined, noAudio: !!opt.noAudio }, { dryRun: !!opt.dryRun, onLog });
+      const res = core.commit(r, { dryRun: !!opt.dryRun });
+      if (opt.json) return out(opt, { ok: true, dryRun: !!opt.dryRun, ...r.summary, changes: r.changes, warnings: r.warnings, written: res.written }, "");
+      report(opt, res);
+      console.log(`\n下一步：node tools/studio/cli.mjs lyrics ${r.summary.id}　看歌詞初稿；在工作台打開 ?song=${r.summary.id} 對時`);
+      return;
     }
 
     case "add":
