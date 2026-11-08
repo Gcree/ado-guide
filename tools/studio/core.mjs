@@ -290,7 +290,7 @@ export function commit(result, { dryRun = false } = {}) {
 export const PUBLISH_BRANCH = process.env.STUDIO_BRANCH || "main"; // 發布只從這個分支推
 const BRANCH = PUBLISH_BRANCH;
 // 發布時會一起 commit 的路徑（其他檔案有改也不會被帶進去）
-export const PUBLISH_PATHS = ["songs.js", "i18n.js", "song-lyrics.js", "song-lyrics-live.js", "research"];
+export const PUBLISH_PATHS = ["songs.js", "i18n.js", "song-lyrics.js", "song-lyrics-live.js", "research", "CHANGELOG.md"];
 
 // 跑指令，回傳 { code, out }（stdout、stderr 合在一起，照順序）
 function run(cmd, cmdArgs, opts = {}) {
@@ -335,10 +335,16 @@ export async function gitStatus() {
 }
 
 // ── 發布：檢查 → 只 commit 資料檔 → 拉遠端最新（rebase）→ 推上 main ──
-export async function publish(message) {
+export async function publish(message, { changelog } = {}) {
   const log = [];
   const step = (name, r) => { log.push({ name, ok: r.code === 0, out: r.out }); return r.code === 0; };
   const fail = error => ({ ok: false, error, log });
+  // 網站看得到的改動寫進更新日誌（同一天併進當天那一版）
+  if (changelog && String(changelog).trim()) {
+    const c = addChangelog(changelog);
+    commit(c);
+    log.push({ name: `更新日誌：${c.changes.join("、")}`, ok: true, out: "" });
+  }
 
   const { branch, changed, ahead } = await gitStatus();
   if (branch !== BRANCH) return fail(`目前在「${branch}」分支，工作站只從 ${BRANCH} 發布。請先切回 ${BRANCH}。`);
@@ -925,31 +931,154 @@ export function songDetail(id, db = load()) {
     research,
     hasAudio: !!audioFile(id),
     hasVocals: fs.existsSync(path.join(WORK, id, "vocals.wav")),
-    acts: ACTS, pens: PEN_KEYS
+    acts: ACTS, pens: PEN_KEYS,
+    lives: livesOf(db, id),
+    live: (() => { const lv = db.live.find(x => x.id === `${id}-live`); return lv ? { ...lv, base: entryHash(lv) } : { base: entryHash(null) }; })(),
+    suggestions: suggestLines(e ? e.lyrics : []),
+    songSuggestion: suggestSong(song)
   };
 }
 
 // 介面存檔：整首歌詞換成介面上的版本。base 是讀取時的指紋：之後檔案被改過（命令列、另一個分頁）就擋下來
-export function saveLyrics(id, lines, base, db = load()) {
+export function saveLyrics(id, lines, base, db = load(), live = null) {
   const song = songOrThrow(db, id);
+  if (live) return saveLiveLyrics(song, lines, base, live, db);
   const e = lyricsEntry(db, id, false);
   if (base && base !== entryHash(db.lyrics.find(x => x.id === id))) {
     const err = new Error("歌詞檔在你打開之後被改過了（例如命令列、自動對時或另一個分頁）。請重新載入這首歌再改。");
     err.conflict = true;
     throw err;
   }
-  const clean = lines.map(l => {
-    const x = { time: Math.round(Number(l.time) * 1000) / 1000, jp: String(l.jp ?? ""), tr: String(l.tr ?? "") };
-    if (l.duration != null && l.duration !== "") x.duration = Math.round(Number(l.duration) * 100) / 100;
-    for (const k of ["acts", "sing"]) if (Array.isArray(l[k]) && l[k].length) x[k] = l[k].slice();
-    for (const k of ["call", "how"]) if (l[k]) x[k] = String(l[k]);
-    return x;
-  });
   const before = e.lyrics;
+  const clean = tidyLines(lines, before);
   let changed = 0;
   for (let i = 0; i < Math.max(before.length, clean.length); i++) if (JSON.stringify(before[i]) !== JSON.stringify(clean[i])) changed++;
   const r = writeLyrics({ ...e, lyrics: clean }, song, false, db, [`歌詞：改了 ${changed} 句（共 ${clean.length} 句）`]);
   const after = loadFrom({ ...db.src, ...r.files });
   r.base = entryHash(after.lyrics.find(x => x.id === id));
   return r;
+}
+
+
+// ── M5：更新日誌、現場版、應援建議 ──
+
+// 介面送來的一句整理成檔案格式；跟原本那句內容一樣就沿用原本的物件，改過的照原本的欄位順序
+// （檔案裡欄位順序不一，例如 acts,call,sing 或 acts,sing,call；不這樣做，每次存檔沒改的句子也會出現在 diff 裡）
+const sortedJSON = o => JSON.stringify(Object.keys(o).sort().reduce((a, k) => ((a[k] = o[k]), a), {}));
+function tidyLines(lines, before = []) {
+  return lines.map((l, i) => {
+    const x = { time: Math.round(Number(l.time) * 1000) / 1000, jp: String(l.jp ?? ""), tr: String(l.tr ?? "") };
+    if (l.duration != null && l.duration !== "") x.duration = Math.round(Number(l.duration) * 100) / 100;
+    for (const k of ["acts", "sing"]) if (Array.isArray(l[k]) && l[k].length) x[k] = l[k].slice();
+    for (const k of ["call", "how"]) if (l[k]) x[k] = String(l[k]);
+    const o = before[i];
+    if (!o) return x;
+    if (sortedJSON(o) === sortedJSON(x)) return o;
+    const out = {};
+    for (const k of Object.keys(o)) if (k in x) out[k] = x[k];
+    for (const k of Object.keys(x)) if (!(k in out)) out[k] = x[k];
+    return out;
+  });
+}
+
+// 更新日誌：README 的規則——同一天的小更動加進當天那一版；當天還沒有就第三碼 +1 開一版
+const localDate = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export function addChangelog(text, { date = localDate(), file = path.join(root, "CHANGELOG.md") } = {}) {
+  const raw = fs.readFileSync(file, "utf8");
+  const crlf = raw.includes("\r\n"), lines = raw.replace(/\r\n/g, "\n").split("\n");
+  const items = String(text).split("\n").map(t => t.trim()).filter(Boolean).map(t => (t.startsWith("- ") ? t : `- ${t}`));
+  if (!items.length) throw new Error("更新日誌是空的");
+  const h = lines.findIndex(l => /^## v\d+\.\d+\.\d+ — \d{4}-\d\d-\d\d/.test(l));
+  if (h < 0) throw new Error("CHANGELOG.md 找不到「## vX.Y.Z — 日期」的版本標題");
+  const [, ma, mi, pa, d0] = lines[h].match(/^## v(\d+)\.(\d+)\.(\d+) — (\d{4}-\d\d-\d\d)/);
+  let changes;
+  if (d0 === date) {
+    // 加在這一版最後一個項目後面
+    let end = h + 1;
+    for (let i = h + 1; i < lines.length && !lines[i].startsWith("## "); i++) if (lines[i].trim()) end = i + 1;
+    lines.splice(end, 0, ...items);
+    changes = [`併進 v${ma}.${mi}.${pa}（${date}）`];
+  } else {
+    const ver = `v${ma}.${mi}.${+pa + 1}`;
+    lines.splice(h, 0, `## ${ver} — ${date}`, "", ...items, "");
+    changes = [`新開 ${ver}（${date}）`];
+  }
+  let out = lines.join("\n");
+  if (crlf) out = out.replace(/\n/g, "\r\n");
+  return { files: { "CHANGELOG.md": out }, changes, warnings: [] };
+}
+
+// 這首歌可以做現場版的場次：官方 LIVE 映像＋現場音源（LIVES）
+function livesOf(db, id) {
+  const out = [];
+  const lv = db.songs.LIVE_VIDEOS[id];
+  if (lv) out.push({ yt: lv.yt, concert: lv.concert || "官方現場版", official: true });
+  for (const l of db.songs.LIVES[id] || []) if (!out.some(x => x.yt === l.yt)) out.push({ yt: l.yt, concert: l.concert || "LIVE 音源", official: false });
+  return out;
+}
+
+// 現場版存檔：一首歌只有一份現場版時間軸（<id>-live），記著是哪一場、哪支影片
+function saveLiveLyrics(song, lines, base, live, db) {
+  const id = song.id;
+  const cur = db.live.find(x => x.id === `${id}-live`) || null;
+  if (base && base !== entryHash(cur)) {
+    const err = new Error("現場版歌詞檔在你打開之後被改過了。請重新載入這首歌再改。");
+    err.conflict = true;
+    throw err;
+  }
+  if (!/^[\w-]{11}$/.test(live.yt || "")) throw new Error("現場版要有影片（11 碼 YouTube ID）");
+  const duration = Math.round(Number(live.duration) || 0);
+  const clean = tidyLines(lines, cur && cur.youtubeId === live.yt ? cur.lyrics : []);
+  const last = clean.reduce((m, l) => Math.max(m, l.time), 0);
+  const same = cur && cur.youtubeId === live.yt;
+  // 同一場、每一句都沒動：不寫（舊格式的現場版也不會被順手補欄位）
+  if (same && clean.length === cur.lyrics.length && clean.every((l, i) => l === cur.lyrics[i])) return { files: {}, changes: [], warnings: [], base: entryHash(cur) };
+  const entry = {
+    id: `${id}-live`, baseId: id, type: "live",
+    title: same && cur.title ? cur.title : `${song.ja} (${live.concert})`, concert: live.concert,
+    youtubeId: live.yt, duration: Math.max(same ? cur.duration || 0 : 0, duration, Math.ceil(last + 1)), lyrics: clean
+  };
+  if (same && JSON.stringify(Object.keys(cur)) !== JSON.stringify(Object.keys(entry))) {
+    // 舊的現場版欄位順序不一樣（例如 id,title,youtubeId,duration,lyrics,baseId）：照原本的順序
+    const o = {};
+    for (const k of Object.keys(cur)) if (k in entry) o[k] = entry[k];
+    for (const k of Object.keys(entry)) if (!(k in o)) o[k] = entry[k];
+    Object.keys(entry).forEach(k => delete entry[k]);
+    Object.assign(entry, o);
+  }
+  const changes = [cur && cur.youtubeId !== live.yt ? `現場版換成「${live.concert}」：${clean.length} 句（原本是「${cur.concert || cur.youtubeId}」）` : `現場版「${live.concert}」：${clean.length} 句`];
+  const r = writeLyrics(entry, song, true, db, changes);
+  const after = loadFrom({ ...db.src, ...r.files });
+  r.base = entryHash(after.live.find(x => x.id === `${id}-live`));
+  return r;
+}
+
+// 應援建議：只用量過、有一點根據的歌詞特徵（拿現有 37 首正式歌的逐句應援量的：基準是 18% 的句子有應援）
+//   括號裡的和聲／口號 → 71% 有應援（拍手 41%、合唱 29%）
+//   英文、而且重複出現 → 32% 是大合唱
+//   出現 3 次以上 → 23% 是大合唱
+// 喊聲幾乎沒辦法從歌詞猜（0.5%），不建議。全部只是候選，不會自動寫進去
+export const SUGGEST_RULES = [
+  { id: "paren", acts: ["sing"], rate: 0.71, why: "括號裡的和聲／口號：現有歌曲 71% 有應援（拍手 41%、合唱 29%）" },
+  { id: "engRep", acts: ["sing"], rate: 0.32, why: "英文、重複出現：現有歌曲 32% 是大合唱" },
+  { id: "rep3", acts: ["sing"], rate: 0.23, why: "出現 3 次以上：現有歌曲 23% 是大合唱" }
+];
+export function suggestLines(lyrics) {
+  const GAPX = /^[（(](間奏|尾奏|前奏)/;
+  const cnt = {};
+  for (const l of lyrics) { const k = normLine(l.jp); if (k) cnt[k] = (cnt[k] || 0) + 1; }
+  const out = [];
+  lyrics.forEach((l, i) => {
+    if (GAPX.test(l.jp) || (l.acts && l.acts.length)) return;
+    const k = normLine(l.jp); if (!k) return;
+    const asc = (l.jp.match(/[A-Za-z]/g) || []).length / Math.max(1, l.jp.replace(/\s/g, "").length);
+    const rule = /^[（(].*[）)]$/.test(l.jp.trim()) ? SUGGEST_RULES[0] : asc > 0.6 && cnt[k] >= 2 ? SUGGEST_RULES[1] : cnt[k] >= 3 ? SUGGEST_RULES[2] : null;
+    if (rule) out.push({ n: i + 1, jp: l.jp, acts: rule.acts, rate: rule.rate, why: rule.why, rule: rule.id });
+  });
+  return out;
+}
+// 歌曲層級：新歌還沒有應援重點時，建議照新歌的寫法寫事實，不猜動作
+export function suggestSong(song) {
+  if ((song.tips || []).length) return null;
+  return { tips: ["演唱會尚未公開演唱，目前沒有固定應援"], why: "新歌還沒有現場資料時的寫法（例如〈シンカ〉〈Raven Sky〉）；有情報後再改" };
 }

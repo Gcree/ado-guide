@@ -61,7 +61,9 @@
   let history = [], future = [];
   let importing = null;
 
-  const DUR = () => (D ? D.duration : 0);
+  let ver = null;           // null＝MV 版；{ yt, concert }＝現場版
+  let liveDur = 0;          // 現場版長度（播放器知道影片長度後會更新）
+  const DUR = () => (D ? (ver ? liveDur : D.duration) : 0);
   const clean = lines => lines.map(l => {
     const x = { time: l.time, jp: l.jp, tr: l.tr || "" };
     if (l.duration != null) x.duration = l.duration;
@@ -118,7 +120,8 @@
       play() { if (mode === "yt") yt.playVideo(); else { fake.last = performance.now(); fake.playing = true; } },
       pause() { if (mode === "yt") yt.pauseVideo(); else { tick(); fake.playing = false; } },
       seek(t) { t = Math.max(0, Math.min(DUR(), t)); if (mode === "yt") yt.seekTo(t, true); else { fake.t = t; fake.last = performance.now(); } },
-      rate(r) { rate = r; if (mode === "yt") yt.setPlaybackRate(r); }
+      rate(r) { rate = r; if (mode === "yt") yt.setPlaybackRate(r); },
+      duration() { if (mode === "yt") { try { return yt.getDuration() || 0; } catch (e) { return 0; } } return 0; }
     };
   })();
 
@@ -149,11 +152,10 @@
     const d = await api(`/api/song?id=${encodeURIComponent(id)}`);
     if (d.error) { toast(d.error); return; }
     D = d;
-    base = d.base;
-    L = d.lyrics.map(l => ({ ...l }));
-    attachSources();
-    savedJSON = JSON.stringify(clean(L));
-    history = []; future = [];
+    if (!keepView) ver = null;
+    if (ver && !d.lives.some(x => x.yt === ver.yt)) ver = null;
+    loadVersion();
+    renderVersions();
     store.set("studio-last", id);
     if (location.hash.slice(1) !== id) history_replace(id);
     $("oldLink").href = `/tools/timing/?song=${encodeURIComponent(id)}`;
@@ -163,10 +165,55 @@
       sel = new Set([Math.max(0, first)]); anchor = Math.max(0, first);
       $("video").classList.remove("ready");
       $("ph").textContent = d.song.ja;
-      player.load(d.song.yt);
+      player.load(ver ? ver.yt : d.song.yt);
     }
     checkDraft();
     renderAll();
+  }
+
+  // 目前版本（MV／現場）的歌詞、指紋、長度
+  function loadVersion() {
+    if (!ver) {
+      base = D.base;
+      L = D.lyrics.map(l => ({ ...l }));
+      attachSources();
+    } else {
+      const same = D.live && D.live.youtubeId === ver.yt;
+      base = D.live.base;
+      L = same ? D.live.lyrics.map(l => ({ ...l, _lvl: null, _tr: null })) : [];
+      liveDur = Math.max(same ? D.live.duration || 0 : 0, D.duration, L.length ? L[L.length - 1].time + 10 : 0);
+    }
+    savedJSON = JSON.stringify(clean(L));
+    history = []; future = [];
+  }
+  function renderVersions() {
+    const sel = $("verSel");
+    sel.hidden = !D.lives.length;
+    sel.innerHTML = `<option value="">MV 版</option>` + D.lives.map(x => `<option value="${x.yt}">現場：${esc(x.concert)}${x.official ? "（官方映像）" : ""}${D.live.youtubeId === x.yt ? " ●" : ""}</option>`).join("");
+    sel.value = ver ? ver.yt : "";
+  }
+  async function switchVersion(yt) {
+    ver = yt ? D.lives.find(x => x.yt === yt) || null : null;
+    loadVersion();
+    win = [0, Math.min(30, DUR() || 30)];
+    sel = new Set(L.length ? [0] : []); anchor = 0;
+    $("video").classList.remove("ready");
+    player.load(ver ? ver.yt : D.song.yt);
+    checkDraft();
+    if (ver && !L.length) {
+      const other = D.live.youtubeId && D.live.youtubeId !== ver.yt ? `這首的現場版目前是「${D.live.concert || D.live.youtubeId}」，存檔會換成這一場。` : "";
+      showBanner(`「${ver.concert}」還沒有現場版時間軸。${other}`, [["從 MV 複製歌詞（先用 MV 的時間，再整段平移、打點）", copyFromMv]]);
+    }
+    renderAll();
+  }
+  function copyFromMv() {
+    pushHistory();
+    L = D.lyrics.map(l => ({ ...l, _lvl: null, _tr: null }));
+    liveDur = Math.max(liveDur, L.length ? L[L.length - 1].time + 10 : 0);
+    sel = new Set([0]); anchor = 0;
+    hideBanner();
+    changed();
+    toast(`已從 MV 複製 ${L.length} 句：選全部（點第一句再 Shift＋End）整段平移，或一句句打點`, 5000);
   }
   const history_replace = id => { try { window.history.replaceState(null, "", `#${id}`); } catch (e) {} };
 
@@ -186,7 +233,7 @@
   }
 
   // ── 草稿：每次修改自動存在這台電腦 ──
-  const draftKey = () => `studio-draft:${D.song.id}`;
+  const draftKey = () => `studio-draft:${D.song.id}${ver ? `:live:${ver.yt}` : ""}`;
   function saveDraft() {
     if (!D) return;
     const now = JSON.stringify(clean(L));
@@ -320,8 +367,9 @@
     if (!D || JSON.stringify(clean(L)) === savedJSON) { toast("沒有要存的修改"); return true; }
     const bad = L.findIndex((l, i) => i > 0 && l.time < L[i - 1].time);
     if (bad > 0) { toast(`第 ${bad + 1} 句比上一句早，先排好再存`); return false; }
+    if (ver && D.live.youtubeId && D.live.youtubeId !== ver.yt && !confirm(`這首的現場版目前是「${D.live.concert || D.live.youtubeId}」。一首歌只存一場現場版，存檔會換成「${ver.concert}」。繼續？`)) return false;
     $("btnSave").disabled = true;
-    const r = await api("/api/lyrics", { id: D.song.id, lyrics: clean(L), base });
+    const r = await api("/api/lyrics", { id: D.song.id, lyrics: clean(L), base, live: ver ? { yt: ver.yt, concert: ver.concert, duration: Math.round(liveDur) } : undefined });
     if (!r.ok) {
       renderHeader();
       if (r.conflict) {
@@ -332,6 +380,7 @@
     base = r.base;
     savedJSON = JSON.stringify(clean(L));
     store.set(draftKey(), null);
+    if (ver) { D.live = { ...D.live, youtubeId: ver.yt, concert: ver.concert, base: r.base, lyrics: clean(L), duration: Math.round(liveDur) }; renderVersions(); }
     renderHeader(); renderSongList();
     toast(`已存檔：${r.changes.join("、") || "沒有變更"}${r.warnings?.length ? `（${r.warnings[0]}）` : ""}`);
     return true;
@@ -344,7 +393,7 @@
     $("btnSave").disabled = !dirty;
     $("btnUndo").disabled = !history.length;
     $("btnRedo").disabled = !future.length;
-    $("crumbTitle").textContent = D ? D.song.ja : "選一首歌";
+    $("crumbTitle").textContent = D ? `${D.song.ja}${ver ? `（現場：${ver.concert}）` : ""}` : "選一首歌";
     $("crumbGroup").textContent = D ? STATUS[D.song.status][0] : "—";
     document.title = D ? `${dirty ? "● " : ""}${D.song.ja}｜Ado Studio` : "Ado Studio";
     document.querySelectorAll("#songList .page").forEach(p => p.classList.toggle("on", !!D && p.dataset.id === D.song.id));
@@ -380,8 +429,10 @@
   const pos = (a, b) => `left:${x(a)}%;width:${Math.max(0, x(b) - x(a))}%`;
   const trackWidth = () => $("trLyr").clientWidth || 1;
   const timeAt = (el, clientX) => { const r = el.getBoundingClientRect(); return win[0] + ((clientX - r.left) / r.width) * span(); };
-  const beat = () => D?.song.beat || null;
+  const beat = () => (ver ? null : D?.song.beat || null);
+  const climax = () => (ver ? null : D?.song.climax ?? null);
   function sections() {
+    if (ver) return [];
     const secs = D?.analysis?.sections || [];
     const labels = [...new Set(secs.map(s => s.label))];
     return secs.map(s => ({ ...s, name: s.chorus ? "副歌" : `段落 ${s.label}`, color: s.chorus ? "orange" : SEC_COLORS[labels.indexOf(s.label) % SEC_COLORS.length] }));
@@ -395,10 +446,10 @@
     for (let s = Math.ceil(win[0] / step) * step; s < win[1]; s += step) r += `<span style="left:${x(s)}%">${s % (step * 5) === 0 || step >= 5 ? fmt(s, false) : ""}</span>`;
     $("ruler").innerHTML = r;
 
-    const cx = D.song.climax;
+    const cx = climax();
     $("trSec").innerHTML = (sections().filter(s => s.end > win[0] && s.start < win[1]).map(s =>
       `<div class="sec" style="${pos(s.start, s.end - 0.1)};background:var(--${s.color}-bg)">${s.name}</div>`).join("") ||
-      `<span class="empty-note" style="position:absolute;left:6px;top:6px">${D.hasAudio ? "還沒分析：歌曲分頁 →「分析音訊」" : "沒有音訊：匯入時會下載"}</span>`) +
+      `<span class="empty-note" style="position:absolute;left:6px;top:6px">${ver ? "現場版沒有段落分析" : D.hasAudio ? "還沒分析：歌曲分頁 →「分析音訊」" : "沒有音訊：匯入時會下載"}</span>`) +
       (cx != null ? `<div class="climax" style="left:${x(cx)}%" title="副歌高潮 ${fmt(cx)}"></div>` : "");
 
     const bt = beat();
@@ -421,6 +472,8 @@
 
     // 應援：每句的動作，一種動作一條細線
     $("trAct").innerHTML = L.map((l, i) => {
+      const sg = sugFor(l);
+      if (sg) { const end = endOf(i); if (end < win[0] || l.time > win[1]) return ""; return `<div class="act-block guess" style="${pos(l.time, end - 0.06)};top:4px;background:var(--${ACT_INFO[sg.acts[0]]?.[1] || "gray"})" title="建議：${sg.acts.map(a => ACT_INFO[a]?.[0]).join("、")}（${esc(sg.why)}）"></div>`; }
       if (!l.acts || !l.acts.length) return "";
       const end = endOf(i);
       if (end < win[0] || l.time > win[1]) return "";
@@ -437,7 +490,7 @@
     $("trOv").innerHTML =
       sections().map(s => `<i class="ov-sec" style="left:${o(s.start)}%;width:${o(s.end - s.start)}%;background:var(--${s.color}-bg)"></i>`).join("") +
       L.map(l => (isRed(l) ? `<i class="ov-red" style="left:${o(l.time)}%"></i>` : l._lvl === "mid" ? `<i class="ov-mid" style="left:${o(l.time)}%"></i>` : "")).join("") +
-      (D.song.climax != null ? `<i class="ov-climax" style="left:${o(D.song.climax)}%"></i>` : "") +
+      (climax() != null ? `<i class="ov-climax" style="left:${o(climax())}%"></i>` : "") +
       `<i class="ov-win" style="left:${o(win[0])}%;width:${o(span())}%"></i><i class="ov-now" id="ovNow" style="left:${o(player.time())}%"></i>`;
   }
 
@@ -448,7 +501,7 @@
     cv.width = w * dpr; cv.height = h * dpr;
     const g = cv.getContext("2d");
     g.scale(dpr, dpr);
-    const env = D?.analysis?.envelope;
+    const env = ver ? null : D?.analysis?.envelope;
     if (!env) { g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--ink-3"); g.font = "12px sans-serif"; g.fillText(D ? "還沒分析音訊，沒有波形" : "", 8, h / 2 + 4); return; }
     const css = getComputedStyle(document.documentElement);
     const now = player.time(), px = (x(now) / 100) * w;
@@ -533,6 +586,7 @@
       ${prop("i-layers", "段落", sec ? `<span class="pill ${sec.color}">${sec.name}</span>` : '<span class="muted">—</span>')}
       ${isGap(l) ? "" : prop("i-lang", "中文來源", l._tr === "official" ? '<span class="pill green">官方字幕</span>' : l._tr === "agy" ? '<span class="pill yellow">agy 翻譯・待確認</span>' : '<span class="muted">—</span>')}
       ${isGap(l) ? "" : prop("i-hand", "應援", `<div class="acts">${acts}</div>`)}
+      ${(() => { const sg = sugFor(l); return sg ? `<div class="suggest">建議：<b>${sg.acts.map(a => ACT_INFO[a]?.[0]).join("、")}</b><button class="btn outline" data-op="adoptSug">採用</button><span class="why">${esc(sg.why)}；只是候選，請對照現場資料</span></div>` : ""; })()}
       <div class="block-label">日文</div>
       <textarea class="edit jp" rows="1" data-field="jp">${esc(l.jp)}</textarea>
       ${isGap(l) ? "" : `<div class="block-label">中文</div><textarea class="edit" rows="1" data-field="tr">${esc(l.tr || "")}</textarea>
@@ -545,6 +599,7 @@
       </div>
       <div class="peek-actions">
         <button class="btn" data-op="insert">${icon("i-plus")}下面加一句</button>
+        ${isGap(l) ? "" : `<button class="btn" data-op="split" title="在日文的游標位置拆開（沒有游標時從中間的空白拆）">拆成兩句</button>`}
         <button class="btn danger" data-op="delete">${icon("i-trash")}刪除</button>
       </div>
       <div class="divider"></div>
@@ -591,6 +646,8 @@
         : `<div class="peek-actions"><button class="btn outline" data-op="analyze">${icon("i-metro")}分析音訊</button><span class="hint">算 BPM、第一小節、副歌高潮候選${D.hasAudio ? "" : "（會先下載音訊）"}</span></div>`}
 
       <div class="divider"></div>
+      ${ver ? `<div class="mini-callout yellow">${icon("i-info")}<div>現在是現場版「${esc(ver.concert)}」。自動對時、翻譯、分析音訊、應援建議只做 MV 版；現場版可以「從 MV 複製歌詞」再整段平移、打點。</div></div>
+      <div class="peek-actions"><button class="btn outline" data-op="copyMv">從 MV 複製歌詞</button></div>` : sugBlock()}
       <div class="block-label">自動處理</div>
       <div class="peek-actions">
         <button class="btn outline" data-op="align">${icon("i-wand")}自動對時</button>
@@ -721,6 +778,11 @@
       case "align": return runJob("align");
       case "translate": return runJob("translate");
       case "paste": return openPaste();
+      case "copyMv": return L.length && !confirm("用 MV 的歌詞取代現場版目前的內容？（可以復原）") ? undefined : copyFromMv();
+      case "split": return splitLine(i);
+      case "adoptSug": return adoptSuggestions([i]);
+      case "adoptAllSug": return adoptSuggestions(L.map((l, k) => k).filter(k => sugFor(L[k])));
+      case "songSug": meta.tips = D.songSuggestion.tips.map(zh => ({ zh, en: "", ja: "" })); return drawInsp();
       case "adoptAll": { for (const it of researchItems()) await adopt(it.key, { quiet: true }); toast("已採用全部建議：應援動作改在歌詞草稿上，記得存檔"); return drawInsp(); }
     }
   });
@@ -804,6 +866,53 @@
     await openSong(D.song.id, { keepView: true });
     showBanner(`${r.changes.join("、") || "沒有變更"}${r.warnings?.length ? `。${r.warnings.join("；")}` : ""}`, [["知道了", hideBanner]]);
     loadSongs();
+  }
+
+  // ── 應援建議（只是候選；量過的命中率寫在說明裡） ──
+  function sugFor(l) {
+    if (ver || !D?.suggestions || (l.acts && l.acts.length) || isGap(l)) return null;
+    return D.suggestions.find(x => x.jp === l.jp) || null;
+  }
+  function sugBlock() {
+    const n = L.filter(sugFor).length, ss = D.songSuggestion;
+    if (!n && !ss) return "";
+    return `<div class="block-label">應援建議 <span>只是候選</span></div>
+      ${n ? `<div class="suggest">${n} 句可能有應援（時間軸上的斜線）<button class="btn outline" data-op="adoptAllSug">全部採用到草稿</button><span class="why">依歌詞特徵：括號裡的和聲 71%、英文重複句 32%、出現 3 次以上 23% 在現有歌曲裡有應援</span></div>` : ""}
+      ${ss && !meta.tips.length ? `<div class="suggest">應援重點：「${esc(ss.tips[0])}」<button class="btn outline" data-op="songSug">用這個寫法</button><span class="why">${esc(ss.why)}</span></div>` : ""}`;
+  }
+  function adoptSuggestions(ids) {
+    ids = ids.filter(k => sugFor(L[k]));
+    if (!ids.length) return;
+    if (D.song.status === "" && !confirm(`〈${D.song.ja}〉是「正式」狀態，採用的應援存檔後會直接顯示在網站上。確定要採用 ${ids.length} 句建議？`)) return;
+    pushHistory();
+    for (const k of ids) L[k].acts = sugFor(L[k]).acts.slice();
+    changed();
+    toast(`已採用 ${ids.length} 句建議，記得存檔`);
+  }
+  let lastCaret = null;
+  $("insp").addEventListener("keyup", e => { if (e.target.matches("textarea.jp")) lastCaret = { i: anchor, pos: e.target.selectionStart }; });
+  $("insp").addEventListener("mouseup", e => { if (e.target.matches("textarea.jp")) lastCaret = { i: anchor, pos: e.target.selectionStart }; });
+  function splitAt(text, pos) {
+    if (pos != null && pos > 0 && pos < text.length) return [text.slice(0, pos).trim(), text.slice(pos).trim()];
+    const mid = text.length / 2;
+    let best = -1;
+    for (let k = 0; k < text.length; k++) if (/[\s　]/.test(text[k]) && (best < 0 || Math.abs(k - mid) < Math.abs(best - mid))) best = k;
+    return best > 0 ? [text.slice(0, best).trim(), text.slice(best + 1).trim()] : null;
+  }
+  function splitLine(i) {
+    const l = L[i];
+    const caret = lastCaret && lastCaret.i === i ? lastCaret.pos : null;
+    const jp = splitAt(l.jp, caret) || [l.jp.slice(0, Math.ceil(l.jp.length / 2)), l.jp.slice(Math.ceil(l.jp.length / 2))];
+    const tr = splitAt(l.tr || "", null) || [l.tr || "", ""];
+    pushHistory();
+    const mid = r3((l.time + endOf(i)) / 2);
+    const second = { time: mid, jp: jp[1], tr: tr[1], _lvl: "ok" };
+    L[i] = { ...l, jp: jp[0], tr: tr[0] };
+    delete L[i].sing;
+    L.splice(i + 1, 0, second);
+    lastCaret = null;
+    changed();
+    toast("拆成兩句：第二句的時間先放在中間，請打點確認");
   }
 
   // ── 貼上整首歌詞 ──
@@ -949,6 +1058,12 @@
   $("peekTabs").addEventListener("click", e => { const b = e.target.closest(".tab"); if (b) { tab = b.dataset.tab; drawInsp(); } });
   $("songList").addEventListener("click", e => { const p = e.target.closest(".page[data-id]"); if (p && (!D || p.dataset.id !== D.song.id)) openSong(p.dataset.id); });
   $("search").addEventListener("input", renderSongList);
+  $("verSel").addEventListener("change", e => switchVersion(e.target.value));
+  // 網址的 #id 變了（上一頁、手動改網址）就換歌
+  addEventListener("hashchange", () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (id && songs.some(x => x.id === id) && (!D || D.song.id !== id)) openSong(id);
+  });
 
   // 檢查、同步、發布
   $("btnCheck").onclick = async () => {
@@ -977,19 +1092,28 @@
     const st = await api("/api/status");
     if (st.branch !== st.publishBranch) { alert(`目前在「${st.branch}」分支，工作站只從 ${st.publishBranch} 發布。`); return; }
     if (!st.changed.length && !st.ahead) { toast("歌曲資料沒有變更，不用發布"); return; }
-    let msg = "-";
-    if (st.changed.length) {
-      msg = prompt(`要把這些變更推上 ${st.publishBranch}（約 2 分鐘後網站更新）：\n\n${st.changed.map(c => `  ${c.status.padEnd(2)} ${c.file}`).join("\n")}\n\ncommit 訊息：`, D ? `fix(songs): 更新〈${D.song.ja}〉` : "fix(songs): 更新歌曲資料");
-      if (!msg || !msg.trim()) return;
-    } else if (!confirm(`有 ${st.ahead} 個上次沒推上去的 commit，要再推一次嗎？`)) return;
+    $("pubBranch").textContent = st.publishBranch;
+    $("pubFiles").textContent = st.changed.map(c => `${c.status.padEnd(2)} ${c.file}`).join("\n") + (st.ahead ? `${st.changed.length ? "\n" : ""}（還有 ${st.ahead} 個上次沒推上去的 commit）` : "");
+    $("pubMsg").value = D ? `fix(songs): 更新〈${D.song.ja}〉` : "fix(songs): 更新歌曲資料";
+    // 網站看得到的檔案有變：預設寫更新日誌（README 的規則）
+    const visible = st.changed.some(c => /^(songs\.js|song-lyrics(-live)?\.js|i18n\.js)$/.test(c.file)) && !st.changed.some(c => c.file === "CHANGELOG.md");
+    $("pubLogOn").checked = visible;
+    $("pubLog").value = D ? `〈${D.song.ja}〉更新${ver ? "現場版" : ""}歌詞與應援資料` : "";
+    $("pubLogVer").textContent = "同一天的併進當天那一版，不然第三碼 +1";
+    $("pubDlg").showModal();
+  };
+  $("pubDlg").addEventListener("close", async () => {
+    if ($("pubDlg").returnValue !== "ok") return;
+    const msg = $("pubMsg").value.trim() || "-";
+    const changelog = $("pubLogOn").checked ? $("pubLog").value.trim() : "";
     $("btnPublish").disabled = true;
     toast("檢查、發布中…", 120000);
-    const r = await api("/api/publish", { message: msg.trim() });
+    const r = await api("/api/publish", { message: msg, changelog });
     $("btnPublish").disabled = false;
     toast("");
     if (r.ok) toast(`已發布：${r.head}，約 2 分鐘後網站更新`, 6000);
     else alert(`${r.error}\n\n${(r.log || []).map(s => `${s.ok ? "✓" : "✗"} ${s.name}${s.ok ? "" : `\n${(s.out || "").split("\n").slice(-10).join("\n")}`}`).join("\n")}`);
-  };
+  });
 
   // 匯入新歌：網址 → id → 匯入
   $("importForm").addEventListener("submit", e => {
@@ -1042,6 +1166,8 @@
     else if (k === "s" || k === "S") $("btnSnap").click();
     else if (k === "e" || k === "E") { e.preventDefault(); tab = "line"; drawInsp(); document.querySelector("#insp textarea.jp")?.focus(); }
     else if (k === "/") { e.preventDefault(); $("search").focus(); }
+    else if (k === "End" && e.shiftKey) { e.preventDefault(); select(L.length - 1, { range: true }); }
+    else if (k === "Home" && e.shiftKey) { e.preventDefault(); select(0, { range: true }); }
   });
   addEventListener("beforeunload", e => { if (D && JSON.stringify(clean(L)) !== savedJSON) { saveDraft(); } });
   addEventListener("resize", () => { fitVideo(); drawWave(); placePlayhead(player.time()); });
@@ -1052,6 +1178,7 @@
     requestAnimationFrame(frame);
     if (!D) return;
     const t = player.time();
+    if (ver) { const d = player.duration(); if (d > 0 && Math.abs(d - liveDur) > 1) { liveDur = Math.ceil(d); drawTimeline(); } }
     if (loopRange && t >= loopRange[1]) player.seek(loopRange[0]);
     $("tc").innerHTML = `${fmt(t)}<small> / ${fmt(DUR(), false)}</small>`;
     $("ovTc").textContent = fmt(t);

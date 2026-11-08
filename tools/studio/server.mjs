@@ -119,9 +119,9 @@ async function api(req, res, url) {
     try { return send(res, 200, songDetail(url.searchParams.get("id"))); } catch (e) { return send(res, 404, { error: e.message }); }
   }
   if (p === "/api/lyrics" && req.method === "POST") {
-    const { id, lyrics, base } = JSON.parse(await readBody(req));
+    const { id, lyrics, base, live } = JSON.parse(await readBody(req));
     try {
-      const r = saveLyrics(id, lyrics, base);
+      const r = saveLyrics(id, lyrics, base, undefined, live || null);
       const w = commit(r);
       if (w.written.length) console.log(`  寫入 ${id} 的歌詞：${r.changes.join("、")}`);
       return send(res, 200, { ok: true, changes: r.changes, warnings: r.warnings, written: w.written, base: r.base });
@@ -207,11 +207,11 @@ async function api(req, res, url) {
     }
   }
   if (p === "/api/publish" && req.method === "POST") {
-    const { message } = JSON.parse(await readBody(req));
+    const { message, changelog } = JSON.parse(await readBody(req));
     const msg = String(message || "").trim();
     if (!msg) return send(res, 400, { error: "要寫 commit 訊息" });
     console.log(`  發布：${msg.split("\n")[0]}`);
-    const r = await publish(msg);
+    const r = await publish(msg, { changelog });
     console.log(r.ok ? `  ✓ 已推上 ${BRANCH}：${r.head}` : `  ✗ ${r.error}`);
     return send(res, 200, r);
   }

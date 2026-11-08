@@ -53,7 +53,12 @@ const HELP = `新歌工作站命令列：node tools/studio/cli.mjs <指令> [參
   check                                     資料檢查＋卡拉OK測試＋工作站提醒
   status                                    git：目前分支、歌曲資料有哪些變更
   sync                                      從 GitHub 拉最新（只能在 main）
-  publish -m "commit 訊息"                  檢查 → 只 commit 歌曲資料 → 推上 main
+  publish -m "commit 訊息" [--changelog "更新日誌"]
+                                            檢查 → 只 commit 歌曲資料 → 推上 main；--changelog 順便寫進 CHANGELOG.md（同一天併進當天那一版）
+  changelog "內容"                          只寫更新日誌（同一天併進當天那一版，不然第三碼 +1）
+
+應援建議（M5）
+  suggest <id> [--apply]                    從歌詞找可能有應援的句子（附現有歌曲裡的命中率）；--apply 寫進去（請把歌曲維持「暫定建議」）
 
 應援動作：${core.ACTS.join(", ")}
 手燈色：${core.PEN_KEYS.join("")}（青 水 白 赤 桃 紫 橙 黄 緑 彩）
@@ -194,6 +199,22 @@ async function main() {
       return;
     }
 
+    case "changelog":
+      return write(core.addChangelog(need(id, "要給內容，例如 changelog \"〈シンカ〉補上應援\"")));
+
+    case "suggest": {
+      const db = core.load();
+      const e = db.lyrics.find(x => x.id === need(id, "要給 id"));
+      if (!e) throw new Error(`沒有 ${id} 的歌詞`);
+      const sug = core.suggestLines(e.lyrics);
+      const ss = core.suggestSong(db.songs.SONGS.find(s => s.id === id) || {});
+      if (opt.json) return out(opt, { ok: true, lines: sug, song: ss }, "");
+      console.log(sug.length ? sug.map(x => `${String(x.n).padStart(3)}  ${x.jp}\n     → ${x.acts.join(",")}（${x.why}）`).join("\n") : "沒有建議的句子（歌詞特徵不明顯；應援要等現場資料）");
+      if (ss) console.log(`\n歌曲：應援重點建議寫「${ss.tips[0]}」（${ss.why}）`);
+      if (!opt.apply || !sug.length) return;
+      return write(core.editLines(id, sug.map(x => ({ n: x.n, acts: x.acts })), {}, db));
+    }
+
     case "add":
       return write(core.addSong({ id: opt.id, yt: opt.yt, ja: opt.ja, zh: opt.zh, en: opt.en, ro: opt.ro, len: opt.len, date: opt.date, cover: !!opt.cover }));
 
@@ -283,7 +304,7 @@ async function main() {
     }
 
     case "publish": {
-      const r = await core.publish(need(opt.m, "要給 -m \"commit 訊息\""));
+      const r = await core.publish(need(opt.m, "要給 -m \"commit 訊息\""), { changelog: opt.changelog === true ? undefined : opt.changelog });
       out(opt, r, [...(r.log || []).map(s => `${s.ok ? "✓" : "✗"} ${s.name}${s.ok ? "" : "\n" + (s.out || "").split("\n").slice(-12).join("\n")}`), r.ok ? `已推上：${r.head}` : r.error].join("\n"));
       if (!r.ok) process.exitCode = 1;
       return;
