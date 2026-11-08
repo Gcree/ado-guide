@@ -11,6 +11,7 @@ node tools/studio/cli.mjs help                     # 全部指令
 node tools/studio/cli.mjs list --json              # 歌單
 node tools/studio/cli.mjs show <id> --json         # 一首歌的全部資料
 node tools/studio/cli.mjs lyrics <id> --json       # 逐句（n 從 1 開始）
+node tools/studio/cli.mjs fetch <網址> --id <id>   # 匯入新歌（要能連 YouTube，雲端 session 通常不行）
 ```
 
 - 要改之前先 `show`／`lyrics` 看現況；不確定時加 `--dry-run`，確認變更摘要再真的寫。
@@ -34,4 +35,4 @@ node tools/studio/cli.mjs lyrics <id> --json       # 逐句（n 從 1 開始）
 
 ## 雲端 session 做不到的事
 
-下載 YouTube、人聲分離、自動對時要在使用者電腦上跑（需要 yt-dlp、ffmpeg、顯卡）。雲端能做：查資料、整理情報包、用命令列改歌曲資料和歌詞、跑檢查。
+下載 YouTube（`fetch`）、人聲分離、自動對時要在使用者電腦上跑（需要 yt-dlp、ffmpeg、顯卡）。雲端能做：查資料、整理情報包、用命令列改歌曲資料和歌詞（新歌可以先用 `add` 手動建，再 `lyrics-import`）、跑檢查。

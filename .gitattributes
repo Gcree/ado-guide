@@ -1,3 +1,5 @@
 # Windows 的 .bat 要 CRLF 才跑得動；Mac 的 .command 要 LF
 *.bat text eol=crlf
 *.command text eol=lf
+*.ps1 text eol=crlf
+*.sh text eol=lf

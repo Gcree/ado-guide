@@ -1,6 +1,6 @@
 # 新歌工作站（Ado Studio）規劃
 
-> 狀態：M0（本機伺服器、任何瀏覽器存檔、同步、發布）已完成，其餘規劃中。目標是新增歌曲的時候不用每次都透過 Claude：音檔、BPM、拍點、字幕初稿都由工作站自動算好，人只負責「確認和微調」，存檔後就能直接發布。Claude 改成只做「上網找資料、整理別人提供的應援」，產出一份情報包讓工作站匯入。
+> 狀態：M0（本機伺服器、存檔、同步、發布）、M1（貼網址匯入、官方字幕、兩個平台的安裝）已完成；新介面有設計稿；M2 起規劃中。目標是新增歌曲的時候不用每次都透過 Claude：音檔、BPM、拍點、字幕初稿都由工作站自動算好，人只負責「確認和微調」，存檔後就能直接發布。Claude 改成只做「上網找資料、整理別人提供的應援」，產出一份情報包讓工作站匯入。
 
 ## 0. 我的看法
 
@@ -352,15 +352,15 @@ flowchart TB
     W3 -- 沒有 --> W5["PyTorch CPU 版"]
   end
   subgraph MAC["之後：Mac mini（Apple 晶片）"]
-    M1["點兩下 工作站.command"] --> M2["setup-mac.command（第一次）<br/>brew 裝 ffmpeg、uv<br/>uv 裝 Python 套件"]
+    M1["點兩下 工作站.command"] --> M2["setup-mac.sh（第一次）<br/>brew 裝 ffmpeg、uv<br/>uv 裝 Python 套件"]
     M2 --> M3["PyTorch MPS（Apple 晶片加速）<br/>Demucs 用 MPS<br/>Whisper 評估 mlx-whisper"]
   end
   W4 & W5 & M3 --> SAME["同一份 tools/studio/<br/>同一份 git 專案"]
   SAME --> CFG["本機差異只放 config.json<br/>（ffmpeg 位置、agy 指令、連接埠）"]
 ```
 
-- **搬家**：歌曲資料都在 git 裡，Mac mini 上 `git clone` ＋ 跑一次 `setup-mac.command` 就好。`work/` 裡的音檔和分析快取不搬，需要時在新電腦重算（結果一樣）。
-- **不寫死路徑**：現在的 `scripts/align_live_offsets.py` 把 ffmpeg 寫死成 Windows 的路徑，M1 會改成自動在 PATH 找（找不到再看 `config.json`）。
+- **搬家**：歌曲資料都在 git 裡，Mac mini 上 `git clone` ＋ 點兩下 `工作站.command`（第一次會自動安裝）就好。`work/` 裡的音檔和分析快取不搬，需要時在新電腦重算（結果一樣）。
+- **不寫死路徑**：現在的 `scripts/align_live_offsets.py` 把 ffmpeg 寫死成 Windows 的路徑，M2 會改成自動在 PATH 找（找不到再看 `config.json`）。
 - **兩邊都測**：每個階段做完，安裝腳本和分析工具在兩個平台各跑一次。
 
 ## 11. 分階段做
@@ -377,7 +377,7 @@ flowchart LR
 | 階段 | 做完你可以 | 主要檔案 |
 | --- | --- | --- |
 | M0 ✅ | 點兩下 `工作站.bat`／`工作站.command` 開工作台，任何瀏覽器都能直接存檔；「⟳ 同步」拉 Claude 推的情報包，「🚀 發布」檢查後推上 main | `tools/studio/server.mjs` |
-| M1 | 貼網址就多一首整理中的歌，不用手改 `songs.js`；官方字幕自動帶入；兩個平台的安裝腳本 | `py/fetch.py`、`song-meta-store.js` 加「新增歌曲」、`setup-windows.ps1`、`setup-mac.command` |
+| M1 ✅ | 貼網址就多一首整理中的歌，不用手改 `songs.js`；官方字幕自動帶入；兩個平台的安裝腳本 | `core.mjs` 的 `fetchSong`（yt-dlp）、`song-meta-store.js` 的 `addSong`、`setup/setup-windows.ps1`、`setup/setup-mac.sh` |
 | M2 | 新歌的 BPM、拍點、副歌高潮不用再請 Claude 算 | `py/beats.py`、`py/sections.py` |
 | M3 | 字幕初稿自動出來，只修紅色句子；沒有官方中文時用 agy 翻 | `py/separate.py`、`py/align.py`、`prompts/translate.md` |
 | M4 | 一個介面做完全部，舊的 `tools/timing/` 退場 | `tools/studio/ui/` |
@@ -403,7 +403,7 @@ flowchart TB
   CLI --> CORE
   CORE --> STORE["lyrics-store.js・song-meta-store.js<br/>只改那幾行、寫入前檢查"]
   STORE --> REPO[("songs.js・song-lyrics.js<br/>song-lyrics-live.js・i18n.js")]
-  CORE --> PY["Python 分析工具<br/>（M1 起：fetch・analyze・align・translate）"]
+  CORE --> PY["Python 分析工具<br/>（fetch 用 yt-dlp；M2 起：analyze・align・translate）"]
   PY -. "只在你的電腦" .-> WORK[("work/&lt;id&gt;/")]
   CORE --> GIT{"發布"}
   GIT -- "你的電腦" --> MAIN["推 main → 網站更新"]
@@ -424,7 +424,7 @@ flowchart TB
 | --- | --- | --- |
 | 歌曲清單 | `list`、`show <id>` | ✅ |
 | 歌詞列表 | `lyrics <id>` | ✅ |
-| 貼網址匯入 | `add --id … --yt … --ja … --len …`（手動填）→ M1 起 `fetch <網址>` 自動填 | ✅／M1 |
+| 貼網址匯入 | `fetch <網址> --id …`（自動填）；不能連 YouTube 時用 `add --id … --yt … --ja … --len …` 手動填 | ✅ |
 | 歌曲資料面板 | `meta <id> --status … --acts … --tips … --pen … --climax … --beat …` | ✅ |
 | 時間軸改一句、拖曳 | `line <id> <N> --time … --tr … --acts …` | ✅ |
 | 多選一起改、整段平移 | `lines <id> --file …`、`shift <id> --by …` | ✅ |
