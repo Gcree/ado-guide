@@ -12,6 +12,7 @@ import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { check, gitStatus, publish, sync, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -22,7 +23,6 @@ const args = process.argv.slice(2);
 const argVal = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 const PORT = Number(argVal("--port") || process.env.STUDIO_PORT || 5178);
 const HOST = "127.0.0.1";
-const BRANCH = process.env.STUDIO_BRANCH || "main"; // 發布只從這個分支推
 const START_PAGE = "/tools/timing/";
 
 // 可以寫入的檔案，和寫入前怎麼確認內容還是好的
@@ -32,8 +32,6 @@ const WRITABLE = {
   "song-lyrics.js": src => { LyricsStore.parse(src, "mv"); },
   "song-lyrics-live.js": src => { LyricsStore.parse(src, "live"); }
 };
-// 發布時會一起 commit 的路徑（其他檔案有改也不會被帶進去）
-const PUBLISH_PATHS = ["songs.js", "i18n.js", "song-lyrics.js", "song-lyrics-live.js", "research"];
 // 不給瀏覽器讀的地方
 const HIDDEN = [/^\.git(\/|$)/, /^node_modules(\/|$)/, /^tools\/studio\/work(\/|$)/, /^tools\/studio\/config\.json$/, /(^|\/)\.env/];
 
@@ -53,87 +51,6 @@ function runUmd(src) {
 }
 
 const hash = text => crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
-
-// 跑指令，回傳 { code, out }（stdout、stderr 合在一起，照順序）
-function run(cmd, cmdArgs, opts = {}) {
-  return new Promise(resolve => {
-    const p = spawn(cmd, cmdArgs, { cwd: root, env: { ...process.env, LANG: "C.UTF-8", GIT_TERMINAL_PROMPT: "0" }, windowsHide: true, ...opts });
-    let out = "";
-    p.stdout.on("data", d => (out += d));
-    p.stderr.on("data", d => (out += d));
-    p.on("error", e => resolve({ code: -1, out: out + e.message }));
-    p.on("close", code => resolve({ code, out: out.replace(/\s+$/, "") }));
-  });
-}
-const git = (...a) => run("git", a);
-const node = (...a) => run(process.execPath, a);
-
-// ── 檢查：跟 GitHub Actions 發布前一樣 ──
-async function runChecks() {
-  const steps = [];
-  for (const [name, script] of [["資料檢查", "scripts/check-data.mjs"], ["卡拉OK測試", "scripts/test-karaoke.mjs"]]) {
-    const r = await node(script);
-    steps.push({ name, ok: r.code === 0, out: r.out.split("\n").slice(-40).join("\n") });
-    if (r.code !== 0) break;
-  }
-  return { ok: steps.every(s => s.ok), steps };
-}
-
-async function gitStatus() {
-  const branch = (await git("rev-parse", "--abbrev-ref", "HEAD")).out;
-  // -z：用 NUL 分隔、檔名不加引號（中文檔名也不會變成 \345…）；改名（R／C）後面會多一筆舊檔名，跳過
-  const parts = (await git("status", "--porcelain=v1", "-z", "-uall", "--", ...PUBLISH_PATHS)).out.split("\0").filter(Boolean);
-  const changed = [];
-  for (let i = 0; i < parts.length; i++) {
-    const status = parts[i].slice(0, 2), file = parts[i].slice(3);
-    changed.push({ status: status.trim(), file });
-    if (/[RC]/.test(status[0])) i++;
-  }
-  const stat = (await git("diff", "--stat", "HEAD", "--", ...PUBLISH_PATHS)).out;
-  // 上次發布 commit 了但沒推上去（網路斷、衝突）的 commit 數
-  const r = await git("rev-list", "--count", `origin/${BRANCH}..HEAD`);
-  const ahead = r.code === 0 ? Number(r.out) || 0 : 0;
-  return { branch, publishBranch: BRANCH, changed, stat, ahead };
-}
-
-// ── 發布：檢查 → 只 commit 資料檔 → 拉遠端最新（rebase）→ 推上 main ──
-async function publish(message) {
-  const log = [];
-  const step = (name, r) => { log.push({ name, ok: r.code === 0, out: r.out }); return r.code === 0; };
-  const fail = error => ({ ok: false, error, log });
-
-  const { branch, changed, ahead } = await gitStatus();
-  if (branch !== BRANCH) return fail(`目前在「${branch}」分支，工作站只從 ${BRANCH} 發布。請先切回 ${BRANCH}。`);
-  if (!changed.length && !ahead) return fail("歌曲資料沒有變更，不用發布。");
-
-  const checks = await runChecks();
-  checks.steps.forEach(s => log.push(s));
-  if (!checks.ok) return fail("檢查沒過，沒有發布。請看下面的訊息修正後再試。");
-
-  // 沒有新變更、只是上次沒推上去的話，直接跳到拉最新＋推
-  if (changed.length) {
-    const files = changed.map(c => c.file);
-    if (!step("加入變更", await git("add", "--", ...files))) return fail("git add 失敗");
-    if (!step("commit", await git("commit", "-m", message, "--", ...files))) return fail("commit 失敗");
-  }
-
-  if (!step("拉遠端最新", await git("pull", "--rebase", "--autostash", "origin", BRANCH))) {
-    await git("rebase", "--abort");
-    return fail("遠端有改到同樣的地方，自動合併失敗。commit 留在本機了，請手動處理衝突後再按發布。");
-  }
-  if (!step("推上 GitHub", await git("push", "origin", BRANCH))) return fail("push 失敗（網路或權限）。commit 留在本機，可以再按一次發布。");
-  const head = (await git("log", "-1", "--format=%h %s")).out;
-  return { ok: true, head, log };
-}
-
-// 同步：拉遠端最新（例如 Claude 推上來的情報包）
-async function sync() {
-  const { branch } = await gitStatus();
-  if (branch !== BRANCH) return { ok: false, error: `目前在「${branch}」分支，不是 ${BRANCH}。` };
-  const r = await git("pull", "--rebase", "--autostash", "origin", BRANCH);
-  if (r.code !== 0) { await git("rebase", "--abort"); return { ok: false, error: "同步失敗，請手動處理。", out: r.out }; }
-  return { ok: true, out: r.out };
-}
 
 // ── HTTP ──
 const send = (res, code, body, headers = {}) => {
@@ -196,7 +113,7 @@ async function api(req, res, url) {
   }
 
   if (p === "/api/status" && req.method === "GET") return send(res, 200, await gitStatus());
-  if (p === "/api/check" && req.method === "POST") return send(res, 200, await runChecks());
+  if (p === "/api/check" && req.method === "POST") return send(res, 200, await check());
   if (p === "/api/sync" && req.method === "POST") return send(res, 200, await sync());
   if (p === "/api/publish" && req.method === "POST") {
     const { message } = JSON.parse(await readBody(req));
