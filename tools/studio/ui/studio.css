@@ -116,9 +116,9 @@ button, input, textarea { font: inherit; color: inherit; }
 .page .end { font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
 .ring { width: 14px; height: 14px; border-radius: 50%; background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--line-2) 0); -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4px); mask: radial-gradient(circle, transparent 3.5px, #000 4px); }
 
-/* 頁面 */
-.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.topbar { display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 10px 0 12px; flex: none; }
+/* 中間：編輯區（不捲動）—— 頂部 → 預覽 → 走帶 → 檢視分頁 → 時間軸 */
+.main { display: grid; grid-template-rows: 44px minmax(200px, 1fr) auto auto auto; min-width: 0; min-height: 0; overflow: hidden; container-type: inline-size; }
+.topbar { display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 10px 0 12px; }
 .crumbs { display: flex; align-items: center; gap: 2px; color: var(--ink-2); min-width: 0; }
 .crumbs span { padding: 2px 6px; border-radius: 4px; white-space: nowrap; cursor: pointer; }
 .crumbs span:hover { background: var(--hover); }
@@ -127,65 +127,45 @@ button, input, textarea { font: inherit; color: inherit; }
 .topbar .sp { flex: 1; }
 .check { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 13px; padding: 0 8px; }
 
-.scroll { flex: 1; overflow: auto; min-height: 0; }
-.doc { padding: 12px 36px 48px; max-width: 1400px; margin: 0 auto; }
-.doc-icon { width: 52px; height: 52px; border-radius: 8px; background: var(--blue-bg); color: var(--blue); display: grid; place-items: center; margin-bottom: 6px; }
-.doc-icon .ic { width: 28px; height: 28px; stroke-width: 1.5; }
-.doc h1 { font-size: 34px; line-height: 1.2; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em; }
-
-/* 屬性列表（兩欄） */
-.props { display: grid; grid-template-columns: 1fr 1fr; column-gap: 32px; }
-.prop { display: grid; grid-template-columns: 124px minmax(0, 1fr); align-items: center; min-height: 34px; }
-.prop-k { display: flex; align-items: center; gap: 8px; color: var(--ink-2); }
-.prop-k .ic { color: var(--ink-3); width: 15px; height: 15px; }
-.prop-v { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 4px 6px; border-radius: 4px; min-height: 30px; }
-.prop-v:hover { background: var(--hover); }
-.prop-v .muted { color: var(--ink-3); }
-.steps { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; color: var(--ink-3); }
-.steps span { display: inline-flex; align-items: center; gap: 4px; }
-.steps .ok { color: var(--ink-2); }
-.steps .ok .ic { color: var(--green); }
-.steps .run { color: var(--accent); }
-.steps .run .ic { animation: spin 1.2s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.full { grid-column: 1 / -1; }
-
-.divider { height: 1px; background: var(--line); margin: 10px 0 16px; }
-
-/* 提示框（callout） */
-.callout { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 4px; background: var(--red-bg); margin-bottom: 20px; }
-.callout > .ic { color: var(--red); width: 18px; height: 18px; }
-.callout b { font-weight: 600; }
-.callout .sp { flex: 1; }
-
-/* 影片＋現在這句 */
-.stage { display: grid; grid-template-columns: minmax(0, 640px) minmax(0, 1fr); gap: 28px; }
-.video { position: relative; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; background: #111; }
-.video .ph { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(120% 90% at 30% 20%, #3b4370 0%, #101117 70%); color: #fff; font-size: 30px; font-weight: 700; letter-spacing: .06em; }
-.now { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.h3 { font-size: 12px; font-weight: 500; color: var(--ink-3); margin: 2px 0 0; }
-.quote { border-left: 3px solid var(--ink); padding: 2px 0 2px 14px; margin-bottom: 6px; }
-.quote .jp { font-size: 22px; font-weight: 600; line-height: 1.4; }
-.quote .tr { color: var(--ink-2); }
-.todo { display: grid; gap: 1px; }
-.todo div { display: flex; gap: 10px; align-items: baseline; padding: 3px 6px; margin: 0 -6px; border-radius: 4px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.todo div:hover { background: var(--hover); }
-.todo .mono { color: var(--ink-3); width: 58px; flex: none; }
+/* 預覽：影片依可用空間縮放成 16:9（studio.js 算大小），字幕浮在畫面下方 */
+.monitor { position: relative; background: var(--side); display: grid; place-items: center; min-height: 0; overflow: hidden; padding: 12px; }
+.video { position: relative; border-radius: 6px; overflow: hidden; background: #000; width: 640px; height: 360px; }
+.video .ph { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(120% 90% at 30% 20%, #3b4370 0%, #101117 70%); color: rgba(255, 255, 255, .9); font-size: 40px; font-weight: 700; letter-spacing: .08em; }
+.ov-tags { position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; }
+.ov-tags .pill { background: rgba(0, 0, 0, .55); color: #fff; backdrop-filter: blur(6px); }
+.ov-tags .pill.guess { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45); }
+.ov-tc { position: absolute; top: 12px; right: 12px; padding: 1px 7px; border-radius: 4px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; }
+.caption { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); max-width: 92%; padding: 8px 18px 9px; border-radius: 8px; background: rgba(0, 0, 0, .62); backdrop-filter: blur(6px); color: #fff; text-align: center; }
+.caption .jp { font-size: clamp(16px, 2.6vh, 26px); font-weight: 600; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.caption .tr { font-size: clamp(12px, 1.7vh, 16px); color: rgba(255, 255, 255, .78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.caption.low { box-shadow: inset 3px 0 0 #ff6b66; }
+.caption[hidden] { display: none; }
 
 /* 走帶列 */
-.transport { display: flex; align-items: center; gap: 4px; padding: 14px 0 10px; }
-.tc { font: 600 20px var(--mono); margin: 0 10px 0 8px; }
+.transport { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-top: 1px solid var(--line); }
+.tc { font: 600 19px var(--mono); margin: 0 10px 0 8px; white-space: nowrap; }
 .tc small { color: var(--ink-3); font-size: 13px; font-weight: 400; }
-.bb { color: var(--ink-2); font-size: 13px; margin-right: 8px; }
-.play { width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--ink); color: var(--bg); display: grid; place-items: center; cursor: pointer; }
+.bb { color: var(--ink-2); font-size: 13px; margin-right: 8px; white-space: nowrap; }
+.play { width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--ink); color: var(--bg); display: grid; place-items: center; cursor: pointer; flex: none; }
 .play .ic { width: 14px; height: 14px; fill: currentColor; stroke-width: 2; }
 .seg { display: inline-flex; padding: 2px; border-radius: 6px; background: var(--hover); margin-right: 4px; }
 .seg button { height: 24px; padding: 0 8px; border: 0; border-radius: 4px; background: none; color: var(--ink-2); font-size: 12.5px; cursor: pointer; }
 .seg button.on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 2px rgba(15, 15, 15, .12); }
+.btn.on-toggle.on { background: var(--select); color: var(--accent); }
+.btn.punch { box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink); }
 .transport .sp { flex: 1; }
+/* 中間變窄時：收起次要的字，只留圖示 */
+@container (max-width: 820px) {
+  .transport .lbl, .views .lbl, .bb, .tc small, #confCount .pill.yellow, .topbar .pill.blue { display: none; }
+  .crumbs span, .crumbs i { display: none; }
+}
+
+.editor { padding: 0 12px 10px; min-height: 0; }
+.table-wrap { height: 304px; overflow: auto; }
+.table-wrap thead th { position: sticky; top: 0; background: var(--bg); z-index: 1; }
 
 /* 資料庫區塊：檢視分頁（時間軸／歌詞表） */
-.views { display: flex; align-items: center; gap: 2px; border-bottom: 1px solid var(--line); }
+.views { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--line); margin: 0 12px; }
 .view { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px; border: 0; background: none; color: var(--ink-2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .view .ic { width: 15px; height: 15px; }
 .view:hover { color: var(--ink); }
@@ -261,7 +241,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .peek-body { overflow: auto; padding: 4px 20px 28px; }
 .peek h2 { font-size: 22px; font-weight: 700; line-height: 1.35; margin: 4px 0 2px; }
 .peek .sub { color: var(--ink-3); font-size: 13px; margin-bottom: 12px; }
-.peek .prop { grid-template-columns: 96px minmax(0, 1fr); }
+
 .time-edit { display: flex; align-items: center; gap: 1px; }
 .time-edit input { width: 64px; height: 26px; border: 0; border-radius: 4px; background: var(--hover); text-align: center; font: 600 13px var(--mono); }
 .nudge { height: 26px; padding: 0 4px; border: 0; border-radius: 4px; background: none; color: var(--ink-2); font: 11.5px var(--mono); cursor: pointer; }
@@ -284,3 +264,42 @@ button, input, textarea { font: inherit; color: inherit; }
 .field-input::placeholder { color: var(--ink-3); }
 .hint { font-size: 12.5px; color: var(--ink-3); line-height: 1.5; }
 .peek-actions { display: flex; gap: 6px; margin-top: 18px; }
+
+/* 檢查器：歌曲、情報分頁 */
+.peek-icon { width: 44px; height: 44px; border-radius: 8px; background: var(--blue-bg); color: var(--blue); display: grid; place-items: center; margin: 6px 0 4px; }
+.peek-icon .ic { width: 24px; height: 24px; }
+.prop-v .muted, .muted { color: var(--ink-3); }
+.checklist { display: grid; gap: 2px; margin-top: 2px; }
+.checklist div { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--ink-2); }
+.checklist .ok .ic { color: var(--green); }
+.checklist .run { color: var(--accent); }
+.checklist .run .ic { animation: spin 1.2s linear infinite; }
+.checklist .todo-step { color: var(--ink-3); }
+.checklist small { margin-left: auto; color: var(--ink-3); font-size: 12px; }
+.bullets { margin: 2px 0 0; padding-left: 20px; color: var(--ink); }
+.bullets li { padding: 2px 0; }
+.mini-callout { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 4px; background: var(--red-bg); margin: 10px 0 4px; font-size: 13.5px; }
+.mini-callout .ic { color: var(--red); margin-top: 2px; }
+.mini-callout.yellow { background: var(--yellow-bg); }
+.mini-callout.yellow .ic { color: var(--yellow); }
+.src { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px; border-radius: 4px; color: var(--ink-2); }
+.src:hover { background: var(--hover); }
+.src .ic { color: var(--ink-3); }
+.src .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.intel { border-top: 1px solid var(--line); padding: 10px 0; }
+.intel-head { display: flex; align-items: center; gap: 8px; }
+.intel-head b { font-weight: 500; flex: 1; }
+.diff { display: grid; grid-template-columns: 44px 1fr; gap: 2px 8px; margin: 6px 0; font-size: 13px; }
+.diff span { color: var(--ink-3); }
+.diff del { color: var(--ink-3); }
+.diff ins { text-decoration: none; background: var(--green-bg); border-radius: 3px; padding: 0 3px; }
+.intel .acts-row { display: flex; gap: 6px; }
+
+/* 屬性列（Notion 的 properties） */
+.prop { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; min-height: 34px; }
+.prop-k { display: flex; align-items: center; gap: 8px; color: var(--ink-2); }
+.prop-k .ic { color: var(--ink-3); width: 15px; height: 15px; }
+.prop-v { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 4px 6px; border-radius: 4px; min-height: 30px; }
+.prop-v:hover { background: var(--hover); }
+.divider { height: 1px; background: var(--line); margin: 12px 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
