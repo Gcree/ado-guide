@@ -32,10 +32,10 @@
 <!-- build:seo（scripts/build.mjs 在這裡放網址、分享圖與結構化資料） -->
 <link rel="preconnect" href="https://font.emtech.cc">
 <link rel="preconnect" href="https://font.emtech.cc" crossorigin>
-<!-- 只載入實際用到的字重；整包網址會再用 @import 串 4 個檔，包含用不到的 100 -->
+<!-- 只載入實際用到的字重；整包網址會再用 @import 串 4 個檔，包含用不到的 100。
+     不載 800：它的字型片段約 260 KiB，font-weight: 800 的地方會自動改用 700 -->
 <link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/400">
 <link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/700">
-<link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/800">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Google Fonts 的 CSS 很大（約 217 KiB）：改成先不擋畫面，載完再套用（media=print 換成 all）；沒開 JS 時由 noscript 照常載入 -->
