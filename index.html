@@ -38,7 +38,9 @@
 <link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/800">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap">
+<!-- Google Fonts 的 CSS 很大（約 217 KiB）：改成先不擋畫面，載完再套用（media=print 換成 all）；沒開 JS 時由 noscript 照常載入 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap"></noscript>
 <link rel="stylesheet" href="style.css?v=dev1">
 
 <svg width="0" height="0" style="position:absolute;display:none" aria-hidden="true">
