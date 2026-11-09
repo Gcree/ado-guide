@@ -2940,25 +2940,12 @@
       return [cs[0] || (rb ? "#ff7ab8" : "#5fd4ff"), cs[1] || (rb ? "#5fd4ff" : "#c9d3e3")];
     };
     const obiDots = s => penOf(s).keys.map(k => `<span style="background:${k === "彩" ? "conic-gradient(#ff4a5a, #ffd84a, #4ee08a, #5fd4ff, #a374ff, #ff4a5a)" : PENC[k][1]}"></span>`).join("");
-    // 最前面那張（頁面最大的圖）直接載高解析並提高優先權；後面幾張大半被蓋住，
-    // 先用中尺寸，等前面那張載好（ready）才在背景換成高解析，避免一開始搶頻寬拖慢首屏。
-    const art = (s, first, ready) => {
-      const i = new Image(), hi = `https://i.ytimg.com/vi/${s.yt}/maxresdefault.jpg`, mid = `https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg`;
+    const art = s => {
+      const i = new Image();
       i.alt = ""; i.decoding = "async";
-      if (first) {
-        i.fetchPriority = "high";
-        // 沒有高解析縮圖時 YouTube 回 120×90 的灰圖，改用中尺寸
-        i.onload = () => { if (i.naturalWidth < 200) i.src = mid; };
-        i.src = hi;
-      } else {
-        i.fetchPriority = "low";
-        i.src = mid;
-        ready.then(() => {
-          const h = new Image();
-          h.onload = () => { if (h.naturalWidth >= 200) i.src = hi; };
-          h.src = hi;
-        });
-      }
+      i.src = `https://i.ytimg.com/vi/${s.yt}/maxresdefault.jpg`;
+      // 沒有高解析縮圖時 YouTube 回 120×90 的灰圖，改用中尺寸
+      i.onload = () => { if (i.naturalWidth < 200) i.src = `https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg`; };
       return i;
     };
     let moldN = 0;
@@ -2982,7 +2969,6 @@
     function deal() {
       const n = 3 + Math.floor(Math.random() * 3), picks = [...POOL].sort(() => Math.random() - .5).slice(0, n), pos = layout(n);
       crate.innerHTML = "";
-      let frontDone; const ready = new Promise(r => frontDone = r);
       // 最前面那張先放進 DOM，Tab 順序從前面開始；後面的用 z-index 壓在下面
       picks.forEach((s, i) => {
         const li = document.createElement("li"), p = pos[i], [p1, p2] = inks(s);
@@ -2991,8 +2977,7 @@
         li.innerHTML = `<a href="song/${s.id}/" data-crate="${s.id}" aria-label="${T("{0}，打開應援頁", esc(s.ja))}"><span class="floor"></span><span class="float"><span class="jacket">${window.ADO_CD(s)}`
           + `<span class="tray"></span><span class="sleeve"><span class="obi" aria-hidden="true"><i>Ado</i><u></u><b lang="ja">${esc(s.ja)}</b><s>${obiDots(s)}</s></span></span>`
           + `<span class="spine"></span><span class="lip"></span></span></span></a>`;
-        const img = art(s, i === 0, ready);
-        if (i === 0) { img.addEventListener("load", frontDone, { once: true }); img.addEventListener("error", frontDone, { once: true }); }
+        const img = art(s);
         // 右側斷面用同一張插圖的右緣，載入後才知道最後用的是哪個尺寸
         img.addEventListener("load", () => li.style.setProperty("--art", `url("${img.currentSrc}")`));
         li.querySelector(".sleeve").prepend(img);
