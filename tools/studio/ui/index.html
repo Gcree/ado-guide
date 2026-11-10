@@ -73,7 +73,6 @@
     <symbol id="i-ripple" viewBox="0 0 24 24"><path d="M3 12h4M10 12h11"/><path d="m17 8 4 4-4 4"/><path d="M7 7v10"/></symbol>
     <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><path d="M8 12h8"/></symbol>
     <symbol id="i-keys" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h1M10 10h1M14 10h1M18 10h0M7 14h10"/></symbol>
-    <symbol id="i-old" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></symbol>
   </svg>
 
   <div class="app" id="app">
@@ -90,9 +89,6 @@
         <button class="btn primary" type="submit">匯入</button>
       </form>
       <div class="tree" id="songList"></div>
-      <a class="item old-link" id="oldLink" href="/tools/timing/" title="現場版、其他進階編輯">
-        <svg class="ic"><use href="#i-old"/></svg>舊版對時工作台（之後會拿掉）
-      </a>
     </aside>
 
     <!-- 中間：只放編輯 -->
@@ -197,11 +193,13 @@
   <dialog class="dlg" id="pasteDlg">
     <form method="dialog" id="pasteForm">
       <h2>貼上歌詞</h2>
-      <p class="hint">一行一句：「日文<Tab>中文」，或「時間<Tab>日文<Tab>中文」。整首都不寫時間也可以，會先平均排開，勾「自動對時」就馬上對到人聲上。從試算表複製過來的就是 Tab 分隔。</p>
+      <p class="hint">一行一句：「日文<Tab>中文」，或「時間<Tab>日文<Tab>中文」。整首都不寫時間也可以，會先平均排開，勾「自動對時」就馬上對到人聲上。從試算表複製過來的就是 Tab 分隔。LRC（<code>[01:23.45]歌詞</code>）也收，同一個時間的第二行當中文。</p>
       <textarea id="pasteText" spellcheck="false"></textarea>
       <div class="dlg-row">
         <label class="hint"><input type="checkbox" id="pasteAlign"> 匯入後自動對時（要音訊，第一次會下載模型）</label>
         <label class="hint"><input type="checkbox" id="pasteKeep" checked> 保留應援（依日文對回同一句）</label>
+        <button class="btn" type="button" id="pasteFileBtn" title="讀 .lrc、.txt，或之前存的時間軸 .json（JSON 裡的應援會一起帶進來）">從檔案載入</button>
+        <input type="file" id="pasteFile" accept=".lrc,.txt,.tsv,.json,text/plain,application/json" hidden>
       </div>
       <div class="dlg-row end">
         <button class="btn" value="cancel" formnovalidate>取消</button>

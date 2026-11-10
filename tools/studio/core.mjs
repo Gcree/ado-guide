@@ -1,6 +1,6 @@
 // 工作站的核心操作：介面（server.mjs）和命令列（cli.mjs）都用這一份，所以人按按鈕和 Claude 下指令做的事一模一樣
 // 每個「改資料」的操作都只回傳「要寫的檔案內容＋變更摘要」，由 commit() 一次寫入；dryRun 時只回報不寫
-// 寫入規則沿用 tools/timing/ 的 lyrics-store.js、song-meta-store.js：只改碰到的那幾行，排版不對就丟錯不冒險
+// 寫入規則在同一個資料夾的 lyrics-store.js、song-meta-store.js：只改碰到的那幾行，排版不對就丟錯不冒險
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -11,8 +11,8 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const root = path.resolve(here, "../..");
-const LyricsStore = require(path.join(root, "tools/timing/lyrics-store.js"));
-const MetaStore = require(path.join(root, "tools/timing/song-meta-store.js"));
+const LyricsStore = require(path.join(here, "lyrics-store.js"));
+const MetaStore = require(path.join(here, "song-meta-store.js"));
 
 export const ACTS = LyricsStore.VALID_ACTS;
 export const PEN_KEYS = MetaStore.PEN_KEYS;
@@ -211,7 +211,7 @@ export function shiftLines(id, { from = 1, to, by, live = false }, db = load()) 
 // 整首換掉：lines 是 [{ time, jp, tr, acts?, sing?, call? }]，或「時間<Tab>日文<Tab>中文」的文字
 export function importLyrics(id, input, { live = false, keepActs = false } = {}, db = load()) {
   const song = songOrThrow(db, id);
-  // 現場版要先在對時工作台建好（需要演唱會名稱、影片），這裡只換歌詞
+  // 現場版要先在工作站建好（選場次後「從 MV 複製歌詞」，需要演唱會名稱、影片），這裡只換歌詞
   const e = live ? lyricsEntry(db, id, true) : (() => { try { return lyricsEntry(db, id, false); } catch { return { id, title: song.ja, youtubeId: song.yt, duration: lenToSec(song.len), lyrics: [] }; } })();
   let untimed = false;
   let lines = typeof input === "string" ? (() => { const p = parseText(input, e.duration || lenToSec(song.len)); untimed = p.untimed; return p.lines; })() : input;
@@ -234,13 +234,15 @@ export function importLyrics(id, input, { live = false, keepActs = false } = {},
   const old = e.lyrics.length;
   e.lyrics = lines;
   const r = writeLyrics(e, song, live, db, [`歌詞整首換掉：${old} 句 → ${lines.length} 句${keepActs ? "（保留同一句的應援）" : ""}${untimed ? "；還沒有時間（先平均排開）" : ""}`]);
-  if (untimed) { r.untimed = true; r.warnings.push(`歌詞沒有時間：先平均排開，請跑 align ${id} --apply 自動對時（或在對時工作台打點）`); }
+  if (untimed) { r.untimed = true; r.warnings.push(`歌詞沒有時間：先平均排開，請跑 align ${id} --apply 自動對時（或在工作站打點）`); }
   return r;
 }
 
 // 每行「時間<Tab>日文<Tab>中文」；沒有時間的寫法「日文<Tab>中文」也收，先平均排開（之後用 align 對時）
 function parseText(text, duration) {
-  const rows = text.replace(/\r\n/g, "\n").split("\n").filter(s => s.trim());
+  const rows = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n").filter(s => s.trim());
+  const lrc = parseLrc(rows);
+  if (lrc) return { lines: lrc, untimed: false };
   const isTime = t => /^\s*(\d+:\d+(\.\d+)?|\d+(\.\d+)?)\s*$/.test(t || "");
   const untimed = !rows.some(r => isTime(r.split("\t")[0]));
   const lines = rows.map((row, i) => {
@@ -254,6 +256,28 @@ function parseText(text, duration) {
     return { time, jp: jp.trim(), tr: tr.trim() };
   });
   return { lines, untimed };
+}
+
+// LRC：「[mm:ss.xx]歌詞」，一行可以有好幾個時間；[ti:…] 這類標頭略過。
+// 同一個時間出現第二行時當成中文（常見的雙語 LRC）；也收「日文<Tab>中文」。不是 LRC 就回 null
+export function parseLrc(rows) {
+  const TAG = /\[(\d+):(\d+(?:[.:]\d+)?)\]/g;
+  const timed = rows.filter(r => /^\s*\[\d+:\d+/.test(r));
+  if (!timed.length || timed.length < rows.filter(r => !/^\s*\[[a-z]+:/i.test(r)).length / 2) return null;
+  const byTime = new Map();
+  for (const row of timed) {
+    const times = [...row.matchAll(TAG)].map(m => +m[1] * 60 + +m[2].replace(":", "."));
+    const body = row.replace(TAG, "").trim();
+    if (!body) continue;   // 只有時間的空行（間奏標記）略過
+    const [jp, tr = ""] = body.split("\t");
+    for (const t of times) {
+      const k = Math.round(t * 100) / 100, hit = byTime.get(k);
+      if (!hit) byTime.set(k, { time: k, jp: jp.trim(), tr: tr.trim() });
+      else if (!hit.tr) hit.tr = body.trim();
+    }
+  }
+  const lines = [...byTime.values()].sort((a, b) => a.time - b.time);
+  return lines.length ? lines : null;
 }
 
 function writeLyrics(e, song, live, db, changes) {

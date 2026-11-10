@@ -1,4 +1,4 @@
-// 把一首歌的對時結果寫回歌詞檔的共用邏輯：瀏覽器裡的對時工作台（window.LyricsStore）和 apply.mjs（require）都用這一份
+// 把一首歌的對時結果寫回歌詞檔的共用邏輯：工作站的 core.mjs、server.mjs（require）都用這一份
 // MV 版寫進 song-lyrics.js（SONGS）；現場版（type: "live" 或 id 結尾 -live）寫進 song-lyrics-live.js（LIVE_SONGS）並依 id 排序
 // 原檔必須是 JSON.stringify(…, null, 2) 的排版，寫回時其他歌一個字都不會動，換行（CRLF / LF）照原檔
 (function (root, factory) {

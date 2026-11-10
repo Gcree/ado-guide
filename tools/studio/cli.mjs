@@ -45,7 +45,7 @@ const HELP = `新歌工作站命令列：node tools/studio/cli.mjs <指令> [參
   lines <id> --file edits.json [--live]     一次改很多句；edits.json＝[{"n":3,"tr":"…","acts":["clap"]}, …]（--file - 從標準輸入讀）
   shift <id> --by 0.3 [--from N] [--to M] [--live]
                                             整段平移時間
-  lyrics-import <id> --file 歌詞.json|.tsv [--keep-acts] [--live] [--align]
+  lyrics-import <id> --file 歌詞.json|.tsv|.lrc [--keep-acts] [--live] [--align]
                                             整首換掉；.tsv 每行「時間<Tab>日文<Tab>中文」，.json 是 [{time,jp,tr,…}]
                                             沒有時間也可以：每行「日文<Tab>中文」，加 --align 匯入後馬上自動對時
 
@@ -247,7 +247,8 @@ async function main() {
     case "lyrics-import": {
       const f = need(opt.file, "要給 --file");
       const text = readInput(f);
-      const input = /\.json$/i.test(f) || text.trim().startsWith("[") || text.trim().startsWith("{") ? JSON.parse(text) : text;
+      const looksJson = /^\s*(\{|\[\s*[{\]])/.test(text);   // LRC 也是 [ 開頭（[00:12.34]、[ti:…]），要看 [ 後面是不是 {
+      const input = /\.json$/i.test(f) || looksJson ? JSON.parse(text) : text;
       const r = core.importLyrics(need(id, "要給 id"), input, { live: !!opt.live, keepActs: !!opt.keepActs });
       if (!opt.align) return write(r);
       if (opt.dryRun) return write(r);

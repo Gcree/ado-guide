@@ -1,5 +1,5 @@
 // 歌曲資料（顯示在網站上、原本由 AI 補的部分）的讀寫：songs.js 的狀態／應援動作／應援重點、PEN 手燈色、CLIMAX 副歌高潮、
-// LIVE_VIDEOS 官方 LIVE 映像，以及應援重點在 i18n.js 的英日翻譯。對時工作台（window.SongMetaStore）和 node（require）共用
+// LIVE_VIDEOS 官方 LIVE 映像，以及應援重點在 i18n.js 的英日翻譯。工作站的 core.mjs（require）用這一份
 // 原則：只改這一首歌碰到的那幾行，其他行一個字都不動；某一行的排版跟預期不同就丟錯，不冒險寫入
 (function (root, factory) {
   const api = factory();

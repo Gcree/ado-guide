@@ -45,8 +45,7 @@ assets/                     ← 網站圖示（favicon、主畫面圖示）、�
 scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致性、動作合法性、時間順序等
 scripts/test-ui.mjs         ← 畫面冒煙測試（Playwright）：開 dist/ 走一遍首頁、歌曲頁、分享、測驗模式、離線、手機版面
 scripts/build.mjs           ← 建置：中文、英文（en/）、日文（jp/）各一份首頁與每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
-tools/timing/               ← 歌詞對時工具（只在本機用，不會發布）：邊播 MV 邊按空白鍵打每句的時間，按「存回歌詞檔」直接寫回 song-lyrics.js / song-lyrics-live.js
-tools/studio/               ← 新歌工作站（只在本機用）：server.mjs 開介面、cli.mjs 命令列，兩者共用 core.mjs；規劃見 docs/studio-plan.md
+tools/studio/               ← 新歌工作站（只在本機用）：server.mjs 開介面、cli.mjs 命令列，兩者共用 core.mjs；寫入規則在 lyrics-store.js、song-meta-store.js；規劃見 docs/studio-plan.md
 CLAUDE.md                   ← 給 Claude 的工作說明（改資料用工作站命令列、應援資料的規矩、怎麼發布）
 tools/romaji/               ← 英文版歌詞的羅馬拼音：建置前用 kuromoji 自動產生 song-romaji.json（不進版控），讀錯的寫在 overrides.json
 .github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
@@ -101,7 +100,7 @@ node scripts/build.mjs dist
 
 ### 新歌工作站
 
-Windows 點兩下 `工作站.bat`，Mac 點兩下 `工作站.command`（或 `node tools/studio/server.mjs --open`），會打開新歌工作站 <http://localhost:5178/tools/studio/ui/>：左邊歌單、中間預覽（字幕浮在畫面上）和時間軸／歌詞表、右邊編輯選取的句子、歌曲資料和情報包。改的東西先存在這台電腦的草稿（可以復原），按「存檔」（Ctrl+S）才寫回歌詞檔；檔案在你打開後被改過（命令列、自動對時、另一個分頁）會擋下來不蓋掉。快捷鍵跟舊版一樣：空白鍵打點、`[` `]` 微調、Enter 試聽、↑↓ 上下句、1–7 應援、G 下一個要檢查的句子、Ctrl+Z 復原；按 `?` 看全部。
+Windows 點兩下 `工作站.bat`，Mac 點兩下 `工作站.command`（或 `node tools/studio/server.mjs --open`），會打開新歌工作站 <http://localhost:5178/tools/studio/ui/>：左邊歌單、中間預覽（字幕浮在畫面上）和時間軸／歌詞表、右邊編輯選取的句子、歌曲資料和情報包。改的東西先存在這台電腦的草稿（可以復原），按「存檔」（Ctrl+S）才寫回歌詞檔；檔案在你打開後被改過（命令列、自動對時、另一個分頁）會擋下來不蓋掉。快捷鍵：空白鍵打點、`[` `]` 微調、Enter 試聽、↑↓ 上下句、1–7 應援、G 下一個要檢查的句子、Ctrl+Z 復原；按 `?` 看全部。
 
 - **像剪輯軟體一樣操作**（參考 Premiere、剪映、Arctime）：拖尺規移動播放指針；句子中間拖曳整句移動、拖兩邊修剪開始／結尾；磁鐵開著會吸附拍點、播放指針、其他句子的頭尾（按住 Alt 不吸）；空白處拖曳框選；點兩下句子直接改字、點兩下空白處加一句；右鍵有這句能做的事。用播放指針剪：`I`／`O` 設開始／結尾、Ctrl+B 拆句、`N` 加一句、Delete 刪除；按住空白鍵＝按下是開始、放開是結尾。「連動」（`W`）開著時，移動一句後面的句子跟著移。歌詞表點兩下格子改時間、日文、中文，Enter 往下、Tab 換欄。Ctrl+C／Ctrl+V 複製貼上應援。預覽和時間軸中間的線可以上下拖，`` ` `` 收起兩邊面板，`=` `-` `\` 縮放、整首放進畫面。
 
@@ -109,12 +108,10 @@ Windows 點兩下 `工作站.bat`，Mac 點兩下 `工作站.command`（或 `nod
 - **應援建議**：時間軸上的斜線是「可能有應援」的句子，只依量過的歌詞特徵（括號裡的和聲、英文重複句、出現 3 次以上的句子），附現有歌曲裡的命中率；不會自動寫進去，要按「採用」。歌曲狀態維持「暫定建議」時網站不會顯示。
 - **發布**：會列出要發布的檔案、commit 訊息，網站看得到的改動預設順便寫一條更新日誌（同一天併進當天那一版，不然第三碼 +1）。
 
-舊版對時工作台（<http://localhost:5178/tools/timing/>）還留著備用，之後會拿掉。
-
 **第一次使用**：點兩下就會自動安裝需要的工具（Git、Node.js、FFmpeg、uv，和工作站的 Python 環境：yt-dlp、librosa、PyTorch、Demucs、Whisper；Windows 裝 NVIDIA 顯卡版，約 3–4 GB）。Windows 用 winget，裝完要關掉視窗再點一次；Mac 要先裝好 [Homebrew](https://brew.sh)。安裝腳本在 `tools/studio/setup/`。
 
-- **拍點與副歌高潮**：匯入新歌時會從音訊自動算 BPM、第一小節、副歌高潮，填進 BEAT、CLIMAX（速度可能是兩倍或一半時會提醒）。已有的歌在「🎨 歌曲資料」→「分析音訊」，可以改選速度、點選副歌高潮候選、寫入 BEAT。命令列：`analyze <id>`；`bench --download` 拿現有資料對答案，量準確度。
-- **自動對時、翻譯**：「＋ 工具」→「自動對時這首」把目前的日文歌詞對到人聲上（先分離人聲，再用 Whisper 對齊，每句有信心分數）；「翻譯缺的中文」把沒有中文的句子交給 agy（要先跑一次 `node tools/studio/agent-cli.mjs --probe` 設定）。沒有官方字幕的新歌：`lyrics-import <id> --file 歌詞.tsv --align`，歌詞可以不寫時間。第一次會下載模型（Demucs 約 80 MB、Whisper large-v3 約 3 GB）。
+- **拍點與副歌高潮**：匯入新歌時會從音訊自動算 BPM、第一小節、副歌高潮，填進 BEAT、CLIMAX（速度可能是兩倍或一半時會提醒）。已有的歌在右邊「歌曲」分頁→「分析音訊」，可以改選速度、點選副歌高潮候選、寫入 BEAT。命令列：`analyze <id>`；`bench --download` 拿現有資料對答案，量準確度。
+- **自動對時、翻譯**：「歌曲」分頁→「自動對時」把目前的日文歌詞對到人聲上（先分離人聲，再用 Whisper 對齊，每句有信心分數）；「翻譯缺的中文」把沒有中文的句子交給 agy（要先跑一次 `node tools/studio/agent-cli.mjs --probe` 設定）。沒有官方字幕的新歌：`lyrics-import <id> --file 歌詞.tsv --align`，歌詞可以不寫時間。第一次會下載模型（Demucs 約 80 MB、Whisper large-v3 約 3 GB）。
 - **＋ 匯入**：貼 YouTube 網址，新增一首「整理中」的歌：歌名、長度、日期從影片資訊來；頻道有上傳日文字幕的話直接當歌詞初稿（含時間），有繁中字幕就對到每一句的中文（YouTube 自動產生、自動翻譯的字幕不收）；音訊存在 `tools/studio/work/<id>/`，給之後自動算拍點、對時用。命令列：`node tools/studio/cli.mjs fetch <網址> --id <英文 id>`。
 
 - **存回歌詞檔**、**歌曲資料**：任何瀏覽器都能直接存，不用選資料夾。存檔前會確認檔案在你打開之後沒被改過，避免蓋掉別的分頁或 git pull 的內容。
@@ -128,21 +125,15 @@ Windows 點兩下 `工作站.bat`，Mac 點兩下 `工作站.command`（或 `nod
 
 ### 歌詞對時
 
-新增歌曲或修正時間時，用 `tools/timing/` 邊播 MV 邊打時間（建議用上面的工作站開）：
+新增歌曲或修正時間都在上面的工作站做：
 
-1. 在專案資料夾開靜態伺服器（見上面），打開 <http://localhost:8000/tools/timing/>。
-2. 選歌。已經有歌詞的歌直接列出每一句；新歌先貼上歌詞（一行一句，日文和中譯中間用 Tab 隔開）。
-3. 播放影片，每句開始唱的時候按空白鍵；按錯按 Backspace 回上一句重打，`[` `]` 微調 0.05 秒，Enter 從那句前 2 秒重播檢查。反應時間（預設 150 毫秒）會先扣掉。進度存在這台電腦，重新整理不會不見。
-4. 按「存回歌詞檔」（或 Ctrl+S）。會先檢查時間順序、曲長、應援動作和合唱詞，沒問題才直接寫進 `song-lyrics.js`（MV 版）或 `song-lyrics-live.js`（現場版），其他歌一個字都不會動。第一次存要選一次 Ado-guide 資料夾，之後瀏覽器會記住；Shift+點擊可以重選。這個功能要用 Chrome 或 Edge。
-   - 其他瀏覽器改按「下載 JSON」，再寫回歌詞檔（檢查規則相同，應援動作 acts、sing、call 會保留）：
+1. 選歌。已經有歌詞的歌直接列出每一句；新歌在「歌曲」分頁按「貼上歌詞」（一行一句「日文<Tab>中文」，可以不寫時間；也可以「從檔案載入」.lrc、.txt 或時間軸 .json）。
+2. 播放影片，每句開始唱的時候按空白鍵；`[` `]` 微調 0.05 秒，Enter 從那句前 2 秒重播檢查。反應時間（預設 150 毫秒）會先扣掉。改的東西存在這台電腦的草稿，重新整理不會不見。
+3. 按「存檔」（Ctrl+S）。會先檢查時間順序、曲長、應援動作和合唱詞，沒問題才寫進 `song-lyrics.js`（MV 版）或 `song-lyrics-live.js`（現場版），其他歌一個字都不會動。
+   - 手上只有時間軸 JSON 檔時：`node tools/studio/cli.mjs lyrics-import <id> --file <id>.json`（換掉已經有的現場版加 `--live`；還沒有現場版的場次要在工作站「從 MV 複製歌詞」建）。
+4. 跑 `node tools/studio/cli.mjs check` 確認。
 
-```bash
-node tools/timing/apply.mjs ~/Downloads/<id>.json
-```
-
-5. 跑 `node scripts/check-data.mjs` 確認。
-
-網站上顯示的歌曲資料也可以在工作台改：按「🎨 歌曲資料」，可以設定狀態（正式／暫定建議／自由應援／整理中）、手燈色（依點選順序）、應援動作、應援重點與英日翻譯、副歌高潮秒數、官方 LIVE 映像。存檔時一樣先檢查，再只改這首歌在 `songs.js`（和 `i18n.js`）裡的那幾行。
+網站上顯示的歌曲資料在「歌曲」分頁改：狀態（正式／暫定建議／自由應援／整理中）、手燈色（依點選順序）、整首應援動作（可以「從逐句帶入」）、應援重點與英日翻譯、副歌高潮秒數、官方 LIVE 映像。按「存歌曲資料」時一樣先檢查，再只改這首歌在 `songs.js`（和 `i18n.js`）裡的那幾行。
 
 ### 資料自動檢查
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 新歌工作站（Ado Studio）的本機伺服器：只聽 127.0.0.1，給自己的瀏覽器用
-// - 開網站和對時工作台（專案資料夾當靜態網站），任何瀏覽器都能存檔，不用再選資料夾
+// - 開網站和工作站介面（專案資料夾當靜態網站），任何瀏覽器都能存檔，不用再選資料夾
 // - 讀寫歌曲資料檔（只限下面 WRITABLE 這幾個），寫入前確認檔案還讀得出來、而且沒被別人先改過
 // - 檢查（check-data、test-karaoke）、同步（git pull）、發布（commit＋push 到 main）
 // 用法：node tools/studio/server.mjs [--open] [--port 5178]；Windows 點兩下「工作站.bat」，Mac 點兩下「工作站.command」
@@ -17,7 +17,7 @@ import { check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, align,
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
-const LyricsStore = require(path.join(root, "tools/timing/lyrics-store.js"));
+const LyricsStore = require(path.join(here, "lyrics-store.js"));
 
 const args = process.argv.slice(2);
 const argVal = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -131,9 +131,9 @@ async function api(req, res, url) {
   }
   // 貼上整首歌詞（可以不寫時間）；align：匯入後馬上自動對時（沒有時間時順便重補間奏）
   if (p === "/api/lyrics-import" && req.method === "POST") {
-    const { id, text, align: doAlign, keepActs } = JSON.parse(await readBody(req));
+    const { id, text, lines, align: doAlign, keepActs } = JSON.parse(await readBody(req));
     try {
-      const r = importLyrics(id, String(text || ""), { keepActs: !!keepActs });
+      const r = importLyrics(id, Array.isArray(lines) ? lines : String(text || ""), { keepActs: !!keepActs });
       commit(r);
       const out = { ok: true, changes: [...r.changes], warnings: [...r.warnings] };
       if (doAlign) {

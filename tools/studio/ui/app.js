@@ -176,7 +176,6 @@
     renderVersions();
     store.set("studio-last", id);
     if (location.hash.slice(1) !== id) history_replace(id);
-    $("oldLink").href = `/tools/timing/?song=${encodeURIComponent(id)}`;
     if (!keepView) {
       win = [0, Math.min(30, DUR() || 30)];
       const first = L.findIndex(l => !isGap(l));
@@ -857,7 +856,7 @@
       ${prop("i-status", "狀態", `<div class="status-seg">${Object.entries(STATUS).map(([k, [name, c]]) => `<button data-status="${k}" class="${m.status === k ? "on" : ""}" style="--c-bg:var(--${c}-bg)">${name}</button>`).join("")}</div>`)}
       ${prop("i-light", "手燈", `<div class="acts">${pens}</div>`)}
       ${prop("", "", `<label class="hint"><input type="checkbox" id="penGuess" ${m.penGuess ? "checked" : ""}> 只是預測（網站不顯示）</label>`)}
-      ${prop("i-hand", "整首應援動作", `<div class="acts">${acts}</div><div class="hint" style="margin-top:4px">這是整首歌的標籤（歌曲清單用），要按「存歌曲資料」；要加在某一句上，請到「句子」分頁選歌詞</div>`)}
+      ${prop("i-hand", "整首應援動作", `<div class="acts">${acts}<button class="btn outline" data-op="actsFromLines" title="把${ver ? "這場現場版" : "MV 版"}逐句標過的應援動作合起來，換掉上面的選擇">從逐句帶入</button></div><div class="hint" style="margin-top:4px">這是整首歌的標籤（歌曲清單用），要按「存歌曲資料」；要加在某一句上，請到「句子」分頁選歌詞</div>`)}
       <div class="block-label">應援重點 <button class="btn" data-op="addTip">${icon("i-plus")}新增</button></div>
       ${m.tips.map((t, i) => `<div class="tip-row"><input class="field-input" data-tip="${i}" data-k="zh" value="${esc(t.zh)}" placeholder="中文"><input class="field-input sm" data-tip="${i}" data-k="en" value="${esc(t.en)}" placeholder="English（選填）"><input class="field-input sm" data-tip="${i}" data-k="ja" value="${esc(t.ja)}" placeholder="日本語（選填）"><button class="btn x" data-deltip="${i}">${icon("i-x")}</button></div>`).join("") || '<div class="hint">沒有</div>'}
       ${prop("i-flag", "副歌高潮", `<input class="inline-input" id="climaxIn" value="${m.climax ?? ""}" placeholder="秒"><button class="btn" data-op="climaxNow">用目前時間</button>`)}
@@ -1001,6 +1000,13 @@
       case "insert": return insertAfter(i);
       case "delete": return deleteSelected();
       case "clearActs": return clearActs();
+      case "actsFromLines": {
+        const used = new Set(L.flatMap(l => l.acts || []));
+        if (!used.size) return toast("逐句歌詞還沒有標應援動作");
+        meta.acts = ACT_KEYS.filter(a => used.has(a));
+        drawInsp();
+        return toast(`已帶入：${meta.acts.map(a => ACT_INFO[a][0]).join("、")}（記得按「存歌曲資料」）`);
+      }
       case "addTip": meta.tips.push({ zh: "", en: "", ja: "" }); return drawInsp();
       case "climaxNow": meta.climax = Math.round(player.time() * 100) / 100; return drawInsp();
       case "resetMeta": meta = null; return drawInsp();
@@ -1159,9 +1165,32 @@
     $("pasteText").value = L.map(l => `${l.time.toFixed(2)}\t${l.jp}\t${l.tr || ""}`).join("\n");
     $("pasteAlign").checked = false;
     $("pasteKeep").checked = true;
+    pasteJson = null;
     $("pasteDlg").showModal();
     $("pasteText").focus();
   }
+  // 從檔案載入：.lrc／.txt 直接放進文字框（LRC 由伺服器解析）；.json 是時間軸（{lyrics:[…]} 或陣列），應援一起帶進來
+  let pasteJson = null;
+  $("pasteFileBtn").onclick = () => $("pasteFile").click();
+  $("pasteFile").addEventListener("change", async e => {
+    const f = e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    const text = await f.text();
+    pasteJson = null;
+    if (/\.json$/i.test(f.name) || /^\s*(\{|\[\s*[{\]])/.test(text)) {   // LRC 也是 [ 開頭，看 [ 後面是不是 {
+      let lines;
+      try { const j = JSON.parse(text); lines = Array.isArray(j) ? j : j.lyrics; } catch (err) { return alert(`JSON 讀不懂：${err.message}`); }
+      if (!Array.isArray(lines) || !lines.every(l => l && Number.isFinite(+l.time) && typeof l.jp === "string")) return alert("JSON 要是時間軸格式：{ lyrics: [{ time, jp, tr, … }] }");
+      const shown = lines.map(l => `${(+l.time).toFixed(2)}\t${l.jp}\t${l.tr || ""}`).join("\n");
+      pasteJson = { shown, lines };
+      $("pasteText").value = shown;
+      toast(`已載入 ${f.name}：${lines.length} 句${lines.some(l => l.acts?.length) ? "（含應援；改了文字框就只用文字）" : ""}`);
+    } else {
+      $("pasteText").value = text.replace(/^﻿/, "");
+      toast(`已載入 ${f.name}`);
+    }
+  });
   // Tab 鍵在文字框裡打 Tab，不要跳走
   $("pasteText").addEventListener("keydown", e => {
     if (e.key !== "Tab") return;
@@ -1177,7 +1206,8 @@
     if (JSON.stringify(clean(L)) !== savedJSON && !confirm("有還沒存的修改，貼上會取代整首（草稿會丟掉）。繼續？")) return;
     const doAlign = $("pasteAlign").checked;
     toast(doAlign ? "匯入並自動對時中…" : "匯入中…", 600000);
-    const r = await api("/api/lyrics-import", { id: D.song.id, text, align: doAlign, keepActs: $("pasteKeep").checked });
+    const lines = pasteJson && text === pasteJson.shown ? pasteJson.lines : undefined;
+    const r = await api("/api/lyrics-import", { id: D.song.id, text, lines, align: doAlign, keepActs: $("pasteKeep").checked });
     toast("");
     if (!r.ok) { alert(`匯入失敗：\n${r.error}`); return; }
     store.set(draftKey(), null);
@@ -1711,7 +1741,7 @@
     showBanner(`已匯入〈${r.ja}〉：${r.changes.join("；")}${r.warnings.length ? `。提醒：${r.warnings.join("；")}` : ""}`, [["知道了", hideBanner]]);
   });
 
-  // ── 鍵盤：舊版對時工作台的鍵都保留，再加上 Premiere／剪映習慣的鍵（按 ? 看全部） ──
+  // ── 鍵盤：打點、微調的鍵沿用舊版對時工作台，再加上 Premiere／剪映習慣的鍵（按 ? 看全部） ──
   const KEYS = [
     ["播放", [
       ["K", "播放／暫停"], ["Enter", "從這句前 2 秒試聽"], ["R", "循環這句"], ["J／L", "倒退／快轉 2 秒"],
