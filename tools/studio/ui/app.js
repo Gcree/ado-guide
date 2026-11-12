@@ -75,6 +75,13 @@
   });
   const endOf = i => (L[i].duration != null ? L[i].time + L[i].duration : L[i + 1] ? L[i + 1].time : DUR());
   const curIndex = t => { let k = -1; for (let i = 0; i < L.length; i++) { if (L[i].time <= t) k = i; else break; } return k >= 0 && t < endOf(k) ? k : -1; };
+  // 第 i 句的開頭能放的範圍 [最早, 最晚]：不能早於前一句的結尾（前一句沒寫結尾，就是它的開頭再加 gap 秒），不能晚於下一句的開頭減 gap 秒。
+  // 手動編輯（拖曳、I）留 0.01 秒；貼齊聲音是自動移動，留 0.05 秒。prevAt：前一句已經排定要移到哪（一次移好幾句時用），沒給就用它現在的開頭
+  function startRange(i, gap = 0.01, prevAt) {
+    const prev = L[i - 1], next = L[i + 1];
+    const lo = prev ? Math.max((prevAt ?? prev.time) + gap, prev.duration != null ? prev.time + prev.duration : -Infinity) : 0;
+    return [lo, next ? next.time - gap : DUR()];
+  }
   const lvlOf = l => (l._lvl === "none" ? "low" : l._lvl);
   const isRed = l => !isGap(l) && (l._lvl === "low" || l._lvl === "none");
 
@@ -347,7 +354,7 @@
   }
 
   // ── 用播放指針編輯（像 Premiere 的 I／O、Ctrl+K，剪映的分割） ──
-  const clampStart = (i, t) => Math.max(i > 0 ? (L[i - 1].duration != null ? L[i - 1].time + L[i - 1].duration : L[i - 1].time + 0.01) : 0, Math.min(L[i + 1] ? L[i + 1].time - 0.01 : DUR(), t));
+  const clampStart = (i, t) => { const [lo, hi] = startRange(i); return Math.max(lo, Math.min(hi, t)); };
   function setInNow() {
     const i = anchor, l = L[i];
     if (!l) return;
@@ -412,20 +419,25 @@
     toast(`第 ${i + 1} 句：切掉 ${cut.toFixed(2)} 秒，開始 ${fmt(t)}`, 1400);
   }
   // 貼齊聲音：選到的句子，開頭貼到附近人聲最明顯的起音點（要先分離人聲，第一次會等一下）
-  let vocEnv = null, vocEnvWait = null; // vocEnv：{ id, hop, values（dB） }；vocEnvWait：還在算的那首 { id, p }
+  // 每首歌一份人聲音量曲線 { p, env }：p 是請求（Promise，不會 reject；失敗就清掉，下次按 B 再試），env 算好才有值 { id, hop, values（dB） }。
+  // 還沒算好的那首也留著，按 B 才分得出「還在算」（換歌再換回來也一樣，不會再送一個請求）；算好的在下一首開始算時清掉，不會越積越多
+  const vocEnvs = new Map();
   function loadVocEnv() {
-    const id = D.song.id;
-    if (vocEnv && vocEnv.id === id) return Promise.resolve(vocEnv);
-    // 第一次要分離人聲，等很久；這段時間再按 B 共用同一個請求，不會讓伺服器同時跑兩次
-    if (vocEnvWait && vocEnvWait.id === id) return vocEnvWait.p;
+    const id = D.song.id, cur = vocEnvs.get(id);
+    if (cur) return cur.p;
+    for (const [k, v] of vocEnvs) if (v.env) vocEnvs.delete(k);
     toast("分離人聲、算音量曲線中…（第一次要等一下）", 120000);
-    const p = api("/api/vocal-env", { id }).then(r => {
-      if (!r.ok) { toast(r.error || "算不出人聲音量", 5000); return null; }
-      vocEnv = { id, hop: r.hop, values: r.values.map(v => v / r.scale) };
-      return vocEnv;
-    }).finally(() => { if (vocEnvWait && vocEnvWait.p === p) vocEnvWait = null; });
-    vocEnvWait = { id, p };
-    return p;
+    const ent = { p: null, env: null };
+    // 連不上伺服器、伺服器回錯誤、資料壞掉都走這裡：清掉這筆，把「分離人聲…」的提示換成錯誤（不然會卡 2 分鐘）
+    const fail = msg => { if (vocEnvs.get(id) === ent) vocEnvs.delete(id); toast(msg, 5000); return null; };
+    ent.p = api("/api/vocal-env", { id })
+      .then(
+        r => (r.ok ? (ent.env = { id, hop: r.hop, values: r.values.map(v => v / r.scale) }) : fail(r.error || "算不出人聲音量")),
+        err => fail(`連不上工作站，算不出人聲音量（${err.message}）`)
+      )
+      .catch(err => fail(`算不出人聲音量（${err.message}）`));
+    vocEnvs.set(id, ent);
+    return ent.p;
   }
   // 在 [lo, hi] 秒之間找「停頓後的人聲起音點」：前 80 毫秒到後 80 毫秒的平均音量差大、之後夠大聲、前面有停頓，挑離 t0 最近的。
   // 用〈Mirror〉、〈Shinka〉對過：沒有停頓的起音點會把句首移離人工校正的時間（平均偏 0.2 秒），所以只貼有停頓的
@@ -450,22 +462,33 @@
   }
   async function snapToVocal() {
     if (ver) { toast("貼齊聲音只能用在 MV 版（現場版的音訊不一樣）"); return; }
-    const ids = selected().filter(i => !isGap(L[i]));
-    if (!ids.length) { toast("先選一句或多句歌詞"); return; }
+    const targets = () => selected().filter(i => L[i] && !isGap(L[i]));
+    if (!targets().length) { toast("先選一句或多句歌詞"); return; }
+    // 前一次按 B 還在等曲線：它算好會接著貼（中途換歌、換版本就只提示再按），這次只提示，不要再排一次（兩次都貼完，後面那次的「已經貼齊了」會蓋掉前面的結果）
+    const cur = vocEnvs.get(D.song.id);
+    if (cur && !cur.env) { toast("還在算人聲音量…（第一次要等一下）", 120000); return; }
+    const L0 = L;
     const env = await loadVocEnv();
     if (!env) return;
-    const plan = [], moved = new Map();
+    // 第一次分離人聲要等好幾分鐘，這段時間可能換了歌、換成現場版、整份歌詞被換掉（復原、重新載入）：這些都不動，免得改到別首、別份的句子。
+    // 只是增減句子、換選取的話，以現在選到的為準，所以句子在這裡重取一次
+    if (env.id !== D.song.id || ver || L !== L0) { toast("人聲音量算好了，再按一次 B"); return; }
+    const ids = targets();
+    if (!ids.length) { toast("先選一句或多句歌詞"); return; }
+    const plan = new Map(); // 第幾句 → 新的開頭；由小到大排進去，下一句才查得到前一句移到哪
     let miss = 0;
-    for (const i of [...ids].sort((a, b) => a - b)) {
-      // 前一句如果也要移，用它移動後的時間算這句的下限：兩句一起選時順序才不會交錯（結尾不變，有 duration 的照原本結尾）
-      const l = L[i], prev = L[i - 1], prevT = prev ? (moved.has(i - 1) ? moved.get(i - 1) : prev.time) : 0;
-      const lo = Math.max(l.time - 0.8, prev ? (prev.duration != null ? Math.max(prev.time + prev.duration, prevT + 0.05) : prevT + 0.05) : 0);
-      const hi = Math.min(l.time + 0.8, endOf(i) - 0.1);
+    for (const i of ids) {
+      const l = L[i];
+      // 能放的範圍：前一句如果也要移，用它移動後的位置算下限；上限到下一句的開頭（沒選的下一句不會跟著動，有 duration 的句子結尾可能蓋過它，
+      // 只看自己的結尾會把這句移到它後面）；前後都留 0.05 秒。結尾不變，有 duration 的照原本結尾
+      const [floor, ceil] = startRange(i, 0.05, plan.get(i - 1));
+      const lo = Math.max(l.time - 0.8, floor);
+      const hi = Math.min(l.time + 0.8, endOf(i) - 0.1, ceil);
       const t = hi > lo ? vocalOnset(env, l.time, lo, hi) : null;
       if (t == null) { miss++; continue; }
-      if (Math.abs(t - l.time) >= 0.02) { plan.push([i, r3(t)]); moved.set(i, r3(t)); }
+      if (Math.abs(t - l.time) >= 0.02) plan.set(i, r3(t));
     }
-    if (!plan.length) { toast(miss ? `${miss} 句附近（前後 0.8 秒）找不到「停頓後的人聲起音點」，沒有動` : "已經貼齊了"); return; }
+    if (!plan.size) { toast(miss ? `${miss} 句附近（前後 0.8 秒）找不到「停頓後的人聲起音點」，沒有動` : "已經貼齊了"); return; }
     pushHistory();
     let sum = 0;
     for (const [i, t] of plan) {
@@ -476,7 +499,7 @@
       l._lvl = "ok";
     }
     changed();
-    toast(`貼齊 ${plan.length} 句，平均 ${sum / plan.length >= 0 ? "晚" : "早"} ${Math.abs(sum / plan.length).toFixed(2)} 秒${miss ? `；${miss} 句附近沒有停頓後的起音點，沒動` : ""}（Ctrl+Z 可以復原）`, 5000);
+    toast(`貼齊 ${plan.size} 句，平均 ${sum / plan.size >= 0 ? "晚" : "早"} ${Math.abs(sum / plan.size).toFixed(2)} 秒${miss ? `；${miss} 句附近沒有停頓後的起音點，沒動` : ""}（Ctrl+Z 可以復原）`, 5000);
   }
   function clearEnd() {
     const ids = selected().filter(k => L[k].duration != null && !isGap(L[k]));
@@ -1194,7 +1217,7 @@
       $("pasteText").value = shown;
       toast(`已載入 ${f.name}：${lines.length} 句${lines.some(l => l.acts?.length) ? "（含應援；改了文字框就只用文字）" : ""}`);
     } else {
-      $("pasteText").value = text.replace(/^﻿/, "");
+      $("pasteText").value = text.replace(/^\uFEFF/, "");
       toast(`已載入 ${f.name}`);
     }
   });
@@ -1347,7 +1370,7 @@
       // 不能越過沒跟著動的前後句（前一句有結尾的話，也不能蓋到它的結尾）
       let lo = -Infinity, hi = Infinity;
       for (const k of ids) {
-        if (!drag.ids.has(k - 1)) lo = Math.max(lo, (k > 0 ? (endTime(k - 1) ?? L[k - 1].time + 0.01) : 0) - o.get(k));
+        if (!drag.ids.has(k - 1)) lo = Math.max(lo, startRange(k)[0] - o.get(k));
         if (!drag.ids.has(k + 1)) {
           const myEnd = o.get(k) + (L[k].duration ?? 0.01);
           hi = Math.min(hi, (k < L.length - 1 ? L[k + 1].time : DUR()) - myEnd);
@@ -1361,7 +1384,7 @@
       const k = drag.i;
       const sn = snapEdge([drag.t + dt], new Set([k]), e);
       let t = drag.t + dt + sn.d; snapAt = sn.at;
-      const lo = k > 0 ? (endTime(k - 1) ?? L[k - 1].time + 0.01) : 0, hi = drag.end - 0.05;
+      const lo = startRange(k)[0], hi = drag.end - 0.05;
       if (t < lo || t > hi) snapAt = null;
       t = Math.max(lo, Math.min(hi, t));
       L[k].time = r3(t);

@@ -238,9 +238,23 @@ export function importLyrics(id, input, { live = false, keepActs = false } = {},
   return r;
 }
 
+// 去掉開頭的 BOM（Windows 記事本存的 UTF-8 會有），不然 JSON.parse 讀不懂，第一句的時間也會壞掉
+export const stripBom = s => String(s).replace(/^\uFEFF/, "");
+
+// 檔案或標準輸入的原始內容轉成文字：UTF-8（有沒有 BOM 都行），或有 BOM 的 UTF-16（Windows PowerShell 的 > 和記事本的「Unicode」存出來是這樣）。
+// 其他編碼（Big5、Shift-JIS…）看不出來，會變亂碼：請存成 UTF-8
+export function decodeText(buf) {
+  if (buf[0] === 0xff && buf[1] === 0xfe) return buf.subarray(2).toString("utf16le");
+  if (buf[0] === 0xfe && buf[1] === 0xff) { // UTF-16 big-endian：Node 沒有 utf16be，位元組兩兩對調再當 little-endian 讀
+    const b = Buffer.from(buf.subarray(2, 2 + ((buf.length - 2) & ~1)));
+    return b.swap16().toString("utf16le");
+  }
+  return stripBom(buf.toString("utf8"));
+}
+
 // 每行「時間<Tab>日文<Tab>中文」；沒有時間的寫法「日文<Tab>中文」也收，先平均排開（之後用 align 對時）
 function parseText(text, duration) {
-  const rows = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n").filter(s => s.trim());
+  const rows = stripBom(text).replace(/\r\n?/g, "\n").split("\n").filter(s => s.trim());
   const lrc = parseLrc(rows);
   if (lrc) return { lines: lrc, untimed: false };
   const isTime = t => /^\s*(\d+:\d+(\.\d+)?|\d+(\.\d+)?)\s*$/.test(t || "");
@@ -830,30 +844,46 @@ export async function bench(ids, { download = false, fresh = false, onLog = () =
 const GAP = /^[（(](間奏|尾奏|前奏)[^）)]*[）)]$/;
 const r2t = v => Math.round(v * 100) / 100;
 
+// 同一首歌的分離人聲、算音量曲線同時只跑一次：前端連按、換歌再換回來、/api/align、重新整理、第二個分頁同時要，都共用進行中的那一次（跑完或失敗就清掉）。
+// 只管同一個程序：另外開的命令列、另一台電腦的工作站看不到，彼此還是會各跑各的
+const separating = new Map(), enveloping = new Map(); // 歌曲 id → 進行中的 Promise
+function track(map, id, run) {
+  const p = run().finally(() => { if (map.get(id) === p) map.delete(id); });
+  map.set(id, p);
+  return p;
+}
+
 // 分離人聲（Demucs）：work/<id>/vocals.wav；有快取
 export async function separateVocals(id, { fresh = false, onLog = () => {} } = {}) {
   const audio = audioFile(id);
   if (!audio) throw new Error(`還沒有 ${id} 的音訊：先跑 fetch-audio ${id}（要能連 YouTube）`);
   const out = path.join(WORK, id, "vocals.wav");
+  // 已經有人在分離就等它：它寫到一半的 vocals.wav 不能當快取讀；fresh 也一樣，剛跑完的就是新的
+  const running = separating.get(id);
+  if (running) return running;
   if (!fresh && fs.existsSync(out) && fs.statSync(out).mtimeMs > fs.statSync(audio).mtimeMs) return out;
-  onLog("分離人聲（第一次會下載模型；沒有顯卡要幾分鐘）…\n");
-  const [cmd, ...pre] = pythonCommand();
-  const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "separate.py"), audio, "--out", out]);
-  if (r.code !== 0) throw new Error(`分離人聲失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
-  return out;
+  return track(separating, id, async () => {
+    onLog("分離人聲（第一次會下載模型；沒有顯卡要幾分鐘）…\n");
+    const [cmd, ...pre] = pythonCommand();
+    const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "separate.py"), audio, "--out", out]);
+    if (r.code !== 0) throw new Error(`分離人聲失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
+    return out;
+  });
 }
 
 // 人聲音量曲線（給時間軸「貼齊聲音」用）：work/<id>/vocal-env.json；沒有人聲檔會先分離
 export async function vocalEnvelope(id, { onLog = () => {} } = {}) {
-  const vocals = await separateVocals(id, { onLog });
-  const out = path.join(WORK, id, "vocal-env.json");
-  if (!(fs.existsSync(out) && fs.statSync(out).mtimeMs > fs.statSync(vocals).mtimeMs)) {
-    onLog("算人聲音量曲線…\n");
-    const [cmd, ...pre] = pythonCommand();
-    const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "vocal_env.py"), vocals, "--out", out]);
-    if (r.code !== 0) throw new Error(`算人聲音量失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
-  }
-  return JSON.parse(fs.readFileSync(out, "utf8"));
+  return enveloping.get(id) ?? track(enveloping, id, async () => {
+    const vocals = await separateVocals(id, { onLog });
+    const out = path.join(WORK, id, "vocal-env.json");
+    if (!(fs.existsSync(out) && fs.statSync(out).mtimeMs > fs.statSync(vocals).mtimeMs)) {
+      onLog("算人聲音量曲線…\n");
+      const [cmd, ...pre] = pythonCommand();
+      const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "vocal_env.py"), vocals, "--out", out]);
+      if (r.code !== 0) throw new Error(`算人聲音量失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
+    }
+    return JSON.parse(fs.readFileSync(out, "utf8"));
+  });
 }
 
 const level = c => (c == null ? "none" : c >= 0.5 ? "high" : c >= 0.3 ? "mid" : "low");

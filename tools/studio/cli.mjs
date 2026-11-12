@@ -79,8 +79,8 @@ function parse(argv) {
   return { pos, opt };
 }
 
-// 去掉開頭的 BOM（Windows 記事本存的 UTF-8 會有），不然 JSON.parse 會讀不懂
-const readInput = f => (f === "-" ? fs.readFileSync(0, "utf8") : fs.readFileSync(f, "utf8")).replace(/^\uFEFF/, "");
+// 讀檔（- ＝標準輸入）：去掉開頭的 BOM，UTF-16 的檔案（PowerShell 的 > 存出來是這樣）也讀得懂；不然 JSON.parse 會讀不懂
+const readInput = f => core.decodeText(fs.readFileSync(f === "-" ? 0 : f));
 const need = (v, msg) => { if (v == null || v === true) throw new Error(msg); return v; };
 const num = (v, name) => { const n = Number(v); if (!Number.isFinite(n)) throw new Error(`${name} 要是數字（收到 ${v}）`); return n; };
 
