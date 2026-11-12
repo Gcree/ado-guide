@@ -21,7 +21,7 @@ self.addEventListener("fetch", e => {
   if (req.method !== "GET") return;
   if (req.mode === "navigate") return e.respondWith(page(req, url));
   if (url.origin === location.origin) return e.respondWith(url.searchParams.has("v") ? cacheFirst(req, CACHE) : networkFirst(req));
-  if (FONT_HOSTS.includes(url.hostname)) return e.respondWith(cacheFirst(req, FONTS));
+  if (FONT_HOSTS.includes(url.hostname)) return e.respondWith(fontCache(req, e));
 });
 
 async function cacheFirst(req, name) {
@@ -30,6 +30,18 @@ async function cacheFirst(req, name) {
   const res = await fetch(req);
   if (res.ok || res.type === "opaque") (await caches.open(name)).put(req, res.clone());
   return res;
+}
+// 字型：有存就先用存的，同時在背景重抓一份換掉。字型樣式表是 opaque 回應（看不到成功或失敗），
+// 只用 cacheFirst 的話，字型伺服器出錯一次，錯誤回應就會一直被拿來用；背景重抓讓它下次就恢復
+async function fontCache(req, e) {
+  const cache = await caches.open(FONTS), hit = await cache.match(req);
+  const fresh = fetch(req).then(res => {
+    if (res.ok || res.type === "opaque") return cache.put(req, res.clone()).then(() => res);
+    return res;
+  });
+  if (!hit) return fresh;
+  e.waitUntil(fresh.catch(() => {}));
+  return hit;
 }
 // 沒有版本號的檔案（更新日誌、圖示）：有網路就拿新的，順便存一份
 async function networkFirst(req) {
