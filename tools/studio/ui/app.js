@@ -412,14 +412,20 @@
     toast(`第 ${i + 1} 句：切掉 ${cut.toFixed(2)} 秒，開始 ${fmt(t)}`, 1400);
   }
   // 貼齊聲音：選到的句子，開頭貼到附近人聲最明顯的起音點（要先分離人聲，第一次會等一下）
-  let vocEnv = null; // { id, hop, values（dB） }
-  async function loadVocEnv() {
-    if (vocEnv && vocEnv.id === D.song.id) return vocEnv;
+  let vocEnv = null, vocEnvWait = null; // vocEnv：{ id, hop, values（dB） }；vocEnvWait：還在算的那首 { id, p }
+  function loadVocEnv() {
+    const id = D.song.id;
+    if (vocEnv && vocEnv.id === id) return Promise.resolve(vocEnv);
+    // 第一次要分離人聲，等很久；這段時間再按 B 共用同一個請求，不會讓伺服器同時跑兩次
+    if (vocEnvWait && vocEnvWait.id === id) return vocEnvWait.p;
     toast("分離人聲、算音量曲線中…（第一次要等一下）", 120000);
-    const r = await api("/api/vocal-env", { id: D.song.id });
-    if (!r.ok) { toast(r.error || "算不出人聲音量", 5000); return null; }
-    vocEnv = { id: D.song.id, hop: r.hop, values: r.values.map(v => v / r.scale) };
-    return vocEnv;
+    const p = api("/api/vocal-env", { id }).then(r => {
+      if (!r.ok) { toast(r.error || "算不出人聲音量", 5000); return null; }
+      vocEnv = { id, hop: r.hop, values: r.values.map(v => v / r.scale) };
+      return vocEnv;
+    }).finally(() => { if (vocEnvWait && vocEnvWait.p === p) vocEnvWait = null; });
+    vocEnvWait = { id, p };
+    return p;
   }
   // 在 [lo, hi] 秒之間找「停頓後的人聲起音點」：前 80 毫秒到後 80 毫秒的平均音量差大、之後夠大聲、前面有停頓，挑離 t0 最近的。
   // 用〈Mirror〉、〈Shinka〉對過：沒有停頓的起音點會把句首移離人工校正的時間（平均偏 0.2 秒），所以只貼有停頓的
@@ -448,15 +454,16 @@
     if (!ids.length) { toast("先選一句或多句歌詞"); return; }
     const env = await loadVocEnv();
     if (!env) return;
-    const plan = [];
+    const plan = [], moved = new Map();
     let miss = 0;
-    for (const i of ids) {
-      const l = L[i], prev = L[i - 1];
-      const lo = Math.max(l.time - 0.8, prev ? (prev.duration != null ? prev.time + prev.duration : prev.time + 0.05) : 0);
+    for (const i of [...ids].sort((a, b) => a - b)) {
+      // 前一句如果也要移，用它移動後的時間算這句的下限：兩句一起選時順序才不會交錯（結尾不變，有 duration 的照原本結尾）
+      const l = L[i], prev = L[i - 1], prevT = prev ? (moved.has(i - 1) ? moved.get(i - 1) : prev.time) : 0;
+      const lo = Math.max(l.time - 0.8, prev ? (prev.duration != null ? Math.max(prev.time + prev.duration, prevT + 0.05) : prevT + 0.05) : 0);
       const hi = Math.min(l.time + 0.8, endOf(i) - 0.1);
       const t = hi > lo ? vocalOnset(env, l.time, lo, hi) : null;
       if (t == null) { miss++; continue; }
-      if (Math.abs(t - l.time) >= 0.02) plan.push([i, r3(t)]);
+      if (Math.abs(t - l.time) >= 0.02) { plan.push([i, r3(t)]); moved.set(i, r3(t)); }
     }
     if (!plan.length) { toast(miss ? `${miss} 句附近（前後 0.8 秒）找不到「停頓後的人聲起音點」，沒有動` : "已經貼齊了"); return; }
     pushHistory();
