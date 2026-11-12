@@ -1070,9 +1070,13 @@ export function addChangelog(text, { date = localDate(), file = path.join(root, 
   if (d0 === date) {
     // 加在這一版最後一個項目後面
     let end = h + 1;
-    for (let i = h + 1; i < lines.length && !lines[i].startsWith("## "); i++) if (lines[i].trim()) end = i + 1;
-    lines.splice(end, 0, ...items);
-    changes = [`併進 v${ma}.${mi}.${pa}（${date}）`];
+    const have = new Set();
+    for (let i = h + 1; i < lines.length && !lines[i].startsWith("## "); i++) if (lines[i].trim()) { end = i + 1; have.add(lines[i].trim()); }
+    // 同一天發布兩次同樣的內容，不重複寫
+    const add = items.filter((t, i) => !have.has(t) && items.indexOf(t) === i);
+    if (!add.length) return { files: {}, changes: [`v${ma}.${mi}.${pa} 已經有這幾條，沒有重複寫`], warnings: [] };
+    lines.splice(end, 0, ...add);
+    changes = [`併進 v${ma}.${mi}.${pa}（${date}）${add.length < items.length ? `；${items.length - add.length} 條已經有了，沒有重複寫` : ""}`];
   } else {
     const ver = `v${ma}.${mi}.${+pa + 1}`;
     lines.splice(h, 0, `## ${ver} — ${date}`, "", ...items, "");
