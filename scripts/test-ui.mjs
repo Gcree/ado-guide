@@ -115,6 +115,30 @@ await test("歌曲獨立頁：上一首、下一首不重新載入，網址換�
   assert.equal(await page.evaluate(() => window.__sameDoc), true);
 });
 
+// 現場版歌詞只在打開那首時從 lyrics-live/<id>.json 載入，首頁不載整包 song-lyrics-live.js
+await test("現場版：Live 用現場版歌詞、MV 用 MV 版歌詞", async page => {
+  const reqs = [];
+  page.on("request", r => reqs.push(new URL(r.url()).pathname));
+  await openSong(page, "song/show/");
+  assert.ok(!reqs.some(p => p.endsWith("song-lyrics-live.js")), "不應該載入整包 song-lyrics-live.js");
+  assert.ok(reqs.includes("/lyrics-live/show.json"), "打開有現場版的歌，要先載它的現場版歌詞");
+  const live = JSON.parse(fs.readFileSync(path.join(dir, "lyrics-live/show.json"), "utf8"));
+  const mv = JSON.parse(fs.readFileSync(path.join(dir, "lyrics/show.json"), "utf8"));
+  // 點第 6 句，假播放器跳到的時間就是那份歌詞的時間：MV 版和現場版的同一句時間不同
+  const i = 5, tMv = mv.lyrics[i].time, tLive = live.lyrics[i].time;
+  assert.ok(Math.abs(tLive - tMv) > 2, "測試前提：〈唱〉第 6 句的現場版和 MV 版時間要差得夠遠");
+  const seekTo = async () => { await page.locator("#lines .ln").nth(i).click(); return page.evaluate(() => { window.__yt.pauseVideo(); return window.__yt.getCurrentTime(); }); };
+  // 預設有現場版就先播現場版
+  assert.equal(await page.getAttribute('[data-video-source="live"]', "aria-pressed"), "true");
+  const t0 = await seekTo();
+  assert.ok(Math.abs(t0 - tLive) < 1, `Live 要用現場版歌詞的時間（第 6 句應在 ${tLive} 秒，實際跳到 ${t0.toFixed(2)} 秒）`);
+  await page.click('[data-video-source="mv"]');
+  assert.equal(await page.getAttribute('[data-video-source="mv"]', "aria-pressed"), "true");
+  await page.waitForTimeout(300);
+  const t1 = await seekTo();
+  assert.ok(Math.abs(t1 - tMv) < 1, `切到 MV 要用 MV 版歌詞的時間（第 6 句應在 ${tMv} 秒，實際跳到 ${t1.toFixed(2)} 秒）`);
+});
+
 await test("分享目前時間：連到正在播的那首歌的頁面", async page => {
   await openSong(page, "song/show/#usseewa");
   await page.evaluate(() => {
