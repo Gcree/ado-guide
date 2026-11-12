@@ -73,7 +73,7 @@
     { id: "dnd", ja: "DND feat. KUROMI", zh: "DND feat. KUROMI", en: "DND feat. KUROMI", ro: "DND feat. KUROMI", date: "2026-10-07", yt: "__qvPGatwus", len: "3:08", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "ravensky", ja: "Raven Sky", zh: "Raven Sky", en: "Raven Sky", ro: "Raven Sky", date: "2026-10-16", yt: "7DBSMzbPQzc", len: "4:12", acts: [], tips: ["演唱會尚未公開演唱，目前沒有固定應援，自由跟著節奏"], free: true  },
     { id: "kanjaa", ja: "患者A", zh: "Patient A", en: "Patient A", ro: "Kanja A", date: "2026-10-24", yt: "JO66tA5Yngs", len: "4:49", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
-    { id: "shinka", ja: "シンカ", zh: "Shinka", en: "Shinka", ro: "Shinka", date: "2026-11-06", yt: "q0OGymI3LMs", len: "3:20", acts: ["clap"], tips: ["演唱會尚未公開演唱，目前沒有固定應援"] },
+    { id: "shinka", ja: "シンカ", zh: "Shinka", en: "Shinka", ro: "Shinka", date: "2026-11-06", yt: "q0OGymI3LMs", len: "3:20", acts: ["clap"], tips: ["演唱會尚未公開演唱，目前沒有固定應援"], sug: true },
     { id: "sukideite", ja: "好きでいて", zh: "Sukideite", en: "Sukideite", ro: "Sukideite", date: "2026-09-07", yt: "iTNwVheLpj8", len: "4:07", hold: true  },
     { id: "soldiergame", ja: "soldier game", zh: "soldier game", en: "soldier game", ro: "soldier game", date: "2026-01-13", yt: "J3hzdBkd6bg", len: "3:42", hold: true  },
     // 翻唱
