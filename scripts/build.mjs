@@ -31,7 +31,7 @@ const read = f => fs.readFileSync(path.join(root, f), "utf8");
 const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);
 // 分享預覽圖加上內容雜湊，換圖後 LINE／Facebook／X 會重新抓，不會一直顯示舊圖
 const OG_IMG = `${SITE}assets/og.jpg?v=${createHash("sha1").update(fs.readFileSync(path.join(root, "assets/og.jpg"))).digest("hex").slice(0, 8)}`;
-const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"), karaokeSrc = read("karaoke-sources.js"), liveLyricsText = read("song-lyrics-live.js");
+const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"), karaokeSrc = read("karaoke-sources.js");
 const require = createRequire(import.meta.url);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 const LYRICS_LIVE = require(path.join(root, "song-lyrics-live.js"));
@@ -240,7 +240,6 @@ const src = read("index.html")
   .replace(/<span class="build">[^<]*<\/span>/, `<span class="build">${VERSION} · <time datetime="${UPDATED}">${UPDATED}</time></span>`)
   .replace(/style\.css\?v=[^"]*/, `style.css?v=${hash(css)}`)
   .replace("songs.js?v=dev", `songs.js?v=${hash(songsText)}`)
-  .replace("song-lyrics-live.js?v=dev", `song-lyrics-live.js?v=${hash(liveLyricsText)}`)
   .replace("karaoke-sources.js?v=dev", `karaoke-sources.js?v=${hash(karaokeSrc)}`)
   .replace("app.js?v=dev", `app.js?v=${hash(app)}`)
   .replace('<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-lyrics="${LYV}">`);
@@ -277,7 +276,7 @@ function langTemplate(L, T) {
   // 頂欄的站名：英文用短名，手機上放得下
   const SHORT = { en: "Ado Chant Guide" };
   if (SHORT[L.code]) html = html.replace(/(<span class="mark-name">)[^<]*(<\/span>)/, `$1${SHORT[L.code]}$2`);
-  if (up) html = html.replace(/(\s(?:href|src)=")((?:favicon\.ico|assets\/|manifest\.webmanifest|style\.css|songs\.js|song-lyrics-live\.js|karaoke-sources\.js|app\.js)[^"]*")/g, `$1${up}$2`);
+  if (up) html = html.replace(/(\s(?:href|src)=")((?:favicon\.ico|assets\/|manifest\.webmanifest|style\.css|songs\.js|karaoke-sources\.js|app\.js)[^"]*")/g, `$1${up}$2`);
   return html;
 }
 
