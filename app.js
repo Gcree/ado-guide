@@ -631,6 +631,7 @@
   function parseBuiltin(builtin) {
     const lines = (builtin.lyrics || []).map(item => ({
       t: +item.time || 0,
+      dur: item.duration != null && +item.duration > 0 ? +item.duration : null,
       ja: (j => (j && /^（[^）]+）$/.test(j) ? T(j) : j))(String(item.jp || "").trim()) || null,
       zh: String(subLine(item)).trim() || null,
       acts: S.hold ? [] : (item.acts || []).filter(a => ACT[a] && a !== "listen"),
@@ -644,7 +645,25 @@
     LINES = builtin && builtin.lyrics ? parseBuiltin(builtin) : [];
     TAGGED = LINES.some(l => l.acts.length);
   }
-  function lineAt(t) { let k = -1; LINES.forEach((l, i) => { if (t >= l.t) k = i; }); return k; }
+  function lineEnd(i, fallback = DUR()) {
+    const l = LINES[i];
+    if (!l) return fallback;
+    const next = LINES[i + 1] ? LINES[i + 1].t : fallback;
+    return l.dur != null ? Math.min(next, l.t + l.dur) : next;
+  }
+  function lastStartedAt(t) {
+    let k = -1;
+    for (let i = 0; i < LINES.length; i++) { if (t >= LINES[i].t) k = i; else break; }
+    return k;
+  }
+  const nextIdxAt = t => lastStartedAt(t) + 1;
+  function lineAt(t) {
+    const k = lastStartedAt(t);
+    if (k < 0) return -1;
+    const l = LINES[k];
+    if (l.dur != null && t >= l.t + l.dur) return -1;
+    return k;
+  }
 
   // 假名：歌詞裡寫「漢字(かな)」就會標在漢字上方；每個字包成 .k 給卡拉OK與字體飛入動畫用
   // sung 是觀眾要唱的字，取最後一次出現的位置（Ado 先唱、觀眾接時，觀眾在後面）
@@ -724,7 +743,7 @@
 
       if (timedLine && timedLine.granularity === "word" && Array.isArray(timedLine.words) && timedLine.words.length && api && typeof api.mapUnitsToWords === "function") {
         const units = api.extractUnits(lineData.ja || "");
-        const nextTime = LINES[i + 1] ? LINES[i + 1].t : lineData.t + 4;
+        const nextTime = lineEnd(i, lineData.t + 4);
         const mapped = api.mapUnitsToWords(units, timedLine.words, lineData.t, nextTime);
         const matchRatio = mapped.totalMeaningfulUnits > 0 ? (mapped.matchedUnits / mapped.totalMeaningfulUnits) : 0;
         if (matchRatio >= 0.5) {
@@ -1197,7 +1216,7 @@
   function nextChanges(t, n) {
     const out = [], sig = l => l.acts.join(",") + cueLabel(l);
     let prev = LINES[lineAt(t)];
-    for (let i = lineAt(t) + 1; i < LINES.length && out.length < n; i++) {
+    for (let i = nextIdxAt(t); i < LINES.length && out.length < n; i++) {
       const l = LINES[i];
       if (prev && sig(l) === sig(prev)) continue;
       prev = l;
@@ -1207,7 +1226,7 @@
   }
   function nextChange(t) {
     const li = lineAt(t), cur = LINES[li], sig = l => l.acts.join(",") + cueLabel(l);
-    for (let i = li + 1; i < LINES.length; i++) {
+    for (let i = nextIdxAt(t); i < LINES.length; i++) {
       if (!cur || sig(LINES[i]) !== sig(cur)) { const l = LINES[i]; if (!l.acts.length) continue; return { t: l.t, acts: l.acts, name: cueLabel(l) }; }
     }
     return null;
@@ -1305,7 +1324,7 @@
     cueFrame.style.opacity = (.6 + .4 * pulse).toFixed(2);
     if (alKind === "sing") {
       // 唱到的字亮起：要唱的字在這行的位置，照這行的進度換算
-      const end = LINES[cue.key + 1] ? LINES[cue.key + 1].t : DUR(), frac = Math.max(0, Math.min(1, (t - l.t) / Math.max(.5, (end - l.t) * .9)));
+      const end = lineEnd(cue.key), frac = Math.max(0, Math.min(1, (t - l.t) / Math.max(.5, (end - l.t) * .9)));
       const at = Math.min(...alSing.map(w => l.ja.lastIndexOf(w)).filter(i => i >= 0), l.ja.length), len = Math.max(1, l.ja.length - at);
       const lit = Math.round(Math.max(0, Math.min(1, (frac * l.ja.length - at) / len)) * alWords.length);
       alWords.forEach((k, i) => k.classList.toggle("lit", i < lit));
@@ -1368,7 +1387,7 @@
     LINES.forEach((l, i) => {
       const a = mainAct(l.acts);
       if (!a || a === "listen") return;
-      const end = Math.min(d, LINES[i + 1] ? LINES[i + 1].t : l.t + 4), last = segs[segs.length - 1];
+      const end = Math.min(d, lineEnd(i, l.t + 4)), last = segs[segs.length - 1];
       if (last && last.a === a && Math.abs(last.e - l.t) < .05) last.e = end; else segs.push({ a, s: l.t, e: end });
     });
     cueTrack.innerHTML = `<div class="segs">${segs.map(g => `<i class="a-${g.a}" style="left:${(g.s / d * 100).toFixed(2)}%;width:${Math.max(.5, (g.e - g.s) / d * 100).toFixed(2)}%"></i>`).join("")}</div><b class="head"></b>`;
@@ -1442,10 +1461,11 @@
     if (started && li !== curLine && lineEls.length) {
       const cx = S && CLIMAX[S.id];
       const isClimax = cx != null && (t >= cx - 2.5 && t <= cx + 28);
+      const pastUntil = li >= 0 ? li : nextIdxAt(t);
       lineEls.forEach((e, i) => {
         const isNow = i === li;
         e.classList.toggle("now", isNow);
-        e.classList.toggle("past", i < li);
+        e.classList.toggle("past", i < pastUntil);
         e.classList.toggle("climax-surge", isNow && isClimax);
       });
       box.classList.toggle("has-now", li >= 0);
@@ -1470,7 +1490,7 @@
             }
           });
         } else {
-          const end = LINES[li + 1] ? LINES[li + 1].t : DUR(), frac = Math.max(0, Math.min(1, (t - LINES[li].t) / Math.max(.5, (end - LINES[li].t) * .9)));
+          const end = lineEnd(li), frac = Math.max(0, Math.min(1, (t - LINES[li].t) / Math.max(.5, (end - LINES[li].t) * .9)));
           const lit = Math.round(frac * ks.length);
           ks.forEach((k, i) => {
             const wasLit = k.classList.contains("lit");
@@ -2083,7 +2103,8 @@
 
     prepCanvasPip();
     lastPipLine = -2;
-    renderCanvasPip(isPlaying(), curLine >= 0 ? LINES[curLine] : null, curLine >= 0 && curLine + 1 < LINES.length ? LINES[curLine + 1] : null);
+    const nextIdx = curLine >= 0 ? curLine + 1 : nextIdxAt(now());
+    renderCanvasPip(isPlaying(), curLine >= 0 ? LINES[curLine] : null, nextIdx < LINES.length ? LINES[nextIdx] : null);
 
     // 先送出 PiP 請求再做其他 await，不然點擊的授權會在等待中失效
     try {
@@ -2208,7 +2229,8 @@
     const dur = DUR();
     const progress = dur > 0 ? Math.max(0, Math.min(1, t / dur)) : 0;
     const l = curLine >= 0 ? LINES[curLine] : null;
-    const nextL = (curLine >= 0 && curLine + 1 < LINES.length) ? LINES[curLine + 1] : null;
+    const nextIdx = curLine >= 0 ? curLine + 1 : nextIdxAt(t);
+    const nextL = nextIdx < LINES.length ? LINES[nextIdx] : null;
 
     if (pipWin && !pipWin.closed) {
       const doc = pipWin.document;
@@ -2602,8 +2624,8 @@
       const l = LINES[i];
       if (!l.acts.length) continue;
       let j = i;
-      while (LINES[j + 1] && LINES[j + 1].acts.length && sig(LINES[j + 1]) === sig(l)) j++;
-      const end = LINES[j + 1] ? LINES[j + 1].t : DUR(), act = quizAct(l), off = isOffbeat(l.call);
+      while (LINES[j + 1] && LINES[j + 1].acts.length && sig(LINES[j + 1]) === sig(l) && Math.abs(lineEnd(j) - LINES[j + 1].t) < 0.05) j++;
+      const end = lineEnd(j), act = quizAct(l), off = isOffbeat(l.call);
       let n = 0;
       if (bt && act === "clap") {
         const P = 60 / bt[0];
@@ -2853,9 +2875,9 @@
       e.preventDefault(); isPlaying() ? pause() : player.playVideo();
     } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && LINES.length) {
       e.preventDefault();
-      const t = now(), li = lineAt(t);
-      // 往前：這句剛開始 1.5 秒內就回上一句，不然回這句開頭
-      const to = e.key === "ArrowRight" ? LINES[li + 1] : (li >= 0 && t - LINES[li].t > 1.5 ? LINES[li] : LINES[li - 1]);
+      const t = now(), li = lineAt(t), cur = lastStartedAt(t);
+      // 往前：這句剛開始 1.5 秒內就回上一句，不然回這句開頭（空白間奏中則回到上一句）
+      const to = e.key === "ArrowRight" ? LINES[cur + 1] : (li >= 0 ? (t - LINES[li].t > 1.5 ? LINES[li] : LINES[li - 1]) : LINES[cur]);
       if (to) { holdUntil = 0; seek(to.t); }
     }
   });

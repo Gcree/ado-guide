@@ -62,6 +62,7 @@
   let win = [0, 30];
   let history = [], future = [];
   let importing = null;
+  let lastCur = -2, lastWave = 0;
 
   let ver = null;           // null＝MV 版；{ yt, concert }＝現場版
   let liveDur = 0;          // 現場版長度（播放器知道影片長度後會更新）
@@ -305,6 +306,7 @@
   function changed({ insp = true } = {}) {
     for (const i of [...sel]) if (i >= L.length) sel.delete(i);
     if (!sel.size && L.length) sel.add(Math.min(anchor, L.length - 1));
+    lastCur = -2;
     saveDraft();
     renderHeader();
     if (view === "tl") drawTimeline(); else drawTable();
@@ -796,16 +798,18 @@
   // ── 歌詞表 ──
   function drawTable() {
     if (!D) { $("tableView").innerHTML = ""; return; }
+    const st = $("tableView").scrollTop;
     const cur = curIndex(player.time());
     $("tableView").innerHTML = `<table class="table"><thead><tr>
       <th class="n">#</th><th>${icon("i-clock")}時間</th><th>${icon("i-text")}日文</th><th>${icon("i-lang")}中文</th><th>${icon("i-hand")}應援</th><th>${icon("i-status")}信心</th>
     </tr></thead><tbody>${L.map((l, i) => `<tr data-i="${i}" class="${sel.has(i) ? "on" : ""}${isGap(l) ? " gaprow" : ""}${i === cur ? " cur" : ""}">
-      <td class="n">${i + 1}</td><td class="t mono" data-f="time" title="點兩下改時間">${fmt(l.time)}</td><td data-f="jp" title="點兩下改日文">${esc(l.jp)}</td><td class="trc" data-f="tr" title="點兩下改中文">${esc(l.tr || "")}${l._tr === "agy" ? ' <span class="pill yellow">agy</span>' : ""}</td>
+      <td class="n"><div class="n-in"><span class="grip" title="上下拖曳切換歌詞順序">⋮⋮</span><span>${i + 1}</span></div></td><td class="t mono" data-f="time" title="點兩下改時間">${fmt(l.time)}</td><td data-f="jp" title="點兩下改日文">${esc(l.jp)}</td><td class="trc" data-f="tr" title="點兩下改中文">${esc(l.tr || "")}${l._tr === "agy" ? ' <span class="pill yellow">agy</span>' : ""}</td>
       <td>${(l.acts || []).map(a => `<span class="pill ${ACT_INFO[a]?.[1] || ""}">${ACT_INFO[a]?.[0] || a}</span>`).join(" ")}${l.call ? ` <span class="muted">「${esc(l.call)}」</span>` : ""}</td>
       <td>${!isGap(l) && LEVEL[l._lvl] ? `<span class="pill ${LEVEL[l._lvl][1]}">${LEVEL[l._lvl][0]}</span>` : ""}</td>
     </tr>`).join("")}</tbody></table>`;
+    $("tableView").scrollTop = st;
     const row = $("tableView").querySelector("tr.on");
-    if (row) row.scrollIntoView({ block: "nearest" });
+    if (row && !tableDrag) row.scrollIntoView({ block: "nearest" });
     cellEdit = null;
   }
 
@@ -1588,9 +1592,150 @@
     const t = /^\d+:\d/.test(v) ? v.split(":").reduce((a, b) => a * 60 + +b, 0) : Number(v);
     return v !== "" && Number.isFinite(t) && t >= 0 ? t : null;
   };
+  // ── 歌詞表：上下拖曳切換歌詞順序（保留時間槽位置，時間軸同步變化） ──
+  function reorderLyrics(movingIndices, insertBefore) {
+    if (!L.length || !movingIndices.length) return false;
+    const movingSet = new Set(movingIndices);
+    const moving = movingIndices.map(i => L[i]);
+    const rest = L.filter((_, i) => !movingSet.has(i));
+    const beforeCount = movingIndices.filter(i => i < insertBefore).length;
+    const pos = Math.max(0, Math.min(rest.length, insertBefore - beforeCount));
+    const nextOrder = [...rest.slice(0, pos), ...moving, ...rest.slice(pos)];
+    if (nextOrder.every((l, idx) => l === L[idx])) return false;
+    // 保留每個時間槽的位置（time、duration），把歌詞內容（日文、中文、應援、信心等）搬到新順序
+    const slots = L.map(l => ({ time: l.time, duration: l.duration }));
+    pushHistory();
+    L = nextOrder.map((l, idx) => {
+      const item = { ...l, time: slots[idx].time };
+      if (slots[idx].duration != null) item.duration = slots[idx].duration;
+      else delete item.duration;
+      return item;
+    });
+    sel = new Set(Array.from({ length: moving.length }, (_, k) => pos + k));
+    anchor = pos;
+    changed();
+    return true;
+  }
+
+  let tableDrag = null, suppressTableClick = false;
+  function tableDropTarget(clientY) {
+    const wrap = $("tableView");
+    const rows = [...wrap.querySelectorAll("tbody tr[data-i]")];
+    if (!rows.length) return null;
+    let insertBefore = rows.length;
+    for (let r = 0; r < rows.length; r++) {
+      const rect = rows[r].getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) { insertBefore = r; break; }
+    }
+    const wrapRect = wrap.getBoundingClientRect();
+    const theadH = wrap.querySelector("thead")?.getBoundingClientRect().height || 0;
+    const rawY = insertBefore < rows.length
+      ? rows[insertBefore].getBoundingClientRect().top
+      : rows[rows.length - 1].getBoundingClientRect().bottom;
+    const y = Math.max(theadH, rawY - wrapRect.top + wrap.scrollTop);
+    return { insertBefore, y, rows };
+  }
+  function updateTableDragUI(clientX, clientY) {
+    const d = tableDrag;
+    if (!d || !d.moved) return;
+    const target = tableDropTarget(clientY);
+    if (!target) return;
+    d.insertBefore = target.insertBefore;
+    const beforeCount = d.moving.filter(i => i < d.insertBefore).length;
+    const pos = Math.max(0, Math.min(L.length - d.moving.length, d.insertBefore - beforeCount));
+    const same = d.moving.every((idx, k) => idx === pos + k);
+
+    if (!d.lineEl) {
+      d.lineEl = document.createElement("div");
+      d.lineEl.className = "drop-line";
+      $("tableView").appendChild(d.lineEl);
+    }
+    d.lineEl.hidden = same;
+    d.lineEl.style.top = `${target.y}px`;
+
+    if (!d.pillEl) {
+      d.pillEl = document.createElement("div");
+      d.pillEl.className = "drag-pill";
+      document.body.appendChild(d.pillEl);
+    }
+    const label = d.moving.length > 1
+      ? `移動 ${d.moving.length} 句`
+      : `第 ${d.i + 1} 句 ${L[d.i].jp || "（空白）"}`;
+    d.pillEl.textContent = same ? label : `${label} → 第 ${pos + 1} 句（${fmt(L[pos].time)}）`;
+    d.pillEl.style.left = `${Math.min(innerWidth - 200, clientX + 14)}px`;
+    d.pillEl.style.top = `${Math.min(innerHeight - 36, clientY + 14)}px`;
+  }
+  function tableAutoScroll() {
+    if (!tableDrag || !tableDrag.moved) return;
+    const wrap = $("tableView"), rect = wrap.getBoundingClientRect();
+    const theadH = wrap.querySelector("thead")?.getBoundingClientRect().height || 0;
+    const topEdge = rect.top + theadH + 28, botEdge = rect.bottom - 28;
+    let delta = 0;
+    if (tableDrag.y < topEdge) delta = -Math.ceil((topEdge - tableDrag.y) / 4);
+    else if (tableDrag.y > botEdge) delta = Math.ceil((tableDrag.y - botEdge) / 4);
+    if (delta) {
+      wrap.scrollTop += delta;
+      updateTableDragUI(tableDrag.x, tableDrag.y);
+    }
+    tableDrag.raf = requestAnimationFrame(tableAutoScroll);
+  }
+  $("tableView").addEventListener("pointerdown", e => {
+    if (e.button !== 0 || !D || e.target.closest(".cell-input")) return;
+    if (e.shiftKey || e.ctrlKey || e.metaKey) return;
+    const tr = e.target.closest("tbody tr[data-i]");
+    if (!tr) return;
+    closeCtx();
+    const i = +tr.dataset.i;
+    const onGrip = !!e.target.closest(".grip");
+    const moving = sel.has(i) && sel.size > 1 ? selected() : [i];
+    tableDrag = { i, moving, pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, onGrip, moved: false, insertBefore: i, lineEl: null, pillEl: null, raf: 0 };
+  });
+  addEventListener("pointermove", e => {
+    if (!tableDrag) return;
+    tableDrag.x = e.clientX;
+    tableDrag.y = e.clientY;
+    if (!tableDrag.moved) {
+      const dy = Math.abs(e.clientY - tableDrag.y0), dx = Math.abs(e.clientX - tableDrag.x0);
+      if (dy < 5 && (!tableDrag.onGrip || dx < 5)) return;
+      if (cellEdit) commitCell();
+      tableDrag.moved = true;
+      lastCell = null;
+      try { window.getSelection()?.removeAllRanges(); } catch {}
+      try { $("tableView").setPointerCapture(tableDrag.pointerId); } catch {}
+      document.body.classList.add("reordering");
+      const set = new Set(tableDrag.moving);
+      $("tableView").querySelectorAll("tbody tr[data-i]").forEach(r => r.classList.toggle("dragging", set.has(+r.dataset.i)));
+      tableDrag.raf = requestAnimationFrame(tableAutoScroll);
+    }
+    updateTableDragUI(e.clientX, e.clientY);
+  });
+  function endTableDrag(e) {
+    if (!tableDrag) return;
+    const d = tableDrag;
+    tableDrag = null;
+    cancelAnimationFrame(d.raf);
+    document.body.classList.remove("reordering");
+    d.lineEl?.remove();
+    d.pillEl?.remove();
+    $("tableView").querySelectorAll("tbody tr.dragging").forEach(r => r.classList.remove("dragging"));
+    if (!d.moved) return;
+    suppressTableClick = true;
+    setTimeout(() => (suppressTableClick = false), 0);
+    if (e && e.type !== "pointercancel") {
+      const target = tableDropTarget(e.clientY);
+      const insertBefore = target ? target.insertBefore : d.insertBefore;
+      if (reorderLyrics(d.moving, insertBefore)) {
+        toast(d.moving.length > 1 ? `已調整 ${d.moving.length} 句順序，時間軸同步更新` : "已切換歌詞順序，時間軸同步更新", 1800);
+      }
+    }
+  }
+  addEventListener("pointerup", endTableDrag);
+  addEventListener("pointercancel", endTableDrag);
+
   // 點一下會重畫表格，瀏覽器不會送 dblclick：自己判斷點兩下
   let lastCell = null;
   $("tableView").addEventListener("click", e => {
+    if (suppressTableClick) { suppressTableClick = false; return; }
     if (e.target.closest(".cell-input")) return;
     const tr = e.target.closest("tr[data-i]");
     if (!tr) return;
@@ -1682,6 +1827,7 @@
   };
   document.querySelectorAll(".view").forEach(b => b.addEventListener("click", () => {
     commitInline(true);
+    commitCell();
     view = b.dataset.view;
     document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v === b));
     $("tl").hidden = view !== "tl";
@@ -1691,7 +1837,7 @@
   $("peekTabs").addEventListener("click", e => { const b = e.target.closest(".tab"); if (b) { tab = b.dataset.tab; drawInsp(); } });
   $("songList").addEventListener("click", e => { const p = e.target.closest(".page[data-id]"); if (p && (!D || p.dataset.id !== D.song.id)) openSong(p.dataset.id); });
   $("search").addEventListener("input", renderSongList);
-  $("verSel").addEventListener("change", e => switchVersion(e.target.value));
+  $("verSel").addEventListener("change", e => { switchVersion(e.target.value); e.target.blur(); });
   // 網址的 #id 變了（上一頁、手動改網址）就換歌
   addEventListener("hashchange", () => {
     const id = decodeURIComponent(location.hash.slice(1));
@@ -1788,7 +1934,8 @@
     ["時間軸滑鼠", [
       ["拖句子中間", "整句移動（磁鐵開著會吸附；按住 Alt 不吸）"], ["拖句子兩邊", "修剪開始／結尾"], ["點兩下句子", "直接改日文（點中文那行改中文）"],
       ["點兩下空白處", "在那裡加一句"], ["空白處拖曳", "框選"], ["拖尺規", "移動播放指針"], ["拖全曲縮圖的藍框", "平移"],
-      ["滾輪／Ctrl+滾輪", "捲動／縮放"], ["右鍵", "這句能做的事"]
+      ["滾輪／Ctrl+滾輪", "捲動／縮放"], ["右鍵", "這句能做的事"],
+      ["歌詞表上下拖曳", "切換歌詞順序（保留時間槽，時間軸同步更新）"]
     ]],
     ["選取與應援", [
       ["Shift+點／Ctrl+點", "選一段／加選"], ["Ctrl+A", "全選"], ["Shift+Home／End", "選到最前／最後"], ["1–7", "應援動作（大合唱…安靜聽）"],
@@ -1803,27 +1950,37 @@
     $("keysList").innerHTML = KEYS.map(([h, rows]) => `<h3>${esc(h)}</h3>` + rows.map(([k, v]) => `<div><span>${esc(v)}</span><kbd>${esc(k)}</kbd></div>`).join("")).join("");
     $("keysDlg").showModal();
   }
+  const CODE_KEY = { Space: " ", BracketLeft: "[", BracketRight: "]", Minus: "-", Equal: "=", Backslash: "\\", Slash: "/", Backquote: "`" };
+  function shortcutKey(e) {
+    const k = e.key;
+    if (k && k !== "Process" && k !== "Dead" && (k.length > 1 || k.charCodeAt(0) <= 127)) return k;
+    const m = /^Key([A-Z])$/.exec(e.code || "");
+    if (m) return e.shiftKey ? m[1] : m[1].toLowerCase();
+    const d = /^Digit([0-9])$/.exec(e.code || "");
+    if (d && !e.shiftKey) return d[1];
+    return !e.shiftKey && CODE_KEY[e.code] ? CODE_KEY[e.code] : k;
+  }
   addEventListener("keydown", e => {
     const typing = /^(TEXTAREA|SELECT)$/.test(e.target.tagName) || (e.target.tagName === "INPUT" && !/^(range|checkbox|button)$/.test(e.target.type));
     const mod = e.ctrlKey || e.metaKey;
+    const k = shortcutKey(e);
     if (document.querySelector("dialog[open]")) return;
-    if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); commitInline(true); commitCell(); save(); return; }
+    if (mod && k.toLowerCase() === "s") { e.preventDefault(); commitInline(true); commitCell(); save(); return; }
     if (typing) { if (e.key === "Escape") e.target.blur(); return; }
-    if (e.key === "Escape") { closeCtx(); return; }
-    if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
-    if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
-    if (e.key === "?") { e.preventDefault(); showKeys(); return; }
-    if (e.key === "`") { e.preventDefault(); togglePanels(); return; }
+    if (k === "Escape") { closeCtx(); return; }
+    if (mod && k.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if (mod && k.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
+    if (k === "?") { e.preventDefault(); showKeys(); return; }
+    if (k === "`") { e.preventDefault(); togglePanels(); return; }
     if (!D) return;
     if (mod) {
-      const c = e.key.toLowerCase();
+      const c = k.toLowerCase();
       if (c === "a") { e.preventDefault(); sel = new Set(L.map((l, i) => i)); drawTimeline(); if (view === "table") drawTable(); drawInsp(); }
       else if (c === "c" && !String(getSelection())) { e.preventDefault(); copyActs(); }
       else if (c === "v") { e.preventDefault(); pasteActs(); }
       else if (c === "b" || c === "k") { e.preventDefault(); splitAtPlayhead(); }
       return;
     }
-    const k = e.key;
     if (k === " ") { e.preventDefault(); if (!e.repeat) punchDown(); }
     else if (k === "k" || k === "K") player.playing() ? player.pause() : player.play();
     else if (k === "Enter") { e.preventDefault(); preview(); }
@@ -1861,7 +2018,7 @@
     else if (k === "Home") { e.preventDefault(); player.seek(0); ensureVisible(0); }
     else if (k === "End") { e.preventDefault(); player.seek(DUR()); ensureVisible(DUR()); }
   });
-  addEventListener("keyup", e => { if (e.key === " ") punchUp(); });
+  addEventListener("keyup", e => { if (shortcutKey(e) === " ") punchUp(); });
   addEventListener("blur", () => punchUp());
 
   // ── 版面：收起兩邊、拖曳調整預覽／時間軸的大小（記在這台電腦） ──
@@ -1906,7 +2063,6 @@
   addEventListener("resize", () => { fitVideo(); if (D && view === "tl") drawTimeline(); });
 
   // ── 每一格：時間碼、字幕、播放指針、跟著走、循環 ──
-  let lastCur = -2, lastWave = 0;
   function frame(now) {
     requestAnimationFrame(frame);
     if (!D) return;

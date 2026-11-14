@@ -168,7 +168,7 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 
 .editor { padding: 0 12px 10px; min-height: 0; }
-.table-wrap { height: calc(304px + var(--tl-extra, 0px)); overflow: auto; }
+.table-wrap { height: calc(304px + var(--tl-extra, 0px)); overflow: auto; position: relative; }
 .table-wrap thead th { position: sticky; top: 0; background: var(--bg); z-index: 1; }
 
 /* 資料庫區塊：檢視分頁（時間軸／歌詞表） */
@@ -233,7 +233,16 @@ button, input, textarea { font: inherit; color: inherit; }
 .table tbody tr:hover td { background: var(--hover); }
 .table tr.on td { background: var(--select); }
 .table .trc { color: var(--ink-2); }
-.table .n { color: var(--ink-3); width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+.table .n { color: var(--ink-3); width: 56px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table .n-in { display: inline-flex; align-items: center; justify-content: space-between; gap: 5px; width: 100%; }
+.table .grip { color: var(--ink-3); font-size: 12px; letter-spacing: -1px; cursor: grab; opacity: .35; user-select: none; line-height: 1; padding: 1px 2px; border-radius: 3px; }
+.table tbody tr:hover .grip, .table tr.on .grip { opacity: .85; }
+.table .grip:hover { background: var(--hover); color: var(--ink); opacity: 1; }
+.table tr.dragging td { opacity: .42; background: var(--select); }
+body.reordering, body.reordering * { cursor: grabbing !important; user-select: none; }
+.drop-line { position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); pointer-events: none; z-index: 4; }
+.drop-line::before { content: ""; position: absolute; left: 0; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.drag-pill { position: fixed; z-index: 2600; pointer-events: none; padding: 4px 10px; border-radius: 6px; background: var(--bg); color: var(--ink); box-shadow: 0 0 0 1px var(--accent), 0 6px 18px rgba(0, 0, 0, .18); font-size: 12.5px; white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
 .table .t { width: 76px; color: var(--ink-2); }
 .table .gaprow td { color: var(--ink-3); }
 
