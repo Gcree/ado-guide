@@ -84,6 +84,12 @@ SONGS.forEach(s => {
   s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0);
 });
 SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => (s.no = i + 1));
+const hasLiveVideo = s => Boolean(s.liveVideo || (s.live && s.yt));
+const hasLiveAudio = s => Boolean((s.lives && s.lives.length > 0) && !s.liveVideo && !s.live);
+const hasLive = s => Boolean((s.lives && s.lives.length > 0) || s.liveVideo || s.live);
+const LIVE_ALL_CNT = SONGS.filter(hasLive).length;
+const LIVE_VID_CNT = SONGS.filter(hasLiveVideo).length;
+const LIVE_AUD_CNT = SONGS.filter(hasLiveAudio).length;
 
 function penOf(s, T = makeT("zh")) {
   const pen = !s.hold && PEN[s.id] && PEN[s.id][0] !== "?" && PEN[s.id];
@@ -313,7 +319,7 @@ function page(tpl, L, T, { rest, title, desc, ld, base, song, extra = "" }) {
       `<meta property="og:locale" content="${L.og}">`,
       ...LANGS.filter(x => x !== L).map(x => `<meta property="og:locale:alternate" content="${x.og}">`),
       `<meta property="og:image" content="${OG_IMG}">`,
-      `<meta property="og:image:alt" content="${esc(T("Ado 應援指南：看 MV，跟著亮起的歌詞一起應援"))}">`,
+      `<meta property="og:image:alt" content="${esc(T("Ado 應援指南：看 MV，跟著同步歌詞先把應援練熟"))}">`,
       `<meta property="og:image:width" content="1200">`,
       `<meta property="og:image:height" content="630">`,
       `<meta name="twitter:card" content="summary_large_image">`,
@@ -441,8 +447,11 @@ function renderLang(L) {
     .replace('<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`)
     .replace('<ul class="shelf" id="latestShelf"></ul>', `<ul class="shelf" id="latestShelf">${homeLatestShelfHtml}</ul>`)
     .replace('<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${T("{0} 首", SONGS.length)}</span>`)
-    .replace(/(<p class="list-progress" id="listProgress"[^>]*>)[^<]*(<\/p>)/, `$1${T("已列出 {0}／{1} 首", 12, SONGS.length)}$2`)
-    .replace(/(<span id="factSongs">)\d+(<\/span>)/, `$1${SONGS.length}$2`)
+    .replace(/(<p class="list-progress" id="listProgress"[^>]*>)[^<]*(<\/p>)/, `$1${T("已列出 {0}／{1} 首", Math.min(12, SONGS.length), SONGS.length)}$2`)
+    .replace(/(<span id="factSongs">)[^<]*(<\/span>)/, `$1${SONGS.length}$2`)
+    .replace(/(<b class="cnt" id="cntLiveAll">)[^<]*(<\/b>)/, `$1${LIVE_ALL_CNT}$2`)
+    .replace(/(<b class="cnt" id="cntLiveVideo">)[^<]*(<\/b>)/, `$1${LIVE_VID_CNT}$2`)
+    .replace(/(<b class="cnt" id="cntLiveAudio">)[^<]*(<\/b>)/, `$1${LIVE_AUD_CNT}$2`)
     .replace(/(<div class="home-legend" id="homeLegend"[^>]*>)(<\/div>)/, `$1${homeLegendHtml}$2`);
   write(`${L.dir}index.html`, homeHtml);
 

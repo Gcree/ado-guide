@@ -176,7 +176,7 @@
     moreBtn.textContent = rest ? T("再看 {0} 首", Math.min(STEP, rest)) : T("收合清單");
     countEl.textContent = plain ? T("{0} 首", SONGS.length) : T("{0} 首符合", rows.length);
     emptyEl.hidden = rows.length > 0;
-    if (!rows.length) emptyEl.textContent = term ? T("找不到「{0}」。換個寫法試試，日文或中文都可以。", q.value.trim()) : T("這個分類目前沒有歌。");
+    if (!rows.length) emptyEl.textContent = term ? T("找不到「{0}」，試試日文、中文或英文歌名。", q.value.trim()) : T("這個分類目前沒有歌。");
   }
   // 首頁上所有歌曲連結（清單、書架、主視覺）：普通左鍵點擊用 SPA 即時切換；帶修飾鍵就讓瀏覽器開新分頁
   homeEl.addEventListener("click", ev => {
@@ -220,6 +220,7 @@
       b.setAttribute("aria-pressed", String(active));
     });
   }
+  syncLiveSubFilter();
 
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
     filter = b.dataset.f; shown = LIMIT;
