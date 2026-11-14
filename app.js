@@ -696,7 +696,7 @@
     // 歌詞換了（換歌、切 MV／Live）：提示框下半部的時間軸重畫、重新看放不放得下
     queueMicrotask(() => { trackSig = " "; upHtml = ""; fitCueMore(); });
     box.innerHTML = "";
-    if (!lyHave(S)) { box.innerHTML = `<div class="empty"><span>${T("正在載入歌詞…")}</span></div>`; legend.innerHTML = ""; singJump.hidden = true; return; }
+    if (!lyHave(S)) { box.innerHTML = `<div class="empty is-loading"><span class="spinner" aria-hidden="true"></span><span>${T("正在載入歌詞…")}</span></div>`; legend.innerHTML = ""; singJump.hidden = true; return; }
     if (!LINES.length) {
       box.innerHTML = `<div class="empty"><b>${T("這首還沒有逐行時間軸")}</b>${S.tips.length ? `<ul class="summary">${S.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul><span>${T("先邊看 MV 邊照上面的重點練。")}</span>` : `<span>${T("應援還在整理，先看 MV 熟悉旋律，副歌跟著現場氣氛就好。")}</span>`}<span>${T('歌詞請看<a href="{0}" target="_blank" rel="noopener">歌ネット的正版歌詞頁</a>。', S.ut)}</span></div>`;
       legend.innerHTML = ""; SING = []; singJump.hidden = true; sc.scrollTop = 0; padEnd(); return;
@@ -830,8 +830,8 @@
 
   // 播放：同 Vaundy 版，YouTube 播放器只建立一次，換歌用 cueVideoById 換影片
   // 直接點開檔案（file://）時瀏覽器不送來源網址，YouTube 會拒絕嵌入，所以改顯示提示
-  let player = null, ready = false, vid = "", slowTimer = 0, START = 0, muteTimer = 0;
-  const vstatus = document.getElementById("vstatus"), vmsg = document.getElementById("vmsg");
+  let player = null, ready = false, vid = "", slowTimer = 0, START = 0, muteTimer = 0, vloadTimer = 0;
+  const vstatus = document.getElementById("vstatus"), vmsg = document.getElementById("vmsg"), vload = document.getElementById("vload");
 
   // ── 影片版本（MV / Live）控制 ──
   let videoSourceOverride = null; // null | "mv" | "live"
@@ -931,7 +931,25 @@
 
   // 長度以 YouTube 回報的為準，還沒載好才用資料裡的長度
   const DUR = () => { try { const d = ready && vid === activeVideoId(S) && player.getDuration(); if (d) return d; } catch (e) {} return S ? S.dur : 1; };
-  function videoMsg(text) { vstatus.hidden = !text; if (text) vmsg.textContent = text; }
+  function videoMsg(text, loading = false) {
+    vstatus.hidden = !text;
+    vstatus.classList.toggle("is-loading", !!text && loading);
+    if (text) vmsg.textContent = text;
+  }
+  function setVideoLoading(on) {
+    if (!vload) return;
+    clearTimeout(vloadTimer);
+    vload.hidden = !on;
+    if (on) {
+      // 保底關閉：避免部分瀏覽器未觸發狀態事件而一直蓋住畫面
+      vloadTimer = setTimeout(() => { vload.hidden = true; }, 4500);
+    }
+  }
+  const syncSwitchLoading = () => {
+    let st = -1;
+    try { st = player.getPlayerState(); } catch (e) {}
+    setVideoLoading(st === -1 || st === 3);
+  };
   const now = () => { try { return ready && player.getCurrentTime() || 0; } catch (e) { return 0; } };
   const isPlaying = () => { try { return ready && [1, 3].includes(player.getPlayerState()); } catch (e) { return false; } };
   function pause() { if (ready) player.pauseVideo(); }
@@ -980,6 +998,7 @@
           ready = true;
           clearTimeout(slowTimer);
           videoMsg("");
+          setVideoLoading(false);
           applyRate();
           // 等播放器的期間已經回首頁：不要在背景出聲
           if (!S || songV.hidden) { try { player.pauseVideo(); } catch (e) {} START = 0; return; }
@@ -994,8 +1013,13 @@
           START = 0;
         },
         // 換影片後 YouTube 會把速度重設成 1，播放或載入完成時再套一次
-        onStateChange: e => { if (e.data === 1 || e.data === 5) applyRate(); if (e.data === 0) ended(); },
-        onError: () => videoMsg(T("無法播放影片，請到 YouTube 觀看。"))
+        onStateChange: e => {
+          if (e.data === 3) setVideoLoading(true);
+          else if (e.data === 0 || e.data === 1 || e.data === 2 || e.data === 5) setVideoLoading(false);
+          if (e.data === 1 || e.data === 5) applyRate();
+          if (e.data === 0) ended();
+        },
+        onError: () => { setVideoLoading(false); videoMsg(T("無法播放影片，請到 YouTube 觀看。")); }
       }
     });
   }
@@ -1013,8 +1037,10 @@
     // 打開歌曲或切歌播放
     if (vid !== targetVid) {
       vid = targetVid;
+      setVideoLoading(true);
       try { player.unMute(); } catch (e) {}
       player.loadVideoById({ videoId: targetVid, startSeconds: startSec });
+      syncSwitchLoading();
     } else {
       if (START) seek(START);
       try { player.unMute(); } catch (e) {}
@@ -1057,7 +1083,9 @@
         player.unMute();
         if (vid !== targetVid) {
           vid = targetVid;
+          setVideoLoading(true);
           player.loadVideoById({ videoId: targetVid, startSeconds: 0 });
+          syncSwitchLoading();
         } else {
           player.playVideo();
         }
@@ -1107,7 +1135,7 @@
     window.onYouTubeIframeAPIReady = () => { loadVideo(); warmPlayer(); };
     if (!navigator.onLine) videoMsg(OFFLINE);
     loadYT();
-    addEventListener("online", () => { if (!ready) { videoMsg(T("正在載入影片…")); loadYT(); } });
+    addEventListener("online", () => { if (!ready) { videoMsg(T("正在載入影片…"), true); loadYT(); } });
     addEventListener("offline", () => { if (!ready) videoMsg(OFFLINE); });
   }
   // 離線用的 Service Worker：只有建置過的網站才有 sw.js；ROOT 讓英文、日文版也註冊到網站根目錄
@@ -1125,8 +1153,9 @@
     updateVideoSourceUi();
     const curSrc = currentVideoSource(s);
     loadSongData(curSrc);
-    // 上一首播不了留下的錯誤訊息，換歌時先收掉；播放器還沒好時保留「正在載入」那類提示
+    // 上一首播不了留下的錯誤訊息，換歌時先收掉；播放器還沒好時保留載入動畫與提示
     if (ready) videoMsg("");
+    else if (navigator.onLine && location.protocol !== "file:") videoMsg(T("正在載入影片…"), true);
     // 在這首自己的頁面（song/<id>/）時保留建置時寫好的完整標題，給搜尋引擎看
     document.title = s.id === PAGE_SONG ? PAGE_TITLE : `${s.ja}｜${T("Ado 應援指南")}`;
     const sub = otherName(s);
@@ -2939,7 +2968,7 @@
       trackView(s);
     } else {
       setImmersive(false, true); quizStop();
-      lampStop(); pause(); hideAlert(); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
+      lampStop(); pause(); hideAlert(); setVideoLoading(false); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
       renderRecent(); crateShow();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);

@@ -388,9 +388,51 @@ main.col {
   border: 0;
 }
 
+.spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(2, 180, 245, .2);
+  border-top-color: var(--tint, var(--primary));
+  animation: ado-spin .75s linear infinite;
+}
+
+@keyframes ado-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vload {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 20px;
+  background: rgba(4, 6, 12, .78);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.vload[hidden] {
+  display: none;
+}
+
+.vload p {
+  margin: 0;
+  max-width: 36ch;
+  color: var(--color-slate-300, #cbd5e1);
+  font-size: 13px;
+}
+
 .vstatus {
   position: absolute;
   inset: 0;
+  z-index: 3;
   display: grid;
   place-content: center;
   justify-items: center;
@@ -404,11 +446,31 @@ main.col {
   display: none;
 }
 
+.vstatus .spinner {
+  display: none;
+}
+
+.vstatus.is-loading .spinner {
+  display: block;
+}
+
+.vstatus.is-loading .btn {
+  display: none;
+}
+
 .vstatus p {
   margin: 0;
   max-width: 36ch;
-  color: var(--muted);
+  color: var(--color-slate-300, #cbd5e1);
   font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+    border-color: var(--tint, var(--primary));
+    opacity: .65;
+  }
 }
 
 .screen {
@@ -2007,6 +2069,20 @@ main.col {
   display: grid;
   gap: 10px;
   justify-items: start;
+}
+
+.empty.is-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 12px;
+}
+
+.empty.is-loading .spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+  flex: none;
 }
 
 .empty .summary {

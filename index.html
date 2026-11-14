@@ -271,7 +271,12 @@
           <section class="mv" aria-label="MV">
             <div class="screen" id="screen">
               <div id="ytp"></div>
-              <div class="vstatus" id="vstatus">
+              <div class="vload" id="vload" hidden aria-hidden="true">
+                <span class="spinner" aria-hidden="true"></span>
+                <p>正在載入影片…</p>
+              </div>
+              <div class="vstatus is-loading" id="vstatus">
+                <span class="spinner" aria-hidden="true"></span>
                 <p id="vmsg">正在載入影片…</p>
                 <a class="btn ghost" id="ytLink2" target="_blank" rel="noopener">在 YouTube 開啟</a>
               </div>
