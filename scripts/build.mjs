@@ -337,6 +337,7 @@ const write = (rel, text) => {
 fs.rmSync(out, { recursive: true, force: true });
 
 const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].map(id => SONGS.find(s => s.id === id)).filter(Boolean);
+const LATEST = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
 const thumbHtml = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
 const urls = [""];
 
@@ -357,7 +358,9 @@ function renderLang(L) {
   const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   const homeLegendHtml = Object.keys(ACT_MAP).filter(a => usedActs.has(a)).map(a => `<span class="a-${a}">${icon(a)}${T(ACT_MAP[a].name)}</span>`).join("");
   const homeSongListHtml = SONGS.map(s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`).join("");
-  const homeShelfHtml = STARTERS.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
+  const shelfHtml = list => list.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
+  const homeShelfHtml = shelfHtml(STARTERS);
+  const homeLatestShelfHtml = shelfHtml(LATEST);
 
   // 常見問題：結構化資料直接讀這個語言畫面上的文字，兩邊一致
   const FAQ = [...tpl.matchAll(/<details class="faq-item">\s*<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)]
@@ -436,6 +439,7 @@ function renderLang(L) {
   homeHtml = homeHtml
     .replace('<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`)
     .replace('<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`)
+    .replace('<ul class="shelf" id="latestShelf"></ul>', `<ul class="shelf" id="latestShelf">${homeLatestShelfHtml}</ul>`)
     .replace('<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${T("{0} 首", SONGS.length)}</span>`)
     .replace(/(<p class="list-progress" id="listProgress"[^>]*>)[^<]*(<\/p>)/, `$1${T("已列出 {0}／{1} 首", 12, SONGS.length)}$2`)
     .replace(/(<span id="factSongs">)\d+(<\/span>)/, `$1${SONGS.length}$2`)

@@ -168,6 +168,26 @@
         </div>
       </section>
 
+      <!-- 書架：最近幾首，依發佈時間自動更新 -->
+      <section class="starter" aria-labelledby="latestH">
+        <div class="sec-head">
+          <div>
+            <h2 id="latestH">最近幾首</h2>
+            <p class="sec-sub">Ado 最近發佈的 6 首歌</p>
+          </div>
+        </div>
+        <ul class="shelf" id="latestShelf"></ul>
+        <div class="shelf-nav" id="latestShelfNav">
+          <div class="shelf-hint">
+            <span class="shelf-track" aria-hidden="true"><span class="shelf-thumb" id="latestShelfThumb"></span></span>
+          </div>
+          <div class="shelf-btns">
+            <button type="button" class="round-btn" id="latestShelfPrev" aria-label="上一組" aria-controls="latestShelf" disabled><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg></span></button>
+            <button type="button" class="round-btn" id="latestShelfNext" aria-label="下一組" aria-controls="latestShelf"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></span></button>
+          </div>
+        </div>
+      </section>
+
       <!-- 全部歌曲：像專輯曲目表，縮圖＋歌名＋動作圖示 -->
       <section class="all-songs" id="songs" aria-labelledby="songsH">
         <div class="sec-head">

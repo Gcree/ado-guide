@@ -278,36 +278,42 @@
   };
   ["pointerdown", "keydown", "click"].forEach(ev => randomLink.addEventListener(ev, e => { if (ev !== "keydown" || e.key === "Enter") pickRandom(); }));
 
-  // 書架：推薦先練的 6 首，6 種應援動作全包；下方進度條跟著捲動走，箭頭到底就停用
-  const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].filter(id => BY[id]);
-  const shelf = document.getElementById("shelf"), shelfNav = document.getElementById("shelfNav"), shelfThumb = document.getElementById("shelfThumb");
-  const shelfPrev = document.getElementById("shelfPrev"), shelfNext = document.getElementById("shelfNext");
-  shelf.innerHTML = STARTERS.map(id => {
-    const s = BY[id];
-    return `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`;
-  }).join("");
-  let shelfTick = 0;
-  function measureShelf() {
-    shelfTick = 0;
-    // 在歌曲頁時首頁是隱藏的，量到的寬度是 0：別把切換鈕藏起來，不然回首頁那一格清單會往下掉、捲動位置對不上
-    if (!shelf.clientWidth) return;
-    const max = shelf.scrollWidth - shelf.clientWidth;
-    const frac = shelf.scrollWidth ? Math.min(1, shelf.clientWidth / shelf.scrollWidth) : 1;
-    const pos = max > 0 ? shelf.scrollLeft / max : 0;
-    shelfNav.hidden = max <= 1;
-    shelfThumb.style.width = `${frac * 100}%`;
-    shelfThumb.style.left = `${pos * (1 - frac) * 100}%`;
-    // 按到底那顆會停用；鍵盤焦點如果在它上面，移到另一顆，不要掉到頁面最上面
-    const had = document.activeElement;
-    shelfPrev.disabled = pos <= .01;
-    shelfNext.disabled = pos >= .99;
-    if (had === shelfPrev && shelfPrev.disabled) shelfNext.focus();
-    else if (had === shelfNext && shelfNext.disabled) shelfPrev.focus();
+  // 書架：推薦先練的 6 首＋最近發佈的 6 首；下方進度條跟著捲動走，箭頭到底就停用
+  const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].map(id => BY[id]).filter(Boolean);
+  const LATEST = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
+  function setupShelf(songs, prefix) {
+    const shelf = document.getElementById(prefix);
+    const shelfNav = document.getElementById(`${prefix}Nav`);
+    const shelfThumb = document.getElementById(`${prefix}Thumb`);
+    const shelfPrev = document.getElementById(`${prefix}Prev`);
+    const shelfNext = document.getElementById(`${prefix}Next`);
+    if (!shelf) return;
+    shelf.innerHTML = songs.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
+    let shelfTick = 0;
+    function measureShelf() {
+      shelfTick = 0;
+      // 在歌曲頁時首頁是隱藏的，量到的寬度是 0：別把切換鈕藏起來，不然回首頁那一格清單會往下掉、捲動位置對不上
+      if (!shelf.clientWidth) return;
+      const max = shelf.scrollWidth - shelf.clientWidth;
+      const frac = shelf.scrollWidth ? Math.min(1, shelf.clientWidth / shelf.scrollWidth) : 1;
+      const pos = max > 0 ? shelf.scrollLeft / max : 0;
+      shelfNav.hidden = max <= 1;
+      shelfThumb.style.width = `${frac * 100}%`;
+      shelfThumb.style.left = `${pos * (1 - frac) * 100}%`;
+      // 按到底那顆會停用；鍵盤焦點如果在它上面，移到另一顆，不要掉到頁面最上面
+      const had = document.activeElement;
+      shelfPrev.disabled = pos <= .01;
+      shelfNext.disabled = pos >= .99;
+      if (had === shelfPrev && shelfPrev.disabled) shelfNext.focus();
+      else if (had === shelfNext && shelfNext.disabled) shelfPrev.focus();
+    }
+    shelf.addEventListener("scroll", () => { if (!shelfTick) shelfTick = requestAnimationFrame(measureShelf); }, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(() => measureShelf()).observe(shelf);
+    [[shelfPrev, -1], [shelfNext, 1]].forEach(([b, dir]) => b.addEventListener("click", () => shelf.scrollBy({ left: dir * shelf.clientWidth * .8, behavior: reduce ? "auto" : "smooth" })));
+    measureShelf();
   }
-  shelf.addEventListener("scroll", () => { if (!shelfTick) shelfTick = requestAnimationFrame(measureShelf); }, { passive: true });
-  if (window.ResizeObserver) new ResizeObserver(() => measureShelf()).observe(shelf);
-  [[shelfPrev, -1], [shelfNext, 1]].forEach(([b, dir]) => b.addEventListener("click", () => shelf.scrollBy({ left: dir * shelf.clientWidth * .8, behavior: reduce ? "auto" : "smooth" })));
-  measureShelf();
+  setupShelf(STARTERS, "shelf");
+  setupShelf(LATEST, "latestShelf");
 
   // 最近看過：記最多 3 首在這台裝置；主視覺顯示「繼續練〈最近那首〉」
   const resumeLink = document.getElementById("resumeLink"), resumeName = document.getElementById("resumeName");
