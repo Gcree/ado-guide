@@ -22077,6 +22077,219 @@
         "duration": 5.31
       }
     ]
+  },
+  {
+    "id": "brain",
+    "title": "BRAIN",
+    "youtubeId": "wodpaLwL7II",
+    "duration": 157,
+    "lyrics": [
+      {
+        "time": 11.02,
+        "jp": "手を取って to match brain",
+        "tr": "牽起手 to match brain"
+      },
+      {
+        "time": 14.2,
+        "jp": "夢の中まで去っていってダイブ",
+        "tr": "遠去直到夢中縱身躍入"
+      },
+      {
+        "time": 20.12,
+        "jp": "目を取って to match fake",
+        "tr": "奪走目光 to match fake"
+      },
+      {
+        "time": 23.7,
+        "jp": "闇の中まで去っていってダイブ",
+        "tr": "遠去直到黑暗中縱身躍入"
+      },
+      {
+        "time": 29.64,
+        "jp": "妖艶に 聡明に 弱いだけなの",
+        "tr": "妖豔地 聰明地 只是脆弱而已"
+      },
+      {
+        "time": 34.14,
+        "jp": "妖艶に 聡明に 怖いだけなの",
+        "tr": "妖豔地 聰明地 只是害怕而已"
+      },
+      {
+        "time": 39.02,
+        "jp": "酔えないって 覚めない \"あなた\" だけで行こうぜ",
+        "tr": "說什麼醉不了 醒不來 只靠「你」前進吧"
+      },
+      {
+        "time": 45.06,
+        "jp": "頭カラ粕ベイベー",
+        "tr": "腦袋空空如渣滓 Baby"
+      },
+      {
+        "time": 47.56,
+        "jp": "Sherry light mellow beat",
+        "tr": "Sherry light mellow beat"
+      },
+      {
+        "time": 49.7,
+        "jp": "止まらない声が",
+        "tr": "停不下來的聲音"
+      },
+      {
+        "time": 52.36,
+        "jp": "戻らない日々 去って行って",
+        "tr": "回不去的日子 離我遠去"
+      },
+      {
+        "time": 55.1,
+        "jp": "強く満たして",
+        "tr": "強烈地填滿我"
+      },
+      {
+        "time": 57.06,
+        "jp": "Cherry wine mellow kiss",
+        "tr": "Cherry wine mellow kiss"
+      },
+      {
+        "time": 59.22,
+        "jp": "心の声が",
+        "tr": "想聽見"
+      },
+      {
+        "time": 61.58,
+        "jp": "聞きたい",
+        "tr": "你心裡的聲音"
+      },
+      {
+        "time": 64.97,
+        "jp": "形になった to match brain",
+        "tr": "成形了 to match brain"
+      },
+      {
+        "time": 67.38,
+        "jp": "（間奏）",
+        "tr": ""
+      },
+      {
+        "time": 77.14,
+        "jp": "手を取った to match brain",
+        "tr": "牽起了手 to match brain"
+      },
+      {
+        "time": 80.67,
+        "jp": "意味の中まで知って散った boy",
+        "tr": "連箇中意義都知曉而凋零的 boy"
+      },
+      {
+        "time": 86.26,
+        "jp": "逃げ出した僕の青さの",
+        "tr": "逃跑出來的我的青澀"
+      },
+      {
+        "time": 90.06,
+        "jp": "音がする 声がする 助けてみようかい",
+        "tr": "傳來聲響 傳來嗓音 試著拯救看看吧"
+      },
+      {
+        "time": 94.77,
+        "jp": "Sherry light mellow beat",
+        "tr": "Sherry light mellow beat"
+      },
+      {
+        "time": 97.42,
+        "jp": "止まらない声が",
+        "tr": "停不下來的聲音"
+      },
+      {
+        "time": 99.42,
+        "jp": "止まないの 空 去って行って",
+        "tr": "不會停歇嗎 天空 離我遠去"
+      },
+      {
+        "time": 102.62,
+        "jp": "私満たして",
+        "tr": "填滿我吧"
+      },
+      {
+        "time": 104.56,
+        "jp": "Cherry wine mellow kiss",
+        "tr": "Cherry wine mellow kiss"
+      },
+      {
+        "time": 106.61,
+        "jp": "心の声が",
+        "tr": "心裡的聲音"
+      },
+      {
+        "time": 109.32,
+        "jp": "溶けたら",
+        "tr": "若是融化的話"
+      },
+      {
+        "time": 114.52,
+        "jp": "Why! Mellow beat",
+        "tr": "Why! Mellow beat"
+      },
+      {
+        "time": 116.4,
+        "jp": "止まらない声が",
+        "tr": "停不下來的聲音"
+      },
+      {
+        "time": 118.35,
+        "jp": "戻らない日々 去って行って",
+        "tr": "回不去的日子 離我遠去"
+      },
+      {
+        "time": 121.72,
+        "jp": "強く満たして",
+        "tr": "強烈地填滿我"
+      },
+      {
+        "time": 123.58,
+        "jp": "Cherry wine mellow kiss",
+        "tr": "Cherry wine mellow kiss"
+      },
+      {
+        "time": 126,
+        "jp": "心の声が",
+        "tr": "想聽見"
+      },
+      {
+        "time": 128.26,
+        "jp": "聞きたい",
+        "tr": "你心裡的聲音"
+      },
+      {
+        "time": 131.56,
+        "jp": "形になった to match brain",
+        "tr": "成形了 to match brain"
+      },
+      {
+        "time": 134,
+        "jp": "妖艶に 聡明に you and me",
+        "tr": "妖豔地 聰明地 you and me"
+      },
+      {
+        "time": 137.73,
+        "jp": "To match brain",
+        "tr": "To match brain"
+      },
+      {
+        "time": 139,
+        "jp": "妖艶に 聡明に 二人に",
+        "tr": "妖豔地 聰明地 於我們兩人"
+      },
+      {
+        "time": 142.42,
+        "jp": "To match brain",
+        "tr": "To match brain"
+      },
+      {
+        "time": 145.08,
+        "jp": "（尾奏）",
+        "tr": ""
+      }
+    ]
   }
 ];
 
