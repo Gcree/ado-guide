@@ -830,7 +830,7 @@
 
   // 播放：同 Vaundy 版，YouTube 播放器只建立一次，換歌用 cueVideoById 換影片
   // 直接點開檔案（file://）時瀏覽器不送來源網址，YouTube 會拒絕嵌入，所以改顯示提示
-  let player = null, ready = false, vid = "", slowTimer = 0, START = 0, muteTimer = 0, vloadTimer = 0;
+  let player = null, ready = false, vid = "", readyTimer = 0, playerRetries = 0, ytScriptEl = null, START = 0, muteTimer = 0, vloadTimer = 0;
   const vstatus = document.getElementById("vstatus"), vmsg = document.getElementById("vmsg"), vload = document.getElementById("vload");
 
   // ── 影片版本（MV / Live）控制 ──
@@ -977,8 +977,43 @@
   singPrev.addEventListener("click", () => { const t = singAt(-1, now()); if (t != null) seek(t); });
   singNext.addEventListener("click", () => { const t = singAt(1, now()); if (t != null) seek(t); });
 
+  function resetPlayer() {
+    clearTimeout(readyTimer);
+    if (player) { try { player.destroy(); } catch (e) {} }
+    player = null;
+    ready = false;
+    const screen = document.getElementById("screen");
+    if (screen && !document.getElementById("ytp")) {
+      const el = document.createElement("div");
+      el.id = "ytp";
+      screen.prepend(el);
+    }
+  }
+
+  function scheduleReadyCheck() {
+    clearTimeout(readyTimer);
+    if (ready || !S || songV.hidden || !navigator.onLine || location.protocol === "file:") return;
+    readyTimer = setTimeout(() => {
+      if (ready || !S || songV.hidden || !navigator.onLine) return;
+      if (playerRetries < 2) {
+        playerRetries++;
+        resetPlayer();
+        if (window.YT && YT.Player) {
+          vid = activeVideoId(S);
+          createPlayer(vid, true);
+        } else {
+          if (ytScriptEl) { ytScriptEl.remove(); ytScriptEl = null; }
+          if (typeof reloadYT === "function") reloadYT();
+        }
+      } else {
+        setVideoLoading(false);
+        videoMsg(T("影片連線延遲，請到 YouTube 觀看。"));
+      }
+    }, 4500);
+  }
+
   function createPlayer(videoId, startPlaying = true) {
-    if (player || !window.YT || !YT.Player) return;
+    if (player || !window.YT || !YT.Player || !videoId) return;
     const origin = location.protocol.startsWith("http") ? location.origin : undefined;
     const startAt = START;
     player = new YT.Player("ytp", {
@@ -996,7 +1031,8 @@
       events: {
         onReady: () => {
           ready = true;
-          clearTimeout(slowTimer);
+          playerRetries = 0;
+          clearTimeout(readyTimer);
           videoMsg("");
           setVideoLoading(false);
           applyRate();
@@ -1022,10 +1058,18 @@
         onError: () => { setVideoLoading(false); videoMsg(T("無法播放影片，請到 YouTube 觀看。")); }
       }
     });
+    scheduleReadyCheck();
   }
 
   function loadVideo() {
-    if (!S || songV.hidden || !window.YT || !YT.Player) return;
+    if (!S || songV.hidden) return;
+    if (!window.YT || !YT.Player) {
+      if (navigator.onLine && location.protocol !== "file:") {
+        if (!ytScriptEl && typeof reloadYT === "function") reloadYT();
+        scheduleReadyCheck();
+      }
+      return;
+    }
     const targetVid = activeVideoId(S);
     const startSec = START || 0;
     if (!player) {
@@ -1033,7 +1077,10 @@
       createPlayer(vid, true);
       return;
     }
-    if (!ready) return;
+    if (!ready) {
+      scheduleReadyCheck();
+      return;
+    }
     // 打開歌曲或切歌播放
     if (vid !== targetVid) {
       vid = targetVid;
@@ -1072,12 +1119,6 @@
   });
   function tapPlay(targetSong) {
     const targetVid = activeVideoId(targetSong);
-    if (!player && window.YT && YT.Player) {
-      vid = targetVid;
-      createPlayer(vid, true);
-      return;
-    }
-
     if (player && ready) {
       try {
         player.unMute();
@@ -1092,13 +1133,7 @@
       } catch (err) {}
     }
   }
-  // 第一次從首頁點歌時播放器還沒建好，建好（約 1 秒後）才播就不算點擊，iPhone 只能靜音播。
-  // 手機和 Safari 上，首頁閒下來就先建好空的播放器，點歌那一下直接換片有聲播放；電腦版 Chrome、Edge 點過頁面就能有聲自動播放，不用先載
-  const NEEDS_TAP = matchMedia("(pointer: coarse)").matches || (/Safari\//.test(navigator.userAgent) && !/Chrome\/|Chromium\/|Edg\/|Android/.test(navigator.userAgent));
-  function warmPlayer() {
-    if (!NEEDS_TAP || player || !window.YT || !YT.Player || !navigator.onLine || (navigator.connection && navigator.connection.saveData)) return;
-    (window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => { if (!player && songV.hidden) createPlayer(undefined, false); }, { timeout: 3000 });
-  }
+
   // 瀏覽器不讓有聲音的影片自己播時（直接打開網址、還沒點過畫面，iPhone 常見），改成靜音播放並提醒
   function ensurePlaying() {
     clearTimeout(muteTimer);
@@ -1118,31 +1153,39 @@
     try { player.unMute(); } catch (e) {}
   };
   ["click", "keydown"].forEach(t => document.addEventListener(t, unmuteOnTap, true));
+  let reloadYT = null;
   if (location.protocol === "file:") {
     videoMsg(T("直接點開檔案時 YouTube 不允許嵌入播放。請改用資料夾裡的「開啟網站.command」，或放上 GitHub Pages 再看。"));
   } else {
     // 離線時（加到主畫面、在場館收不到訊號）影片播不了，先說清楚；連回網路就重新載入播放器
     const OFFLINE = T("離線中：影片要連上網路才能播，歌詞和應援重點照樣可以看。");
     const loadYT = () => {
-      if (window.YT && YT.Player) return;
-      clearTimeout(slowTimer);
-      slowTimer = setTimeout(() => { if (!ready) videoMsg(navigator.onLine ? T("影片連線延遲，請到 YouTube 觀看。") : OFFLINE); }, 8000);
+      if ((window.YT && YT.Player) || ytScriptEl) return;
       const yts = document.createElement("script");
+      ytScriptEl = yts;
       yts.src = "https://www.youtube.com/iframe_api";
-      yts.onerror = () => { yts.remove(); videoMsg(navigator.onLine ? T("無法載入 YouTube 播放器，請到 YouTube 觀看。") : OFFLINE); };
+      yts.onload = () => { if (ytScriptEl === yts) ytScriptEl = null; };
+      yts.onerror = () => {
+        if (ytScriptEl === yts) ytScriptEl = null;
+        yts.remove();
+        if (!navigator.onLine) videoMsg(OFFLINE);
+        else if (S && !songV.hidden && playerRetries < 2) scheduleReadyCheck();
+        else videoMsg(T("無法載入 YouTube 播放器，請到 YouTube 觀看。"));
+      };
       document.head.appendChild(yts);
     };
-    window.onYouTubeIframeAPIReady = () => { loadVideo(); warmPlayer(); };
+    reloadYT = loadYT;
+    window.onYouTubeIframeAPIReady = () => { loadVideo(); };
     if (!navigator.onLine) videoMsg(OFFLINE);
     loadYT();
-    addEventListener("online", () => { if (!ready) { videoMsg(T("正在載入影片…"), true); loadYT(); } });
-    addEventListener("offline", () => { if (!ready) videoMsg(OFFLINE); });
+    addEventListener("online", () => { if (!ready) { playerRetries = 0; videoMsg(T("正在載入影片…"), true); loadYT(); scheduleReadyCheck(); } });
+    addEventListener("offline", () => { if (!ready) { clearTimeout(readyTimer); videoMsg(OFFLINE); } });
   }
   // 離線用的 Service Worker：只有建置過的網站才有 sw.js；ROOT 讓英文、日文版也註冊到網站根目錄
   if (LYV && "serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register(ROOT + "sw.js").catch(() => {}));
 
   function openSong(s, t = 0) {
-    quizStop(); closeSheets();
+    quizStop(); closeSheets(); playerRetries = 0;
     S = s; curKey = null; hideAlert(); START = t; remember(s.id);
     if (routeSource) {
       videoSourceOverride = routeSource;
@@ -2968,7 +3011,7 @@
       trackView(s);
     } else {
       setImmersive(false, true); quizStop();
-      lampStop(); pause(); hideAlert(); setVideoLoading(false); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
+      clearTimeout(readyTimer); lampStop(); pause(); hideAlert(); setVideoLoading(false); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
       renderRecent(); crateShow();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
