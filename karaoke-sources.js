@@ -414,10 +414,13 @@
     }
 
     const request = (async () => {
-      notify(opts, { state: "loading", source: PROVIDER_ORDER[0] });
-      let timed = await fetchWorker(song, opts);
+      let timed = null;
+      if (opts.workerUrl) {
+        notify(opts, { state: "loading", source: PROVIDER_ORDER[0] });
+        timed = await fetchWorker(song, opts);
+      }
       if (!timed) {
-        notify(opts, { state: "fallback", source: PROVIDER_ORDER[1] });
+        notify(opts, { state: opts.workerUrl ? "fallback" : "loading", source: PROVIDER_ORDER[1] });
         timed = await fetchAmll(song, opts);
       }
       if (!timed) {

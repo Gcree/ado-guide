@@ -42,6 +42,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap"></noscript>
 <link rel="stylesheet" href="style.css?v=dev1">
+</head>
+<body>
 
 <svg width="0" height="0" style="position:absolute;display:none" aria-hidden="true">
   <defs>
@@ -217,15 +219,39 @@
         </div>
       </section>
 
+      <!-- 應援練習說明 -->
+      <section class="home-guide" id="homeGuide" aria-labelledby="homeGuideH">
+        <div class="sec-head">
+          <div>
+            <h2 id="homeGuideH">演唱會應援練習原則</h2>
+            <p class="sec-sub">進場前先把節奏、手燈顏色與合唱段落練熟</p>
+          </div>
+        </div>
+        <div class="home-guide-grid">
+          <article class="guide-pill">
+            <h3>看懂歌詞應援標記</h3>
+            <p>播放官方 MV 或現場音源後，歌詞亮起顏色代表要一起做的動作：大合唱跟著唱、拍手與反拍跟著擊掌、喊聲在間奏喊「Hey!」，標成安靜聽的段落則專心聽 Ado 演唱。</p>
+          </article>
+          <article class="guide-pill">
+            <h3>手燈顏色切換通則</h3>
+            <p>每首歌旁的小圓點是推薦手燈顏色；沒有固定指定的曲目，統一切換成 Ado 的代表色藍色，或依現場場控與舞台燈光自由揮動。</p>
+          </article>
+          <article class="guide-pill">
+            <h3>不暴雷、支援藍牙連動</h3>
+            <p>所有歌曲依推出順序排列，不依照任何單場歌單，安心預習不怕暴雷。電腦版可搭配 PenlightSync 透過藍牙自動切換官方手燈顏色。</p>
+          </article>
+        </div>
+      </section>
+
       <!-- 常見問題 -->
       <section class="faq" id="faq" aria-labelledby="faqH">
         <h2 id="faqH">常見問題</h2>
         <div class="faq-list">
-          <details class="faq-item">
+          <details class="faq-item" open>
             <summary>怎麼用這個網站練應援？</summary>
             <p>挑一首歌，MV 和歌詞會一起播。句子亮起顏色就是要應援的地方，每種顏色代表什麼動作，歌詞上方的圖例有寫；點歌詞可以跳到那一句。</p>
           </details>
-          <details class="faq-item">
+          <details class="faq-item" open>
             <summary>第一次去 Ado 演唱會，要先練哪幾首？</summary>
             <p>先練首頁「推薦練習」的 6 首：踊、FREEDOM、新時代、逆光、阿修羅ちゃん、うっせぇわ。拍手、大合唱、喊聲、揮手、跳躍都會用到，練完再看其他歌會快很多。</p>
           </details>
@@ -246,6 +272,17 @@
             <p>點右上角的「手燈連動程式」下載 PenlightSync（Windows、macOS）。用藍牙連上 Ado 官方手燈，再打開歌曲頁的「連動手燈」，播哪首歌，手燈就換成那首的顏色。</p>
           </details>
         </div>
+      </section>
+
+      <!-- 全部歌曲快速索引：所有歌曲連結對訪客與搜尋引擎皆直接可見 -->
+      <section class="song-index-sec" id="songIndexSec" aria-labelledby="songIndexH">
+        <div class="sec-head">
+          <div>
+            <h2 id="songIndexH">全部歌曲索引</h2>
+            <p class="sec-sub">直接點選任一曲目進入專屬應援教學頁</p>
+          </div>
+        </div>
+        <nav class="song-index" id="songIndex" aria-label="全部歌曲連結"></nav>
       </section>
     </div>
 
@@ -332,6 +369,8 @@
           </div>
         </section>
       </div>
+
+      <section class="song-guide-inline" id="songGuideInline" aria-label="歌曲應援詳情"></section>
 
       <!-- 練習工具列：常用的一直看得到。電腦是浮在畫面下方正中間的膠囊（捲到最底會停在頁尾上面），手機固定在畫面底部（大拇指按得到）；顯示、更多打開選單（手機是從下面拉出的抽屜） -->
       <div class="dock" id="dock" role="toolbar" aria-label="練習工具">
@@ -549,3 +588,4 @@
 <script src="songs.js?v=dev"></script>
 <script src="karaoke-sources.js?v=dev"></script>
 <script src="app.js?v=dev"></script>
+</body>

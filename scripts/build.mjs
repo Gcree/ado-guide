@@ -35,7 +35,82 @@ const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"
 const require = createRequire(import.meta.url);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 const LYRICS_LIVE = require(path.join(root, "song-lyrics-live.js"));
-const { SONGS, UT, PEN } = require(path.join(root, "songs.js"));
+const { SONGS, UT, PEN, SERIES } = require(path.join(root, "songs.js"));
+
+const credKey = n => n.replace(/\s*\(.*\)\s*$/, "").trim();
+const credHas = (s, part, key) => !!(s.credit && (s.credit[part] || []).some(n => credKey(n) === key));
+function credRole(s, key, T) {
+  const w = credHas(s, "w", key), c = credHas(s, "c", key);
+  return w && c ? T("詞曲") : w ? T("作詞") : c ? T("作曲") : credHas(s, "a", key) ? T("編曲") : "";
+}
+function relatedOf(s, T) {
+  const groups = [], c = s.credit;
+  if (c) {
+    const names = [...(c.w || []), ...(c.c || []), ...(c.a || [])], keys = [...new Set(names.map(credKey))];
+    keys.forEach(key => {
+      const songs = SONGS.filter(x => x !== s && ["w", "c", "a"].some(p => credHas(x, p, key)));
+      if (songs.length) groups.push({ kind: "who", name: names.find(n => credKey(n) === key), role: credRole(s, key, T), songs: songs.map(x => ({ s: x, role: credRole(x, key, T) })) });
+    });
+  }
+  (SERIES || []).forEach(g => {
+    if (!g.ids.includes(s.id)) return;
+    const songs = g.ids.filter(id => id !== s.id).map(id => SONGS.find(x => x.id === id)).filter(Boolean).map(x => ({ s: x, role: "" }));
+    if (songs.length) groups.push({ kind: "work", name: T(g.name), songs });
+  });
+  return groups;
+}
+function songInlineSummary(s, code, pen, tips, lines, T) {
+  const dn = namePart(s, code);
+  const cheerLines = lines.filter(l => (l.acts || []).some(a => a !== "listen")).length;
+  const actNames = s.acts.filter(a => a !== "listen" && ACT_MAP[a]).map(a => T(ACT_MAP[a].name));
+  const tie = s.tie ? T(s.tie) : "";
+  const album = s.album ? T(s.album) : "";
+  const liveNames = (s.lives || []).map(l => l.concert);
+  if (code === "en") {
+    const parts = [
+      `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""} was released on ${s.date} (${s.len})${s.cover ? " as a cover track" : ""}${tie ? `, featured in ${tie}` : ""}${album ? `, and included on "${album}"` : ""}.`,
+      pen.none
+        ? `No official song-specific penlight color is assigned, so fans switch to Ado's signature blue at concerts.`
+        : `Recommended concert penlight color: ${pen.words.join(", ")}.`,
+      tips.length
+        ? `Main audience participation${actNames.length ? ` (${actNames.join(", ")})` : ""}${cheerLines ? ` across ${cheerLines} cued lyric lines` : ""}: ${tips.join("; ")}.`
+        : (s.free
+          ? `There is no fixed chant or clap routine for this track—sway your penlight naturally to the beat and enjoy Ado's vocals.`
+          : `Confirmed live chant cues for this track are still being documented; practice along with the official MV and synced lyrics above.`),
+      liveNames.length ? `Official live audio/video releases are also available (${liveNames.join(", ")}).` : ""
+    ];
+    return parts.filter(Boolean).join(" ");
+  }
+  if (code === "ja") {
+    const parts = [
+      `「${s.ja}」は ${s.date.replace(/-/g, "/")} に公開された Ado の楽曲（${s.len}）です${s.cover ? "（カバー曲）" : ""}${tie ? `。タイアップ：${tie}` : ""}${album ? `、収録：${album}` : ""}。`,
+      pen.none
+        ? `楽曲固有のペンライト色指定はないため、ライブでは Ado のイメージカラーである青を基本に楽しむのが定番です。`
+        : `ライブのおすすめペンライト色は「${pen.words.join("・")}」です。`,
+      tips.length
+        ? `主な応援ポイント${actNames.length ? `（${actNames.join("・")}）` : ""}${cheerLines ? `（同期歌詞 ${cheerLines} 行に合図あり）` : ""}：${tips.join("／")}。`
+        : (s.free
+          ? `この曲は固定のコールや手拍子の決まりがなく、リズムに合わせて自由にペンライトを振りながら Ado の歌声を聴くスタイルです。`
+          : `この曲のライブ応援はまだ情報整理中のため、まずは公式MVと同期歌詞でメロディーを予習しておくのがおすすめです。`),
+      liveNames.length ? `公式ライブ音源・映像（${liveNames.join("・")}）も公開されています。` : ""
+    ];
+    return parts.filter(Boolean).join(" ");
+  }
+  const parts = [
+    `〈${s.ja}〉${dn ? `（${dn}）` : ""}是 Ado 於 ${s.date.replace(/-/g, "/")} 推出的${s.cover ? "翻唱" : ""}歌曲（長度 ${s.len}）${tie ? `，為${tie}` : ""}${album ? `，收錄於《${album}》` : ""}。`,
+    pen.none
+      ? `這首歌目前沒有固定指定的螢光棒顏色，現場建議切換成 Ado 的代表色藍色。`
+      : `演唱會推薦手燈顏色為「${pen.words.join("、")}」，也可搭配 PenlightSync 隨音樂自動變色。`,
+    tips.length
+      ? `主要應援方式包含${actNames.join("、")}${cheerLines ? `（共 ${cheerLines} 句標記動作）` : ""}：${tips.join("；")}。`
+      : (s.free
+        ? `這首歌沒有固定喊聲或拍手口號，現場可依節奏輕鬆揮動手燈、專心聆聽 Ado 的演唱。`
+        : `這首歌的現場固定應援仍在蒐集確認中，建議先搭配官方 MV 與上方同步歌詞熟悉旋律與斷句。`),
+    liveNames.length ? `目前已釋出官方演唱會現場紀錄（${liveNames.join("、")}），可切換 Live 版本對照現場氣氛。` : ""
+  ];
+  return parts.filter(Boolean).join("");
+}
+
 const I18N = require(path.join(root, "i18n.js"));
 // 羅馬拼音：GitHub Actions 建置前用 tools/romaji/romaji.mjs 產生；沒有的話英文版歌詞下面就不放
 const ROMAJI = fs.existsSync(path.join(root, "song-romaji.json")) ? JSON.parse(read("song-romaji.json")) : {};
@@ -364,6 +439,7 @@ function renderLang(L) {
   const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   const homeLegendHtml = Object.keys(ACT_MAP).filter(a => usedActs.has(a)).map(a => `<span class="a-${a}">${icon(a)}${T(ACT_MAP[a].name)}</span>`).join("");
   const homeSongListHtml = SONGS.map(s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`).join("");
+  const homeSongIndexHtml = SONGS.map(s => `<a href="song/${s.id}/" data-id="${s.id}">${esc(s.ja)}${namePart(s, L.code) ? `（${esc(namePart(s, L.code))}）` : ""}</a>`).join("");
   const shelfHtml = list => list.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
   const homeShelfHtml = shelfHtml(STARTERS);
   const homeLatestShelfHtml = shelfHtml(LATEST);
@@ -443,6 +519,8 @@ function renderLang(L) {
     extra: L.code === "zh" && GSC_VERIFY && `<meta name="google-site-verification" content="${GSC_VERIFY}">`
   });
   homeHtml = homeHtml
+    .replace('<h1 id="sTitle" lang="ja"></h1>', '<p id="sTitle" lang="ja"></p>')
+    .replace('<nav class="song-index" id="songIndex" aria-label="' + esc(T("全部歌曲連結")) + '"></nav>', `<nav class="song-index" id="songIndex" aria-label="${esc(T("全部歌曲連結"))}">${homeSongIndexHtml}</nav>`)
     .replace('<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`)
     .replace('<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`)
     .replace('<ul class="shelf" id="latestShelf"></ul>', `<ul class="shelf" id="latestShelf">${homeLatestShelfHtml}</ul>`)
@@ -582,18 +660,31 @@ function renderLang(L) {
     const akaText = L.code === "zh" ? [...new Set([...otherNames(s), s.en && s.en !== s.ja ? s.en : ""].filter(Boolean))].join("・") : L.code === "en" ? (s.ro && s.ro !== s.en ? s.ro : "") : "";
     const tie = s.tie ? T(s.tie) : "";
     const album = s.album ? T(s.album) : "";
-    const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="${esc(T("歌曲應援速覽"))}"><h3 class="card-title">${T("〈{0}〉應援速覽", `<span id="cardJa">${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}</span>`)}</h3><dl class="card-dl"><dt id="cardAkaDt"${akaText ? "" : " hidden"}>${T("也叫")}</dt><dd id="cardAkaDd"${akaText ? "" : " hidden"}>${esc(akaText)}</dd><dt id="cardTieDt"${tie ? "" : " hidden"}>${T("出處")}</dt><dd id="cardTieDd"${tie ? "" : " hidden"}>${esc(tie)}</dd><dt id="cardAlbumDt"${album ? "" : " hidden"}>${T("收錄專輯")}</dt><dd id="cardAlbumDd"${album ? "" : " hidden"}>${esc(album)}</dd><dt id="cardDateDt">${T("發布日期")}</dt><dd id="cardDateDd">${esc(s.date.replace(/-/g, "/"))}</dd><dt>${T("推薦手燈")}</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>${T("應援重點")}</dt><dd id="cardTips">${esc(tips.length ? tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。")))}</dd><dt>${T("官方 MV")}</dt><dd><a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">${T("在 YouTube 開啟 ↗")}</a></dd><dt>${T("正版歌詞")}</dt><dd><a id="cardLyrics" href="${s.ut}" target="_blank" rel="noopener">${T("歌ネット ↗")}</a></dd><dt>${T("串流平台")}</dt><dd id="cardStream">${s.stream.map(x => `<a href="${x.url}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ")}</dd>${liveRows}</dl></section>`;
+    const cardInnerDl = `<dl class="card-dl"><dt id="cardAkaDt"${akaText ? "" : " hidden"}>${T("也叫")}</dt><dd id="cardAkaDd"${akaText ? "" : " hidden"}>${esc(akaText)}</dd><dt id="cardTieDt"${tie ? "" : " hidden"}>${T("出處")}</dt><dd id="cardTieDd"${tie ? "" : " hidden"}>${esc(tie)}</dd><dt id="cardAlbumDt"${album ? "" : " hidden"}>${T("收錄專輯")}</dt><dd id="cardAlbumDd"${album ? "" : " hidden"}>${esc(album)}</dd><dt id="cardDateDt">${T("發布日期")}</dt><dd id="cardDateDd">${esc(s.date.replace(/-/g, "/"))}</dd><dt>${T("推薦手燈")}</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>${T("應援重點")}</dt><dd id="cardTips">${esc(tips.length ? tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。")))}</dd><dt>${T("官方 MV")}</dt><dd><a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">${T("在 YouTube 開啟 ↗")}</a></dd><dt>${T("正版歌詞")}</dt><dd><a id="cardLyrics" href="${s.ut}" target="_blank" rel="noopener">${T("歌ネット ↗")}</a></dd><dt>${T("串流平台")}</dt><dd id="cardStream">${s.stream.map(x => `<a href="${x.url}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ")}</dd>${liveRows}</dl>`;
+    const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="${esc(T("歌曲應援速覽"))}"><h3 class="card-title">${T("〈{0}〉應援速覽", `<span id="cardJa">${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}</span>`)}</h3>${cardInnerDl}</section>`;
 
-    // 轉換歌曲頁面的 HTML：預設展示歌曲 view，隱藏 home view，並將標題、螢光棒、歌詞填入靜態標籤
+    const c = s.credit;
+    const who = list => list.map(n => `<span lang="ja">${esc(n)}</span>`).join("、");
+    const creditRows = !c ? [] : [[T("作詞"), c.w], [T("作曲"), c.c], [T("編曲"), c.a]].filter(([, v]) => v && v.length).map(([k, v]) => `<dt>${k}</dt><dd>${who(v)}</dd>`);
+    if (c && c.x && c.x.length) creditRows.push(`<dt>${T("延伸聽")}</dt><dd><span class="card-note">${T("本站還沒收、Ado 也唱過的同作者作品")}</span>${c.x.map(t => `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent("Ado " + t)}" target="_blank" rel="noopener" class="live-chip" lang="ja">${esc(t)} ↗</a>`).join(" ")}</dd>`);
+    const relGroups = relatedOf(s, T);
+    const relBlock = relGroups.length ? `<section class="rel-block" aria-label="${esc(T("關聯曲"))}"><h4 class="rel-title">${T("關聯曲")}<small>${T("同一位創作者、同一部作品，點了直接換歌")}</small></h4>${relGroups.map(g => `<div class="rel-g"><p class="rel-h"><b${g.kind === "who" ? ' lang="ja"' : ""}>${esc(g.name)}</b><small>${g.kind === "who" ? T("這首的{0}", esc(g.role)) : T("同一部作品")}</small></p><ul class="rel-list">${g.songs.map(({ s: x, role }) => `<li><a class="rel-link" href="song/${x.id}/" data-id="${x.id}">${thumbHtml(x, 64, 36, true)}<span class="rel-t"><b lang="ja">${esc(x.ja)}</b>${role || x.cover ? `<small>${[role, x.cover ? T("翻唱") : ""].filter(Boolean).join("・")}</small>` : ""}</span></a></li>`).join("")}</ul></div>`).join("")}</section>` : "";
+    const inlineLead = songInlineSummary(s, L.code, pen, tips, lines, T);
+    const inlineDl = cardInnerDl.replace(/ id="[^"]+"/g, "");
+    const inlineHtml = `<h2 class="guide-inline-h">${T("〈{0}〉應援速覽", `${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}`)}</h2><p class="guide-inline-lead">${esc(inlineLead)}</p><div class="song-guide-card">${inlineDl}${creditRows.length ? `<dl class="card-dl card-credit">${creditRows.join("")}</dl>` : ""}${relBlock}</div>`;
+
+    // 轉換歌曲頁面的 HTML：預設展示歌曲 view，隱藏 home view，並將標題、螢光棒、歌詞、可見應援詳情填入靜態標籤
     songHtml = songHtml
       .replace('<body>', '<body class="on-song">')
       .replace('<div class="view home" id="home">', '<div class="view home" id="home" hidden>')
+      .replace(/<h1 id="heroH">([\s\S]*?)<\/h1>/, '<p id="heroH">$1</p>')
       .replace('<div class="view" id="song" hidden>', '<div class="view" id="song">')
       .replace('<h1 id="sTitle" lang="ja"></h1>', `<h1 id="sTitle" lang="ja">${esc(s.ja)}${subTitleHtml}</h1>`)
       .replace('<span class="pen" id="pen"></span>', `<span class="pen" id="pen">${T("螢光棒")}${penDots(s)}<b>${esc(pen.shortText)}</b></span>`)
       .replace('<div class="how" id="cueHow"></div>', `<div class="how" id="cueHow">${esc(cueHowText)}</div>`)
       .replace('<ul class="summary" id="cueSummary"></ul>', `<ul class="summary" id="cueSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`)
       .replace('<div id="lines"></div>', `<div id="lines">${prerenderedLines}</div>`)
+      .replace(`<section class="song-guide-inline" id="songGuideInline" aria-label="${esc(T("歌曲應援詳情"))}"></section>`, `<section class="song-guide-inline" id="songGuideInline" data-song="${s.id}" aria-label="${esc(T("歌曲應援詳情"))}">${inlineHtml}</section>`)
       .replace(/<section class="song-guide-card" id="songGuideCard"[^>]*>[\s\S]*?<\/section>/, cardHtml);
 
     // 上一首／下一首連結預渲染

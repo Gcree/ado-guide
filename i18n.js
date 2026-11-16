@@ -573,7 +573,20 @@
       "第 2、4 拍反拍": "Off-beat claps on 2 and 4",
       "〈<span id=\"cardJa\"></span>〉應援速覽": "“<span id=\"cardJa\"></span>” at a glance",
       "歌詞一亮起就知道該做什麼——拍手、喊聲、大合唱，<span id=\"factSongs\"></span> 首都標好了。": "When a line lights up, you know what to do—claps, calls and sing-alongs are marked for all <span id=\"factSongs\"></span> songs.",
-      "從<span lang=\"ja\">〈唱〉</span>開始練": "Start with <span lang=\"ja\">“唱” (Show)</span>"
+      "從<span lang=\"ja\">〈唱〉</span>開始練": "Start with <span lang=\"ja\">“唱” (Show)</span>",
+      "Hey！": "Hey!",
+      "演唱會應援練習原則": "How Concert Cheering Works",
+      "進場前先把節奏、手燈顏色與合唱段落練熟": "Get familiar with the cues, penlight colors, and sing-along parts before the show",
+      "看懂歌詞應援標記": "Reading Lyric Chant Cues",
+      "播放官方 MV 或現場音源後，歌詞亮起顏色代表要一起做的動作：大合唱跟著唱、拍手與反拍跟著擊掌、喊聲在間奏喊「Hey!」，標成安靜聽的段落則專心聽 Ado 演唱。": "As the official MV or live audio plays, highlighted lines show what to do: sing along during chorus cues, clap on beat or off-beat, shout \"Hey!\" on call cues, and simply listen during quiet parts.",
+      "手燈顏色切換通則": "Penlight Color Guidelines",
+      "每首歌旁的小圓點是推薦手燈顏色；沒有固定指定的曲目，統一切換成 Ado 的代表色藍色，或依現場場控與舞台燈光自由揮動。": "The colored dots beside each title show the recommended penlight color. For songs with no set color, use Ado's signature blue or follow the venue's central control and stage lighting.",
+      "不暴雷、支援藍牙連動": "Spoiler-Free & Bluetooth Sync",
+      "所有歌曲依推出順序排列，不依照任何單場歌單，安心預習不怕暴雷。電腦版可搭配 PenlightSync 透過藍牙自動切換官方手燈顏色。": "Songs are listed in release order—never tied to any tour setlist—so you can practice spoiler-free. On desktop, pair with PenlightSync for automatic Bluetooth penlight switching.",
+      "全部歌曲索引": "All Songs Index",
+      "直接點選任一曲目進入專屬應援教學頁": "Jump straight to any song's chant guide page",
+      "全部歌曲連結": "All song links",
+      "歌曲應援詳情": "Song chant details"
     },
     ja: {
       "Ado 應援指南": "Ado 応援ガイド",
@@ -1142,7 +1155,20 @@
       "第 2、4 拍反拍": "2・4拍目の裏拍",
       "〈<span id=\"cardJa\"></span>〉應援速覽": "「<span id=\"cardJa\"></span>」応援まとめ",
       "歌詞一亮起就知道該做什麼——拍手、喊聲、大合唱，<span id=\"factSongs\"></span> 首都標好了。": "歌詞が光ったら合図——手拍子・コール・合唱を全<span id=\"factSongs\"></span>曲に収録。",
-      "從<span lang=\"ja\">〈唱〉</span>開始練": "<span lang=\"ja\">「唱」</span>から練習"
+      "從<span lang=\"ja\">〈唱〉</span>開始練": "<span lang=\"ja\">「唱」</span>から練習",
+      "Hey！": "Hey!",
+      "演唱會應援練習原則": "ライブ応援の予習ポイント",
+      "進場前先把節奏、手燈顏色與合唱段落練熟": "ライブ前にリズム・ペンライト色・合唱パートを押さえよう",
+      "看懂歌詞應援標記": "歌詞の応援マークの見方",
+      "播放官方 MV 或現場音源後，歌詞亮起顏色代表要一起做的動作：大合唱跟著唱、拍手與反拍跟著擊掌、喊聲在間奏喊「Hey!」，標成安靜聽的段落則專心聽 Ado 演唱。": "公式MVやライブ音源を再生すると、歌詞の色で合図が表示されます。合唱は一緒に歌い、手拍子・裏拍はリズムに合わせて叩き、コールは間奏で「Hey!」、じっくり聴く箇所はAdoの歌声に集中しましょう。",
+      "手燈顏色切換通則": "ペンライト色の基本ルール",
+      "每首歌旁的小圓點是推薦手燈顏色；沒有固定指定的曲目，統一切換成 Ado 的代表色藍色，或依現場場控與舞台燈光自由揮動。": "曲名の横の丸がおすすめのペンライト色です。指定のない曲はAdoのイメージカラーである青にするか、会場の無線制御やステージ照明に合わせて楽しみましょう。",
+      "不暴雷、支援藍牙連動": "ネタバレなし・Bluetooth連動",
+      "所有歌曲依推出順序排列，不依照任何單場歌單，安心預習不怕暴雷。電腦版可搭配 PenlightSync 透過藍牙自動切換官方手燈顏色。": "曲はリリース順で並んでおり、特定公演のセトリには準拠していないためネタバレなしで予習できます。PC版はPenlightSyncで公式ペンライトの自動色替えにも対応しています。",
+      "全部歌曲索引": "収録曲インデックス",
+      "直接點選任一曲目進入專屬應援教學頁": "各曲の応援ガイドページへ直接移動できます",
+      "全部歌曲連結": "全曲リンク一覧",
+      "歌曲應援詳情": "楽曲応援ガイド詳細"
     }
   };
 });

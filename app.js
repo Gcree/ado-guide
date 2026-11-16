@@ -264,10 +264,20 @@
     if (!reduce) fresh.forEach((li, i) => { li.style.setProperty("--k", i); li.classList.add("fresh"); });
     if (e.detail === 0 && fresh[0]) fresh[0].querySelector("a").focus();
   });
-  syncSort();
-  syncLiveSubFilter();
-  renderList();
-  lyLoaded.then(renderList);
+  let homeReady = false;
+  function ensureHomeReady() {
+    if (homeReady) return;
+    homeReady = true;
+    syncSort();
+    syncLiveSubFilter();
+    renderList();
+    setupShelf(STARTERS, "shelf");
+    setupShelf(LATEST, "latestShelf");
+    const idxNav = document.getElementById("songIndex");
+    if (idxNav && !idxNav.children.length) {
+      idxNav.innerHTML = SONGS.map(s => `<a href="song/${s.id}/" data-id="${s.id}">${esc(s.ja)}${otherName(s) ? `（${esc(otherName(s))}）` : ""}</a>`).join("");
+    }
+  }
 
   // 「隨機練一首」：按下去那一刻才抽（首頁的點擊處理接著用 data-id 換頁）；只抽有應援資料的歌，不抽剛剛練過的那首
   const randomLink = document.getElementById("randomLink");
@@ -313,8 +323,8 @@
     [[shelfPrev, -1], [shelfNext, 1]].forEach(([b, dir]) => b.addEventListener("click", () => shelf.scrollBy({ left: dir * shelf.clientWidth * .8, behavior: reduce ? "auto" : "smooth" })));
     measureShelf();
   }
-  setupShelf(STARTERS, "shelf");
-  setupShelf(LATEST, "latestShelf");
+  if (!document.documentElement.dataset.song) ensureHomeReady();
+  lyLoaded.then(() => { if (homeReady) renderList(); });
 
   // 最近看過：記最多 3 首在這台裝置；主視覺顯示「繼續練〈最近那首〉」
   const resumeLink = document.getElementById("resumeLink"), resumeName = document.getElementById("resumeName");
@@ -1790,8 +1800,25 @@
     const c = s.credit, who = list => list.map(n => `<span lang="ja">${esc(n)}</span>`).join("、");
     const rows = !c ? [] : [[T("作詞"), c.w], [T("作曲"), c.c], [T("編曲"), c.a]].filter(([, v]) => v && v.length).map(([k, v]) => `<dt>${k}</dt><dd>${who(v)}</dd>`);
     if (c && c.x && c.x.length) rows.push(`<dt>${T("延伸聽")}</dt><dd><span class="card-note">${T("本站還沒收、Ado 也唱過的同作者作品")}</span>${c.x.map(t => `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent("Ado " + t)}" target="_blank" rel="noopener" class="live-chip" lang="ja">${esc(t)} ${extIco}</a>`).join(" ")}</dd>`);
-    more.innerHTML = (rows.length ? `<dl class="card-dl card-credit">${rows.join("")}</dl>` : "")
+    const relHtmlStr = (rows.length ? `<dl class="card-dl card-credit">${rows.join("")}</dl>` : "")
       + (n ? `<section class="rel-block" aria-label="${T("關聯曲")}"><h4 class="rel-title">${T("關聯曲")}<small>${T("同一位創作者、同一部作品，點了直接換歌")}</small></h4>${relHtml(s)}</section>` : "");
+    more.innerHTML = relHtmlStr;
+    const inlineEl = document.getElementById("songGuideInline");
+    if (inlineEl && inlineEl.dataset.song !== s.id) {
+      inlineEl.dataset.song = s.id;
+      const dn = otherName(s), p = penOf(s), tipText = s.tips && s.tips.length ? s.tips.join("；") : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。"));
+      const cloned = card.cloneNode(true);
+      cloned.removeAttribute("id");
+      cloned.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+      const h3 = cloned.querySelector(".card-title"); if (h3) h3.remove();
+      const lead = LANG === "en"
+        ? `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""} (${s.date}, ${s.len}). ${p.none ? "No fixed penlight color; use Ado's blue." : `Recommended penlight: ${p.keys.map(penName).join(", ")}.`} ${tipText}`
+        : LANG === "ja"
+        ? `「${s.ja}」（${(s.date || "").replace(/-/g, "/")}・${s.len}）。${p.none ? "ペンライト色指定なし（青）。" : `おすすめペンライト：${p.keys.map(penName).join("・")}。`}${tipText}`
+        : `〈${s.ja}〉${dn ? `（${dn}）` : ""}（${(s.date || "").replace(/-/g, "/")}・${s.len}）。${p.none ? "手燈未指定固定顏色，建議切換為 Ado 代表色藍色。" : `推薦手燈：${p.keys.map(penName).join("、")}。`}${tipText}`;
+      inlineEl.innerHTML = `<h2 class="guide-inline-h">${T("〈{0}〉應援速覽", `${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}`)}</h2><p class="guide-inline-lead">${esc(lead)}</p>`;
+      inlineEl.appendChild(cloned);
+    }
   }
   // 點關聯曲：跟上一首、下一首一樣，在歌曲獨立頁不重新載入整頁
   document.addEventListener("click", ev => {
@@ -3010,6 +3037,7 @@
       homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
       trackView(s);
     } else {
+      ensureHomeReady();
       setImmersive(false, true); quizStop();
       clearTimeout(readyTimer); lampStop(); pause(); hideAlert(); setVideoLoading(false); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
       renderRecent(); crateShow();
