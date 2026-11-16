@@ -73,9 +73,10 @@
     return Promise.all(tasks).then(() => { if (!LY[s.id] && !LY_LIVE[s.id]) s.lines = false; });
   }
   const firstSong = (location.hash.slice(1) || document.documentElement.dataset.song || "").split("@")[0];
-  if (LYV && SONGS.some(s => s.id === firstSong)) {
+  const firstSongObj = SONGS.find(s => s.id === firstSong);
+  if (LYV && firstSongObj) {
     fetchLy(firstSong);
-    fetchLyLive(firstSong);
+    if (firstSongObj.liveVideo) fetchLyLive(firstSong);
   }
   const BY = Object.fromEntries(SONGS.map(s => [s.id, s]));
   const PENC = { 青: [T("藍"), "#5d9dfe"], 水: [T("水藍"), "#5fd4ff"], 白: [T("白"), "#f2efe8"], 赤: [T("紅"), "#ff4a5a"], 桃: [T("粉紅"), "#ff7ab8"], 紫: [T("紫"), "#a374ff"], 橙: [T("橘"), "#ff9a3c"], 黄: [T("黃"), "#ffd84a"], 緑: [T("綠"), "#4ee08a"] };
