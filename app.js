@@ -276,7 +276,24 @@
     setupShelf(LATEST, "latestShelf");
     const idxNav = document.getElementById("songIndex");
     if (idxNav && !idxNav.children.length) {
-      idxNav.innerHTML = SONGS.map(s => `<a href="song/${s.id}/" data-id="${s.id}">${esc(s.ja)}${otherName(s) ? `（${esc(otherName(s))}）` : ""}</a>`).join("");
+      const byYear = new Map();
+      [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach(s => {
+        const y = (s.date || "").slice(0, 4) || "Other";
+        if (!byYear.has(y)) byYear.set(y, []);
+        byYear.get(y).push(s);
+      });
+      const idxDot = s => {
+        const k = penOf(s).keys[0] || "青";
+        return k === "彩" ? '<i class="idx-dot rb" aria-hidden="true"></i>' : `<i class="idx-dot" style="--c:${PENC[k][1]}" aria-hidden="true"></i>`;
+      };
+      idxNav.innerHTML = [...byYear.entries()].map(([y, rows]) =>
+        `<div class="idx-year"><div class="idx-year-head"><h3 class="idx-year-num">${esc(y)}</h3><span class="idx-year-cnt">${esc(T("{0} 首", rows.length))}</span></div><div class="idx-year-grid">` +
+        rows.map(s => {
+          const sub = otherName(s);
+          return `<a class="idx-song" href="song/${s.id}/" data-id="${s.id}">${idxDot(s)}<span class="idx-text"><span class="idx-ja" lang="ja">${esc(s.ja)}</span>${sub ? `<span class="idx-sub">${esc(sub)}</span>` : ""}</span></a>`;
+        }).join("") +
+        `</div></div>`
+      ).join("");
     }
   }
 

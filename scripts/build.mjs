@@ -439,7 +439,24 @@ function renderLang(L) {
   const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   const homeLegendHtml = Object.keys(ACT_MAP).filter(a => usedActs.has(a)).map(a => `<span class="a-${a}">${icon(a)}${T(ACT_MAP[a].name)}</span>`).join("");
   const homeSongListHtml = SONGS.map(s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`).join("");
-  const homeSongIndexHtml = SONGS.map(s => `<a href="song/${s.id}/" data-id="${s.id}">${esc(s.ja)}${namePart(s, L.code) ? `（${esc(namePart(s, L.code))}）` : ""}</a>`).join("");
+  const byYear = new Map();
+  [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach(s => {
+    const y = (s.date || "").slice(0, 4) || "Other";
+    if (!byYear.has(y)) byYear.set(y, []);
+    byYear.get(y).push(s);
+  });
+  const idxDot = s => {
+    const k = penOf(s, T).keys[0] || "青";
+    return k === "彩" ? '<i class="idx-dot rb" aria-hidden="true"></i>' : `<i class="idx-dot" style="--c:${PENC[k][1]}" aria-hidden="true"></i>`;
+  };
+  const homeSongIndexHtml = [...byYear.entries()].map(([y, list]) =>
+    `<div class="idx-year"><div class="idx-year-head"><h3 class="idx-year-num">${esc(y)}</h3><span class="idx-year-cnt">${esc(T("{0} 首", list.length))}</span></div><div class="idx-year-grid">` +
+    list.map(s => {
+      const sub = namePart(s, L.code);
+      return `<a class="idx-song" href="song/${s.id}/" data-id="${s.id}">${idxDot(s)}<span class="idx-text"><span class="idx-ja" lang="ja">${esc(s.ja)}</span>${sub ? `<span class="idx-sub">${esc(sub)}</span>` : ""}</span></a>`;
+    }).join("") +
+    `</div></div>`
+  ).join("");
   const shelfHtml = list => list.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
   const homeShelfHtml = shelfHtml(STARTERS);
   const homeLatestShelfHtml = shelfHtml(LATEST);

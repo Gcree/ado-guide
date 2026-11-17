@@ -583,8 +583,8 @@
       "每首歌旁的小圓點是推薦手燈顏色；沒有固定指定的曲目，統一切換成 Ado 的代表色藍色，或依現場場控與舞台燈光自由揮動。": "The colored dots beside each title show the recommended penlight color. For songs with no set color, use Ado's signature blue or follow the venue's central control and stage lighting.",
       "不暴雷、支援藍牙連動": "Spoiler-Free & Bluetooth Sync",
       "所有歌曲依推出順序排列，不依照任何單場歌單，安心預習不怕暴雷。電腦版可搭配 PenlightSync 透過藍牙自動切換官方手燈顏色。": "Songs are listed in release order—never tied to any tour setlist—so you can practice spoiler-free. On desktop, pair with PenlightSync for automatic Bluetooth penlight switching.",
-      "全部歌曲索引": "All Songs Index",
-      "直接點選任一曲目進入專屬應援教學頁": "Jump straight to any song's chant guide page",
+      "歷年曲目一覽": "Songs by Year",
+      "依推出年份整理，點歌名直接開始練習": "Grouped by release year—pick any song to start practicing",
       "全部歌曲連結": "All song links",
       "歌曲應援詳情": "Song chant details"
     },
@@ -1165,8 +1165,8 @@
       "每首歌旁的小圓點是推薦手燈顏色；沒有固定指定的曲目，統一切換成 Ado 的代表色藍色，或依現場場控與舞台燈光自由揮動。": "曲名の横の丸がおすすめのペンライト色です。指定のない曲はAdoのイメージカラーである青にするか、会場の無線制御やステージ照明に合わせて楽しみましょう。",
       "不暴雷、支援藍牙連動": "ネタバレなし・Bluetooth連動",
       "所有歌曲依推出順序排列，不依照任何單場歌單，安心預習不怕暴雷。電腦版可搭配 PenlightSync 透過藍牙自動切換官方手燈顏色。": "曲はリリース順で並んでおり、特定公演のセトリには準拠していないためネタバレなしで予習できます。PC版はPenlightSyncで公式ペンライトの自動色替えにも対応しています。",
-      "全部歌曲索引": "収録曲インデックス",
-      "直接點選任一曲目進入專屬應援教學頁": "各曲の応援ガイドページへ直接移動できます",
+      "歷年曲目一覽": "年代別曲一覧",
+      "依推出年份整理，點歌名直接開始練習": "リリース年ごとに整理、曲名からすぐ練習できます",
       "全部歌曲連結": "全曲リンク一覧",
       "歌曲應援詳情": "楽曲応援ガイド詳細"
     }
