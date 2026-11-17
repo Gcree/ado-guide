@@ -318,6 +318,13 @@
     { name: "動畫《CAT'S EYE 貓眼》", ids: ["magic", "catseye"] },
     { name: "《Adoの歌ってみたアルバム》", ids: ["unravel", "aishite", "kazarijanai", "kamippoina", "kawaikute", "tsumitobatsu", "dryflower", "villain", "burikino"] }
   ];
+  // 推薦練習分層（依 setlist.fm + OTO SQUARE 演出頻率 × 應援互動度整理，非單場歌單）
+  // 1＝必練（首頁「推薦練習」書架順序）；2＝高頻但型態不同（跟唱／聆聽）；3＝進階／看巡演
+  const PRACTICE = {
+    1: ["odo", "show", "gyakkou", "usseewa", "utakata", "shinjidai", "freedom", "kurakura", "giragira"],
+    2: ["kokoro", "saikyo", "totmusica", "readymade"],
+    3: ["rebellion", "pierrot", "luckybruto"]
+  };
   SONGS.forEach(s => {
     s.credit = CREDIT[s.id] || null;
     s.lives = LIVES[s.id] || [];
@@ -333,5 +340,5 @@
       { name: "YouTube Music", url: `https://music.youtube.com/search?q=${q}` }
     ];
   });
-  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS, SERIES };
+  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS, SERIES, PRACTICE };
 });

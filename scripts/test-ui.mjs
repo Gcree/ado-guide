@@ -74,6 +74,14 @@ console.log("=== UI smoke tests ===");
 await test("首頁：歌單、搜尋、篩選", async page => {
   await page.goto(BASE);
   assert.match(await page.textContent("#songCount"), /^\d+ 首$/);
+  assert.equal(await page.locator("#shelf li").count(), 9);
+  assert.match(await page.textContent("#shelf li:first-child .card-ja"), /踊/);
+  await page.click('[data-f="frequent"]');
+  assert.equal(await page.textContent("#songCount"), "16 首符合");
+  assert.equal(await page.isVisible("#freqSubFilter"), true);
+  await page.click('[data-freq-sub="2"]');
+  assert.equal(await page.textContent("#songCount"), "4 首符合");
+  await page.click('[data-f="all"]');
   await page.fill("#q", "usseewa");
   assert.equal(await page.locator("#songList li:not([hidden])").count(), 1);
   assert.match(await page.textContent("#songList li:not([hidden]) .ja"), /うっせぇわ/);

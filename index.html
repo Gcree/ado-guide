@@ -150,12 +150,36 @@
         </div>
       </section>
 
+      <!-- 應援練習說明 -->
+      <section class="home-guide" id="homeGuide" aria-labelledby="homeGuideH">
+        <div class="sec-head">
+          <div>
+            <h2 id="homeGuideH">演唱會應援練習原則</h2>
+            <p class="sec-sub">進場前先把節奏、手燈顏色與合唱段落練熟</p>
+          </div>
+        </div>
+        <div class="home-guide-grid">
+          <article class="guide-pill">
+            <h3>看懂歌詞應援標記</h3>
+            <p>播放官方 MV 或現場音源後，歌詞亮起顏色代表要一起做的動作：大合唱跟著唱、拍手與反拍跟著擊掌、喊聲在間奏喊「Hey!」，若現場有不同應援則以現場為主。</p>
+          </article>
+          <article class="guide-pill">
+            <h3>手燈顏色切換通則</h3>
+            <p>每首歌旁的小圓點是推薦手燈顏色；沒有固定指定的曲目，統一切換成藍色，或依現場場控與舞台燈光自由揮動。</p>
+          </article>
+          <article class="guide-pill">
+            <h3>不暴雷、支援藍牙連動</h3>
+            <p>所有歌曲依推出順序排列，不依照任何單場歌單，安心預習不怕暴雷。電腦版可搭配站長自製 PenlightSync 透過藍牙自動切換官方手燈顏色。</p>
+          </article>
+        </div>
+      </section>
+
       <!-- 書架：先練這幾首，橫向滑動 -->
       <section class="starter" aria-labelledby="starterH">
         <div class="sec-head">
           <div>
             <h2 id="starterH">推薦練習</h2>
-            <p class="sec-sub">各種應援動作，這 6 首全包了</p>
+            <p class="sec-sub">依演出頻率與互動密度整理，第一次去先練這 9 首</p>
           </div>
         </div>
         <ul class="shelf" id="shelf"></ul>
@@ -198,9 +222,16 @@
         </div>
         <div class="chips" role="group" aria-label="篩選">
           <button type="button" class="chip" data-f="all" aria-pressed="true"><span>全部</span></button>
+          <button type="button" class="chip" data-f="frequent" aria-pressed="false" title="依歷年演出頻率與應援型態整理的三層常唱曲"><span>常唱精選</span></button>
           <button type="button" class="chip" data-f="cheer" aria-pressed="false" title="粉絲整理過固定應援的歌"><span>有應援</span></button>
           <button type="button" class="chip" data-f="live" aria-pressed="false" title="全部有現場版本（影片或音源）的歌"><span>有現場版</span></button>
           <button type="button" class="chip" data-f="cover" aria-pressed="false" title="Ado 翻唱曲"><span>翻唱</span></button>
+        </div>
+        <div class="sub-chips" id="freqSubFilter" hidden role="group" aria-label="常唱分層">
+          <button type="button" class="sub-chip active" data-freq-sub="all" aria-pressed="true" title="全部三層常唱推薦曲"><span>全部常唱 <b class="cnt" id="cntFreqAll"></b></span></button>
+          <button type="button" class="sub-chip" data-freq-sub="1" aria-pressed="false" title="高頻且應援點密集，新手必練"><span>必練 <b class="cnt" id="cntFreq1"></b></span></button>
+          <button type="button" class="sub-chip" data-freq-sub="2" aria-pressed="false" title="常出現但以副歌跟唱或聆聽為主"><span>跟唱・聆聽 <b class="cnt" id="cntFreq2"></b></span></button>
+          <button type="button" class="sub-chip" data-freq-sub="3" aria-pressed="false" title="依巡演或大場出現的代表曲（日本場推薦先練〈リベリオン〉）"><span>看巡演 <b class="cnt" id="cntFreq3"></b></span></button>
         </div>
         <div class="sub-chips" id="liveSubFilter" hidden role="group" aria-label="現場版分類">
           <button type="button" class="sub-chip active" data-sub="all" aria-pressed="true" title="全部現場版本（含影片與音源）"><span>全部現場 <b class="cnt" id="cntLiveAll"></b></span></button>
@@ -219,28 +250,16 @@
         </div>
       </section>
 
-      <!-- 應援練習說明 -->
-      <section class="home-guide" id="homeGuide" aria-labelledby="homeGuideH">
+      <!-- 歷年曲目一覽：舞台燈海唱片膠捲牆，所有歌曲連結對訪客與搜尋引擎皆直接可見 -->
+      <section class="song-index-sec" id="songIndexSec" aria-labelledby="songIndexH">
         <div class="sec-head">
           <div>
-            <h2 id="homeGuideH">演唱會應援練習原則</h2>
-            <p class="sec-sub">進場前先把節奏、手燈顏色與合唱段落練熟</p>
+            <h2 id="songIndexH">歷年曲目一覽</h2>
+            <p class="sec-sub">滑過預覽手燈色，可左右拖曳或點選曲目開始練習</p>
           </div>
+          <p class="reel-now" id="reelNow" aria-live="polite"></p>
         </div>
-        <div class="home-guide-grid">
-          <article class="guide-pill">
-            <h3>看懂歌詞應援標記</h3>
-            <p>播放官方 MV 或現場音源後，歌詞亮起顏色代表要一起做的動作：大合唱跟著唱、拍手與反拍跟著擊掌、喊聲在間奏喊「Hey!」，標成安靜聽的段落則專心聽 Ado 演唱。</p>
-          </article>
-          <article class="guide-pill">
-            <h3>手燈顏色切換通則</h3>
-            <p>每首歌旁的小圓點是推薦手燈顏色；沒有固定指定的曲目，統一切換成 Ado 的代表色藍色，或依現場場控與舞台燈光自由揮動。</p>
-          </article>
-          <article class="guide-pill">
-            <h3>不暴雷、支援藍牙連動</h3>
-            <p>所有歌曲依推出順序排列，不依照任何單場歌單，安心預習不怕暴雷。電腦版可搭配 PenlightSync 透過藍牙自動切換官方手燈顏色。</p>
-          </article>
-        </div>
+        <nav class="song-index" id="songIndex" aria-label="全部歌曲連結"></nav>
       </section>
 
       <!-- 常見問題 -->
@@ -248,41 +267,18 @@
         <h2 id="faqH">常見問題</h2>
         <div class="faq-list">
           <details class="faq-item" open>
-            <summary>怎麼用這個網站練應援？</summary>
-            <p>挑一首歌，MV 和歌詞會一起播。句子亮起顏色就是要應援的地方，每種顏色代表什麼動作，歌詞上方的圖例有寫；點歌詞可以跳到那一句。</p>
+            <summary>第一次去 Ado 演唱會，要先練哪幾首？</summary>
+            <p>先練首頁「推薦練習」的 9 首：踊、唱、逆光、うっせぇわ、ウタカタララバイ、新時代、FREEDOM、クラクラ、ギラギラ，都是歷年最常唱、互動最多的曲目。想找常唱但偏跟唱或聆聽的歌，可在下方「常唱精選」查看；若遇翻唱主題巡演，請改用「翻唱」篩選。</p>
           </details>
           <details class="faq-item" open>
-            <summary>第一次去 Ado 演唱會，要先練哪幾首？</summary>
-            <p>先練首頁「推薦練習」的 6 首：踊、FREEDOM、新時代、逆光、阿修羅ちゃん、うっせぇわ。拍手、大合唱、喊聲、揮手、跳躍都會用到，練完再看其他歌會快很多。</p>
-          </details>
-          <details class="faq-item">
             <summary>Ado 演唱會可以跟著唱嗎？</summary>
             <p>可以，但只唱標成「大合唱」的段落，例如〈唱〉每次副歌開頭的英文句、〈ルル〉副歌的「サヨナラ」。其他地方留給 Ado，標「安靜聽」的歌就專心聽。</p>
-          </details>
-          <details class="faq-item">
-            <summary>手燈要調什麼顏色？</summary>
-            <p>HIBANA 巡演之後推出的官方手燈有中控功能，場館有開中控就會自動變色。<br/>要自己切的話，歌名旁的小圓點就是推薦顏色；沒寫的歌切成 Ado 的代表色藍色，或看 MV 和現場螢幕調整。</p>
-          </details>
-          <details class="faq-item">
-            <summary>看了會被暴雷歌單嗎？</summary>
-            <p>不會。歌照推出順序排，跟任何一場的歌單都沒關係。</p>
           </details>
           <details class="faq-item">
             <summary>手燈連動怎麼用？</summary>
             <p>點右上角的「手燈連動程式」下載 PenlightSync（Windows、macOS）。用藍牙連上 Ado 官方手燈，再打開歌曲頁的「連動手燈」，播哪首歌，手燈就換成那首的顏色。</p>
           </details>
         </div>
-      </section>
-
-      <!-- 歷年曲目一覽：依年份整理，所有歌曲連結對訪客與搜尋引擎皆直接可見 -->
-      <section class="song-index-sec" id="songIndexSec" aria-labelledby="songIndexH">
-        <div class="sec-head">
-          <div>
-            <h2 id="songIndexH">歷年曲目一覽</h2>
-            <p class="sec-sub">依推出年份整理，點歌名直接開始練習</p>
-          </div>
-        </div>
-        <nav class="song-index" id="songIndex" aria-label="全部歌曲連結"></nav>
       </section>
     </div>
 

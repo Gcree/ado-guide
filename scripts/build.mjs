@@ -35,7 +35,7 @@ const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"
 const require = createRequire(import.meta.url);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 const LYRICS_LIVE = require(path.join(root, "song-lyrics-live.js"));
-const { SONGS, UT, PEN, SERIES } = require(path.join(root, "songs.js"));
+const { SONGS, UT, PEN, SERIES, PRACTICE = {} } = require(path.join(root, "songs.js"));
 
 const credKey = n => n.replace(/\s*\(.*\)\s*$/, "").trim();
 const credHas = (s, part, key) => !!(s.credit && (s.credit[part] || []).some(n => credKey(n) === key));
@@ -417,7 +417,11 @@ const write = (rel, text) => {
 };
 fs.rmSync(out, { recursive: true, force: true });
 
-const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].map(id => SONGS.find(s => s.id === id)).filter(Boolean);
+const FREQ_1 = (PRACTICE[1] || []).map(id => SONGS.find(s => s.id === id)).filter(Boolean);
+const FREQ_2 = (PRACTICE[2] || []).map(id => SONGS.find(s => s.id === id)).filter(Boolean);
+const FREQ_3 = (PRACTICE[3] || []).map(id => SONGS.find(s => s.id === id)).filter(Boolean);
+const STARTERS = FREQ_1;
+const FREQ_ALL_CNT = FREQ_1.length + FREQ_2.length + FREQ_3.length;
 const LATEST = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
 const thumbHtml = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
 const urls = [""];
@@ -439,30 +443,26 @@ function renderLang(L) {
   const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   const homeLegendHtml = Object.keys(ACT_MAP).filter(a => usedActs.has(a)).map(a => `<span class="a-${a}">${icon(a)}${T(ACT_MAP[a].name)}</span>`).join("");
   const homeSongListHtml = SONGS.map(s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`).join("");
-  const byYear = new Map();
-  [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach(s => {
-    const y = (s.date || "").slice(0, 4) || "Other";
-    if (!byYear.has(y)) byYear.set(y, []);
-    byYear.get(y).push(s);
+  const sortedForReel = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.no - a.no);
+  const reelRows = [0, 1, 2].map(i => {
+    const start = Math.round((i * sortedForReel.length) / 3);
+    const end = Math.round(((i + 1) * sortedForReel.length) / 3);
+    return sortedForReel.slice(start, end);
   });
-  const idxDot = s => {
-    const k = penOf(s, T).keys[0] || "青";
-    return k === "彩" ? '<i class="idx-dot rb" aria-hidden="true"></i>' : `<i class="idx-dot" style="--c:${PENC[k][1]}" aria-hidden="true"></i>`;
+  const reelCardHtml = s => {
+    const sub = namePart(s, L.code) || (s.cover ? T("翻唱") : "");
+    const year = (s.date || "").slice(0, 4);
+    return `<a class="reel-card" href="song/${s.id}/" data-id="${s.id}" draggable="false">${thumbHtml(s, 116, 65, true)}<span class="reel-info"><span class="reel-ja" lang="ja">${esc(s.ja)}</span><span class="reel-meta">${penDots(s)}<span class="reel-year">${esc(year)}</span>${sub ? `<span class="reel-sub">${esc(sub)}</span>` : ""}</span></span></a>`;
   };
-  const homeSongIndexHtml = [...byYear.entries()].map(([y, list]) =>
-    `<div class="idx-year"><div class="idx-year-head"><h3 class="idx-year-num">${esc(y)}</h3><span class="idx-year-cnt">${esc(T("{0} 首", list.length))}</span></div><div class="idx-year-grid">` +
-    list.map(s => {
-      const sub = namePart(s, L.code);
-      return `<a class="idx-song" href="song/${s.id}/" data-id="${s.id}">${idxDot(s)}<span class="idx-text"><span class="idx-ja" lang="ja">${esc(s.ja)}</span>${sub ? `<span class="idx-sub">${esc(sub)}</span>` : ""}</span></a>`;
-    }).join("") +
-    `</div></div>`
+  const homeSongIndexHtml = reelRows.map((row, idx) =>
+    `<div class="reel-row" data-dir="${idx % 2 === 1 ? "1" : "-1"}"><div class="reel-track">${row.map(reelCardHtml).join("")}</div></div>`
   ).join("");
   const shelfHtml = list => list.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
   const homeShelfHtml = shelfHtml(STARTERS);
   const homeLatestShelfHtml = shelfHtml(LATEST);
 
   // 常見問題：結構化資料直接讀這個語言畫面上的文字，兩邊一致
-  const FAQ = [...tpl.matchAll(/<details class="faq-item">\s*<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)]
+  const FAQ = [...tpl.matchAll(/<details class="faq-item"(?:\s+open)?>\s*<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)]
     .map(m => m.slice(1).map(t => t.replace(/<br\s*\/?>/g, " ").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim()));
   if (!FAQ.length) throw new Error("index.html 找不到常見問題（details.faq-item）");
   const home = SITE + L.dir;
@@ -538,12 +538,17 @@ function renderLang(L) {
   homeHtml = homeHtml
     .replace('<h1 id="sTitle" lang="ja"></h1>', '<p id="sTitle" lang="ja"></p>')
     .replace('<nav class="song-index" id="songIndex" aria-label="' + esc(T("全部歌曲連結")) + '"></nav>', `<nav class="song-index" id="songIndex" aria-label="${esc(T("全部歌曲連結"))}">${homeSongIndexHtml}</nav>`)
+    .replace('<p class="reel-now" id="reelNow" aria-live="polite"></p>', `<p class="reel-now" id="reelNow" aria-live="polite">${esc(T("2020 – 2026 · 全 {0} 首", SONGS.length))}</p>`)
     .replace('<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`)
     .replace('<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`)
     .replace('<ul class="shelf" id="latestShelf"></ul>', `<ul class="shelf" id="latestShelf">${homeLatestShelfHtml}</ul>`)
     .replace('<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${T("{0} 首", SONGS.length)}</span>`)
     .replace(/(<p class="list-progress" id="listProgress"[^>]*>)[^<]*(<\/p>)/, `$1${T("已列出 {0}／{1} 首", Math.min(12, SONGS.length), SONGS.length)}$2`)
     .replace(/(<span id="factSongs">)[^<]*(<\/span>)/, `$1${SONGS.length}$2`)
+    .replace(/(<b class="cnt" id="cntFreqAll">)[^<]*(<\/b>)/, `$1${FREQ_ALL_CNT}$2`)
+    .replace(/(<b class="cnt" id="cntFreq1">)[^<]*(<\/b>)/, `$1${FREQ_1.length}$2`)
+    .replace(/(<b class="cnt" id="cntFreq2">)[^<]*(<\/b>)/, `$1${FREQ_2.length}$2`)
+    .replace(/(<b class="cnt" id="cntFreq3">)[^<]*(<\/b>)/, `$1${FREQ_3.length}$2`)
     .replace(/(<b class="cnt" id="cntLiveAll">)[^<]*(<\/b>)/, `$1${LIVE_ALL_CNT}$2`)
     .replace(/(<b class="cnt" id="cntLiveVideo">)[^<]*(<\/b>)/, `$1${LIVE_VID_CNT}$2`)
     .replace(/(<b class="cnt" id="cntLiveAudio">)[^<]*(<\/b>)/, `$1${LIVE_AUD_CNT}$2`)

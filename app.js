@@ -21,7 +21,7 @@
     listen:  { name: T("安靜聽"),   icon: "i-listen",  how: T("留給 Ado 唱") }
   };
 
-  const { SONGS, UT, PEN, BEAT, CLIMAX, SERIES = [] } = window.ADO_SONGS;
+  const { SONGS, UT, PEN, BEAT, CLIMAX, SERIES = [], PRACTICE = {} } = window.ADO_SONGS;
   // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示；沒有 tips 又不是 free 的歌也先視為 hold
   SONGS.forEach(s => { if (s.sug || (!s.free && (!s.tips || !s.tips.length))) s.hold = true; if (s.hold) { s.acts = []; s.tips = []; } });
   SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = (s.tips || []).map(t => T(t)); s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
@@ -133,6 +133,19 @@
   const hasLiveAudio = s => Boolean((s.lives && s.lives.length > 0) && !s.liveVideo && !s.live);
   const hasLive = s => Boolean((s.lives && s.lives.length > 0) || s.liveVideo || s.live);
 
+  const FREQ_TIERS = [1, 2, 3];
+  const FREQ_BY_TIER = Object.fromEntries(FREQ_TIERS.map(t => [t, (PRACTICE[t] || []).filter(id => BY[id])]));
+  const FREQ_ALL = FREQ_TIERS.flatMap(t => FREQ_BY_TIER[t]);
+  const FREQ_ORDER = new Map(FREQ_ALL.map((id, i) => [id, i]));
+  const FREQ_TIER = new Map(FREQ_TIERS.flatMap(t => FREQ_BY_TIER[t].map(id => [id, t])));
+  const TIER_LABEL = { 1: "必練", 2: "跟唱・聆聽", 3: "看巡演" };
+
+  const tierTagOf = s => {
+    if (filter !== "frequent" || freqSub !== "all") return "";
+    const t = FREQ_TIER.get(s.id);
+    return t ? `<span class="tier-tag is-t${t}">${T(TIER_LABEL[t])}</span>` : "";
+  };
+
   const liveTagOf = s => {
     if (filter === "live") {
       if (hasLiveVideo(s)) return `<span class="live-tag is-video">${T("Live 影片")}</span>`;
@@ -143,7 +156,7 @@
     return "";
   };
 
-  const rowHtml = s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${liveTagOf(s)}${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}${sort === "cheer" && s.cheer ? `<span class="cnt">${T("{0} 句", s.cheer)}</span>` : ""}</span></span></a></li>`;
+  const rowHtml = s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${tierTagOf(s)}${liveTagOf(s)}${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}${sort === "cheer" && s.cheer ? `<span class="cnt">${T("{0} 句", s.cheer)}</span>` : ""}</span></span></a></li>`;
   // free：粉絲說沒有固定應援；hold（含 sug）：還查不到可靠的應援資料
   function renderList() {
     const term = q.value.trim().toLowerCase();
@@ -155,6 +168,10 @@
         const matchClean = cleanTerm ? pool.some(x => x.toLowerCase().replace(/[\s\-_'’"!?！？()（）/]/g, "").includes(cleanTerm)) : false;
         if (!matchPlain && !matchClean) return false;
       }
+      if (filter === "frequent") {
+        const tier = FREQ_TIER.get(s.id);
+        return !!tier && (freqSub === "all" || String(tier) === freqSub);
+      }
       if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
       if (filter === "live") {
         if (liveSub === "video") return hasLiveVideo(s);
@@ -164,6 +181,7 @@
       if (filter === "cover") return !!s.cover;
       return true;
     });
+    if (filter === "frequent" && sort !== "cheer") rows.sort((a, b) => FREQ_ORDER.get(a.id) - FREQ_ORDER.get(b.id));
     list.innerHTML = rows.map(rowHtml).join("");
     const plain = !term && filter === "all", total = rows.length;
     // 還沒輪到的歌先藏起來（hidden），還在 HTML 裡
@@ -205,42 +223,74 @@
     if (r.top > innerHeight * .6 || r.bottom < 120) songsSec.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   });
   let liveSub = "all"; // "all" | "video" | "audio"
-  const liveSubFilter = document.getElementById("liveSubFilter");
-  function syncLiveSubFilter() {
-    if (!liveSubFilter) return;
-    liveSubFilter.hidden = filter !== "live";
-    const elAll = document.getElementById("cntLiveAll");
-    const elVid = document.getElementById("cntLiveVideo");
-    const elAud = document.getElementById("cntLiveAudio");
-    if (elAll) elAll.textContent = SONGS.filter(hasLive).length;
-    if (elVid) elVid.textContent = SONGS.filter(hasLiveVideo).length;
-    if (elAud) elAud.textContent = SONGS.filter(hasLiveAudio).length;
-    liveSubFilter.querySelectorAll("[data-sub]").forEach(b => {
-      const active = b.dataset.sub === liveSub;
-      b.classList.toggle("active", active);
-      b.setAttribute("aria-pressed", String(active));
+  let freqSub = "all"; // "all" | "1" | "2" | "3"
+  const SUB_FILTERS = [
+    {
+      key: "frequent",
+      el: document.getElementById("freqSubFilter"),
+      attr: "freqSub",
+      sel: "[data-freq-sub]",
+      get: () => freqSub,
+      set: v => { freqSub = v; },
+      counts: {
+        cntFreqAll: () => FREQ_ALL.length,
+        cntFreq1: () => FREQ_BY_TIER[1].length,
+        cntFreq2: () => FREQ_BY_TIER[2].length,
+        cntFreq3: () => FREQ_BY_TIER[3].length
+      }
+    },
+    {
+      key: "live",
+      el: document.getElementById("liveSubFilter"),
+      attr: "sub",
+      sel: "[data-sub]",
+      get: () => liveSub,
+      set: v => { liveSub = v; },
+      counts: {
+        cntLiveAll: () => SONGS.filter(hasLive).length,
+        cntLiveVideo: () => SONGS.filter(hasLiveVideo).length,
+        cntLiveAudio: () => SONGS.filter(hasLiveAudio).length
+      }
+    }
+  ];
+  function syncSubFilters() {
+    SUB_FILTERS.forEach(sf => {
+      if (!sf.el) return;
+      sf.el.hidden = filter !== sf.key;
+      Object.entries(sf.counts).forEach(([id, fn]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = fn();
+      });
+      const cur = sf.get();
+      sf.el.querySelectorAll(sf.sel).forEach(b => {
+        const active = b.dataset[sf.attr] === cur;
+        b.classList.toggle("active", active);
+        b.setAttribute("aria-pressed", String(active));
+      });
     });
   }
-  syncLiveSubFilter();
+  syncSubFilters();
 
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
     filter = b.dataset.f; shown = LIMIT;
     if (filter === "live") liveSub = "all";
-    syncLiveSubFilter();
+    if (filter === "frequent") freqSub = "all";
+    syncSubFilters();
     document.querySelectorAll("[data-f]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
     renderList(); replay(list, "swap");
   }));
 
-  if (liveSubFilter) {
-    liveSubFilter.addEventListener("click", ev => {
-      const btn = ev.target.closest("[data-sub]");
+  SUB_FILTERS.forEach(sf => {
+    if (!sf.el) return;
+    sf.el.addEventListener("click", ev => {
+      const btn = ev.target.closest(sf.sel);
       if (!btn) return;
-      liveSub = btn.dataset.sub;
-      syncLiveSubFilter();
+      sf.set(btn.dataset[sf.attr]);
+      syncSubFilters();
       shown = LIMIT;
       renderList(); replay(list, "swap");
     });
-  }
+  });
   const SORT_NAME = { date: T("推出順序"), cheer: T("動作多的在前") };
   function syncSort() {
     sortLabel.textContent = SORT_NAME[sort];
@@ -270,30 +320,152 @@
     if (homeReady) return;
     homeReady = true;
     syncSort();
-    syncLiveSubFilter();
+    syncSubFilters();
     renderList();
     setupShelf(STARTERS, "shelf");
     setupShelf(LATEST, "latestShelf");
     const idxNav = document.getElementById("songIndex");
-    if (idxNav && !idxNav.children.length) {
-      const byYear = new Map();
-      [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach(s => {
-        const y = (s.date || "").slice(0, 4) || "Other";
-        if (!byYear.has(y)) byYear.set(y, []);
-        byYear.get(y).push(s);
-      });
-      const idxDot = s => {
-        const k = penOf(s).keys[0] || "青";
-        return k === "彩" ? '<i class="idx-dot rb" aria-hidden="true"></i>' : `<i class="idx-dot" style="--c:${PENC[k][1]}" aria-hidden="true"></i>`;
+    const reelNowEl = document.getElementById("reelNow");
+    const defaultReelNow = T("2020 – 2026 · 全 {0} 首", SONGS.length);
+    if (reelNowEl && !reelNowEl.textContent) reelNowEl.textContent = defaultReelNow;
+    if (idxNav) {
+      if (!idxNav.children.length) {
+        const sortedForReel = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.no - a.no);
+        const reelRows = [0, 1, 2].map(i => {
+          const start = Math.round((i * sortedForReel.length) / 3);
+          const end = Math.round(((i + 1) * sortedForReel.length) / 3);
+          return sortedForReel.slice(start, end);
+        });
+        const reelCardHtml = s => {
+          const sub = otherName(s) || (s.cover ? T("翻唱") : "");
+          const year = (s.date || "").slice(0, 4);
+          return `<a class="reel-card" href="song/${s.id}/" data-id="${s.id}" draggable="false">${thumb(s, 116, 65, true)}<span class="reel-info"><span class="reel-ja" lang="ja">${esc(s.ja)}</span><span class="reel-meta">${penDots(s)}<span class="reel-year">${esc(year)}</span>${sub ? `<span class="reel-sub">${esc(sub)}</span>` : ""}</span></span></a>`;
+        };
+        idxNav.innerHTML = reelRows.map((row, idx) =>
+          `<div class="reel-row" data-dir="${idx % 2 === 1 ? "1" : "-1"}"><div class="reel-track">${row.map(reelCardHtml).join("")}</div></div>`
+        ).join("");
+      }
+      idxNav.classList.add("js-reel");
+      idxNav.addEventListener("dragstart", e => e.preventDefault());
+      let reelVis = false, rafId = 0, lastT = 0;
+      const wrapAndApply = st => {
+        if (!st.half) st.half = st.track.scrollWidth / 2;
+        if (!st.half) return;
+        while (st.x <= -st.half) st.x += st.half;
+        while (st.x > 0) st.x -= st.half;
+        st.track.style.transform = `translate3d(${st.x.toFixed(2)}px,0,0)`;
       };
-      idxNav.innerHTML = [...byYear.entries()].map(([y, rows]) =>
-        `<div class="idx-year"><div class="idx-year-head"><h3 class="idx-year-num">${esc(y)}</h3><span class="idx-year-cnt">${esc(T("{0} 首", rows.length))}</span></div><div class="idx-year-grid">` +
-        rows.map(s => {
-          const sub = otherName(s);
-          return `<a class="idx-song" href="song/${s.id}/" data-id="${s.id}">${idxDot(s)}<span class="idx-text"><span class="idx-ja" lang="ja">${esc(s.ja)}</span>${sub ? `<span class="idx-sub">${esc(sub)}</span>` : ""}</span></a>`;
-        }).join("") +
-        `</div></div>`
-      ).join("");
+      const states = [...idxNav.querySelectorAll(".reel-row")].map((row, i) => {
+        const track = row.querySelector(".reel-track");
+        const orig = [...track.children];
+        orig.forEach(node => {
+          node.setAttribute("draggable", "false");
+          const clone = node.cloneNode(true);
+          clone.setAttribute("aria-hidden", "true");
+          clone.setAttribute("draggable", "false");
+          clone.tabIndex = -1;
+          clone.removeAttribute("id");
+          track.appendChild(clone);
+        });
+        const dir = Number(row.dataset.dir) || (i % 2 === 1 ? 1 : -1);
+        const baseSpeed = (i === 0 ? 28 : i === 1 ? 24 : 32) * dir;
+        const st = { row, track, dir, baseSpeed, curSpeed: baseSpeed, vel: 0, x: dir > 0 ? -600 : 0, half: 0, hover: false, drag: false, startX: 0, lastMoveT: 0, moved: 0 };
+        row.addEventListener("pointerenter", () => { st.hover = true; });
+        row.addEventListener("pointerleave", () => { st.hover = false; });
+        row.addEventListener("focusin", () => { st.hover = true; });
+        row.addEventListener("focusout", () => { st.hover = false; });
+        row.addEventListener("pointerdown", e => {
+          if (e.button !== 0 && e.pointerType === "mouse") return;
+          st.drag = true;
+          st.startX = e.clientX;
+          st.lastMoveT = performance.now();
+          st.vel = 0;
+          st.moved = 0;
+          row.classList.add("is-dragging");
+        });
+        window.addEventListener("pointermove", e => {
+          if (!st.drag) return;
+          const now = performance.now();
+          const dtMove = Math.max(0.008, (now - st.lastMoveT) / 1000);
+          const dx = e.clientX - st.startX;
+          st.startX = e.clientX;
+          st.lastMoveT = now;
+          st.moved += Math.abs(dx);
+          st.vel = Math.max(-1400, Math.min(1400, dx / dtMove));
+          st.x += dx;
+          wrapAndApply(st);
+        }, { passive: true });
+        const endDrag = () => {
+          if (!st.drag) return;
+          st.drag = false;
+          st.curSpeed = st.vel;
+          row.classList.remove("is-dragging");
+          if (!rafId) { lastT = 0; rafId = requestAnimationFrame(stepReel); }
+        };
+        window.addEventListener("pointerup", endDrag, { passive: true });
+        window.addEventListener("pointercancel", endDrag, { passive: true });
+        row.addEventListener("wheel", e => {
+          if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+          e.preventDefault();
+          st.x -= e.deltaX;
+          wrapAndApply(st);
+        }, { passive: false });
+        row.addEventListener("click", e => {
+          if (st.moved > 5) {
+            e.preventDefault();
+            e.stopPropagation();
+            st.moved = 0;
+          }
+        }, true);
+        return st;
+      });
+      const showCardMeta = card => {
+        if (!card || !reelNowEl) return;
+        const s = BY[card.dataset.id];
+        if (!s) return;
+        const year = (s.date || "").slice(0, 4);
+        const penTxt = penOf(s).keys.map(penName).join(T("、"));
+        reelNowEl.textContent = `${year} · 〈${s.ja}〉 · ${T("螢光棒：")}${penTxt}`;
+      };
+      idxNav.addEventListener("pointerover", e => {
+        const card = e.target.closest(".reel-card");
+        if (card) showCardMeta(card);
+      });
+      idxNav.addEventListener("focusin", e => {
+        const card = e.target.closest(".reel-card");
+        if (card) showCardMeta(card);
+      });
+      idxNav.addEventListener("pointerleave", () => {
+        if (reelNowEl) reelNowEl.textContent = defaultReelNow;
+      });
+      const measureReel = () => {
+        states.forEach(st => { st.half = st.track.scrollWidth / 2; wrapAndApply(st); });
+      };
+      measureReel();
+      window.addEventListener("resize", measureReel, { passive: true });
+      function stepReel(now) {
+        if (!reelVis && states.every(st => !st.drag && Math.abs(st.curSpeed) < 1)) { rafId = 0; return; }
+        const dt = lastT ? Math.min(0.06, (now - lastT) / 1000) : 0.016;
+        lastT = now;
+        states.forEach(st => {
+          if (st.drag) return;
+          const target = (reduce || st.hover) ? 0 : st.baseSpeed;
+          st.curSpeed += (target - st.curSpeed) * Math.min(1, dt * 6);
+          st.x += st.curSpeed * dt;
+          wrapAndApply(st);
+        });
+        rafId = requestAnimationFrame(stepReel);
+      }
+      if ("IntersectionObserver" in window) {
+        const io = new IntersectionObserver(entries => {
+          reelVis = entries.some(en => en.isIntersecting);
+          if (reelVis && !rafId) { lastT = 0; measureReel(); rafId = requestAnimationFrame(stepReel); }
+        }, { rootMargin: "160px" });
+        io.observe(idxNav);
+      } else {
+        reelVis = true;
+        rafId = requestAnimationFrame(stepReel);
+      }
     }
   }
 
@@ -307,8 +479,8 @@
   };
   ["pointerdown", "keydown", "click"].forEach(ev => randomLink.addEventListener(ev, e => { if (ev !== "keydown" || e.key === "Enter") pickRandom(); }));
 
-  // 書架：推薦先練的 6 首＋最近發佈的 6 首；下方進度條跟著捲動走，箭頭到底就停用
-  const STARTERS = ["odo", "freedom", "shinjidai", "gyakkou", "ashura", "usseewa"].map(id => BY[id]).filter(Boolean);
+  // 書架：推薦先練的 9 首＋最近發佈的 6 首；下方進度條跟著捲動走，箭頭到底就停用
+  const STARTERS = FREQ_BY_TIER[1].map(id => BY[id]).filter(Boolean);
   const LATEST = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
   function setupShelf(songs, prefix) {
     const shelf = document.getElementById(prefix);
