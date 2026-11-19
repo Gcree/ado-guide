@@ -135,6 +135,7 @@
   --setlist-on-bg: rgba(2, 180, 245, .14);
   --setlist-on-fg: var(--color-bahama-blue-400);
   --chip-cnt-on-bg: rgba(2, 6, 23, .12);
+  --jump-bg: color-mix(in srgb, var(--sing) 14%, transparent);
 }
 
 * {
@@ -1564,7 +1565,7 @@ main.col {
   align-items: center;
   height: 32px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--sing) 14%, transparent);
+  background: var(--jump-bg);
   color: var(--sing);
   font-size: 13px;
   font-weight: 600;
@@ -3450,7 +3451,7 @@ body.no-lights .climax-surge {
 /* 淺色：首頁和歌曲頁都跟著切換；沉浸模式是熄燈的舞台，一律深色（見檔案最後） */
 :root[data-theme="light"] {
   color-scheme: light;
-  --primary: var(--color-bahama-blue-700);
+  --primary: var(--color-bahama-blue-800);
   --ground: #ffffff;
   --surface: #f2f4f7;
   --raised: #ffffff;
@@ -3462,7 +3463,7 @@ body.no-lights .climax-surge {
   --ph: #5f6b7d;
   --paper: var(--color-slate-950);
   --on-paper: #ffffff;
-  --accent: var(--color-bahama-blue-700);
+  --accent: var(--color-bahama-blue-800);
   --card: #f2f4f7;
   --menu: #ffffff;
   --fill: rgba(100, 116, 139, .12);
@@ -3470,7 +3471,7 @@ body.no-lights .climax-surge {
   --fill-press: rgba(100, 116, 139, .27);
   --row-hover: rgba(100, 116, 139, .07);
   --row-press: rgba(100, 116, 139, .14);
-  --tint: var(--color-bahama-blue-700);
+  --tint: var(--color-bahama-blue-800);
   --bar-bg: rgba(255, 255, 255, .78);
   --menu-shadow: 0 12px 32px rgba(2, 6, 23, .16);
   --dot-ring: inset 0 0 0 1px rgba(2, 6, 23, .25);
@@ -3479,8 +3480,8 @@ body.no-lights .climax-surge {
   --chip-on-hover: var(--color-slate-800);
   --foot-bg: #f2f4f7;
   /* 動作色在白底要夠深，對比才過 4.5:1 */
-  --sing: var(--color-bahama-blue-700);
-  --clap: var(--color-bahama-blue-700);
+  --sing: var(--color-bahama-blue-800);
+  --clap: var(--color-bahama-blue-800);
   --wave: #8a5d00;
   --jump: #15803d;
   --call: #be185d;
@@ -3499,12 +3500,13 @@ body.no-lights .climax-surge {
   --setlist-on-bg: rgba(0, 117, 170, .12);
   --setlist-on-fg: var(--color-bahama-blue-800);
   --chip-cnt-on-bg: rgba(255, 255, 255, .22);
+  --jump-bg: color-mix(in srgb, var(--sing) 10%, transparent);
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     color-scheme: light;
-    --primary: var(--color-bahama-blue-700);
+    --primary: var(--color-bahama-blue-800);
     --ground: #ffffff;
     --surface: #f2f4f7;
     --raised: #ffffff;
@@ -3516,7 +3518,7 @@ body.no-lights .climax-surge {
     --ph: #5f6b7d;
     --paper: var(--color-slate-950);
     --on-paper: #ffffff;
-    --accent: var(--color-bahama-blue-700);
+    --accent: var(--color-bahama-blue-800);
     --card: #f2f4f7;
     --menu: #ffffff;
     --fill: rgba(100, 116, 139, .12);
@@ -3524,7 +3526,7 @@ body.no-lights .climax-surge {
     --fill-press: rgba(100, 116, 139, .27);
     --row-hover: rgba(100, 116, 139, .07);
     --row-press: rgba(100, 116, 139, .14);
-    --tint: var(--color-bahama-blue-700);
+    --tint: var(--color-bahama-blue-800);
     --bar-bg: rgba(255, 255, 255, .78);
     --menu-shadow: 0 12px 32px rgba(2, 6, 23, .16);
     --dot-ring: inset 0 0 0 1px rgba(2, 6, 23, .25);
@@ -3532,8 +3534,8 @@ body.no-lights .climax-surge {
     --chip-on-fg: #ffffff;
     --chip-on-hover: var(--color-slate-800);
     --foot-bg: #f2f4f7;
-    --sing: var(--color-bahama-blue-700);
-    --clap: var(--color-bahama-blue-700);
+    --sing: var(--color-bahama-blue-800);
+    --clap: var(--color-bahama-blue-800);
     --wave: #8a5d00;
     --jump: #15803d;
     --call: #be185d;
@@ -3552,6 +3554,7 @@ body.no-lights .climax-surge {
     --setlist-on-bg: rgba(0, 117, 170, .12);
     --setlist-on-fg: var(--color-bahama-blue-800);
     --chip-cnt-on-bg: rgba(255, 255, 255, .22);
+    --jump-bg: color-mix(in srgb, var(--sing) 10%, transparent);
   }
 }
 
