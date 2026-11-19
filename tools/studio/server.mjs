@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import {
   check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, align,
   vocalEnvelope, translate, audioFile, commit, songsIndex, songDetail,
-  saveLyrics, setMeta, importLyrics, withWriteLock, cleanupChildren,
+  saveLyrics, setMeta, importLyrics, fixOverlaps, withWriteLock, cleanupChildren,
   PUBLISH_BRANCH as BRANCH
 } from "./core.mjs";
 
@@ -131,7 +131,9 @@ export function trusted(req, port = PORT) {
   return true;
 }
 
-async function api(req, res, url) {
+const DEFAULT_OPS = { importLyrics, fixOverlaps, commit, audioFile, fetchAudio, align };
+
+async function api(req, res, url, ops = DEFAULT_OPS) {
   const p = url.pathname;
   if (p === "/api/health") return send(res, 200, { ok: true, app: "ado-studio", version: 1, root: path.basename(root) }, {}, p);
   if (p === "/api/status" && req.method === "GET") return send(res, 200, await gitStatus(), {}, p);
@@ -156,22 +158,44 @@ async function api(req, res, url) {
   }
   // 貼上整首歌詞（可以不寫時間）；align：匯入後馬上自動對時（沒有時間時順便重補間奏）
   if (p === "/api/lyrics-import" && req.method === "POST") {
-    const { id, text, lines, align: doAlign, keepActs } = await readJson(req);
+    const { id, text, lines, align: doAlign, keepActs, live } = await readJson(req);
+    if (doAlign && live) {
+      return send(res, 200, { ok: false, error: "現場版目前不支援自動對時，請只匯入歌詞" }, {}, p);
+    }
     try {
       const r = await withWriteLock(() => {
-        const resImport = importLyrics(id, Array.isArray(lines) ? lines : String(text || ""), { keepActs: !!keepActs });
-        commit(resImport);
+        const liveMeta = live && typeof live === "object" ? live : null;
+        const resImport = ops.importLyrics(id, Array.isArray(lines) ? lines : String(text || ""), {
+          live: !!live,
+          liveMeta,
+          keepActs: !!keepActs
+        });
+        ops.commit(resImport);
         return resImport;
       });
       const out = { ok: true, changes: [...r.changes], warnings: [...r.warnings] };
       if (doAlign) {
-        if (!audioFile(id)) await fetchAudio(id, { onLog: m => process.stdout.write(`    ${m}`) });
-        const a = await align(id, { apply: true, rebuildGaps: !!r.untimed, autoCommit: true, onLog: m => process.stdout.write(`    ${m}`) });
+        if (!ops.audioFile(id)) await ops.fetchAudio(id, { onLog: m => process.stdout.write(`    ${m}`) });
+        const a = await ops.align(id, { apply: true, rebuildGaps: !!r.untimed, autoCommit: true, onLog: m => process.stdout.write(`    ${m}`) });
         out.changes.push(...a.changes);
         out.warnings = a.warnings;
       }
       console.log(`  ✓ ${id}：${out.changes.join("、")}`);
       return send(res, 200, out, {}, p);
+    } catch (e) {
+      return send(res, 200, { ok: false, error: e.message }, {}, p);
+    }
+  }
+  if (p === "/api/fix-overlaps" && req.method === "POST") {
+    const { id, live, gap } = await readJson(req);
+    try {
+      return await withWriteLock(() => {
+        const r = ops.fixOverlaps(id, { live: !!live, gap: gap ?? 0.02 });
+        const w = ops.commit(r);
+        if (w.written.length) console.log(`  ✓ ${id}：${r.changes.join("、")}`);
+        const { files, ...rest } = r;
+        return send(res, 200, { ok: true, ...rest, written: w.written }, {}, p);
+      });
     } catch (e) {
       return send(res, 200, { ok: false, error: e.message }, {}, p);
     }
@@ -301,7 +325,8 @@ function serveStatic(req, res, url, rootDir = root) {
   }
 }
 
-export function createStudioServer({ port = PORT, rootDir = root } = {}) {
+export function createStudioServer({ port = PORT, rootDir = root, ops } = {}) {
+  const activeOps = ops ? { ...DEFAULT_OPS, ...ops } : DEFAULT_OPS;
   if (port !== 0 && (!Number.isInteger(port) || port < 1 || port > 65535)) {
     throw new Error(`無效的連接埠：${port}`);
   }
@@ -316,7 +341,7 @@ export function createStudioServer({ port = PORT, rootDir = root } = {}) {
       return send(res, 400, { error: "網址格式錯誤" }, {}, rawPathname);
     }
     try {
-      if (url.pathname.startsWith("/api/")) return await api(req, res, url);
+      if (url.pathname.startsWith("/api/")) return await api(req, res, url, activeOps);
       return serveStatic(req, res, url, rootDir);
     } catch (e) {
       const code = e.status || 500;

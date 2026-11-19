@@ -238,22 +238,43 @@ export function shiftLines(id, { from = 1, to, by, live = false }, db = load()) 
 }
 
 // 整首換掉：lines 是 [{ time, jp, tr, acts?, sing?, call? }]，或「時間<Tab>日文<Tab>中文」的文字
-export function importLyrics(id, input, { live = false, keepActs = false } = {}, db = load()) {
+export function importLyrics(id, input, { live = false, liveMeta = null, keepActs = false } = {}, db = load()) {
   assertSongId(id);
   const song = songOrThrow(db, id);
-  // 現場版要先在工作站建好（選場次後「從 MV 複製歌詞」，需要演唱會名稱、影片），這裡只換歌詞
-  const e = live ? lyricsEntry(db, id, true) : (() => { try { return lyricsEntry(db, id, false); } catch { return { id, title: song.ja, youtubeId: song.yt, duration: lenToSec(song.len), lyrics: [] }; } })();
+  const meta = liveMeta && typeof liveMeta === "object" ? liveMeta : (live && typeof live === "object" ? live : null);
+  const isLive = Boolean(live || meta);
+  let e, prevLyrics = [];
+  if (isLive) {
+    const curLive = db.live.find(x => x.id === `${id}-live`) || null;
+    if (curLive) prevLyrics = curLive.lyrics || [];
+    if (meta) {
+      if (!/^[\w-]{11}$/.test(meta.yt || "")) throw new Error("現場版要有影片（11 碼 YouTube ID）");
+      const concert = String(meta.concert || "").trim() || curLive?.concert || "現場版";
+      const sameConcert = curLive && curLive.youtubeId === meta.yt;
+      const baseDur = Math.max(sameConcert ? curLive.duration || 0 : 0, Math.round(Number(meta.duration) || 0) || lenToSec(song.len));
+      e = sameConcert
+        ? { ...JSON.parse(JSON.stringify(curLive)), concert, duration: baseDur }
+        : { id: `${id}-live`, baseId: id, type: "live", concert, youtubeId: meta.yt, duration: baseDur, lyrics: [] };
+    } else {
+      if (!curLive) throw new Error(`${id} 還沒有現場版歌詞：請先在工作站選好現場場次再匯入，或傳入 liveMeta`);
+      e = JSON.parse(JSON.stringify(curLive));
+    }
+  } else {
+    e = (() => { try { return lyricsEntry(db, id, false); } catch { return { id, title: song.ja, youtubeId: song.yt, duration: lenToSec(song.len), lyrics: [] }; } })();
+    prevLyrics = e.lyrics || [];
+  }
   let untimed = false;
   let lines = typeof input === "string" ? (() => { const p = parseText(input, e.duration || lenToSec(song.len)); untimed = p.untimed; return p.lines; })() : input;
-  if (!Array.isArray(lines)) lines = lines.lyrics;
+  if (lines && !Array.isArray(lines)) lines = lines.lyrics;
+  if (!Array.isArray(lines)) throw new Error("匯入格式錯誤：找不到歌詞陣列");
   lines = lines.map(l => {
     const x = { time: round(+l.time), jp: l.jp || "", tr: l.tr || "" };
     for (const k of ["duration", "acts", "sing", "call", "how"]) if (l[k] != null && !(Array.isArray(l[k]) && !l[k].length)) x[k] = l[k];
     return x;
   });
   // 保留應援：用日文對回原本那一句（不是用第幾行，句數變了也不會錯位）
-  if (keepActs) {
-    const pool = e.lyrics.map(o => ({ o, k: normLine(o.jp), used: false }));
+  if (keepActs && prevLyrics.length) {
+    const pool = prevLyrics.map(o => ({ o, k: normLine(o.jp), used: false }));
     for (const l of lines) {
       const hit = pool.find(x => !x.used && x.k && x.k === normLine(l.jp));
       if (!hit) continue;
@@ -261,11 +282,59 @@ export function importLyrics(id, input, { live = false, keepActs = false } = {},
       for (const k of ["acts", "sing", "call", "how"]) if (hit.o[k] && l[k] == null) l[k] = hit.o[k];
     }
   }
-  const old = e.lyrics.length;
+  if (isLive && meta && lines.length) {
+    const lastTime = lines.reduce((m, l) => Math.max(m, Number.isFinite(l.time) ? l.time : 0), 0);
+    e.duration = Math.max(e.duration || 0, Math.ceil(lastTime + 1));
+  }
+  const old = prevLyrics.length;
   e.lyrics = lines;
-  const r = writeLyrics(e, song, live, db, [`歌詞整首換掉：${old} 句 → ${lines.length} 句${keepActs ? "（保留同一句的應援）" : ""}${untimed ? "；還沒有時間（先平均排開）" : ""}`]);
+  const label = isLive ? `現場版「${e.concert || e.youtubeId}」歌詞匯入` : "歌詞整首換掉";
+  const r = writeLyrics(e, song, isLive, db, [`${label}：${old} 句 → ${lines.length} 句${keepActs ? "（保留同一句的應援）" : ""}${untimed ? "；還沒有時間（先平均排開）" : ""}`]);
   if (untimed) { r.untimed = true; r.warnings.push(`歌詞沒有時間：先平均排開，請跑 align ${id} --apply 自動對時（或在工作站打點）`); }
   return r;
+}
+
+// 自動修剪與下一句時間重疊的 duration，保留 gap 秒空隙（預設 0.02s）
+export function fixOverlaps(id, { live = false, gap = 0.02 } = {}, db = load()) {
+  assertSongId(id);
+  const song = songOrThrow(db, id);
+  const isLive = !!live;
+  const g = Number(gap);
+  if (!Number.isFinite(g) || g < 0) throw new Error(`gap 必須是不小於 0 的數字（收到 ${gap}）`);
+  const e = lyricsEntry(db, id, isLive);
+  let fixedCount = 0;
+  for (let i = 0; i < e.lyrics.length - 1; i++) {
+    const l = e.lyrics[i];
+    const next = e.lyrics[i + 1];
+    if (l.duration == null || !Number.isFinite(l.time) || !Number.isFinite(next.time)) continue;
+    if (l.time + l.duration > next.time + 0.006) {
+      const avail = next.time - l.time;
+      if (avail <= 0) {
+        delete l.duration;
+      } else {
+        const rawTarget = avail - g;
+        let nextDur = rawTarget > 0 ? Math.round(rawTarget * 100) / 100 : 0;
+        if (nextDur > 0 && l.time + nextDur > next.time + 0.005) {
+          nextDur = Math.floor(rawTarget * 100) / 100;
+        }
+        if (nextDur <= 0 && avail > 0.005) {
+          nextDur = Math.floor(avail * 100) / 100;
+        }
+        if (nextDur > 0) l.duration = nextDur;
+        else delete l.duration;
+      }
+      fixedCount++;
+    }
+  }
+  const curList = isLive ? db.live : db.lyrics;
+  if (!fixedCount) {
+    return { files: {}, changes: [], warnings: [], fixedCount: 0, base: entryHash(curList.find(x => x.id === e.id) || null) };
+  }
+  const r = writeLyrics(e, song, isLive, db, [`修正 ${fixedCount} 處重疊 duration`]);
+  const after = loadFrom({ ...db.src, ...r.files });
+  const afterList = isLive ? after.live : after.lyrics;
+  const base = entryHash(afterList.find(x => x.id === e.id) || null);
+  return { ...r, fixedCount, base };
 }
 
 // 去掉開頭的 BOM（Windows 記事本存的 UTF-8 會有），不然 JSON.parse 讀不懂，第一句的時間也會壞掉

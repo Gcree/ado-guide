@@ -389,3 +389,193 @@ test("agent-cli.mjs: extractJson 與 which 安全性", () => {
   // 含有引號與分號的惡意指令名稱不會被執行且回傳 null
   assert.equal(which('node"; echo INJECTED #'), null);
 });
+
+test("core.mjs: importLyrics 支援現場版建立與替換（liveMeta / keepActs）", () => {
+  const db = core.loadFrom({
+    "songs.js": MOCK_SONGS_JS,
+    "i18n.js": MOCK_I18N_JS,
+    "song-lyrics.js": MOCK_LYRICS_JS,
+    "song-lyrics-live.js": MOCK_LYRICS_JS.replace(/SONGS/g, "LIVE_SONGS")
+  });
+
+  // 未提供 liveMeta 且沒有 <id>-live 時應明確报错
+  assert.throws(() => {
+    core.importLyrics("beta", "1.00\t歌う\t唱", { live: true }, db);
+  }, /還沒有現場版歌詞/);
+
+  // 帶 liveMeta 建立全新的 beta-live 並寫入 song-lyrics-live.js（且照 id 排序）
+  const created = core.importLyrics("beta", "5.00\t最初の歌\t第一句\n12.00\t次の歌\t第二句", {
+    live: true,
+    liveMeta: { yt: "zzzzzzzzzzz", concert: "武道館 (2026)", duration: 150 }
+  }, db);
+  assert.ok(created.files["song-lyrics-live.js"]);
+  const parsed1 = LyricsStore.parse(created.files["song-lyrics-live.js"], "live");
+  const betaLive = parsed1.songs.find(x => x.id === "beta-live");
+  assert.ok(betaLive);
+  assert.equal(betaLive.baseId, "beta");
+  assert.equal(betaLive.type, "live");
+  assert.equal(betaLive.concert, "武道館 (2026)");
+  assert.equal(betaLive.youtubeId, "zzzzzzzzzzz");
+  assert.equal(betaLive.duration, 150);
+  assert.equal(betaLive.lyrics.length, 2);
+
+  // 已存在 alpha-live 時，--live 匯入可保留同一句的應援（keepActs）
+  const dbWithAlphaLive = core.loadFrom({
+    "songs.js": MOCK_SONGS_JS,
+    "i18n.js": MOCK_I18N_JS,
+    "song-lyrics.js": MOCK_LYRICS_JS,
+    "song-lyrics-live.js": created.files["song-lyrics-live.js"]
+  });
+  const seeded = core.importLyrics("alpha", [
+    { time: 3, jp: "叫べ", tr: "喊吧", acts: ["call"], call: "Hey!" }
+  ], {
+    live: true,
+    liveMeta: { yt: "lllllllllll", concert: "武道館 (2025)", duration: 180 }
+  }, dbWithAlphaLive);
+  const db2 = core.loadFrom({
+    "songs.js": MOCK_SONGS_JS,
+    "i18n.js": MOCK_I18N_JS,
+    "song-lyrics.js": MOCK_LYRICS_JS,
+    "song-lyrics-live.js": seeded.files["song-lyrics-live.js"]
+  });
+  const updated = core.importLyrics("alpha", "4.50\t叫べ\t喊吧", { live: true, keepActs: true }, db2);
+  const alphaLive = LyricsStore.parse(updated.files["song-lyrics-live.js"], "live").songs.find(x => x.id === "alpha-live");
+  assert.equal(alphaLive.lyrics[0].time, 4.5);
+  assert.deepEqual(alphaLive.lyrics[0].acts, ["call"]);
+  assert.equal(alphaLive.lyrics[0].call, "Hey!");
+});
+
+test("core.mjs: fixOverlaps 修剪重疊 duration 並維持非重疊行不變", () => {
+  const overlapLiveJs = `(function (root, factory) {
+  module.exports = factory();
+})(this, function () {
+  var LIVE_SONGS = [
+  {
+    "id": "alpha-live",
+    "baseId": "alpha",
+    "type": "live",
+    "concert": "武道館 (2025)",
+    "youtubeId": "lllllllllll",
+    "duration": 180,
+    "lyrics": [
+      {
+        "time": 10,
+        "jp": "重疊超過0.05",
+        "tr": "A",
+        "duration": 5.5
+      },
+      {
+        "time": 15,
+        "jp": "緊貼下一句不重疊",
+        "tr": "B",
+        "duration": 5
+      },
+      {
+        "time": 20,
+        "jp": "極窄間隔重疊",
+        "tr": "C",
+        "duration": 1.2
+      },
+      {
+        "time": 20.01,
+        "jp": "最後一句",
+        "tr": "D"
+      }
+    ]
+  }
+];
+
+  return LIVE_SONGS;
+});`;
+  const db = core.loadFrom({
+    "songs.js": MOCK_SONGS_JS,
+    "i18n.js": MOCK_I18N_JS,
+    "song-lyrics.js": MOCK_LYRICS_JS,
+    "song-lyrics-live.js": overlapLiveJs
+  });
+
+  assert.throws(() => core.fixOverlaps("../evil", { live: true }, db), /無效的歌曲 id/);
+
+  const res = core.fixOverlaps("alpha", { live: true, gap: 0.02 }, db);
+  assert.equal(res.fixedCount, 2);
+  assert.ok(res.files["song-lyrics-live.js"]);
+  const fixedEntry = LyricsStore.parse(res.files["song-lyrics-live.js"], "live").songs[0];
+  assert.equal(fixedEntry.lyrics[0].duration, 4.98);
+  assert.equal(fixedEntry.lyrics[1].duration, 5); // 非重疊的緊貼行不動
+  assert.equal(fixedEntry.lyrics[2].duration, 0.01); // avail=0.01 < gap=0.02 時仍保證為正且不重疊
+
+  // 冪等：再跑一次應回報 0 筆修改
+  const dbAfter = core.loadFrom({
+    "songs.js": MOCK_SONGS_JS,
+    "i18n.js": MOCK_I18N_JS,
+    "song-lyrics.js": MOCK_LYRICS_JS,
+    "song-lyrics-live.js": res.files["song-lyrics-live.js"]
+  });
+  const res2 = core.fixOverlaps("alpha", { live: true }, dbAfter);
+  assert.equal(res2.fixedCount, 0);
+  assert.deepEqual(res2.files, {});
+});
+
+test("server.mjs: /api/lyrics-import (live + align 拒絕) 與 /api/fix-overlaps", async t => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ado-studio-api-"));
+  t.after(() => fs.rmSync(tmpRoot, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(tmpRoot, "index.html"), "<!doctype html>");
+
+  let memLiveJs = MOCK_LYRICS_JS.replace(/SONGS/g, "LIVE_SONGS");
+  const makeMemDb = () => core.loadFrom({
+    "songs.js": MOCK_SONGS_JS,
+    "i18n.js": MOCK_I18N_JS,
+    "song-lyrics.js": MOCK_LYRICS_JS,
+    "song-lyrics-live.js": memLiveJs
+  });
+  const mockOps = {
+    importLyrics: (id, input, opts) => core.importLyrics(id, input, opts, makeMemDb()),
+    fixOverlaps: (id, opts) => core.fixOverlaps(id, opts, makeMemDb()),
+    commit: r => {
+      if (r.files?.["song-lyrics-live.js"]) {
+        memLiveJs = r.files["song-lyrics-live.js"];
+        return { ...r, written: ["song-lyrics-live.js"] };
+      }
+      return { ...r, written: [] };
+    }
+  };
+
+  const server = createStudioServer({ port: 0, rootDir: tmpRoot, ops: mockOps });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const post = (p, body) => fetch(`${base}${p}`, {
+    method: "POST",
+    headers: { Origin: base, "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  }).then(r => r.json());
+
+  // 1. live + align 應被拒絕
+  const rReject = await post("/api/lyrics-import", {
+    id: "beta",
+    text: "10.00\tテスト\t測試",
+    align: true,
+    live: { yt: "zzzzzzzzzzz", concert: "武道館 (2026)", duration: 150 }
+  });
+  assert.equal(rReject.ok, false);
+  assert.match(rReject.error, /現場版目前不支援自動對時/);
+
+  // 2. live 匯入含重疊 duration 的歌詞
+  const rLiveImp = await post("/api/lyrics-import", {
+    id: "beta",
+    lines: [
+      { time: 10, jp: "歌う", tr: "唱", duration: 6 },
+      { time: 15, jp: "次", tr: "下一句" }
+    ],
+    live: { yt: "zzzzzzzzzzz", concert: "武道館 (2026)", duration: 150 }
+  });
+  assert.equal(rLiveImp.ok, true);
+
+  // 3. /api/fix-overlaps 修剪現場版重疊
+  const rFix = await post("/api/fix-overlaps", { id: "beta", live: true, gap: 0.02 });
+  assert.equal(rFix.ok, true);
+  assert.equal(rFix.fixedCount, 1);
+  assert.deepEqual(rFix.written, ["song-lyrics-live.js"]);
+  const betaLive = LyricsStore.parse(memLiveJs, "live").songs.find(x => x.id === "beta-live");
+  assert.equal(betaLive.lyrics[0].duration, 4.98);
+});

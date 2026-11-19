@@ -44,6 +44,14 @@ setTimeout(() => window.onYouTubeIframeAPIReady && window.onYouTubeIframeAPIRead
 
 const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || undefined });
 let failed = 0, passed = 0;
+function checkSync(name, fn) {
+  try {
+    fn();
+    console.log(`  ✓ ${name}`); passed++;
+  } catch (e) {
+    console.log(`  ✗ ${name}\n    ${String(e.message).split("\n").join("\n    ")}`); failed++;
+  }
+}
 async function test(name, fn, ctxOpts = {}) {
   const ctx = await browser.newContext({ serviceWorkers: "block", ...ctxOpts });
   await ctx.route("**/*", route => {
@@ -313,6 +321,244 @@ await test("離線：沒打開過的歌曲頁改開首頁的 #歌曲，歌詞照
   await page.waitForFunction(() => location.hash === "#readymade" && document.querySelectorAll("#lines .ln").length > 10);
   assert.match(await page.textContent("#vmsg"), /offline/i);
 }, { serviceWorkers: "allow" });
+
+await test("SPA 換歌：首頁 → #usseewa → #show 更新 #songGuideInline", async page => {
+  await page.goto(BASE);
+  await page.click('#songList a[data-id="usseewa"]');
+  await page.waitForFunction(() => location.hash === "#usseewa" && document.getElementById("songGuideInline")?.dataset.song === "usseewa");
+  assert.match(await page.textContent("#songGuideInline .guide-inline-h"), /うっせぇわ/);
+  await page.evaluate(() => { location.hash = "show"; });
+  await page.waitForFunction(() => location.hash === "#show" && document.getElementById("songGuideInline")?.dataset.song === "show");
+  assert.match(await page.textContent("#songGuideInline .guide-inline-h"), /唱/);
+});
+
+await test("測驗模式「再挑戰」在延遲 seek 時不會自動判成 0 分 D", async page => {
+  await openSong(page, "#show");
+  await press(page, "q");
+  await page.waitForFunction(() => document.body.classList.contains("quiz-on"));
+  await page.evaluate(() => { window.__yt.seekTo(9999); window.__yt.playVideo(); });
+  await page.waitForFunction(() => document.getElementById("quizDlg").open);
+  // 模擬非同步 seekTo(0) 延遲，驗證 QZ.armed 保護不會馬上結束測驗
+  await page.evaluate(() => {
+    const origSeek = window.__yt.seekTo.bind(window.__yt);
+    window.__yt.seekTo = x => setTimeout(() => origSeek(x), 45);
+  });
+  await page.click('#quizDlg button[value="retry"]');
+  await page.waitForFunction(() => !document.getElementById("quizDlg").open && document.body.classList.contains("quiz-on"));
+  await page.waitForTimeout(250);
+  assert.equal(await page.evaluate(() => document.getElementById("quizDlg").open), false, "再挑戰不應該立刻跳回 0 分結算框");
+  assert.equal(await page.evaluate(() => document.body.classList.contains("quiz-on")), true);
+  assert.equal((await page.textContent("#qzScore")).trim(), "0");
+  assert.match((await page.textContent("#qzProg")).trim(), /^0／\d+/);
+  assert.ok(await page.evaluate(() => window.__yt.getCurrentTime()) < 2, "播放器應該回到開頭附近");
+});
+
+await test("淺色主題 + 沉浸模式：手機底部 .dock 維持深色半透明底", async page => {
+  await page.goto(BASE);
+  await page.click("#themeBtn");
+  await page.click('#themePop [data-theme-pick="light"]');
+  await page.waitForFunction(() =>
+    document.documentElement.dataset.theme === "light" &&
+    !document.documentElement.classList.contains("vt-theme")
+  );
+  await page.evaluate(() => { location.hash = "usseewa"; });
+  await page.waitForFunction(() => window.__yt && document.querySelectorAll("#lines .ln").length > 0);
+  await page.click("#dockMore");
+  await page.waitForFunction(() => document.getElementById("moreDlg").open);
+  await page.click("#toolImmersiveMenuBtn");
+  await page.waitForFunction(() => document.body.classList.contains("immersive-mode"));
+  const bg = await page.evaluate(() => getComputedStyle(document.getElementById("dock")).backgroundColor);
+  const m = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+  assert.ok(m, `應回傳有效的 rgba/rgb 顏色：${bg}`);
+  const [, r, g, b, a] = m.map(Number);
+  assert.ok(r < 30 && g < 30 && b < 40, `淺色主題沉浸模式手機 dock 應為深色底，實際：${bg}`);
+  assert.ok(a === undefined || (a > 0 && a < 1), `手機沉浸模式 dock 應為半透明，實際：${bg}`);
+}, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+await test("工作表關閉按鈕：#moreDlg 裡的 .sheet-close 可關閉 #moreDlg", async page => {
+  await openSong(page, "#usseewa");
+  await page.click("#dockMore");
+  await page.waitForFunction(() => document.getElementById("moreDlg").open);
+  assert.equal(await page.isVisible("#moreDlg .sheet-close"), true);
+  await page.click("#moreDlg .sheet-close");
+  await page.waitForFunction(() => !document.getElementById("moreDlg").open);
+});
+
+await test("膠捲跑馬燈 stepReel 在切到歌曲頁後停止更新", async page => {
+  await page.goto(BASE);
+  await page.locator("#songIndex .reel-track").first().waitFor({ state: "attached" });
+  await page.locator("#songIndex").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(120);
+  await page.evaluate(() => { location.hash = "usseewa"; });
+  await page.waitForFunction(() => !document.getElementById("song").hidden && document.getElementById("home").hidden);
+  await page.waitForTimeout(100);
+  const t1 = await page.evaluate(() => getComputedStyle(document.querySelector("#songIndex .reel-track")).transform);
+  await page.waitForTimeout(280);
+  const t2 = await page.evaluate(() => getComputedStyle(document.querySelector("#songIndex .reel-track")).transform);
+  assert.equal(t1, t2, "切到歌曲頁後 #songIndex .reel-track transform 應該維持靜止");
+});
+
+await test("Live / MV 切換：#usseewa 切換 #videoSourcePill 正確更新歌詞與時間軸", async page => {
+  await openSong(page, "#usseewa");
+  assert.equal(await page.isVisible("#videoSourcePill"), true);
+  assert.equal(await page.getAttribute('[data-video-source="live"]', "aria-pressed"), "true");
+  assert.match(await page.getAttribute("#ytLink2", "href"), /8dnjqzodjgo/);
+  const seekLine48 = async () => {
+    await page.locator("#lines .ln").nth(48).click();
+    return page.evaluate(() => { window.__yt.pauseVideo(); return window.__yt.getCurrentTime(); });
+  };
+  const tLive = await seekLine48();
+  assert.ok(Math.abs(tLive - 167.96) < 0.8, `Live 第 49 句應在 167.96s 附近，實際 ${tLive.toFixed(2)}s`);
+
+  await page.click('[data-video-source="mv"]');
+  await page.waitForFunction(() =>
+    document.querySelector('[data-video-source="mv"]')?.getAttribute("aria-pressed") === "true" &&
+    /Qp3b-RXtz4w/.test(document.getElementById("ytLink2")?.getAttribute("href") || "")
+  );
+  await page.waitForTimeout(250);
+  const tMv = await seekLine48();
+  assert.ok(Math.abs(tMv - 166.72) < 0.8, `MV 第 49 句應在 166.72s 附近，實際 ${tMv.toFixed(2)}s`);
+
+  await page.click('[data-video-source="live"]');
+  await page.waitForFunction(() =>
+    document.querySelector('[data-video-source="live"]')?.getAttribute("aria-pressed") === "true" &&
+    /8dnjqzodjgo/.test(document.getElementById("ytLink2")?.getAttribute("href") || "")
+  );
+  await page.waitForTimeout(250);
+  const tLiveBack = await seekLine48();
+  assert.ok(Math.abs(tLiveBack - 167.96) < 0.8, `切回 Live 第 49 句應在 167.96s 附近，實際 ${tLiveBack.toFixed(2)}s`);
+});
+
+await test("自訂待練清單與常唱熟練度：書籤按鈕、篩選、#list= 分享、quiz-best 等級與進度條", async page => {
+  await page.addInitScript(() => {
+    localStorage.setItem("quiz-best", JSON.stringify({ usseewa: { score: 96, rate: 1 } }));
+  });
+  await page.goto(BASE);
+  await page.waitForFunction(() => !document.getElementById("masteryBar").hidden);
+  assert.equal(await page.isVisible("#masteryBar"), true);
+  assert.ok((await page.textContent("#masteryLabel")).trim().length > 0);
+  const fillWidth = await page.evaluate(() => document.getElementById("masteryFill").style.width);
+  assert.ok(parseFloat(fillWidth) > 0, `#masteryFill 寬度應大於 0，實際：${fillWidth}`);
+  assert.equal((await page.textContent('#songList li:has(a[data-id="usseewa"]) .quiz-grade')).trim(), "S");
+
+  await page.click('.setlist-btn[data-setlist-id="usseewa"]');
+  assert.equal(await page.getAttribute('.setlist-btn[data-setlist-id="usseewa"]', "aria-pressed"), "true");
+  assert.equal((await page.textContent("#cntSetlist")).trim(), "1");
+  assert.equal(await page.evaluate(() => !document.getElementById("home").hidden), true);
+
+  await page.click('[data-f="setlist"]');
+  await page.waitForFunction(() => !document.getElementById("setlistBar").hidden);
+  assert.equal(await page.locator("#songList li:not([hidden])").count(), 1);
+  assert.equal(await page.isVisible('#songList li:not([hidden]) a[data-id="usseewa"]'), true);
+
+  await page.evaluate(() => { location.hash = "list=usseewa,show"; });
+  await page.waitForFunction(() =>
+    !document.getElementById("setlistBar").hidden &&
+    !document.getElementById("setlistSaveBtn").hidden &&
+    document.querySelectorAll("#songList li:not([hidden])").length === 2
+  );
+  assert.equal(await page.isVisible("#setlistSaveBtn"), true);
+  assert.equal(await page.isVisible("#setlistPlayBtn"), true);
+  assert.equal(await page.isVisible("#setlistShareBtn"), true);
+  assert.equal(await page.isVisible("#setlistClearBtn"), true);
+  assert.equal(await page.isVisible("#setlistExitBtn"), true);
+  assert.equal(await page.locator("#songList li:not([hidden])").count(), 2);
+
+  await page.click("#setlistSaveBtn");
+  await page.waitForFunction(() => document.getElementById("setlistSaveBtn").hidden);
+  assert.equal((await page.textContent("#cntSetlist")).trim(), "2");
+
+  // 歌曲頁「更多」裡的 #toolSetlistBtn 同步狀態
+  await openSong(page, "#readymade");
+  await page.click("#dockMore");
+  await page.waitForFunction(() => document.getElementById("moreDlg").open);
+  assert.equal(await page.getAttribute("#toolSetlistBtn", "aria-pressed"), "false");
+  await page.click("#toolSetlistBtn");
+  assert.equal(await page.getAttribute("#toolSetlistBtn", "aria-pressed"), "true");
+});
+
+checkSync("建置產物檢查：多語 manifest、字型剝離、karaoke JSON、hashes.json、未複製 song-lyrics.js", () => {
+  const enManifest = JSON.parse(fs.readFileSync(path.join(dir, "en/manifest.webmanifest"), "utf8"));
+  const jpManifest = JSON.parse(fs.readFileSync(path.join(dir, "jp/manifest.webmanifest"), "utf8"));
+  assert.equal(enManifest.lang, "en");
+  assert.equal(jpManifest.lang, "ja");
+
+  const enHtml = fs.readFileSync(path.join(dir, "en/index.html"), "utf8");
+  const jpHtml = fs.readFileSync(path.join(dir, "jp/index.html"), "utf8");
+  assert.equal(enHtml.includes("LINESeedTW"), false, "en/index.html 不應包含 LINESeedTW");
+  assert.equal(jpHtml.includes("LINESeedTW"), false, "jp/index.html 不應包含 LINESeedTW");
+
+  const karaokeUss = JSON.parse(fs.readFileSync(path.join(dir, "karaoke/usseewa.json"), "utf8"));
+  assert.equal(karaokeUss.format, "timed-lyrics-v1");
+  assert.ok(Array.isArray(karaokeUss.lines) && karaokeUss.lines.length > 0);
+
+  const hashes = JSON.parse(fs.readFileSync(path.join(dir, "lyrics/hashes.json"), "utf8"));
+  assert.ok(hashes && typeof hashes.mv === "object" && typeof hashes.live === "object" && typeof hashes.karaoke === "object");
+
+  assert.equal(fs.existsSync(path.join(dir, "song-lyrics.js")), false, "song-lyrics.js 不應複製進 dist/");
+  assert.equal(fs.existsSync(path.join(dir, "song-lyrics-live.js")), false, "song-lyrics-live.js 不應複製進 dist/");
+});
+
+await test("無障礙（A11y）稽核：圖片 alt、按鈕名稱、表單標籤、跳轉連結與 axe-core", async page => {
+  const axeMod = await import("@axe-core/playwright").catch(() => null);
+  const AxeBuilder = axeMod?.AxeBuilder || axeMod?.default || null;
+  if (!AxeBuilder) console.log("    (未安裝 @axe-core/playwright，執行內建 DOM A11y 稽核)");
+
+  const auditPage = async (label) => {
+    const issues = await page.evaluate(() => {
+      const errs = [];
+      const isShown = el => {
+        if (!el || el.closest("[hidden]")) return false;
+        const st = getComputedStyle(el);
+        if (st.display === "none" || st.visibility === "hidden") return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+      for (const img of document.querySelectorAll("img")) {
+        if (isShown(img) && !img.hasAttribute("alt")) errs.push(`img 缺少 alt: ${img.outerHTML.slice(0, 80)}`);
+      }
+      for (const btn of document.querySelectorAll("button")) {
+        if (!isShown(btn)) continue;
+        const labelText = (btn.getAttribute("aria-label") || "").trim();
+        const labelledBy = (btn.getAttribute("aria-labelledby") || "").trim();
+        const txt = (btn.textContent || "").trim();
+        const imgAlt = [...btn.querySelectorAll("img[alt]")].map(i => i.alt.trim()).join("");
+        if (!labelText && !labelledBy && !txt && !imgAlt) errs.push(`button 缺少無障礙名稱: ${btn.outerHTML.slice(0, 80)}`);
+      }
+      for (const inp of document.querySelectorAll("input, select, textarea")) {
+        if (!isShown(inp) || inp.type === "hidden") continue;
+        const id = inp.id;
+        const hasFor = id && document.querySelector(`label[for="${CSS.escape(id)}"]`);
+        const hasWrap = inp.closest("label");
+        const hasAria = (inp.getAttribute("aria-label") || inp.getAttribute("aria-labelledby") || "").trim();
+        if (!hasFor && !hasWrap && !hasAria) errs.push(`表單欄位缺少 label: ${inp.outerHTML.slice(0, 80)}`);
+      }
+      const skip = document.querySelector(".skip-link");
+      if (!skip || skip.getAttribute("href") !== "#main" || !document.getElementById("main")) {
+        errs.push("缺少有效的 .skip-link -> #main");
+      }
+      return errs;
+    });
+    assert.deepEqual(issues, [], `${label} A11y 問題：\n${issues.join("\n")}`);
+
+    if (AxeBuilder) {
+      const res = await new AxeBuilder({ page }).analyze();
+      const bad = res.violations.filter(v => v.impact === "serious" || v.impact === "critical");
+      assert.deepEqual(
+        bad.map(v => `${v.id}(${v.impact}): ${v.nodes.map(n => n.target.join(" ")).slice(0, 3).join(", ")}`),
+        [],
+        `${label} axe-core serious/critical violations`
+      );
+    }
+  };
+
+  await page.goto(BASE);
+  await page.waitForFunction(() => document.querySelectorAll("#songList li").length > 0);
+  await auditPage("首頁");
+
+  await openSong(page, "#usseewa");
+  await auditPage("歌曲頁 #usseewa");
+});
 
 await browser.close();
 server.close();

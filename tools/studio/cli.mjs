@@ -47,7 +47,8 @@ const HELP = `新歌工作站命令列：node tools/studio/cli.mjs <指令> [參
                                             整段平移時間
   lyrics-import <id> --file 歌詞.json|.tsv|.lrc [--keep-acts] [--live] [--align]
                                             整首換掉；.tsv 每行「時間<Tab>日文<Tab>中文」，.json 是 [{time,jp,tr,…}]
-                                            沒有時間也可以：每行「日文<Tab>中文」，加 --align 匯入後馬上自動對時
+                                            沒有時間也可以：每行「日文<Tab>中文」，加 --align 匯入後馬上自動對時（--live 不支援 --align）
+  fix-overlaps <id> [--live] [--apply]      檢查並修剪與下一句重疊的 duration；加上 --apply 寫回
 
 檢查與發布
   check                                     資料檢查＋卡拉OK測試＋工作站提醒
@@ -269,19 +270,33 @@ async function main() {
       }));
 
     case "lyrics-import": {
-      if (opt.live && opt.align) throw new Error("--live 和 --align 不能一起用（現場版不支援自動對時）");
+      if (opt.live && opt.align) throw new Error("--live 和 --align 不能一起用（現場版目前不支援自動對時，請只匯入歌詞）");
       need(id, "要給 id");
       const f = need(opt.file, "要給 --file");
       const text = readInput(f);
       const looksJson = /^\s*(\{|\[\s*[{\]])/.test(text);   // LRC 也是 [ 開頭（[00:12.34]、[ti:…]），要看 [ 後面是不是 {
       const input = /\.json$/i.test(f) || looksJson ? JSON.parse(text) : text;
-      const r = core.importLyrics(id, input, { live: !!opt.live, keepActs: !!opt.keepActs });
+      const liveMeta = opt.live && opt.liveYt
+        ? { yt: opt.liveYt, concert: opt.liveConcert, duration: opt.duration != null && opt.duration !== true ? num(opt.duration, "--duration") : undefined }
+        : null;
+      const r = core.importLyrics(id, input, { live: !!opt.live, liveMeta, keepActs: !!opt.keepActs });
       if (!opt.align) return write(r);
       if (opt.dryRun) return write(r);
       core.commit(r);
       if (!core.audioFile(id)) await core.fetchAudio(id, { onLog: m => process.stderr.write(`  ${m}`) });
       const a = await core.align(id, { apply: true, dryRun: !!opt.dryRun, rebuildGaps: !!r.untimed, onLog: m => process.stderr.write(`  ${m}`) });
       return write({ files: a.files, changes: [...r.changes, ...a.changes], warnings: a.warnings });
+    }
+
+    case "fix-overlaps": {
+      need(id, "要給 id，例如 fix-overlaps usseewa --live");
+      const gap = opt.gap != null && opt.gap !== true ? num(opt.gap, "--gap") : 0.02;
+      const r = core.fixOverlaps(id, { live: !!opt.live, gap });
+      if (opt.apply) return write(r);
+      const data = { ok: true, applied: false, dryRun: !!opt.dryRun, fixedCount: r.fixedCount, changes: r.changes, warnings: r.warnings, written: [] };
+      return out(opt, data, r.fixedCount
+        ? `找到 ${r.fixedCount} 處重疊 duration（加上 --apply 寫回）`
+        : "沒有發現重疊的 duration。");
     }
 
     case "separate": {

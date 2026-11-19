@@ -480,4 +480,138 @@ console.log("Test 18: writeCache LRU cap keeps at most 20 songs");
   }
 }
 
+// 19. Static localUrl cache-first + offline + fallback (Contract F; depends on frontend-core karaoke-sources.js)
+console.log("Test 19: load(song, { localUrl }) fetches localUrl first even offline, caches, and falls back on 404/error");
+{
+  const prevLSDesc = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const prevNavDesc = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const prevFetch = globalThis.fetch;
+  const store = new Map();
+  const mockStorage = {
+    get length() { return store.size; },
+    key: i => Array.from(store.keys())[i] ?? null,
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(String(k), String(v)); },
+    removeItem: k => { store.delete(String(k)); },
+    clear: () => { store.clear(); }
+  };
+  const storageProxy = new Proxy(mockStorage, {
+    ownKeys: () => Array.from(store.keys()),
+    getOwnPropertyDescriptor: (target, prop) => {
+      if (store.has(prop)) return { enumerable: true, configurable: true, value: store.get(prop) };
+      return Object.getOwnPropertyDescriptor(target, prop);
+    }
+  });
+  try {
+    Object.defineProperty(globalThis, "localStorage", { value: storageProxy, configurable: true, writable: true });
+    Object.defineProperty(globalThis, "navigator", { value: { onLine: false }, configurable: true, writable: true });
+
+    // 19a. Offline + localUrl hit -> fetches localUrl first, caches to localStorage, skips external APIs
+    const callsA = [];
+    const statusesA = [];
+    const localPayload = {
+      format: "timed-lyrics-v1",
+      source: "static-cache",
+      granularity: "word",
+      lines: [
+        { start: 1.0, end: 2.5, text: "テスト", words: [{ text: "テスト", start: 1.0, end: 2.5 }] }
+      ]
+    };
+    globalThis.fetch = async (url) => {
+      callsA.push(String(url));
+      if (String(url) === "https://local.test/karaoke/static-hit.json?v=abc") {
+        return { ok: true, status: 200, json: async () => localPayload };
+      }
+      throw new Error(`Unexpected external fetch while offline/localUrl hit: ${url}`);
+    };
+    const hitRes = await karaoke.load(
+      { id: "static-hit", ja: "StaticHit", dur: 180 },
+      { localUrl: "https://local.test/karaoke/static-hit.json?v=abc", onStatus: ev => statusesA.push(ev) }
+    );
+    assert.ok(hitRes, "localUrl must succeed even when navigator.onLine === false");
+    assert.equal(callsA.length, 1, "Must fetch ONLY localUrl");
+    assert.equal(callsA[0], "https://local.test/karaoke/static-hit.json?v=abc");
+    assert.equal(hitRes.format, "timed-lyrics-v1");
+    assert.equal(hitRes.lines.length, 1);
+    assert.ok(statusesA.some(s => s.state === "ready"), "Must emit ready status on localUrl load");
+    assert.ok(Array.from(store.keys()).some(k => k.endsWith("-static-hit")), "Must write localUrl result into localStorage");
+
+    // 19b. Subsequent load hits localStorage cache without calling fetch
+    let cacheFetchCalls = 0;
+    const statusesCached = [];
+    globalThis.fetch = async () => { cacheFetchCalls++; throw new Error("fetch must not be called on cache hit"); };
+    const cachedRes = await karaoke.load(
+      { id: "static-hit", ja: "StaticHit", dur: 180 },
+      { localUrl: "https://local.test/karaoke/static-hit.json?v=abc", onStatus: ev => statusesCached.push(ev) }
+    );
+    assert.ok(cachedRes, "Cached localUrl result must be returned");
+    assert.equal(cacheFetchCalls, 0, "Cache hit must not trigger fetch");
+    assert.ok(statusesCached.some(s => s.state === "cache"), "Cache hit must emit cache status");
+
+    // 19c. localUrl returns 404 while online -> falls back cleanly to external providers
+    Object.defineProperty(globalThis, "navigator", { value: { onLine: true }, configurable: true, writable: true });
+    const callsC = [];
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      callsC.push(u);
+      if (u.includes("/karaoke/static-404.json")) return { ok: false, status: 404, json: async () => null };
+      if (u.includes("lrclib.net")) {
+        return { ok: true, json: async () => ([{ artistName: "Ado", trackName: "Static404", duration: 180, syncedLyrics: "[00:02.00] フォールバック" }]) };
+      }
+      return { ok: false, status: 404, json: async () => null };
+    };
+    const fallback404 = await karaoke.load(
+      { id: "static-404", ja: "Static404", dur: 180 },
+      { localUrl: "https://local.test/karaoke/static-404.json" }
+    );
+    assert.ok(fallback404, "404 on localUrl must fall back cleanly to online providers");
+    assert.ok(callsC[0].includes("/karaoke/static-404.json"), "localUrl must be attempted first before fallback");
+    assert.equal(fallback404.lines[0].text, "フォールバック");
+
+    // 19d. localUrl network failure while online -> falls back cleanly without throwing
+    const callsD = [];
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      callsD.push(u);
+      if (u.includes("/karaoke/static-err.json")) throw new Error("Network failure");
+      if (u.includes("lrclib.net")) {
+        return { ok: true, json: async () => ([{ artistName: "Ado", trackName: "StaticErr", duration: 180, syncedLyrics: "[00:03.00] 復旧歌詞" }]) };
+      }
+      return { ok: false, status: 404, json: async () => null };
+    };
+    const fallbackErr = await karaoke.load(
+      { id: "static-err", ja: "StaticErr", dur: 180 },
+      { localUrl: "https://local.test/karaoke/static-err.json" }
+    );
+    assert.ok(fallbackErr, "Network error on localUrl must fall back cleanly to online providers");
+    assert.ok(callsD[0].includes("/karaoke/static-err.json"), "localUrl must be attempted first");
+    assert.equal(fallbackErr.lines[0].text, "復旧歌詞");
+
+    // 19e. localUrl 404 while offline -> returns null with offline state and does NOT hit external APIs
+    Object.defineProperty(globalThis, "navigator", { value: { onLine: false }, configurable: true, writable: true });
+    const callsE = [];
+    const statusesE = [];
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      callsE.push(u);
+      if (u.includes("/karaoke/static-offline-404.json")) return { ok: false, status: 404, json: async () => null };
+      throw new Error(`External API must not be fetched when offline: ${u}`);
+    };
+    const offlineMiss = await karaoke.load(
+      { id: "static-offline-404", ja: "OfflineMiss", dur: 180 },
+      { localUrl: "https://local.test/karaoke/static-offline-404.json", onStatus: ev => statusesE.push(ev) }
+    );
+    assert.equal(offlineMiss, null, "Missing localUrl while offline must return null");
+    assert.equal(callsE.length, 1, "Must only attempt localUrl when offline");
+    assert.ok(statusesE.some(s => s.state === "offline"), "Must emit offline status after localUrl miss offline");
+  } finally {
+    if (prevLSDesc) Object.defineProperty(globalThis, "localStorage", prevLSDesc);
+    else delete globalThis.localStorage;
+    if (prevNavDesc) Object.defineProperty(globalThis, "navigator", prevNavDesc);
+    else delete globalThis.navigator;
+    if (prevFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = prevFetch;
+  }
+}
+
 console.log("All unit and integration test suites passed successfully!");

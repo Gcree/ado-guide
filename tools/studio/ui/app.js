@@ -757,6 +757,7 @@
     $("btnSave").disabled = !dirty;
     $("btnUndo").disabled = !history.length;
     $("btnRedo").disabled = !future.length;
+    if ($("btnFixOverlaps")) $("btnFixOverlaps").disabled = !D || !L.length;
     $("crumbTitle").textContent = D ? `${D.song.ja}${ver ? `（現場：${ver.concert}）` : ""}` : "選一首歌";
     $("crumbGroup").textContent = D ? (STATUS[D.song.status]?.[0] || D.song.status || "—") : "—";
     document.title = D ? `${dirty ? "● " : ""}${D.song.ja}｜Ado Studio` : "Ado Studio";
@@ -1064,13 +1065,13 @@
         : `<div class="peek-actions"><button class="btn outline" data-op="analyze">${icon("i-metro")}分析音訊</button><span class="hint">算 BPM、第一小節、副歌高潮候選${D.hasAudio ? "" : "（會先下載音訊）"}</span></div>`}
 
       <div class="divider"></div>
-      ${ver ? `<div class="mini-callout yellow">${icon("i-info")}<div>現在是現場版「${esc(ver.concert)}」。自動對時、翻譯、分析音訊、應援建議只做 MV 版；現場版可以「從 MV 複製歌詞」再整段平移、打點。</div></div>
+      ${ver ? `<div class="mini-callout yellow">${icon("i-info")}<div>現在是現場版「${esc(ver.concert)}」。自動對時、翻譯、分析音訊、應援建議只做 MV 版；現場版可以「貼上歌詞」或「從 MV 複製歌詞」再整段平移、打點。</div></div>
       <div class="peek-actions"><button class="btn outline" data-op="copyMv">從 MV 複製歌詞</button></div>` : sugBlock()}
       <div class="block-label">自動處理</div>
       <div class="peek-actions">
         <button class="btn outline" data-op="align"${mvOnlyAttr}>${icon("i-wand")}自動對時</button>
         <button class="btn outline" data-op="translate"${mvOnlyAttr}>${icon("i-lang")}翻譯缺的中文</button>
-        <button class="btn outline" data-op="paste"${mvOnlyAttr}>${icon("i-text")}貼上歌詞</button>
+        <button class="btn outline" data-op="paste">${icon("i-text")}貼上歌詞</button>
       </div>
       <div class="kv">
         <span>音訊</span><span>${D.hasAudio ? "有" : "沒有"}${D.hasVocals ? "・人聲已分離" : ""}</span>
@@ -1401,9 +1402,11 @@
   // ── 貼上整首歌詞 ──
   function openPaste() {
     if (!D) return;
-    if (ver) { toast("貼上整首歌詞只適用於 MV 版，請先切回 MV 版"); return; }
     $("pasteText").value = L.map(l => `${l.time.toFixed(2)}\t${l.jp}\t${l.tr || ""}`).join("\n");
     $("pasteAlign").checked = false;
+    $("pasteAlign").disabled = !!ver;
+    const alignLabel = $("pasteAlign").closest("label");
+    if (alignLabel) alignLabel.title = ver ? "現場版目前不支援自動對時" : "";
     $("pasteKeep").checked = true;
     pasteJson = null;
     $("pasteDlg").showModal();
@@ -1440,17 +1443,19 @@
     el.selectionStart = el.selectionEnd = a + 1;
   });
   $("pasteDlg").addEventListener("close", async () => {
-    if ($("pasteDlg").returnValue !== "ok" || !D || ver) return;
+    if ($("pasteDlg").returnValue !== "ok" || !D) return;
     const text = $("pasteText").value;
     if (!text.trim()) return;
     const targetId = D.song.id, targetVer = ver?.yt || "", targetGen = sessionGen;
+    if (ver && D.live?.youtubeId && D.live.youtubeId !== ver.yt && !confirm(`這首的現場版目前是「${D.live.concert || D.live.youtubeId}」。一首歌只存一場現場版，貼上匯入會換成「${ver.concert}」。繼續？`)) return;
     if (JSON.stringify(clean(L)) !== savedJSON && !confirm("有還沒存的修改，貼上會取代整首（草稿會丟掉）。繼續？")) return;
     if (!isSameTarget(targetId, targetVer, targetGen)) return;
-    const doAlign = $("pasteAlign").checked;
+    const doAlign = !ver && $("pasteAlign").checked;
     toast(doAlign ? "匯入並自動對時中…" : "匯入中…", 600000);
     const lines = pasteJson && text === pasteJson.shown ? pasteJson.lines : undefined;
+    const targetLive = ver ? { yt: ver.yt, concert: ver.concert, duration: Math.round(liveDur) } : undefined;
     const targetDraftKey = draftKey();
-    const r = await api("/api/lyrics-import", { id: targetId, text, lines, align: doAlign, keepActs: $("pasteKeep").checked });
+    const r = await api("/api/lyrics-import", { id: targetId, text, lines, align: doAlign, keepActs: $("pasteKeep").checked, live: targetLive });
     if (!isSameTarget(targetId, targetVer, targetGen)) return;
     toast("");
     if (!r.ok) { alert(`匯入失敗：\n${r.error}`); return; }
@@ -2032,6 +2037,33 @@
   $("btnZoomIn").onclick = () => zoom(1 / 1.4);
   $("btnZoomOut").onclick = () => zoom(1.4);
   $("btnNextRed").onclick = () => nextRed(1);
+  async function fixOverlapsNow() {
+    if (!D) return;
+    const targetId = D.song.id, targetVer = ver?.yt || "", targetGen = sessionGen;
+    if (JSON.stringify(clean(L)) !== savedJSON) {
+      if (!confirm("有還沒存的修改，要先存檔再修正重疊嗎？")) return;
+      if (!(await save())) return;
+      if (!isSameTarget(targetId, targetVer, targetGen)) return;
+    }
+    if (ver && (!D.live || D.live.youtubeId !== ver.yt)) {
+      toast("這場現場版還沒有存檔的歌詞可修正");
+      return;
+    }
+    if ($("btnFixOverlaps")) $("btnFixOverlaps").disabled = true;
+    toast("檢查並修正重疊中…", 30000);
+    const r = await api("/api/fix-overlaps", { id: targetId, live: !!ver });
+    if (!isSameTarget(targetId, targetVer, targetGen)) return;
+    renderHeader();
+    toast("");
+    if (!r.ok) { alert(`修正重疊失敗：\n${r.error}`); return; }
+    if (!r.fixedCount) { toast("沒有發現重疊的 duration"); return; }
+    const targetDraftKey = draftKey();
+    store.set(targetDraftKey, null);
+    await openSong(targetId, { keepView: true });
+    if (!isSameTarget(targetId, targetVer, targetGen)) return;
+    toast(r.changes.join("、") || `已修正 ${r.fixedCount} 處重疊`);
+  }
+  if ($("btnFixOverlaps")) $("btnFixOverlaps").onclick = fixOverlapsNow;
   $("btnUndo").onclick = undo;
   $("btnRedo").onclick = redo;
   $("btnSave").onclick = save;
