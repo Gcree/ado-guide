@@ -37,7 +37,11 @@ window.YT = { Player: function (el, o) {
     fireError: () => o.events.onError && o.events.onError({ data: 150 })
   });
   window.__yt = this;
-  setTimeout(() => o.events.onReady && o.events.onReady(), 0);
+  window.__ytReady = false;
+  setTimeout(() => {
+    o.events.onReady && o.events.onReady();
+    window.__ytReady = true;
+  }, 0);
 } };
 setTimeout(() => window.onYouTubeIframeAPIReady && window.onYouTubeIframeAPIReady(), 0);
 `;
@@ -73,7 +77,7 @@ async function test(name, fn, ctxOpts = {}) {
 // 等播放器（假的）準備好、歌詞排好
 const openSong = async (page, url) => {
   await page.goto(BASE + url);
-  await page.waitForFunction(() => window.__yt && document.querySelectorAll("#lines .ln").length > 0);
+  await page.waitForFunction(() => window.__yt && window.__ytReady && document.querySelectorAll("#lines .ln").length > 0);
 };
 const press = (page, key) => page.evaluate(k => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })), key);
 
@@ -336,6 +340,7 @@ await test("測驗模式「再挑戰」在延遲 seek 時不會自動判成 0 �
   await openSong(page, "#show");
   await press(page, "q");
   await page.waitForFunction(() => document.body.classList.contains("quiz-on"));
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   await page.evaluate(() => { window.__yt.seekTo(9999); window.__yt.playVideo(); });
   await page.waitForFunction(() => document.getElementById("quizDlg").open);
   // 模擬非同步 seekTo(0) 延遲，驗證 QZ.armed 保護不會馬上結束測驗
@@ -362,7 +367,7 @@ await test("淺色主題 + 沉浸模式：手機底部 .dock 維持深色半透�
     !document.documentElement.classList.contains("vt-theme")
   );
   await page.evaluate(() => { location.hash = "usseewa"; });
-  await page.waitForFunction(() => window.__yt && document.querySelectorAll("#lines .ln").length > 0);
+  await page.waitForFunction(() => window.__yt && window.__ytReady && document.querySelectorAll("#lines .ln").length > 0);
   await page.click("#dockMore");
   await page.waitForFunction(() => document.getElementById("moreDlg").open);
   await page.click("#toolImmersiveMenuBtn");
