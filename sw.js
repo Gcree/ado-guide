@@ -10,8 +10,14 @@ self.addEventListener("install", e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
     await c.addAll(CORE_PRECACHE);
-    for (let i = 0; i < LYRICS_PRECACHE.length; i += 16) {
-      const batch = LYRICS_PRECACHE.slice(i, i + 16);
+    const missing = [];
+    await Promise.all(LYRICS_PRECACHE.map(async url => {
+      const hit = await caches.match(url);
+      if (hit) await c.put(url, hit);
+      else missing.push(url);
+    }));
+    for (let i = 0; i < missing.length; i += 16) {
+      const batch = missing.slice(i, i + 16);
       await Promise.allSettled(batch.map(url => c.add(url)));
     }
     await self.skipWaiting();

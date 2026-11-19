@@ -5,7 +5,7 @@
 // GitHub Actions 每次推到 main 都會跑這支，再發布到 GitHub Pages；平常改網站只要改 index.html、style.css、app.js、song-lyrics.js
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 
@@ -31,95 +31,54 @@ const read = f => fs.readFileSync(path.join(root, f), "utf8");
 const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);
 const stage3dPath = path.join(root, "assets/stage3d.js");
 const STAGE3DV = fs.existsSync(stage3dPath) ? hash(fs.readFileSync(stage3dPath)) : "";
+const esbuildMod = await import("esbuild")
+  .catch(() => import(pathToFileURL(path.join(root, "tools/stage3d/node_modules/esbuild/lib/main.js")).href))
+  .catch(() => null);
+const esbuild = esbuildMod?.transform ? esbuildMod : esbuildMod?.default?.transform ? esbuildMod.default : null;
+const minifyJs = async code => (esbuild ? (await esbuild.transform(code, { loader: "js", minify: true, target: "es2020", legalComments: "none" })).code : code);
+const minifyCss = async code => (esbuild ? (await esbuild.transform(code, { loader: "css", minify: true })).code : code);
+
 function mustReplace(str, target, repl, label) {
+  const fn = typeof repl === "function" ? repl : () => repl;
   if (typeof target === "string") {
     if (!str.includes(target)) throw new Error(`build.mjs 找不到模板標記：${label || target}`);
-    return str.replace(target, () => repl);
+    return str.replace(target, fn);
   }
   if (!target.test(str)) throw new Error(`build.mjs 找不到模板標記：${label || target}`);
-  return str.replace(target, repl);
+  return str.replace(target, fn);
 }
 // 分享預覽圖加上內容雜湊，換圖後 LINE／Facebook／X 會重新抓，不會一直顯示舊圖
 const OG_IMG = `${SITE}assets/og.jpg?v=${createHash("sha1").update(fs.readFileSync(path.join(root, "assets/og.jpg"))).digest("hex").slice(0, 8)}`;
-const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"), karaokeSrc = read("karaoke-sources.js");
+const FRONTEND_SCRIPTS = [
+  "shared/render.js",
+  "js/setlist.js",
+  "js/penlight.js",
+  "js/quiz-engine.js",
+  "app.js"
+];
+const frontendParts = FRONTEND_SCRIPTS.map(f => {
+  const p = path.join(root, f);
+  if (!fs.existsSync(p)) throw new Error(`build.mjs 找不到前端腳本：${f}`);
+  return fs.readFileSync(p, "utf8");
+});
+const rawAppBundle = frontendParts.join("\n;\n");
+const css = read("style.css"), songsText = read("songs.js"), karaokeSrc = read("karaoke-sources.js");
 const require = createRequire(import.meta.url);
+const renderModPath = path.join(root, "shared/render.js");
+if (!fs.existsSync(renderModPath)) throw new Error("build.mjs 找不到共用模組：shared/render.js");
+const {
+  ACT_MAP, PENC, TIER_LABEL, esc, fmt, isoDuration, isNote, isOffbeat,
+  penOf: sharedPenOf, penDots: sharedPenDots, jaHTML,
+  relatedOf: sharedRelatedOf, songInlineSummary: sharedSongInlineSummary,
+  mainAct, lineAct
+} = require(renderModPath);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 const LYRICS_LIVE = require(path.join(root, "song-lyrics-live.js"));
 const { SONGS, UT, PEN, SERIES, PRACTICE = {} } = require(path.join(root, "songs.js"));
 
-const credKey = n => n.replace(/\s*\(.*\)\s*$/, "").trim();
-const credHas = (s, part, key) => !!(s.credit && (s.credit[part] || []).some(n => credKey(n) === key));
-function credRole(s, key, T) {
-  const w = credHas(s, "w", key), c = credHas(s, "c", key);
-  return w && c ? T("詞曲") : w ? T("作詞") : c ? T("作曲") : credHas(s, "a", key) ? T("編曲") : "";
-}
-function relatedOf(s, T) {
-  const groups = [], c = s.credit;
-  if (c) {
-    const names = [...(c.w || []), ...(c.c || []), ...(c.a || [])], keys = [...new Set(names.map(credKey))];
-    keys.forEach(key => {
-      const songs = SONGS.filter(x => x !== s && ["w", "c", "a"].some(p => credHas(x, p, key)));
-      if (songs.length) groups.push({ kind: "who", name: names.find(n => credKey(n) === key), role: credRole(s, key, T), songs: songs.map(x => ({ s: x, role: credRole(x, key, T) })) });
-    });
-  }
-  (SERIES || []).forEach(g => {
-    if (!g.ids.includes(s.id)) return;
-    const songs = g.ids.filter(id => id !== s.id).map(id => SONGS.find(x => x.id === id)).filter(Boolean).map(x => ({ s: x, role: "" }));
-    if (songs.length) groups.push({ kind: "work", name: T(g.name), songs });
-  });
-  return groups;
-}
-function songInlineSummary(s, code, pen, tips, lines, T) {
-  const dn = namePart(s, code);
-  const cheerLines = lines.filter(l => (l.acts || []).some(a => a !== "listen")).length;
-  const actNames = s.acts.filter(a => a !== "listen" && ACT_MAP[a]).map(a => T(ACT_MAP[a].name));
-  const tie = s.tie ? T(s.tie) : "";
-  const album = s.album ? T(s.album) : "";
-  const liveNames = (s.lives || []).map(l => l.concert);
-  if (code === "en") {
-    const parts = [
-      `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""} was released on ${s.date} (${s.len})${s.cover ? " as a cover track" : ""}${tie ? `, featured in ${tie}` : ""}${album ? `, and included on "${album}"` : ""}.`,
-      pen.none
-        ? `No official song-specific penlight color is assigned, so fans switch to Ado's signature blue at concerts.`
-        : `Recommended concert penlight color: ${pen.words.join(", ")}.`,
-      tips.length
-        ? `Main audience participation${actNames.length ? ` (${actNames.join(", ")})` : ""}${cheerLines ? ` across ${cheerLines} cued lyric lines` : ""}: ${tips.join("; ")}.`
-        : (s.free
-          ? `There is no fixed chant or clap routine for this track—sway your penlight naturally to the beat and enjoy Ado's vocals.`
-          : `Confirmed live chant cues for this track are still being documented; practice along with the official MV and synced lyrics above.`),
-      liveNames.length ? `Official live audio/video releases are also available (${liveNames.join(", ")}).` : ""
-    ];
-    return parts.filter(Boolean).join(" ");
-  }
-  if (code === "ja") {
-    const parts = [
-      `「${s.ja}」は ${s.date.replace(/-/g, "/")} に公開された Ado の楽曲（${s.len}）です${s.cover ? "（カバー曲）" : ""}${tie ? `。タイアップ：${tie}` : ""}${album ? `、収録：${album}` : ""}。`,
-      pen.none
-        ? `楽曲固有のペンライト色指定はないため、ライブでは Ado のイメージカラーである青を基本に楽しむのが定番です。`
-        : `ライブのおすすめペンライト色は「${pen.words.join("・")}」です。`,
-      tips.length
-        ? `主な応援ポイント${actNames.length ? `（${actNames.join("・")}）` : ""}${cheerLines ? `（同期歌詞 ${cheerLines} 行に合図あり）` : ""}：${tips.join("／")}。`
-        : (s.free
-          ? `この曲は固定のコールや手拍子の決まりがなく、リズムに合わせて自由にペンライトを振りながら Ado の歌声を聴くスタイルです。`
-          : `この曲のライブ応援はまだ情報整理中のため、まずは公式MVと同期歌詞でメロディーを予習しておくのがおすすめです。`),
-      liveNames.length ? `公式ライブ音源・映像（${liveNames.join("・")}）も公開されています。` : ""
-    ];
-    return parts.filter(Boolean).join(" ");
-  }
-  const parts = [
-    `〈${s.ja}〉${dn ? `（${dn}）` : ""}是 Ado 於 ${s.date.replace(/-/g, "/")} 推出的${s.cover ? "翻唱" : ""}歌曲（長度 ${s.len}）${tie ? `，為${tie}` : ""}${album ? `，收錄於${album.startsWith("《") ? album : `《${album}》`}` : ""}。`,
-    pen.none
-      ? `這首歌目前沒有固定指定的螢光棒顏色，現場建議切換成 Ado 的代表色藍色。`
-      : `演唱會推薦手燈顏色為「${pen.words.join("、")}」，也可搭配 PenlightSync 隨音樂自動變色。`,
-    tips.length
-      ? `主要應援方式包含${actNames.join("、")}${cheerLines ? `（共 ${cheerLines} 句標記動作）` : ""}：${tips.join("；")}。`
-      : (s.free
-        ? `這首歌沒有固定喊聲或拍手口號，現場可依節奏輕鬆揮動手燈、專心聆聽 Ado 的演唱。`
-        : `這首歌的現場固定應援仍在蒐集確認中，建議先搭配官方 MV 與上方同步歌詞熟悉旋律與斷句。`),
-    liveNames.length ? `目前已釋出官方演唱會現場紀錄（${liveNames.join("、")}），可切換 Live 版本對照現場氣氛。` : ""
-  ];
-  return parts.filter(Boolean).join("");
-}
+const relatedOf = (s, T) => sharedRelatedOf(s, SONGS, SERIES, T);
+const songInlineSummary = (s, code, pen, tips, lines, T) => sharedSongInlineSummary(s, code, pen, tips, lines, T, namePart);
+const penOf = (s, T = makeT("zh")) => sharedPenOf(s, PEN, T);
 
 const I18N = require(path.join(root, "i18n.js"));
 // 羅馬拼音：GitHub Actions 建置前用 tools/romaji/romaji.mjs 產生；沒有的話英文版歌詞下面就不放
@@ -134,29 +93,6 @@ const makeT = code => (src, ...args) => {
     if (d === undefined) missing[code].add(src); else v = d;
   }
   return v.replace(/\{(\d+)\}/g, (_, i) => args[i]);
-};
-
-const PENC = {
-  青: ["藍", "#5d9dfe"],
-  水: ["水藍", "#5fd4ff"],
-  白: ["白", "#f2efe8"],
-  赤: ["紅", "#ff4a5a"],
-  桃: ["粉紅", "#ff7ab8"],
-  紫: ["紫", "#a374ff"],
-  橙: ["橘", "#ff9a3c"],
-  黄: ["黃", "#ffd84a"],
-  緑: ["綠", "#4ee08a"]
-};
-const RAINBOW = [..."赤橙黄緑水青紫"];
-
-const ACT_MAP = {
-  sing:    { name: "大合唱",   icon: "i-sing",    how: "跟著一起唱" },
-  clap:    { name: "拍手",     icon: "i-clap",    how: "跟著節拍拍手" },
-  wave:    { name: "舉手揮動", icon: "i-wave",    how: "舉手左右揮" },
-  jump:    { name: "跳躍",     icon: "i-jump",    how: "跟著節奏跳" },
-  call:    { name: "喊聲",     icon: "i-call",    how: "跟著喊短句" },
-  gesture: { name: "手勢",     icon: "i-gesture", how: "跟 Ado 做同樣的動作" },
-  listen:  { name: "安靜聽",   icon: "i-listen",  how: "留給 Ado 唱" }
 };
 
 // 統整歌曲資料結構（與 app.js 邏輯完全一致）
@@ -176,26 +112,8 @@ const LIVE_ALL_CNT = SONGS.filter(hasLive).length;
 const LIVE_VID_CNT = SONGS.filter(hasLiveVideo).length;
 const LIVE_AUD_CNT = SONGS.filter(hasLiveAudio).length;
 
-function penOf(s, T = makeT("zh")) {
-  const pen = !s.hold && PEN[s.id] && PEN[s.id][0] !== "?" && PEN[s.id];
-  const keys = [...(pen || "青")];
-  const word = k => (k === "彩" ? T("彩色") : T(PENC[k][0]));
-  return {
-    keys,
-    none: !pen,
-    text: !pen ? T("藍色（官方未指定，建議切換為代表色藍色）") : keys.map(k => (k === "彩" ? T("彩色") : T("{0}色", word(k)))).join(T("、")),
-    shortText: !pen ? T("藍（未指定）") : keys.map(word).join(T("、")),
-    words: keys.map(word),
-    cols: keys.flatMap(k => (k === "彩" ? RAINBOW : [k]).map(c => PENC[c][1]))
-  };
-}
-
-const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 const json = o => JSON.stringify(o).replace(/</g, "\\u003c");
-const isOffbeat = txt => !!txt && txt.includes("反拍");
-const isNote = j => !!j && /^（[^）]+）$/.test(j.trim()); // （間奏）這種全形括號的說明；半形括號的是歌詞
 
 // ── 搜尋結果上看到的文字：標題和描述直接寫出答案（手燈什麼色、哪裡要唱），像 Threads 貼文一樣「內容就是標題」 ──
 // 中文：歌名以外大家會拿來搜的名字（中文譯名＋別名，例如〈うっせぇわ〉新聞多寫「煩死了」）
@@ -245,64 +163,44 @@ function songDesc(s, code, p, tips, T) {
   return cut(`〈${s.ja}〉${n ? `（${n}）` : ""}${s.tie ? `是${s.tie}。` : ""}演唱會怎麼應援？${pen}${how}跟著官方 MV 和日中同步歌詞，先在家練一遍。`, 130);
 }
 
-function isoDuration(lenStr) {
-  const [m, s] = lenStr.split(":").map(Number);
-  return `PT${m}M${s}S`;
-}
-
-function jaHTML(txt, sung = []) {
-  const out = [], re = /([一-鿿々〆ヵヶ]+)[(（]([぀-ヿー]+)[)）]/g, hit = new Set();
-  sung.forEach(w => {
-    const i = txt.lastIndexOf(w);
-    if (i >= 0) for (let j = i; j < i + w.length; j++) hit.add(j);
-  });
-  // 英文、數字連在一起的字包成一組（.kw），一個單字不會被拆到兩行
-  let kIndex = 0, word = [];
-  const flush = () => {
-    if (word.length) out.push(word.length > 1 ? `<span class="kw">${word.join("")}</span>` : word[0]);
-    word = [];
-  };
-  const k = (i, html, latin) => {
-    const rot = (((kIndex * 7) % 15) - 7).toFixed(1) + "deg";
-    const span = `<span class="k${hit.has(i) ? " sung" : ""}" style="--i:${kIndex++};--rot:${rot}">${html}</span>`;
-    if (latin) word.push(span);
-    else { flush(); out.push(span); }
-  };
-  const chars = (str, at) => {
-    for (const c of str) {
-      k(at, esc(c), /[A-Za-z0-9'’!?,.\-]/.test(c));
-      at += c.length;
-    }
-  };
-  let last = 0, m;
-  while ((m = re.exec(txt))) {
-    chars(txt.slice(last, m.index), last);
-    k(m.index, `<ruby>${esc(m[1])}<rt>${esc(m[2])}</rt></ruby>`);
-    last = re.lastIndex;
-  }
-  chars(txt.slice(last), last);
-  flush();
-  return out.join("");
-}
-
 // 每首一個歌詞檔（沒有歌詞的歌也放一個空的，網頁就不會讀到 404）；index.json 記每首的應援數量（有動作、不是「安靜聽」的行數）
 // 有羅馬拼音的行多一個 ro，英文版歌詞下面顯示
-const lyFiles = {}, lyIndex = {};
+const lyFiles = {}, lyIndex = {}, mvHashes = {}, liveHashes = {};
 const withRo = (id, lines) => lines.map(l => (ROMAJI[id] && l.jp && ROMAJI[id][l.jp] ? { ...l, ro: ROMAJI[id][l.jp] } : l));
 for (const s of SONGS) {
   const b = LYRICS.find(x => x.id === s.id), lines = withRo(s.id, (b && b.lyrics) || []);
-  lyFiles[`lyrics/${s.id}.json`] = JSON.stringify({ ...(b || { id: s.id }), lyrics: lines });
+  const text = JSON.stringify({ ...(b || { id: s.id }), lyrics: lines });
+  lyFiles[`lyrics/${s.id}.json`] = text;
+  mvHashes[s.id] = hash(text);
   if (lines.length) lyIndex[s.id] = lines.filter(l => (l.acts || []).some(a => a !== "listen")).length;
 }
 for (const b of LYRICS_LIVE) {
   const baseId = b.baseId || b.id.replace("-live", "");
   const lines = withRo(baseId, b.lyrics || []);
-  lyFiles[`lyrics-live/${baseId}.json`] = JSON.stringify({ ...b, lyrics: lines });
+  const text = JSON.stringify({ ...b, lyrics: lines });
+  lyFiles[`lyrics-live/${baseId}.json`] = text;
+  liveHashes[baseId] = hash(text);
 }
 lyFiles["lyrics/index.json"] = JSON.stringify(lyIndex);
 
+// 靜態卡拉OK快取拆成每首一個小檔（karaoke/<id>.json）並與歌詞雜湊一併寫入 lyrics/hashes.json
+const karaokeHashes = {}, karaokeFiles = {};
+const karaokeCachePath = path.join(root, "karaoke-cache.json");
+if (fs.existsSync(karaokeCachePath)) {
+  const kc = JSON.parse(fs.readFileSync(karaokeCachePath, "utf8"));
+  if (kc && typeof kc === "object" && !Array.isArray(kc)) {
+    for (const [id, entry] of Object.entries(kc)) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const text = JSON.stringify(entry);
+      karaokeFiles[`karaoke/${id}.json`] = text;
+      karaokeHashes[id] = hash(text);
+    }
+  }
+}
+lyFiles["lyrics/hashes.json"] = JSON.stringify({ mv: mvHashes, live: liveHashes, karaoke: karaokeHashes });
+
 // 版本字串：內容變了才換，瀏覽器才會抓新的（原始檔寫 ?v=dev）
-const LYV = hash(Object.values(lyFiles).join("\n"));
+const LYV = hash(Object.values(lyFiles).join("\n") + "\n" + Object.values(karaokeFiles).join("\n"));
 const gaScript = GA_ID ? [
   `<!-- Google tag (gtag.js) -->`,
   `<script async src="https://www.googletagmanager.com/gtag/js?id=${GA_ID}"></script>`,
@@ -335,16 +233,27 @@ const ADO = {
     "https://open.spotify.com/artist/6mEQK9m2krja6X1cfsAjfl"
   ]
 };
+const [cssOut, songsOut, appOut, karaokeSrcOut] = await Promise.all([
+  minifyCss(css),
+  minifyJs(songsText),
+  minifyJs(rawAppBundle),
+  minifyJs(karaokeSrc)
+]);
+
 let src = read("index.html");
 src = mustReplace(src, /<span class="build">[^<]*<\/span>/, () => `<span class="build">${VERSION} · <time datetime="${UPDATED}">${UPDATED}</time></span>`, "index.html span.build");
-src = mustReplace(src, /style\.css\?v=[^"]*/, () => `style.css?v=${hash(css)}`, "index.html style.css?v=");
-src = mustReplace(src, "songs.js?v=dev", `songs.js?v=${hash(songsText)}`, "index.html songs.js?v=dev");
-src = mustReplace(src, "karaoke-sources.js?v=dev", `karaoke-sources.js?v=${hash(karaokeSrc)}`, "index.html karaoke-sources.js?v=dev");
-src = mustReplace(src, "app.js?v=dev", `app.js?v=${hash(app)}`, "index.html app.js?v=dev");
+src = mustReplace(src, /style\.css\?v=[^"]*/, () => `style.css?v=${hash(cssOut)}`, "index.html style.css?v=");
+src = mustReplace(src, "songs.js?v=dev", () => `songs.js?v=${hash(songsOut)}`, "index.html songs.js?v=dev");
+src = mustReplace(src, "karaoke-sources.js?v=dev", () => `karaoke-sources.js?v=${hash(karaokeSrcOut)}`, "index.html karaoke-sources.js?v=dev");
+src = mustReplace(
+  src,
+  /<!--\s*build:app-scripts:start\s*-->[\s\S]*?<!--\s*build:app-scripts:end\s*-->/,
+  () => `<script defer src="app.js?v=${hash(appOut)}"></script>`,
+  "index.html build:app-scripts"
+);
 src = mustReplace(src, '<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-lyrics="${LYV}"${STAGE3DV ? ` data-stage3d="${STAGE3DV}"` : ""}>`, 'index.html <html lang="zh-Hant-TW">');
 
-// 每種語言的字典另存一個小檔，英文版只載英文、日文版只載日文；只保留執行期（app.js 與歌曲／歌詞資料）會用到的 key
-const TIER_LABEL = { 1: "必練", 2: "跟唱・聆聽", 3: "看巡演" };
+// 每種語言的字典另存一個小檔，英文版只載英文、日文版只載日文；只保留執行期（app.js、共用模組與歌曲／歌詞資料）會用到的 key
 const runtimeKeySet = new Set([
   "歌ネット ↗", "在 YouTube 開啟 ↗",
   ...Object.values(TIER_LABEL),
@@ -369,14 +278,17 @@ for (const b of [...LYRICS, ...LYRICS_LIVE]) {
 const isRuntimeKey = k => {
   if (runtimeKeySet.has(k)) return true;
   const escKey = JSON.stringify(k).slice(1, -1);
-  return app.includes(k) || app.includes(escKey)
+  return rawAppBundle.includes(k) || rawAppBundle.includes(escKey)
+    || karaokeSrc.includes(k) || karaokeSrc.includes(escKey)
     || songsText.includes(k) || songsText.includes(escKey);
 };
-const i18nFiles = Object.fromEntries(["en", "ja"].map(code => {
-  const dict = I18N[code] || {};
-  const pruned = Object.fromEntries(Object.entries(dict).filter(([k]) => isRuntimeKey(k)));
-  return [code, `window.ADO_I18N = ${JSON.stringify({ [code]: pruned })};\n`];
-}));
+const i18nFiles = Object.fromEntries(await Promise.all(
+  ["en", "ja"].map(async code => {
+    const dict = I18N[code] || {};
+    const pruned = Object.fromEntries(Object.entries(dict).filter(([k]) => isRuntimeKey(k)));
+    return [code, await minifyJs(`window.ADO_I18N = ${JSON.stringify({ [code]: pruned })};\n`)];
+  })
+));
 
 // ── 版型翻譯：把 index.html 裡的中文換成目前語言（歌曲內容是之後才填進去的，不會被換到） ──
 // 1. 字典裡含 HTML 的 key（一句話中間夾著標籤，例如「從<span>〈唱〉</span>開始練」）整段換
@@ -402,12 +314,18 @@ function translateTemplate(html, L, T) {
 function langTemplate(L, T) {
   const up = L.dir ? "../" : "";
   let html = translateTemplate(src, L, T);
+  html = mustReplace(
+    html,
+    /[ \t]*<!--\s*fonts:tw:start\s*-->\r?\n?([\s\S]*?)[ \t]*<!--\s*fonts:tw:end\s*-->\r?\n?/,
+    (_, inner) => (L.code === "zh" ? inner : ""),
+    "langTemplate fonts:tw"
+  );
   html = mustReplace(html, '<html lang="zh-Hant-TW" ', `<html lang="${L.html}" data-lang="${L.code}"${up ? ` data-root="${up}"` : ""} `, "langTemplate <html");
   html = mustReplace(html, "<!-- build:i18n -->", L.code === "zh" ? "" : `<script defer src="${up}i18n/${L.code}.js?v=${hash(i18nFiles[L.code])}"></script>`, "langTemplate build:i18n");
   // 頂欄的站名：英文用短名，手機上放得下
   const SHORT = { en: "Ado Chant Guide" };
   if (SHORT[L.code]) html = mustReplace(html, /(<span class="mark-name">)[^<]*(<\/span>)/, (m, a, b) => `${a}${SHORT[L.code]}${b}`, "langTemplate mark-name");
-  if (up) html = html.replace(/(\s(?:href|src)=")((?:favicon\.ico|assets\/|manifest\.webmanifest|style\.css|songs\.js|karaoke-sources\.js|app\.js)[^"]*")/g, `$1${up}$2`);
+  if (up) html = html.replace(/(\s(?:href|src)=")((?:favicon\.ico|assets\/|style\.css|songs\.js|karaoke-sources\.js|app\.js)[^"]*")/g, `$1${up}$2`);
   return html;
 }
 
@@ -480,15 +398,26 @@ const maxYear = songYears.length ? Math.max(...songYears) : new Date().getFullYe
 const thumbHtml = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
 const urls = [""];
 
+const rootManifest = JSON.parse(read("manifest.webmanifest"));
+const MANIFEST_COPY = {
+  en: {
+    name: "Ado Fan Chant Guide",
+    short_name: "Ado Chant Guide",
+    description: "Unofficial fan-made Ado concert chant guide: watch MVs with synced lyrics to practice claps, sing-alongs, penlight colors, and calls."
+  },
+  ja: {
+    name: "Ado 応援ガイド",
+    short_name: "Ado 応援ガイド",
+    description: "ファン制作の非公式 Ado ライブ応援ガイド：公式MVと同期歌詞で手拍子・合唱・ペンライト色・コールを予習できます。"
+  }
+};
+
 // ── 每種語言產生首頁＋每首歌的獨立頁 ──
 function renderLang(L) {
   const T = makeT(L.code);
   const tpl = langTemplate(L, T);
   const icon = a => `<svg class="a-${a}" role="img" aria-label="${esc(T(ACT_MAP[a]?.name || a))}"><use href="#${ACT_MAP[a]?.icon || "i-sing"}"/></svg>`;
-  const penDots = s => {
-    const p = penOf(s, T);
-    return `<span class="dots" aria-label="${esc(T("螢光棒：") + p.shortText)}">${p.keys.map(k => (k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`)).join("")}</span>`;
-  };
+  const penDots = s => sharedPenDots(s, PEN, T);
   const subOf = s => [namePart(s, L.code), s.cover ? T("翻唱") : ""].filter(Boolean).join("・");
   const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
   const tipsOf = s => (s.hold || s.sug ? [] : s.tips || []).map(t => T(t));
@@ -696,8 +625,6 @@ function renderLang(L) {
     let songHtml = page(tpl, L, T, { rest, base: "../../", song: s, title: pageTitle, desc, ld: songLd });
 
     // 靜態預渲染歌詞行與應援標記；第二行：中文版放中譯、英文版放羅馬拼音、日文版不放
-    const mainAct = acts => acts.find(a => a !== "listen") || (acts.length ? "listen" : "");
-    const lineAct = l => ((l.sing && l.sing.length) ? "sing" : mainAct((l.acts || []).filter(a => a !== "sing")) || mainAct(l.acts || []));
     const subLine = l => (L.code === "en" ? l.ro || "" : L.code === "ja" ? "" : l.tr || "");
     let prerenderedLines = "";
     if (!lines.length) {
@@ -766,6 +693,21 @@ function renderLang(L) {
     if (nextSong) songHtml = mustReplace(songHtml, /<a class="ib" id="nextSong" aria-label="[^"]*">/, () => `<a class="ib" id="nextSong" href="song/${nextSong.id}/" data-id="${nextSong.id}" aria-label="${esc(T("下一首：{0}", nextSong.ja))}">`, "song #nextSong");
 
     write(`${L.dir}song/${s.id}/index.html`, songHtml);
+  }
+  if (L.code !== "zh") {
+    const copy = MANIFEST_COPY[L.code];
+    const locManifest = {
+      ...rootManifest,
+      name: copy.name,
+      short_name: copy.short_name,
+      description: copy.description,
+      lang: L.code,
+      start_url: "./",
+      scope: "./",
+      icons: (rootManifest.icons || []).map(ic => ({ ...ic, src: `../${ic.src}` })),
+      shortcuts: (rootManifest.shortcuts || []).map(sc => ({ ...sc, name: T(sc.name) }))
+    };
+    write(`${L.dir}manifest.webmanifest`, JSON.stringify(locManifest, null, 2) + "\n");
   }
 }
 LANGS.forEach(renderLang);
@@ -893,15 +835,14 @@ write("llms.txt", generateLlmsTxt());
 write("llms-full.txt", generateLlmsFullTxt());
 
 for (const [f, text] of Object.entries(lyFiles)) write(f, text);
+for (const [f, text] of Object.entries(karaokeFiles)) write(f, text);
+write("style.css", cssOut);
+write("songs.js", songsOut);
+write("app.js", appOut);
+write("karaoke-sources.js", karaokeSrcOut);
 
-// 其他檔案原樣複製（song-lyrics.js 留著給還開著舊版網頁的人）
+// 其他檔案原樣複製（song-lyrics.js 與 song-lyrics-live.js 留在原始碼供免建置開發模式使用）
 for (const f of [
-  "style.css",
-  "songs.js",
-  "app.js",
-  "karaoke-sources.js",
-  "song-lyrics.js",
-  "song-lyrics-live.js",
   "CHANGELOG.md",
   "manifest.webmanifest",
   "googlea6b361c7e6e7d11c.html",
@@ -913,17 +854,28 @@ for (const f of [
 if (fs.existsSync(path.join(root, "assets/favicon.ico"))) {
   fs.copyFileSync(path.join(root, "assets/favicon.ico"), path.join(out, "favicon.ico"));
 }
-// 離線用的 Service Worker：先存核心外殼與 lyrics/index.json（__PRECACHE__），再分批存每首歌詞（__LYRICS_PRECACHE__）；VERSION 跟著內容走
+// 離線用的 Service Worker：先存核心外殼與 lyrics/index.json／hashes.json（__PRECACHE__），再依每首雜湊分批存歌詞（__LYRICS_PRECACHE__）；VERSION 跟著內容走
 const corePrecache = [
   ...LANGS.map(L => L.dir || "./"),
-  `style.css?v=${hash(css)}`, `songs.js?v=${hash(songsText)}`, `karaoke-sources.js?v=${hash(karaokeSrc)}`, `app.js?v=${hash(app)}`,
+  `style.css?v=${hash(cssOut)}`,
+  `songs.js?v=${hash(songsOut)}`,
+  `karaoke-sources.js?v=${hash(karaokeSrcOut)}`,
+  `app.js?v=${hash(appOut)}`,
   ...Object.entries(i18nFiles).map(([code, text]) => `i18n/${code}.js?v=${hash(text)}`),
   `lyrics/index.json?v=${LYV}`,
-  "manifest.webmanifest", "favicon.ico", "assets/favicon.svg", "assets/icon-192.png"
+  `lyrics/hashes.json?v=${LYV}`,
+  "manifest.webmanifest",
+  "en/manifest.webmanifest",
+  "jp/manifest.webmanifest",
+  "favicon.ico",
+  "assets/favicon.svg",
+  "assets/icon-192.png",
+  ...(fs.existsSync(path.join(root, "assets/icon-maskable.svg")) ? ["assets/icon-maskable.svg"] : [])
 ];
-const lyricsPrecache = Object.keys(lyFiles)
-  .filter(f => f !== "lyrics/index.json")
-  .map(f => `${f}?v=${LYV}`);
+const lyricsPrecache = [
+  ...Object.entries(mvHashes).map(([id, h]) => `lyrics/${id}.json?v=${h}`),
+  ...Object.entries(liveHashes).map(([id, h]) => `lyrics-live/${id}.json?v=${h}`)
+];
 const swSrc = read("sw.js");
 const hasSplitPrecache = swSrc.includes("__LYRICS_PRECACHE__");
 const swPre = hasSplitPrecache ? corePrecache : [...corePrecache, ...lyricsPrecache];
@@ -935,7 +887,8 @@ write("sw.js", swOut);
 write("CNAME", "ado.kuti.cc\n");
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
-console.log(`輸出到 ${out}：中文、英文（en/）、日文（jp/）各首頁＋${SONGS.length} 首歌頁、${Object.keys(lyIndex).length} 首歌詞檔${Object.keys(ROMAJI).length ? `（${Object.keys(ROMAJI).length} 首有羅馬拼音）` : "（沒有 song-romaji.json，英文版不放羅馬拼音）"}、sitemap.xml、robots.txt、llms.txt、llms-full.txt、404.html`);
+const kCount = Object.keys(karaokeHashes).length;
+console.log(`輸出到 ${out}：中文、英文（en/）、日文（ja/）各首頁＋${SONGS.length} 首歌頁、${Object.keys(lyIndex).length} 首歌詞檔${kCount ? `、${kCount} 首卡拉OK快取` : ""}${Object.keys(ROMAJI).length ? `（${Object.keys(ROMAJI).length} 首有羅馬拼音）` : "（沒有 song-romaji.json，英文版不放羅馬拼音）"}${esbuild ? "（已啟用 esbuild 壓縮）" : ""}、sitemap.xml、robots.txt、llms.txt、llms-full.txt、404.html`);
 for (const code of ["en", "ja"]) {
   if (missing[code].size) console.log(`⚠ ${code} 還沒翻譯 ${missing[code].size} 句（畫面先顯示中文）：${[...missing[code]].slice(0, 8).join("｜")}${missing[code].size > 8 ? "…" : ""}`);
 }

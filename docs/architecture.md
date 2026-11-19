@@ -5,18 +5,20 @@
 ```mermaid
 flowchart TB
   subgraph SRC["原始檔（版控）"]
+    PKG["package.json 腳本與開發相依"]
     HTML["index.html 版面模板"]
     CSS["style.css"]
+    SHARED["shared/render.js<br/>js/*.js（setlist・penlight・quiz-engine）"]
     APP["app.js 所有互動"]
     SONGS["songs.js<br/>SONGS・UT・PEN・BEAT・CLIMAX・LIVES"]
-    LYR["song-lyrics.js<br/>逐行歌詞 acts・sing・call"]
+    LYR["song-lyrics.js・song-lyrics-live.js<br/>逐行歌詞 acts・sing・call（免建置直開用）"]
     I18N["i18n.js 英日字典"]
-    KS["karaoke-sources.js 逐字時間"]
+    KS["karaoke-sources.js 逐字時間<br/>karaoke-cache.json 靜態快取"]
     LOG["CHANGELOG.md"]
   end
 
-  subgraph CI["GitHub Actions：push main"]
-    CHK["check-data.mjs"] --> TK["test-karaoke.mjs"] --> RO["romaji.mjs"] --> BLD["build.mjs"]
+  subgraph CI["GitHub Actions：push / PR main"]
+    CHK["npm run check"] --> TK["npm run test:karaoke"] --> UT["npm run test:unit"] --> RO["npm run romaji"] --> BLD["npm run build（esbuild 壓縮）"] --> UI["npm run test:ui"]
   end
   SRC --> CI
 
@@ -25,8 +27,8 @@ flowchart TB
     EN["/en/"]
     JP["/jp/"]
     SP["song/id/ 三種語言<br/>base href・data-song・SEO"]
-    LJ["lyrics/index.json<br/>lyrics/id.json"]
-    MISC["sitemap・robots・llms.txt<br/>404・CNAME・i18n/en.js ja.js"]
+    LJ["lyrics/index.json・hashes.json<br/>lyrics/id.json・karaoke/id.json"]
+    MISC["sitemap・robots・llms.txt・404<br/>i18n/en.js ja.js・各語系 manifest"]
   end
   BLD --> DIST
 
@@ -85,9 +87,16 @@ flowchart TB
   ROUTE --> GA
   H --> GH
 
-  ST[("localStorage／sessionStorage<br/>theme・view-opts・mv-rate・list-sort<br/>tool-*・alert-off・recent<br/>install-dismissed・list-shown")]
+  ST[("localStorage／sessionStorage<br/>theme・view-opts・mv-rate・list-sort<br/>tool-*・alert-off・recent・practice-setlist<br/>quiz-best・install-dismissed・list-shown")]
   RT <--> ST
 ```
+
+### 1-1. 建置管線、共用模組與離線快取重點
+
+- **`package.json` 腳本**：`check`（資料驗證）、`test`（`check`＋`test:karaoke`＋`test:unit`）、`test:unit`（`studio.test.mjs`、`kana.test.mjs`、`shared/modules.test.mjs`）、`test:ui`（Playwright E2E + A11y）、`romaji`、`build`、`stage3d:build`、`studio`、`dev`。
+- **共用與拆分 UMD 模組**：`shared/render.js` 提供建置期（`scripts/build.mjs`）與瀏覽器共用的顏色／動作／歌詞與速覽渲染函式；`js/setlist.js`（待練清單、分享網址與熟練度）、`js/penlight.js`（WebSocket 節流重連）、`js/quiz-engine.js`（測驗出題與判定）可由 Node 單元測試直接 `require()` 驗證。
+- **合併與壓縮（`esbuild`）**：`scripts/build.mjs` 將 `shared/render.js`、`js/setlist.js`、`js/penlight.js`、`js/quiz-engine.js`、`app.js` 合併並壓縮為 `dist/app.js`（HTML 中的 `<!-- build:app-scripts:start/end -->` 收合為單一 `<script defer src="app.js?v=...">`），同時壓縮 `dist/style.css`、`dist/songs.js`、`dist/karaoke-sources.js`、`dist/i18n/{en,ja}.js`；`en/` 與 `jp/` 頁面在建置時會移除繁中 `LINESeedTW` 字型標記。
+- **分首快取與多語系 PWA**：`karaoke-cache.json` 拆成 `dist/karaoke/<id>.json`，與 `lyrics/<id>.json`、`lyrics-live/<id>.json` 的內容雜湊一併寫入 `dist/lyrics/hashes.json`。Service Worker（`sw.js`）在安裝時原子快取 `CORE_PRECACHE`，並比對 `LYRICS_PRECACHE` 的每首 `?v=<hash>` 先復用舊快取命中項目，只抓新增或變動歌曲；`dist/` 不複製整包 `song-lyrics.js` / `song-lyrics-live.js`（僅保留於根目錄供免建置本機預覽），並輸出 `manifest.webmanifest`、`en/manifest.webmanifest`、`jp/manifest.webmanifest`（含 maskable SVG 與捷徑）。
 
 ## 2. 打開一首歌的流程
 

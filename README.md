@@ -34,21 +34,27 @@
 ```text
 index.html                  ← 網站的版面（HTML）
 style.css                   ← 樣式：顏色、排版、手機版
+shared/render.js            ← 建置與瀏覽器共用的渲染工具（手燈色、動作表、歌詞／速覽）
+js/                         ← 獨立功能模組（setlist.js 待練清單、penlight.js 手燈連線、quiz-engine.js 測驗判定）
 app.js                      ← 所有互動程式（播放、歌詞捲動、搜尋、燈光效果）
 songs.js                    ← 歌曲資料表（歌單 SONGS、歌ネット編號 UT、螢光棒 PEN、拍點 BEAT、副歌高潮 CLIMAX）
-song-lyrics.js              ← 每首歌的同步日文歌詞、繁中翻譯與逐行應援動作
+song-lyrics.js              ← 每首歌的同步日文歌詞、繁中翻譯與逐行應援動作（免建置本機直開使用）
+song-lyrics-live.js         ← 現場版（LIVE）同步歌詞（免建置本機直開使用）
+karaoke-sources.js          ← 卡拉OK逐字時間來源與對齊邏輯
+karaoke-cache.json          ← 靜態卡拉OK時間快取；建置時拆成 dist/karaoke/<id>.json
 i18n.js                     ← 英文、日文版的介面翻譯（key 是中文原文）；建置時拆成 i18n/en.js、i18n/ja.js
 CHANGELOG.md                ← 更新日誌；網站頁尾的「更新日誌」直接讀這個檔案
-manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示與顏色
-sw.js                       ← 離線用的 Service Worker：建置時填進版本和要先存起來的檔案（首頁、CSS／JS、每首歌詞）
-assets/                     ← 網站圖示（favicon、主畫面圖示）、分享預覽圖 og.jpg；icons/ 是頁尾的 Threads、IG 圖示（Simple Icons，CC0）
-scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲與歌詞一致性、動作合法性、時間順序等
-scripts/test-ui.mjs         ← 畫面冒煙測試（Playwright）：開 dist/ 走一遍首頁、歌曲頁、分享、測驗模式、離線、手機版面
-scripts/build.mjs           ← 建置：中文、英文（en/）、日文（jp/）各一份首頁與每首歌一頁 song/<id>/、歌詞拆檔 lyrics/<id>.json、sitemap.xml、404.html，輸出到 dist/
+manifest.webmanifest        ← 加到手機主畫面時的名稱、圖示（含 maskable）、捷徑與顏色；建置另產 en/ 與 jp/ 版本
+sw.js                       ← 離線用的 Service Worker：原子快取核心外殼並依單曲雜湊復用未變動歌詞
+assets/                     ← 網站圖示（favicon、主畫面／maskable 圖示）、分享預覽圖 og.jpg；icons/ 是頁尾社群圖示
+package.json                ← 專案腳本與開發相依（esbuild、kuromoji、playwright、@axe-core/playwright）
+scripts/check-data.mjs      ← 資料自動檢查：檢查歌曲、歌詞、karaoke-cache.json 與 i18n 覆蓋率
+scripts/test-ui.mjs         ← 畫面冒煙與無障礙測試（Playwright + axe-core）：走一遍 dist/ 首頁、歌曲頁、清單、離線等
+scripts/build.mjs           ← 建置：用 esbuild 合併壓縮 JS/CSS、三語系頁面、拆檔 lyrics/*.json、karaoke/*.json、lyrics/hashes.json、多語系 manifest 與 SEO 檔案到 dist/
 tools/studio/               ← 新歌工作站（只在本機用）：server.mjs 開介面、cli.mjs 命令列，兩者共用 core.mjs；寫入規則在 lyrics-store.js、song-meta-store.js；規劃見 docs/studio-plan.md
 CLAUDE.md                   ← 給 Claude 的工作說明（改資料用工作站命令列、應援資料的規矩、怎麼發布）
 tools/romaji/               ← 英文版歌詞的羅馬拼音：建置前用 kuromoji 自動產生 song-romaji.json（不進版控），讀錯的寫在 overrides.json
-.github/workflows/pages.yml ← 推到 main 就建置並發布到 GitHub Pages
+.github/workflows/pages.yml ← push / PR 到 main 時快取 npm 與 Playwright、跑全部檢查並發布 dist/ 到 GitHub Pages
 README.md                   ← 這份說明
 google….html               ← Google Search Console 的擁有權驗證檔，不要刪
 開啟網站.command             ← 在自己的 Mac 上看網站時點兩下（開一個本機伺服器）
@@ -88,15 +94,15 @@ python3 -m http.server 8000
 
 再打開 <http://localhost:8000/>。
 
-想看發布後的樣子（含每首歌的獨立頁）：
+想看發布後的樣子（含每首歌的獨立頁、`esbuild` 壓縮與分首快取）：
 
 ```bash
-node scripts/build.mjs dist
+npm run build
 ```
 
 再到 `dist` 資料夾開靜態伺服器。獨立頁的網址、分享圖與 canonical 都寫成正式網址，所以本機只用來看版面和功能。
 
-直接開原始檔時沒有拆好的歌詞，網頁會自動改讀整份 `song-lyrics.js`；建置後的網頁（`<html data-lyrics="…">`）才會一首一首讀 `lyrics/`。
+直接開原始檔時沒有拆好的歌詞，網頁會自動改讀整份 `song-lyrics.js`／`song-lyrics-live.js`；建置後的網頁（`<html data-lyrics="…">`）會一首一首讀 `lyrics/`、`lyrics/hashes.json` 與 `karaoke/<id>.json`（`dist/` 不複製整包 `song-lyrics.js`／`song-lyrics-live.js`）。
 
 ### 新歌工作站
 
@@ -135,23 +141,25 @@ Windows 點兩下 `工作站.bat`，Mac 點兩下 `工作站.command`（或 `nod
 
 網站上顯示的歌曲資料在「歌曲」分頁改：狀態（正式／暫定建議／自由應援／整理中）、手燈色（依點選順序）、整首應援動作（可以「從逐句帶入」）、應援重點與英日翻譯、副歌高潮秒數、官方 LIVE 映像。按「存歌曲資料」時一樣先檢查，再只改這首歌在 `songs.js`（和 `i18n.js`）裡的那幾行。
 
-### 資料自動檢查
+### 資料自動檢查與測試腳本
 
-改完歌曲或歌詞資料後，可以先跑資料檢查腳本，確認格式、動作名稱、時間順序與資料表完整性（GitHub Actions 發布前也會自動跑）：
-
-```bash
-node scripts/check-data.mjs
-```
-
-改了畫面或互動程式，可以再跑畫面測試（第一次要先裝 Playwright；YouTube 會換成假的播放器，不用連網）：
+安裝開發相依（`esbuild`、`kuromoji`、`playwright`、`@axe-core/playwright`）後，可用 `package.json` 腳本一鍵執行檢查、測試與建置：
 
 ```bash
-npm install --no-save --no-package-lock playwright@1.64.1 && npx playwright install chromium-headless-shell
+npm install --no-package-lock
+npm test        # 依序執行 npm run check、npm run test:karaoke、npm run test:unit
+npm run romaji  # 產生英文版歌詞用的 song-romaji.json
+npm run build   # 建置並以 esbuild 壓縮輸出到 dist/
 ```
 
+改了畫面或互動程式，可以再跑畫面與無障礙測試（第一次要先裝 Playwright 瀏覽器；YouTube 會換成假的播放器，不用連網）：
+
 ```bash
-node scripts/build.mjs dist && node scripts/test-ui.mjs dist
+npx playwright install chromium-headless-shell
+npm run build && npm run test:ui
 ```
+
+其他常用腳本：`npm run check`（只檢查資料）、`npm run test:karaoke`、`npm run test:unit`（工作站、羅馬拼音與共用模組單元測試）、`npm run stage3d:build`、`npm run studio`（開啟新歌工作站）、`npm run dev`（Mac 本機開站）。
 
 ## 3. 發布到 GitHub Pages
 

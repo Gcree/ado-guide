@@ -323,8 +323,17 @@ function checkI18nKey(key, source) {
   }
 }
 
-for (const file of ["app.js", "scripts/build.mjs"]) {
-  const src = fs.readFileSync(path.join(root, file), "utf8");
+const scanFiles = ["app.js", "scripts/build.mjs", "shared/render.js"];
+const jsDir = path.join(root, "js");
+if (fs.existsSync(jsDir)) {
+  for (const f of fs.readdirSync(jsDir).sort()) {
+    if (f.endsWith(".js")) scanFiles.push(`js/${f}`);
+  }
+}
+for (const file of scanFiles) {
+  const fullPath = path.join(root, file);
+  if (!fs.existsSync(fullPath)) continue;
+  const src = fs.readFileSync(fullPath, "utf8");
   const re = /\bT\(\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g;
   let m;
   while ((m = re.exec(src))) {
@@ -344,6 +353,29 @@ for (const b of [...LYRICS, ...LYRICS_LIVE]) {
     if (l.call && !l.call.includes("反拍")) checkI18nKey(l.call, `lyrics[${b.id}].call`);
     const jp = (l.jp || "").trim();
     if (/^（[^）]+）$/.test(jp)) checkI18nKey(jp, `lyrics[${b.id}].jp`);
+  }
+}
+
+// 8.5 karaoke-cache.json 檢查（若存在）
+const karaokeCachePath = path.join(root, "karaoke-cache.json");
+if (fs.existsSync(karaokeCachePath)) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(fs.readFileSync(karaokeCachePath, "utf8"));
+  } catch (err) {
+    error(`[karaoke-cache.json] JSON 解析失敗: ${err.message}`);
+  }
+  if (parsed !== null) {
+    if (typeof parsed !== "object" || Array.isArray(parsed)) {
+      error(`[karaoke-cache.json] 根結構必須為 JSON 物件`);
+    } else {
+      for (const [id, entry] of Object.entries(parsed)) {
+        if (!songsMap.has(id)) error(`[karaoke-cache.json] "${id}" 不在 songs.js 歌單中`);
+        if (!entry || typeof entry !== "object" || Array.isArray(entry) || !Array.isArray(entry.lines)) {
+          error(`[karaoke-cache.json] "${id}" 項目格式錯誤（缺少 lines 陣列）`);
+        }
+      }
+    }
   }
 }
 

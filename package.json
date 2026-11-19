@@ -1,0 +1,22 @@
+{
+  "name": "ado-guide",
+  "private": true,
+  "scripts": {
+    "check": "node scripts/check-data.mjs",
+    "test": "npm run check && npm run test:karaoke && npm run test:unit",
+    "test:karaoke": "node scripts/test-karaoke.mjs",
+    "test:unit": "node --test tools/studio/studio.test.mjs tools/romaji/kana.test.mjs shared/modules.test.mjs",
+    "test:ui": "node scripts/test-ui.mjs dist",
+    "romaji": "node tools/romaji/romaji.mjs",
+    "build": "node scripts/build.mjs dist",
+    "stage3d:build": "npm --prefix tools/stage3d run build",
+    "studio": "node tools/studio/server.mjs",
+    "dev": "bash 開啟網站.command"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "kuromoji": "0.1.2",
+    "playwright": "^1.65.0",
+    "@axe-core/playwright": "^4.10.2"
+  }
+}
