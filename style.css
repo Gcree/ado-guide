@@ -8048,6 +8048,48 @@ body.immersive-mode .dock.autohide {
   display: none !important;
 }
 
+/* 無 MV／預留曲目縮圖佔位框：維持與 .thumb 相同的 16:9 尺寸、圓角與深淺主題 WCAG AA 對比 */
+.thumb.thumb-ph,
+#songList .thumb-ph,
+.shelf .card .thumb-ph,
+.rel-link .thumb-ph,
+.reel-card .thumb-ph {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 4px;
+  background: var(--fill);
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  overflow: hidden;
+  user-select: none;
+}
+
+.thumb.thumb-ph > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.shelf .card .thumb-ph {
+  aspect-ratio: 16 / 9;
+  font-size: 13px;
+  padding: 8px;
+}
+
+.rel-link .thumb-ph {
+  font-size: 10px;
+  padding: 2px 4px;
+}
+
+.song-guide-card dd a:not([href]) {
+  color: var(--muted);
+  cursor: default;
+  text-decoration: none;
+}
+
 /* Windows 高對比 / Forced Colors 模式：補上外框與聚焦外框 */
 @media (forced-colors: active) {
   .btn,
@@ -8102,6 +8144,7 @@ body.immersive-mode .dock.autohide {
   .beat-step,
   .toast,
   .rel-block .rel-link,
+  .thumb.thumb-ph,
   .cue-track,
   .shelf-track,
   .mastery-track,

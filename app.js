@@ -32,7 +32,7 @@
   const { SONGS, UT, PEN, BEAT, CLIMAX, SERIES = [], PRACTICE = {} } = window.ADO_SONGS;
   // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示；沒有 tips 又不是 free 的歌也先視為 hold
   SONGS.forEach(s => { if (s.sug || (!s.free && (!s.tips || !s.tips.length))) s.hold = true; if (s.hold) { s.acts = []; s.tips = []; } });
-  SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = (s.tips || []).map(t => T(t)); s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
+  SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = (s.tips || []).map(t => T(t)); s.dur = s.len ? s.len.split(":").reduce((a, b) => a * 60 + +b, 0) : 0; });
   // 推出順序：MV 在 YouTube 公開的日期（日本時間）；編號照這個順序
   SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => s.no = i + 1);
   const VALID_SONG_IDS = new Set(SONGS.map(s => s.id));
@@ -193,11 +193,13 @@
   let filter = "all", sort = store.get("list-sort") === "cheer" ? "cheer" : "date", shown = Math.max(LIMIT, +session.get(shownKey) || 0);
   // 目前排序下的歌曲順序；切換上一首、下一首也照這個
   const ordered = () => sort === "cheer" ? [...SONGS].sort((a, b) => b.cheer - a.cheer || a.no - b.no) : SONGS;
-  const thumb = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
+  const thumb = (s, w, h, lazy) => s.yt
+    ? `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`
+    : `<span class="thumb thumb-ph" aria-hidden="true"><span>${esc(s.upcoming ? T("預留曲目") : T("尚無 MV"))}</span></span>`;
   // 歌名下面那行：中文名（和日文一樣時用英文名）、是不是翻唱
   // 歌名下面那行：中文版放官方中文名，英文版放英文名，日文版不放；翻唱曲加註
   const otherName = s => (LANG === "ja" ? "" : LANG === "en" ? (s.en && s.en !== s.ja ? s.en : "") : (s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : "")));
-  const subOf = s => [otherName(s), s.cover ? T("翻唱") : ""].filter(Boolean).join("・");
+  const subOf = s => [otherName(s), s.cover ? T("翻唱") : "", s.upcoming ? T("即將發行") : ""].filter(Boolean).join("・");
   const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
 
   const hasLiveVideo = s => Boolean(s.liveVideo || (s.live && s.yt));
@@ -667,7 +669,7 @@
           return sortedForReel.slice(start, end);
         });
         const reelCardHtml = s => {
-          const sub = otherName(s) || (s.cover ? T("翻唱") : "");
+          const sub = subOf(s);
           const year = (s.date || "").slice(0, 4);
           return `<a class="reel-card" href="song/${s.id}/" data-id="${s.id}" draggable="false">${thumb(s, 116, 65, true)}<span class="reel-info"><span class="reel-ja" lang="ja">${esc(s.ja)}</span><span class="reel-meta">${penDots(s)}<span class="reel-year">${esc(year)}</span>${sub ? `<span class="reel-sub">${esc(sub)}</span>` : ""}</span></span></a>`;
         };
@@ -839,7 +841,7 @@
 
   // 書架：推薦先練的 9 首＋最近發佈的 6 首；下方進度條跟著捲動走，箭頭到底就停用
   const STARTERS = FREQ_BY_TIER[1].map(id => BY[id]).filter(Boolean);
-  const LATEST = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
+  const LATEST = SONGS.filter(s => !s.upcoming).sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
   function setupShelf(songs, prefix) {
     const shelf = document.getElementById(prefix);
     const shelfNav = document.getElementById(`${prefix}Nav`);
@@ -1490,13 +1492,35 @@
     }
   }
 
+  function syncCardYtEl(el, curYt) {
+    if (!el) return;
+    if (curYt) {
+      el.href = `https://www.youtube.com/watch?v=${curYt}`;
+      el.target = "_blank";
+      el.rel = "noopener";
+      el.textContent = T("在 YouTube 開啟 ↗");
+    } else {
+      el.removeAttribute("href");
+      el.removeAttribute("target");
+      el.removeAttribute("rel");
+      el.textContent = T("尚未公開");
+    }
+  }
+
   function updateExternalLinks(s = S) {
     if (!s) return;
     const curYt = activeVideoId(s);
     const ytLink2 = document.getElementById("ytLink2");
-    if (ytLink2) ytLink2.href = `https://www.youtube.com/watch?v=${curYt}`;
-    const cardYt = document.getElementById("cardYt");
-    if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${curYt}`;
+    if (ytLink2) {
+      if (curYt) {
+        ytLink2.href = `https://www.youtube.com/watch?v=${curYt}`;
+        ytLink2.hidden = false;
+      } else {
+        ytLink2.removeAttribute("href");
+        ytLink2.hidden = true;
+      }
+    }
+    syncCardYtEl(document.getElementById("cardYt"), curYt);
   }
 
   const normLyricText = txt => String(txt || "")
@@ -1588,7 +1612,7 @@
   }
 
   // 長度以 YouTube 回報的為準，還沒載好才用資料裡的長度
-  const DUR = () => { try { const d = ready && vid === activeVideoId(S) && player.getDuration(); if (d) return d; } catch (e) {} return S ? S.dur : 1; };
+  const DUR = () => { try { const d = ready && vid && vid === activeVideoId(S) && player.getDuration(); if (d) return d; } catch (e) {} return S ? S.dur : 1; };
   function videoMsg(text, loading = false) {
     vstatus.hidden = !text;
     vstatus.classList.toggle("is-loading", !!text && loading);
@@ -1608,11 +1632,11 @@
     try { st = player.getPlayerState(); } catch (e) {}
     setVideoLoading(st === -1 || st === 3);
   };
-  const now = () => { try { return ready && player.getCurrentTime() || 0; } catch (e) { return 0; } };
-  const isPlaying = () => { try { return ready && [1, 3].includes(player.getPlayerState()); } catch (e) { return false; } };
-  function play() { if (ready && player) try { player.playVideo(); } catch (e) {} }
+  const now = () => { try { return (ready && vid && vid === activeVideoId(S) && player.getCurrentTime()) || 0; } catch (e) { return 0; } };
+  const isPlaying = () => { try { return ready && !!vid && vid === activeVideoId(S) && [1, 3].includes(player.getPlayerState()); } catch (e) { return false; } };
+  function play() { if (ready && player && S && activeVideoId(S) && vid) try { player.playVideo(); } catch (e) {} }
   function pause() { clearTimeout(muteTimer); if (ready && player) try { player.pauseVideo(); } catch (e) {} }
-  function seek(t) { if (!ready || !player) return; try { player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); } catch (e) {} }
+  function seek(t) { if (!ready || !player || !S || !activeVideoId(S) || !vid) return; try { player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); } catch (e) {} }
 
   // 播放速度：放慢練應援時間點，記在這台裝置
   // 電腦是工具列上的下拉選單，手機是一顆按鈕輪流切換（1 → 0.75 → 0.5）
@@ -1663,7 +1687,7 @@
 
   function scheduleReadyCheck() {
     clearTimeout(readyTimer);
-    if (ready || !S || songV.hidden || !navigator.onLine || location.protocol === "file:") return;
+    if (ready || !S || songV.hidden || !activeVideoId(S) || !navigator.onLine || location.protocol === "file:") return;
     readyTimer = setTimeout(() => {
       if (ready || !S || songV.hidden || !navigator.onLine) return;
       if (playerRetries < 2) {
@@ -1736,6 +1760,21 @@
 
   function loadVideo() {
     if (!S || songV.hidden) return;
+    const targetVid = activeVideoId(S);
+    if (!targetVid) {
+      clearTimeout(readyTimer);
+      clearTimeout(muteTimer);
+      if (ready && player && typeof player.pauseVideo === "function") {
+        try { player.pauseVideo(); } catch (e) {}
+      }
+      vid = "";
+      START = 0;
+      setVideoLoading(false);
+      videoMsg(S.upcoming
+        ? T("這首尚未公開官方 MV，發行後就會補上影片與同步歌詞。")
+        : T("這首目前沒有官方 YouTube 影片，可透過下方串流平台收聽。"));
+      return;
+    }
     if (!window.YT || !YT.Player) {
       if (navigator.onLine && location.protocol !== "file:") {
         if (!ytScriptEl && typeof reloadYT === "function") reloadYT();
@@ -1743,7 +1782,6 @@
       }
       return;
     }
-    const targetVid = activeVideoId(S);
     const startSec = START || 0;
     if (!player) {
       vid = targetVid;
@@ -1799,6 +1837,12 @@
   function tapPlay(targetSong) {
     const src = targetSong === S ? currentVideoSource(targetSong) : (targetSong.liveVideo && TOOL["prefer-live"] ? "live" : "mv");
     const targetVid = src === "live" && targetSong.liveVideo ? targetSong.liveVideo.yt : targetSong.yt;
+    if (!targetVid) {
+      if (player && ready && typeof player.pauseVideo === "function") {
+        try { player.pauseVideo(); } catch (err) {}
+      }
+      return;
+    }
     if (player && ready) {
       try {
         player.unMute();
@@ -1851,6 +1895,7 @@
       yts.onerror = () => {
         if (ytScriptEl === yts) ytScriptEl = null;
         yts.remove();
+        if (S && !songV.hidden && !activeVideoId(S)) return;
         if (!navigator.onLine) videoMsg(OFFLINE);
         else if (S && !songV.hidden && playerRetries < 2) scheduleReadyCheck();
         else videoMsg(T("無法載入 YouTube 播放器，請到 YouTube 觀看。"));
@@ -1861,8 +1906,8 @@
     window.onYouTubeIframeAPIReady = () => { loadVideo(); };
     if (!navigator.onLine) videoMsg(OFFLINE);
     loadYT();
-    addEventListener("online", () => { if (!ready) { playerRetries = 0; videoMsg(T("正在載入影片…"), true); loadYT(); scheduleReadyCheck(); } });
-    addEventListener("offline", () => { if (!ready) { clearTimeout(readyTimer); videoMsg(OFFLINE); } });
+    addEventListener("online", () => { if (!ready) { playerRetries = 0; if (!(S && !songV.hidden && !activeVideoId(S))) { videoMsg(T("正在載入影片…"), true); scheduleReadyCheck(); } loadYT(); } });
+    addEventListener("offline", () => { if (!ready && !(S && !songV.hidden && !activeVideoId(S))) { clearTimeout(readyTimer); videoMsg(OFFLINE); } });
   }
   // 離線用的 Service Worker：只有建置過的網站才有 sw.js；ROOT 讓英文、日文版也註冊到網站根目錄
   if (LYV && "serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register(ROOT + "sw.js").catch(() => {}));
@@ -1956,8 +2001,7 @@
         if (dt && dd) { dd.textContent = v; dt.hidden = dd.hidden = !v; }
       });
       document.getElementById("cardTips").textContent = s.tips && s.tips.length ? s.tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。"));
-      const cardYt = document.getElementById("cardYt");
-      if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${activeVideoId(s)}`;
+      syncCardYtEl(document.getElementById("cardYt"), activeVideoId(s));
       const cardStream = document.getElementById("cardStream");
       if (cardStream) cardStream.innerHTML = (s.stream || []).map(x => `<a href="${esc(x.url)}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ");
       const cardLiveDt = document.getElementById("cardLiveDt");
@@ -2177,7 +2221,7 @@
   // 時間軸：每段動作依歌詞時間畫成色塊（同一個動作連續的句子併成一段）
   function buildTrack() {
     const d = DUR();
-    const sig = S && LINES.length && TAGGED ? `${S.id}|${Math.round(d)}|${LINES.length}|${LINES[0].t}|${LINES[LINES.length - 1].t}` : "";
+    const sig = S && LINES.length && TAGGED && d > 0 ? `${S.id}|${Math.round(d)}|${LINES.length}|${LINES[0].t}|${LINES[LINES.length - 1].t}` : "";
     if (sig === trackSig) return;
     trackSig = sig; trackDur = d;
     if (!sig) { cueTrack.innerHTML = ""; return; }
@@ -2625,11 +2669,15 @@
       cloned.removeAttribute("id");
       cloned.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
       const h3 = cloned.querySelector(".card-title"); if (h3) h3.remove();
+      const dateStr = LANG === "en" ? (s.date || "") : (s.date || "").replace(/-/g, "/");
+      const metaParts = s.upcoming
+        ? [LANG === "en" ? `Scheduled ${dateStr}` : LANG === "ja" ? `${dateStr} リリース予定` : `預計 ${dateStr} 發行`, s.len].filter(Boolean)
+        : [dateStr, s.len].filter(Boolean);
       const lead = LANG === "en"
-        ? `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""} (${s.date}, ${s.len}). ${p.none ? "No fixed penlight color; use Ado's blue." : `Recommended penlight: ${p.keys.map(penName).join(", ")}.`} ${tipText}`
+        ? `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""}${metaParts.length ? ` (${metaParts.join(", ")})` : ""}. ${p.none ? "No fixed penlight color; use Ado's blue." : `Recommended penlight: ${p.keys.map(penName).join(", ")}.`} ${tipText}`
         : LANG === "ja"
-        ? `「${s.ja}」（${(s.date || "").replace(/-/g, "/")}・${s.len}）。${p.none ? "ペンライト色指定なし（青）。" : `おすすめペンライト：${p.keys.map(penName).join("・")}。`}${tipText}`
-        : `〈${s.ja}〉${dn ? `（${dn}）` : ""}（${(s.date || "").replace(/-/g, "/")}・${s.len}）。${p.none ? "手燈未指定固定顏色，建議切換為 Ado 代表色藍色。" : `推薦手燈：${p.keys.map(penName).join("、")}。`}${tipText}`;
+        ? `「${s.ja}」${metaParts.length ? `（${metaParts.join("・")}）` : ""}。${p.none ? "ペンライト色指定なし（青）。" : `おすすめペンライト：${p.keys.map(penName).join("・")}。`}${tipText}`
+        : `〈${s.ja}〉${dn ? `（${dn}）` : ""}${metaParts.length ? `（${metaParts.join("・")}）` : ""}。${p.none ? "手燈未指定固定顏色，建議切換為 Ado 代表色藍色。" : `推薦手燈：${p.keys.map(penName).join("、")}。`}${tipText}`;
       inlineEl.innerHTML = `<h2 class="guide-inline-h">${T("〈{0}〉應援速覽", `${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}`)}</h2><p class="guide-inline-lead">${esc(lead)}</p>`;
       inlineEl.appendChild(cloned);
     }
@@ -3760,7 +3808,7 @@
     });
   }
   async function quizStart() {
-    if (!S || !ready) return;
+    if (!S || !ready || !activeVideoId(S)) return;
     const song = S;
     const seq = ++quizStartSeq;
     if (song.liveVideo && currentVideoSource(song) === "live") {
@@ -4067,7 +4115,7 @@
     const parsedList = parseListHash(h, VALID_SONG_IDS);
     let [id, at] = h.split("@"), s = BY[id];
     if (!s && parsedList === null && h === "random") {
-      const pool = SONGS.filter(x => !x.hold && !x.sug && (x.free || (x.tips && x.tips.length > 0)));
+      const pool = SONGS.filter(x => !x.hold && !x.sug && Boolean(x.yt) && (x.free || (x.tips && x.tips.length > 0)));
       const pick = pool[Math.floor(Math.random() * pool.length)];
       if (pick) {
         s = pick;
@@ -4149,7 +4197,7 @@
     // 縮圖是 16:9，封套是正方形：數字是裁切的水平位置（0 最左、100 最右），逐首看過縮圖決定。
     // 踊、ロックスター、エルフ 的縮圖以大字為主或角色太小，裁成正方形不好看，先不放；還沒確認螢光棒色（hold）的也不放
     const FX = { show: 55, usseewa: 45, readymade: 40, gyakkou: 50, shinjidai: 55, giragira: 35, kurakura: 58, saikyo: 55, aiaia: 50, totmusica: 50, kira: 40, ibara: 45, rebellion: 50, chocolat: 62, ashura: 45, kokoro: 50, himawari: 50, dignity: 55, hibana: 50, magic: 50, kanjaa: 65 };
-    const POOL = Object.keys(FX).map(id => BY[id]).filter(s => s && !s.hold);
+    const POOL = Object.keys(FX).map(id => BY[id]).filter(s => s && !s.hold && Boolean(s.yt));
     const hero = document.querySelector(".hero"), stage = document.getElementById("crateStage"), crate = document.getElementById("crate");
     const crateNow = document.getElementById("crateNow"), shuffleBtn = document.getElementById("shuffle");
     // 觸控與否要即時判斷：平板接上滑鼠、或視窗縮放時會變
@@ -4166,6 +4214,7 @@
     const art = s => {
       const i = new Image();
       i.alt = ""; i.decoding = "async";
+      if (!s || !s.yt) return i;
       let fellBack = false;
       const fallback = () => {
         if (fellBack) return;

@@ -48,8 +48,10 @@
   };
 
   function isoDuration(len) {
-    const [m = 0, s = 0] = String(len || "0:00").split(":").map(Number);
-    return `PT${Number.isFinite(m) ? m : 0}M${Number.isFinite(s) ? s : 0}S`;
+    if (!len) return "";
+    const match = String(len).trim().match(/^(\d+):([0-5]\d)$/);
+    if (!match) return "";
+    return `PT${Number(match[1])}M${Number(match[2])}S`;
   }
 
   const isNote = txt => /^（[^）]+）$/.test(String(txt || "").trim());
@@ -234,10 +236,16 @@
     const album = s.album ? t(s.album) : "";
     const liveNames = (s.lives || []).map(l => l.concert);
     const dateSlash = String(s.date || "").replace(/-/g, "/");
+    const lenEn = s.len ? ` (${s.len})` : "";
+    const lenJa = s.len ? `（${s.len}）` : "";
+    const lenZh = s.len ? `（長度 ${s.len}）` : "";
 
     if (code === "en") {
+      const leadEn = s.upcoming
+        ? `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""} is scheduled for cover album release on ${s.date}${lenEn}${tie ? `, featured in ${tie}` : ""}${album ? `, included on "${album}"` : ""}.`
+        : `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""} was released on ${s.date}${lenEn}${s.cover ? " as a cover track" : ""}${tie ? `, featured in ${tie}` : ""}${album ? `, and included on "${album}"` : ""}.`;
       const parts = [
-        `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""} was released on ${s.date} (${s.len})${s.cover ? " as a cover track" : ""}${tie ? `, featured in ${tie}` : ""}${album ? `, and included on "${album}"` : ""}.`,
+        leadEn,
         safePen.none
           ? "No official song-specific penlight color is assigned, so fans switch to Ado's signature blue at concerts."
           : `Recommended concert penlight color: ${(safePen.words || []).join(", ")}.`,
@@ -245,14 +253,19 @@
           ? `Main audience participation${actNames.length ? ` (${actNames.join(", ")})` : ""}${cheerLines ? ` across ${cheerLines} cued lyric lines` : ""}: ${safeTips.join("; ")}.`
           : (s.free
             ? "There is no fixed chant or clap routine for this track—sway your penlight naturally to the beat and enjoy Ado's vocals."
-            : "Confirmed live chant cues for this track are still being documented; practice along with the official MV and synced lyrics above."),
+            : s.upcoming
+              ? "This track has not been released yet; official MV, audio, and chant cues will be updated after release."
+              : "Confirmed live chant cues for this track are still being documented; practice along with the official MV and synced lyrics above."),
         liveNames.length ? `Official live audio/video releases are also available (${liveNames.join(", ")}).` : ""
       ];
       return parts.filter(Boolean).join(" ");
     }
     if (code === "ja") {
+      const leadJa = s.upcoming
+        ? `「${s.ja}」は ${dateSlash} リリース予定の Ado の${s.cover ? "カバー" : ""}楽曲${lenJa}です${tie ? `。タイアップ：${tie}` : ""}${album ? `${tie ? "、" : "。"}収録：${album}` : ""}。`
+        : `「${s.ja}」は ${dateSlash} に公開された Ado の楽曲${lenJa}です${s.cover ? "（カバー曲）" : ""}${tie ? `。タイアップ：${tie}` : ""}${album ? `${tie ? "、" : "。"}収録：${album}` : ""}。`;
       const parts = [
-        `「${s.ja}」は ${dateSlash} に公開された Ado の楽曲（${s.len}）です${s.cover ? "（カバー曲）" : ""}${tie ? `。タイアップ：${tie}` : ""}${album ? `、収録：${album}` : ""}。`,
+        leadJa,
         safePen.none
           ? "楽曲固有のペンライト色指定はないため、ライブでは Ado のイメージカラーである青を基本に楽しむのが定番です。"
           : `ライブのおすすめペンライト色は「${(safePen.words || []).join("・")}」です。`,
@@ -260,13 +273,18 @@
           ? `主な応援ポイント${actNames.length ? `（${actNames.join("・")}）` : ""}${cheerLines ? `（同期歌詞 ${cheerLines} 行に合図あり）` : ""}：${safeTips.join("／")}。`
           : (s.free
             ? "この曲は固定のコールや手拍子の決まりがなく、リズムに合わせて自由にペンライトを振りながら Ado の歌声を聴くスタイルです。"
-            : "この曲のライブ応援はまだ情報整理中のため、まずは公式MVと同期歌詞でメロディーを予習しておくのがおすすめです。"),
+            : s.upcoming
+              ? "この曲は未公開のため、リリース後に公式動画・音源やライブ応援情報を更新予定です。"
+              : "この曲のライブ応援はまだ情報整理中のため、まずは公式MVと同期歌詞でメロディーを予習しておくのがおすすめです。"),
         liveNames.length ? `公式ライブ音源・映像（${liveNames.join("・")}）も公開されています。` : ""
       ];
       return parts.filter(Boolean).join(" ");
     }
+    const leadZh = s.upcoming
+      ? `〈${s.ja}〉${dn ? `（${dn}）` : ""}是 Ado 預計於 ${dateSlash} 發行的翻唱專輯曲目${lenZh}${tie ? `，為${tie}` : ""}${album ? `，收錄於${album.startsWith("《") ? album : `《${album}》`}` : ""}。`
+      : `〈${s.ja}〉${dn ? `（${dn}）` : ""}是 Ado 於 ${dateSlash} 推出的${s.cover ? "翻唱" : ""}歌曲${lenZh}${tie ? `，為${tie}` : ""}${album ? `，收錄於${album.startsWith("《") ? album : `《${album}》`}` : ""}。`;
     const parts = [
-      `〈${s.ja}〉${dn ? `（${dn}）` : ""}是 Ado 於 ${dateSlash} 推出的${s.cover ? "翻唱" : ""}歌曲（長度 ${s.len}）${tie ? `，為${tie}` : ""}${album ? `，收錄於${album.startsWith("《") ? album : `《${album}》`}` : ""}。`,
+      leadZh,
       safePen.none
         ? "這首歌目前沒有固定指定的螢光棒顏色，現場建議切換成 Ado 的代表色藍色。"
         : `演唱會推薦手燈顏色為「${(safePen.words || []).join("、")}」，也可搭配 PenlightSync 隨音樂自動變色。`,
@@ -274,7 +292,9 @@
         ? `主要應援方式包含${actNames.join("、")}${cheerLines ? `（共 ${cheerLines} 句標記動作）` : ""}：${safeTips.join("；")}。`
         : (s.free
           ? "這首歌沒有固定喊聲或拍手口號，現場可依節奏輕鬆揮動手燈、專心聆聽 Ado 的演唱。"
-          : "這首歌的現場固定應援仍在蒐集確認中，建議先搭配官方 MV 與上方同步歌詞熟悉旋律與斷句。"),
+          : s.upcoming
+            ? "這首曲目尚未正式發行，待官方釋出音源或影片後將補充歌詞與應援資訊。"
+            : "這首歌的現場固定應援仍在蒐集確認中，建議先搭配官方 MV 與上方同步歌詞熟悉旋律與斷句。"),
       liveNames.length ? `目前已釋出官方演唱會現場紀錄（${liveNames.join("、")}），可切換 Live 版本對照現場氣氛。` : ""
     ];
     return parts.filter(Boolean).join("");

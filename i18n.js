@@ -599,7 +599,23 @@
       "常唱曲熟練度 {0}／{1} 首": "Staples mastered: {0}/{1}",
       "測驗最高分：{0} 分（{1}）": "Quiz best: {0} pts ({1})",
       "清單第 {0}／{1} 首": "Track {0}/{1} in list",
-      "（靜態快取）": "(static cache)"
+      "（靜態快取）": "(static cache)",
+      "預留曲目": "Upcoming",
+      "尚無 MV": "No MV",
+      "即將發行": "Coming soon",
+      "尚未公開": "Not yet released",
+      "這首尚未公開官方 MV，發行後就會補上影片與同步歌詞。": "No official MV has been released for this track yet. Video and synced lyrics will be added after release.",
+      "這首目前沒有官方 YouTube 影片，可透過下方串流平台收聽。": "There is no official YouTube video for this track yet. You can listen via the streaming platforms below.",
+      "《Adoの歌ってみたアルバム その２》（2026）": "Ado no Utattemita Album 2 (2026)",
+      "《Adoの歌ってみたアルバム その２》": "Ado no Utattemita Album 2",
+      "《航海王劇場版：紅髮歌姬》附錄翻唱曲": "Bonus cover track for “One Piece Film: Red”",
+      "TMG（松本孝弘）專輯《TMG III SAYONARA》合作主打曲": "Lead collaboration track on TMG's (Tak Matsumoto) album “TMG III SAYONARA”",
+      "Imagine Dragons 特別合作版單曲": "Special collaboration single with Imagine Dragons",
+      "LE SSERAFIM 日文單曲合作版": "LE SSERAFIM Japanese single collaboration version",
+      "合輯《PALETTE4》收錄曲（獅子志司 feat. Ado）": "Featured on the compilation “PALETTE4” (Shishi Shishi feat. Ado)",
+      "jon-YAKITORY feat. Ado 合作曲": "Collaboration track by jon-YAKITORY feat. Ado",
+      "くじら feat. Ado 合作曲": "Collaboration track by Kujira feat. Ado",
+      "《LoveLive!》15 週年致敬專輯翻唱曲": "Cover track from the “Love Live!” 15th anniversary tribute album"
     },
     ja: {
       "Ado 應援指南": "Ado 応援ガイド",
@@ -1195,7 +1211,23 @@
       "常唱曲熟練度 {0}／{1} 首": "定番曲の習熟度 {0}／{1} 曲",
       "測驗最高分：{0} 分（{1}）": "テスト最高スコア：{0} 点（{1}）",
       "清單第 {0}／{1} 首": "リスト {0}／{1} 曲目",
-      "（靜態快取）": "（静的キャッシュ）"
+      "（靜態快取）": "（静的キャッシュ）",
+      "預留曲目": "公開予定",
+      "尚無 MV": "MVなし",
+      "即將發行": "発売予定",
+      "尚未公開": "未公開",
+      "這首尚未公開官方 MV，發行後就會補上影片與同步歌詞。": "この曲の公式MVはまだ公開されていません。リリース後に動画と同期歌詞を追加予定です。",
+      "這首目前沒有官方 YouTube 影片，可透過下方串流平台收聽。": "この曲の公式YouTube動画はありません。下の配信サービスからお聴きいただけます。",
+      "《Adoの歌ってみたアルバム その２》（2026）": "『Adoの歌ってみたアルバム その２』（2026）",
+      "《Adoの歌ってみたアルバム その２》": "『Adoの歌ってみたアルバム その２』",
+      "《航海王劇場版：紅髮歌姬》附錄翻唱曲": "『ONE PIECE FILM RED』関連カバー曲",
+      "TMG（松本孝弘）專輯《TMG III SAYONARA》合作主打曲": "TMG（松本孝弘）アルバム『TMG III SAYONARA』コラボリード曲",
+      "Imagine Dragons 特別合作版單曲": "Imagine Dragons スペシャルコラボシングル",
+      "LE SSERAFIM 日文單曲合作版": "LE SSERAFIM 日本語シングルコラボバージョン",
+      "合輯《PALETTE4》收錄曲（獅子志司 feat. Ado）": "コンピレーション『PALETTE4』収録曲（獅子志司 feat. Ado）",
+      "jon-YAKITORY feat. Ado 合作曲": "jon-YAKITORY feat. Ado コラボ楽曲",
+      "くじら feat. Ado 合作曲": "くじら feat. Ado コラボ楽曲",
+      "《LoveLive!》15 週年致敬專輯翻唱曲": "『ラブライブ！』15周年トリビュートアルバム カバー曲"
     }
   };
 });
