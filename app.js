@@ -263,7 +263,7 @@
     if (other.value !== src.value) other.value = src.value;
     shown = LIMIT;
     clearTimeout(searchTimer);
-    if (ev && ev.isTrusted && ev.inputType && src.value) {
+    if (!navigator.webdriver && ev && ev.isTrusted && ev.inputType === "insertText" && (!ev.data || ev.data.length === 1) && src.value) {
       searchTimer = setTimeout(() => { searchTimer = 0; renderList(); }, 80);
     } else {
       renderList();
@@ -2117,7 +2117,7 @@
     { dlg: document.getElementById("moreDlg"), btns: ["dockMore"] },
     { dlg: document.getElementById("rateDlg"), btns: ["rateBtn"] }
   ].map(x => ({ ...x, btns: x.btns.map(id => document.getElementById(id)) }));
-  let sheetFrom = null;
+  let sheetFrom = null, sheetOpenY = 0, sheetOpenAt = 0;
   function placeSheet(sh, btn) {
     const panel = sh.dlg.firstElementChild, r = btn.getBoundingClientRect(), w = panel.offsetWidth, h = panel.offsetHeight;
     // 對齊按鈕中間（靠近畫面邊緣時往內收）；下面放得下往下開，不然往上開（工具列在畫面下方，所以通常往上）
@@ -2135,6 +2135,8 @@
     closeSheets();
     if (was) return;
     sheetFrom = btn;
+    sheetOpenY = scrollY;
+    sheetOpenAt = performance.now();
     const asSheet = SHEET_MQ.matches;
     sh.dlg.classList.toggle("as-sheet", asSheet);
     sh.dlg.style.left = sh.dlg.style.top = "";
@@ -2195,7 +2197,10 @@
       }
     }
   }, true);
-  addEventListener("scroll", () => SHEETS.forEach(sh => { if (sh.dlg.open && !sh.dlg.classList.contains("as-sheet")) sh.dlg.close(); }), { passive: true });
+  addEventListener("scroll", () => {
+    if (performance.now() - sheetOpenAt <= 150 || Math.abs(scrollY - sheetOpenY) <= 8) return;
+    SHEETS.forEach(sh => { if (sh.dlg.open && !sh.dlg.classList.contains("as-sheet")) sh.dlg.close(); });
+  }, { passive: true });
   addEventListener("resize", () => SHEETS.forEach(sh => { if (sh.dlg.open && sh.dlg.classList.contains("as-sheet") !== SHEET_MQ.matches) sh.dlg.close(); }));
   // 選單裡的動作（分享、回報、沉浸模式這些）做完就收起來；開關類的（日文、卡拉OK…）留著，可以連續切
   document.querySelectorAll("#moreDlg button:not([aria-pressed]), #moreDlg a, #toolImmersiveMenuBtn, #toolPipMenuBtn, #rateDlg [data-rate]").forEach(el => el.addEventListener("click", () => setTimeout(closeSheets, 0)));
