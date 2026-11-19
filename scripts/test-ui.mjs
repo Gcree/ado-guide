@@ -111,6 +111,7 @@ await test("首頁：歌單、搜尋、篩選", async page => {
 
 await test("點歌進歌曲頁，返回首頁", async page => {
   await page.goto(BASE);
+  await page.fill("#q", "usseewa");
   await page.click('#songList a[data-id="usseewa"]');
   await page.waitForFunction(() => location.hash === "#usseewa" && !document.getElementById("song").hidden);
   assert.match(await page.textContent("#sTitle"), /うっせぇわ/);
@@ -333,6 +334,7 @@ await test("離線：沒打開過的歌曲頁改開首頁的 #歌曲，歌詞照
 
 await test("SPA 換歌：首頁 → #usseewa → #show 更新 #songGuideInline", async page => {
   await page.goto(BASE);
+  await page.fill("#q", "usseewa");
   await page.click('#songList a[data-id="usseewa"]');
   await page.waitForFunction(() => location.hash === "#usseewa" && document.getElementById("songGuideInline")?.dataset.song === "usseewa");
   assert.match(await page.textContent("#songGuideInline .guide-inline-h"), /うっせぇわ/);
@@ -449,13 +451,15 @@ await test("自訂待練清單與常唱熟練度：書籤按鈕、篩選、#list
   assert.ok((await page.textContent("#masteryLabel")).trim().length > 0);
   const fillWidth = await page.evaluate(() => document.getElementById("masteryFill").style.width);
   assert.ok(parseFloat(fillWidth) > 0, `#masteryFill 寬度應大於 0，實際：${fillWidth}`);
-  assert.equal((await page.textContent('#songList li:has(a[data-id="usseewa"]) .quiz-grade')).trim(), "S");
+  await page.fill("#q", "usseewa");
+  assert.equal((await page.textContent('#songList li:not([hidden]):has(a[data-id="usseewa"]) .quiz-grade')).trim(), "S");
 
   await page.click('.setlist-btn[data-setlist-id="usseewa"]');
   assert.equal(await page.getAttribute('.setlist-btn[data-setlist-id="usseewa"]', "aria-pressed"), "true");
   assert.equal((await page.textContent("#cntSetlist")).trim(), "1");
   assert.equal(await page.evaluate(() => !document.getElementById("home").hidden), true);
 
+  await page.fill("#q", "");
   await page.click('[data-f="setlist"]');
   await page.waitForFunction(() => !document.getElementById("setlistBar").hidden);
   assert.equal(await page.locator("#songList li:not([hidden])").count(), 1);
