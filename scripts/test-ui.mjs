@@ -85,21 +85,27 @@ console.log("=== UI smoke tests ===");
 
 await test("首頁：歌單、搜尋、篩選", async page => {
   await page.goto(BASE);
-  assert.match(await page.textContent("#songCount"), /^\d+ 首$/);
+  assert.equal(await page.getAttribute('[data-f="original"]', "aria-pressed"), "true");
+  const origCount = await page.evaluate(() => window.ADO_SONGS.SONGS.filter(s => !s.cover && !s.collab).length);
+  assert.equal(await page.textContent("#songCount"), `${origCount} 首`);
+  assert.equal(await page.isVisible('#songList li:not([hidden]) a[data-id="usseewa"]'), true);
+  const nonOrigInInit = await page.evaluate(() =>
+    [...document.querySelectorAll('#songList a[data-id]')].map(a => a.dataset.id).filter(id => {
+      const s = window.ADO_SONGS.SONGS.find(x => x.id === id);
+      return !s || s.cover || s.collab;
+    })
+  );
+  assert.deepEqual(nonOrigInInit, [], "預設原創曲列表不應出現翻唱或合作曲");
   assert.equal(await page.locator("#shelf li").count(), 9);
   assert.match(await page.textContent("#shelf li:first-child .card-ja"), /踊/);
-  await page.click('[data-f="frequent"]');
-  assert.equal(await page.textContent("#songCount"), "16 首符合");
-  assert.equal(await page.isVisible("#freqSubFilter"), true);
-  await page.click('[data-freq-sub="2"]');
-  assert.equal(await page.textContent("#songCount"), "4 首符合");
-  await page.click('[data-f="all"]');
-  await page.fill("#q", "usseewa");
-  assert.equal(await page.locator("#songList li:not([hidden])").count(), 1);
-  assert.match(await page.textContent("#songList li:not([hidden]) .ja"), /うっせぇわ/);
-  await page.fill("#q", "完全找不到的字");
-  assert.equal(await page.isVisible("#songEmpty"), true);
-  await page.fill("#q", "");
+
+  await page.click('[data-f="collab"]');
+  const collabCount = await page.evaluate(() => window.ADO_SONGS.SONGS.filter(s => s.collab).length);
+  assert.equal(await page.textContent("#songCount"), `${collabCount} 首符合`);
+  for (const id of ["sayonara", "sakura", "dnd"]) {
+    assert.equal(await page.locator(`#songList a[data-id="${id}"]`).count(), 1, `合作曲篩選應包含 ${id}`);
+  }
+
   await page.click('[data-f="cover"]');
   const coverCount = await page.evaluate(() => window.ADO_SONGS.SONGS.filter(s => s.cover).length);
   assert.equal(await page.textContent("#songCount"), `${coverCount} 首符合`);
@@ -107,11 +113,46 @@ await test("首頁：歌單、搜尋、篩選", async page => {
   for (const id of ["soldiergame", "fairytale", "binks"]) {
     assert.equal(await page.locator(`#songList a[data-id="${id}"]`).count(), 1, `翻唱篩選應包含 ${id}`);
   }
+
+  await page.click('[data-f="live"]');
+  assert.equal(await page.isVisible("#liveSubFilter"), true);
+
+  await page.click('[data-f="frequent"]');
+  assert.equal(await page.textContent("#songCount"), "16 首符合");
+  assert.equal(await page.isVisible("#freqSubFilter"), true);
+  await page.click('[data-freq-sub="2"]');
+  assert.equal(await page.textContent("#songCount"), "4 首符合");
+
+  await page.click('[data-f="all"]');
+  const allCount = await page.evaluate(() => window.ADO_SONGS.SONGS.length);
+  assert.equal(await page.textContent("#songCount"), `${allCount} 首`);
+  assert.equal(await page.locator("#songList li").count(), allCount);
+  await page.fill("#q", "usseewa");
+  assert.equal(await page.locator("#songList li:not([hidden])").count(), 1);
+  assert.match(await page.textContent("#songList li:not([hidden]) .ja"), /うっせぇわ/);
+  await page.fill("#q", "完全找不到的字");
+  assert.equal(await page.isVisible("#songEmpty"), true);
+  await page.fill("#q", "");
+
+  const titleCheck = await page.evaluate(() => {
+    const byId = id => window.ADO_SONGS.SONGS.find(s => s.id === id);
+    return {
+      eaasou: byId("eaasou"),
+      renaesaiban: byId("renaesaiban"),
+      lagata: byId("lagata"),
+      binks: byId("binks")
+    };
+  });
+  for (const id of ["eaasou", "renaesaiban", "lagata"]) {
+    assert.equal(titleCheck[id].zh, titleCheck[id].ja, `${id} 無官方譯名時 zh 應維持原名`);
+    assert.equal(titleCheck[id].en, titleCheck[id].ja, `${id} 無官方譯名時 en 應維持原名`);
+  }
+  assert.notEqual(titleCheck.binks.zh, titleCheck.binks.ja, "binks 應保留官方中文譯名");
+  assert.notEqual(titleCheck.binks.en, titleCheck.binks.ja, "binks 應保留官方英文譯名");
 });
 
 await test("點歌進歌曲頁，返回首頁", async page => {
   await page.goto(BASE);
-  await page.fill("#q", "usseewa");
   await page.click('#songList a[data-id="usseewa"]');
   await page.waitForFunction(() => location.hash === "#usseewa" && !document.getElementById("song").hidden);
   assert.match(await page.textContent("#sTitle"), /うっせぇわ/);

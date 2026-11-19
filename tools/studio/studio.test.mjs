@@ -680,4 +680,41 @@ test("預留曲目（upcoming: true, yt: '', len: ''）：SongMetaStore、Lyrics
 
   const added = core.addSong({ id: "epsilon", yt: "eeeeeeeeeee", ja: "イプシロン", len: "3:15", date: "2026-11-20" }, db);
   assert.ok(added.files["songs.js"]);
+
+  // 4. SongMetaStore.applyMeta 保留 collab: true（含純合作與合作翻唱）
+  const collabSongsJs = `(function (root, factory) {
+  module.exports = factory();
+})(this, function () {
+  "use strict";
+  const SONGS = [
+    { id: "sakura", ja: "桜日和とタイムマシン with 初音ミク", zh: "桜日和とタイムマシン with 初音ミク", en: "Sakura Biyori", ro: "Sakura Biyori", date: "2024-10-24", yt: "n1234567890", len: "5:05", hold: true, collab: true  },
+    // 翻唱
+    { id: "vivahappy", ja: "ビバハピ", zh: "ビバハピ", en: "ビバハピ", ro: "Viva Happy", date: "2023-03-31", yt: "eXy6ZSEIAX0", len: "3:33", hold: true, cover: true, collab: true  }
+  ];
+  const UT = {};
+  const PEN = {};
+  const BEAT = {};
+  const CLIMAX = {};
+  const LIVE_VIDEOS = {
+  };
+  const LIVES = {};
+  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVE_VIDEOS, LIVES };
+});`;
+  const mSakura = SongMetaStore.readMeta(collabSongsJs, MOCK_I18N_JS, "sakura");
+  mSakura.status = "free";
+  const resSakura = SongMetaStore.applyMeta(collabSongsJs, MOCK_I18N_JS, mSakura);
+  const afterSakura = SongMetaStore.evalUmd(resSakura.songs).SONGS.find(s => s.id === "sakura");
+  assert.equal(afterSakura.free, true);
+  assert.equal(afterSakura.collab, true);
+  assert.equal(afterSakura.hold, undefined);
+  assert.match(resSakura.songs, /\{ id: "sakura",[^\n]*free: true, collab: true  \}/);
+
+  const mViva = SongMetaStore.readMeta(resSakura.songs, resSakura.i18n, "vivahappy");
+  mViva.status = "free";
+  const resViva = SongMetaStore.applyMeta(resSakura.songs, resSakura.i18n, mViva);
+  const afterViva = SongMetaStore.evalUmd(resViva.songs).SONGS.find(s => s.id === "vivahappy");
+  assert.equal(afterViva.free, true);
+  assert.equal(afterViva.cover, true);
+  assert.equal(afterViva.collab, true);
+  assert.match(resViva.songs, /\{ id: "vivahappy",[^\n]*free: true, cover: true, collab: true  \}/);
 });

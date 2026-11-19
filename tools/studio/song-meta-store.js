@@ -113,7 +113,7 @@
     const ordered = {};
     let placed = !meta.status;
     for (const [k, v] of Object.entries(next)) {
-      if (!placed && (k === "cover" || k === "live" || k === "upcoming")) { ordered[meta.status] = true; placed = true; }
+      if (!placed && (k === "cover" || k === "live" || k === "upcoming" || k === "collab")) { ordered[meta.status] = true; placed = true; }
       ordered[k] = v;
     }
     if (!placed) ordered[meta.status] = true;

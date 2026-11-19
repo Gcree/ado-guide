@@ -255,7 +255,7 @@ src = mustReplace(src, '<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data
 
 // 每種語言的字典另存一個小檔，英文版只載英文、日文版只載日文；只保留執行期（app.js、共用模組與歌曲／歌詞資料）會用到的 key
 const runtimeKeySet = new Set([
-  "歌ネット ↗", "在 YouTube 開啟 ↗", "尚未公開", "預留曲目", "尚無 MV", "即將發行",
+  "歌ネット ↗", "在 YouTube 開啟 ↗", "尚未公開", "預留曲目", "尚無 MV", "即將發行", "合作",
   ...Object.values(TIER_LABEL),
   ...Object.values(PENC).map(([name]) => name),
   "彩色",
@@ -420,14 +420,15 @@ function renderLang(L) {
     : `<span class="thumb thumb-ph" aria-hidden="true"><span>${esc(s.upcoming ? T("預留曲目") : T("尚無 MV"))}</span></span>`;
   const icon = a => `<svg class="a-${a}" role="img" aria-label="${esc(T(ACT_MAP[a]?.name || a))}"><use href="#${ACT_MAP[a]?.icon || "i-sing"}"/></svg>`;
   const penDots = s => sharedPenDots(s, PEN, T);
-  const subOf = s => [namePart(s, L.code), s.cover ? T("翻唱") : "", s.upcoming ? T("即將發行") : ""].filter(Boolean).join("・");
+  const subOf = s => [namePart(s, L.code), s.cover ? T("翻唱") : (s.collab ? T("合作") : ""), s.upcoming ? T("即將發行") : ""].filter(Boolean).join("・");
   const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
   const tipsOf = s => (s.hold || s.sug ? [] : s.tips || []).map(t => T(t));
 
   // ── 首頁（靜態預渲染歌曲清單，讓搜尋引擎與 AI 爬蟲能直接索引所有內部連結） ──
   const usedActs = new Set(SONGS.flatMap(s => s.acts.filter(a => a !== "listen")));
   const homeLegendHtml = Object.keys(ACT_MAP).filter(a => usedActs.has(a)).map(a => `<span class="a-${a}">${icon(a)}${T(ACT_MAP[a].name)}</span>`).join("");
-  const homeSongListHtml = SONGS.map(s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`).join("");
+  const ORIGINAL_SONGS = SONGS.filter(s => !s.cover && !s.collab);
+  const homeSongListHtml = ORIGINAL_SONGS.map(s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`).join("");
   const sortedForReel = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.no - a.no);
   const reelRows = [0, 1, 2].map(i => {
     const start = Math.round((i * sortedForReel.length) / 3);
@@ -435,7 +436,7 @@ function renderLang(L) {
     return sortedForReel.slice(start, end);
   });
   const reelCardHtml = s => {
-    const sub = namePart(s, L.code) || (s.upcoming ? T("即將發行") : "") || (s.cover ? T("翻唱") : "");
+    const sub = namePart(s, L.code) || (s.upcoming ? T("即將發行") : "") || (s.cover ? T("翻唱") : (s.collab ? T("合作") : ""));
     const year = (s.date || "").slice(0, 4);
     return `<a class="reel-card" href="song/${s.id}/" data-id="${s.id}" draggable="false">${thumbHtml(s, 116, 65, true)}<span class="reel-info"><span class="reel-ja" lang="ja">${esc(s.ja)}</span><span class="reel-meta">${penDots(s)}<span class="reel-year">${esc(year)}</span>${sub ? `<span class="reel-sub">${esc(sub)}</span>` : ""}</span></span></a>`;
   };
@@ -526,8 +527,8 @@ function renderLang(L) {
   homeHtml = mustReplace(homeHtml, '<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`, "home #songList");
   homeHtml = mustReplace(homeHtml, '<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`, "home #shelf");
   homeHtml = mustReplace(homeHtml, '<ul class="shelf" id="latestShelf"></ul>', `<ul class="shelf" id="latestShelf">${homeLatestShelfHtml}</ul>`, "home #latestShelf");
-  homeHtml = mustReplace(homeHtml, '<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${T("{0} 首", SONGS.length)}</span>`, "home #songCount");
-  homeHtml = mustReplace(homeHtml, /(<p class="list-progress" id="listProgress"[^>]*>)[^<]*(<\/p>)/, (m, a, b) => `${a}${T("已列出 {0}／{1} 首", Math.min(12, SONGS.length), SONGS.length)}${b}`, "home #listProgress");
+  homeHtml = mustReplace(homeHtml, '<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${T("{0} 首", ORIGINAL_SONGS.length)}</span>`, "home #songCount");
+  homeHtml = mustReplace(homeHtml, /(<p class="list-progress" id="listProgress"[^>]*>)[^<]*(<\/p>)/, (m, a, b) => `${a}${T("已列出 {0}／{1} 首", Math.min(12, ORIGINAL_SONGS.length), ORIGINAL_SONGS.length)}${b}`, "home #listProgress");
   homeHtml = mustReplace(homeHtml, /(<span id="factSongs">)[^<]*(<\/span>)/, (m, a, b) => `${a}${SONGS.length}${b}`, "home #factSongs");
   homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntFreqAll">)[^<]*(<\/b>)/, (m, a, b) => `${a}${FREQ_ALL_CNT}${b}`, "home #cntFreqAll");
   homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntFreq1">)[^<]*(<\/b>)/, (m, a, b) => `${a}${FREQ_1.length}${b}`, "home #cntFreq1");
