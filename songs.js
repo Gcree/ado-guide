@@ -69,7 +69,7 @@
     { id: "zero", ja: "0", zh: "0", en: "0", ro: "Zero", date: "2025-10-24", yt: "8vm3Tkv43jw", len: "3:01", acts: ["clap"], tips: ["B 段整段拍手"]  },
     { id: "hellosignals", ja: "Hello Signals", zh: "Hello Signals", en: "Hello Signals", ro: "Hello Signals", date: "2025-04-09", yt: "IH-u0Mk_xEY", len: "3:19", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "kittocoaster", ja: "きっとコースター", zh: "Kitto Coaster", en: "Kitto Coaster", ro: "Kitto Coaster", date: "2024-06-18", yt: "nV5SHldicJY", len: "3:02", acts: ["sing"], tips: ["副歌那句疊字由觀眾唱"]  },
-    { id: "lovemeforever", ja: "Love me forever!", zh: "Love me forever!", en: "Love me forever!", ro: "Love me forever!", date: "2026-07-03", yt: "WSuAVkaSC38", len: "4:10", acts: ["call"], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
+    { id: "lovemeforever", ja: "Love me forever!", zh: "Love me forever!", en: "Love me forever!", ro: "Love me forever!", date: "2026-07-03", yt: "WSuAVkaSC38", len: "4:10", acts: ["call"], tips: ["間奏與尾奏喊「Hey！」"]  },
     { id: "dnd", ja: "DND feat. KUROMI", zh: "DND feat. KUROMI", en: "DND feat. KUROMI", ro: "DND feat. KUROMI", date: "2026-10-07", yt: "__qvPGatwus", len: "3:08", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
     { id: "ravensky", ja: "Raven Sky", zh: "Raven Sky", en: "Raven Sky", ro: "Raven Sky", date: "2026-10-16", yt: "7DBSMzbPQzc", len: "4:12", acts: [], tips: ["演唱會尚未公開演唱，目前沒有固定應援，自由跟著節奏"], free: true  },
     { id: "kanjaa", ja: "患者A", zh: "Patient A", en: "Patient A", ro: "Kanja A", date: "2026-10-24", yt: "JO66tA5Yngs", len: "4:49", acts: [], tips: ["沒有固定應援，自由跟著節奏"], free: true  },
@@ -122,7 +122,7 @@
     sakura: { yt: "Vrr2gFTYMGQ", concert: "国立競技場 (2024)" },
     unravel: { yt: "khplMpm4ctc", concert: "日本武道館 (2023)" },
     hibana: { yt: "JsZASL6V0QU", concert: "さいたま (2025)" },
-    kira: { yt: "Cjtt_BlQ6Us", concert: "Rose Bowl (2024)" }
+    kira: { yt: "Cjtt_BlQ6Us", concert: "Rose Bowl (2026)" }
   };
   // 歷年演唱會現場音源（官方 YouTube 釋出版本，依年代由新至舊）
   const LIVES = {
@@ -243,7 +243,7 @@
     kurakura: { w: ["meiyo"], c: ["meiyo"], a: ["菅野よう子"] },
     saikyo: { w: ["大森元貴 (Mrs. GREEN APPLE)"], c: ["大森元貴 (Mrs. GREEN APPLE)"] },
     aiaia: { w: ["きくお"], c: ["きくお"] },
-    rockstar: { w: ["jon-YAKITORY"], c: ["jon-YAKITORY"], x: ["シカバネーゼ", "イート", "蝸旋"] },
+    rockstar: { w: ["jon-YAKITORY"], c: ["jon-YAKITORY"], x: ["シカバネーゼ", "イート", "蝸旋", "フェイキング・オブ・コメディ"] },
     staygold: { w: ["Timucin Lam", "Kanata Okajima", "Jamil Kazmi", "Kiddo", "Frank Nobel", "Hight"], c: ["Timucin Lam", "Kanata Okajima", "Jamil Kazmi", "Kiddo", "Frank Nobel", "Hight"] },
     episodex: { w: ["Ayase (YOASOBI)"], c: ["Ayase (YOASOBI)"], x: ["シニカルナイトプラン"] },
     totmusica: { w: ["cAnON."], c: ["澤野弘之"] },
@@ -313,10 +313,10 @@
   const SERIES = [
     { name: "《航海王劇場版：紅髮歌姬》", ids: ["shinjidai", "saikyo", "gyakkou", "utakata", "totmusica", "sekai", "kaze"] },
     { name: "電影《尋找身體》", ids: ["missing", "rebellion"] },
-    { name: "電影《沈默的艦隊》系列", ids: ["dignity", "kazetowatashi"] },
+    { name: "電影《沉默的艦隊》系列", ids: ["dignity", "kazetowatashi"] },
     { name: "ABEMA《今天，喜歡上你了。》", ids: ["haruni", "sukideite"] },
     { name: "動畫《CAT'S EYE 貓眼》", ids: ["magic", "catseye"] },
-    { name: "《Adoの歌ってみたアルバム》", ids: ["unravel", "aishite", "kazarijanai", "kamippoina", "kawaikute", "tsumitobatsu", "dryflower", "villain", "burikino"] }
+    { name: "《Adoの歌ってみたアルバム》", ids: ["unravel", "aishite", "kazarijanai", "kamippoina", "kawaikute", "tsumitobatsu", "dryflower", "villain", "burikino", "hotaru"] }
   ];
   // 推薦練習分層（依 setlist.fm + OTO SQUARE 演出頻率 × 應援互動度整理，非單場歌單）
   // 1＝必練（首頁「推薦練習」書架順序）；2＝高頻但型態不同（跟唱／聆聽）；3＝進階／看巡演
@@ -340,5 +340,5 @@
       { name: "YouTube Music", url: `https://music.youtube.com/search?q=${q}` }
     ];
   });
-  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS, SERIES, PRACTICE };
+  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVES, LIVE_VIDEOS, SERIES, PRACTICE, ALBUMS, CREDIT, TIE, ALIAS };
 });

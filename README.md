@@ -6,7 +6,7 @@
 
 **👉 打開網站：<https://ado.kuti.cc/>**（English：<https://ado.kuti.cc/en/>・日本語：<https://ado.kuti.cc/jp/>）
 
-- **78 首歌**：原創曲和翻唱曲都有，每首有自己的網址，可以直接分享。
+- **80 首歌**：原創曲和翻唱曲都有，每首有自己的網址，可以直接分享。
 - **同步歌詞**：日文（含假名）和繁體中文翻譯，唱到哪一句亮哪一句；觀眾要唱的字、喊的聲另外標色。
 - **現在要做的事**：歌詞依動作上色，大字提醒字卡跟著拍子提示拍手、合唱、喊聲；電腦版影片下方另有提示框。
 - **螢光棒顏色**：每首歌的代表色，畫面燈光也跟著變。
@@ -161,7 +161,7 @@ node scripts/build.mjs dist && node scripts/test-ui.mjs dist
 
 - **每首歌一頁**：`song/<id>/` 有自己的標題、說明、canonical 與結構化資料（schema.org 的 WebPage／MusicRecording），打開會直接進那首歌。網站內切歌仍用 `#<id>`，搜尋引擎收錄的是獨立頁。
 - **網站地圖**：`sitemap.xml` 列出首頁和所有歌曲頁，已提交到 Google Search Console。新增歌曲後不用另外提交，Google 會再讀。
-- **Google Search Console**：帳號 kuti36.work，建議在 GSC 新增「網址前置字元」`https://ado.kuti.cc/`（首頁 HTML 標記與根目錄的 `googlea6b361c7e6e7d11c.html` 驗證檔均已具備，可秒通過驗證），並提交 `https://ado.kuti.cc/sitemap.xml`。
+- **Google Search Console**：建議在 GSC 新增「網址前置字元」`https://ado.kuti.cc/`（首頁 HTML 標記與根目錄的 `googlea6b361c7e6e7d11c.html` 驗證檔均已具備，可秒通過驗證），並提交 `https://ado.kuti.cc/sitemap.xml`。
 - **網站爬蟲（robots.txt）**：現已綁定自訂獨立網域，`robots.txt` 位於網域根目錄 `https://ado.kuti.cc/robots.txt`，能被所有搜尋引擎與 AI 爬蟲完整讀取。
 
 ## 5. 改版流程

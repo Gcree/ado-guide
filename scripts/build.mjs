@@ -29,6 +29,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.resolve(process.argv[2] || path.join(root, "dist"));
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
 const hash = text => createHash("sha1").update(text).digest("hex").slice(0, 8);
+const stage3dPath = path.join(root, "assets/stage3d.js");
+const STAGE3DV = fs.existsSync(stage3dPath) ? hash(fs.readFileSync(stage3dPath)) : "";
+function mustReplace(str, target, repl, label) {
+  if (typeof target === "string") {
+    if (!str.includes(target)) throw new Error(`build.mjs 找不到模板標記：${label || target}`);
+    return str.replace(target, () => repl);
+  }
+  if (!target.test(str)) throw new Error(`build.mjs 找不到模板標記：${label || target}`);
+  return str.replace(target, repl);
+}
 // 分享預覽圖加上內容雜湊，換圖後 LINE／Facebook／X 會重新抓，不會一直顯示舊圖
 const OG_IMG = `${SITE}assets/og.jpg?v=${createHash("sha1").update(fs.readFileSync(path.join(root, "assets/og.jpg"))).digest("hex").slice(0, 8)}`;
 const css = read("style.css"), songsText = read("songs.js"), app = read("app.js"), karaokeSrc = read("karaoke-sources.js");
@@ -97,7 +107,7 @@ function songInlineSummary(s, code, pen, tips, lines, T) {
     return parts.filter(Boolean).join(" ");
   }
   const parts = [
-    `〈${s.ja}〉${dn ? `（${dn}）` : ""}是 Ado 於 ${s.date.replace(/-/g, "/")} 推出的${s.cover ? "翻唱" : ""}歌曲（長度 ${s.len}）${tie ? `，為${tie}` : ""}${album ? `，收錄於《${album}》` : ""}。`,
+    `〈${s.ja}〉${dn ? `（${dn}）` : ""}是 Ado 於 ${s.date.replace(/-/g, "/")} 推出的${s.cover ? "翻唱" : ""}歌曲（長度 ${s.len}）${tie ? `，為${tie}` : ""}${album ? `，收錄於${album.startsWith("《") ? album : `《${album}》`}` : ""}。`,
     pen.none
       ? `這首歌目前沒有固定指定的螢光棒顏色，現場建議切換成 Ado 的代表色藍色。`
       : `演唱會推薦手燈顏色為「${pen.words.join("、")}」，也可搭配 PenlightSync 隨音樂自動變色。`,
@@ -246,14 +256,21 @@ function jaHTML(txt, sung = []) {
     const i = txt.lastIndexOf(w);
     if (i >= 0) for (let j = i; j < i + w.length; j++) hit.add(j);
   });
-  let kIndex = 0;
-  const k = (i, html) => {
+  // 英文、數字連在一起的字包成一組（.kw），一個單字不會被拆到兩行
+  let kIndex = 0, word = [];
+  const flush = () => {
+    if (word.length) out.push(word.length > 1 ? `<span class="kw">${word.join("")}</span>` : word[0]);
+    word = [];
+  };
+  const k = (i, html, latin) => {
     const rot = (((kIndex * 7) % 15) - 7).toFixed(1) + "deg";
-    out.push(`<span class="k${hit.has(i) ? " sung" : ""}" style="--i:${kIndex++};--rot:${rot}">${html}</span>`);
+    const span = `<span class="k${hit.has(i) ? " sung" : ""}" style="--i:${kIndex++};--rot:${rot}">${html}</span>`;
+    if (latin) word.push(span);
+    else { flush(); out.push(span); }
   };
   const chars = (str, at) => {
     for (const c of str) {
-      k(at, esc(c));
+      k(at, esc(c), /[A-Za-z0-9'’!?,.\-]/.test(c));
       at += c.length;
     }
   };
@@ -264,6 +281,7 @@ function jaHTML(txt, sung = []) {
     last = re.lastIndex;
   }
   chars(txt.slice(last), last);
+  flush();
   return out.join("");
 }
 
@@ -317,16 +335,48 @@ const ADO = {
     "https://open.spotify.com/artist/6mEQK9m2krja6X1cfsAjfl"
   ]
 };
-const src = read("index.html")
-  .replace(/<span class="build">[^<]*<\/span>/, `<span class="build">${VERSION} · <time datetime="${UPDATED}">${UPDATED}</time></span>`)
-  .replace(/style\.css\?v=[^"]*/, `style.css?v=${hash(css)}`)
-  .replace("songs.js?v=dev", `songs.js?v=${hash(songsText)}`)
-  .replace("karaoke-sources.js?v=dev", `karaoke-sources.js?v=${hash(karaokeSrc)}`)
-  .replace("app.js?v=dev", `app.js?v=${hash(app)}`)
-  .replace('<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-lyrics="${LYV}">`);
+let src = read("index.html");
+src = mustReplace(src, /<span class="build">[^<]*<\/span>/, () => `<span class="build">${VERSION} · <time datetime="${UPDATED}">${UPDATED}</time></span>`, "index.html span.build");
+src = mustReplace(src, /style\.css\?v=[^"]*/, () => `style.css?v=${hash(css)}`, "index.html style.css?v=");
+src = mustReplace(src, "songs.js?v=dev", `songs.js?v=${hash(songsText)}`, "index.html songs.js?v=dev");
+src = mustReplace(src, "karaoke-sources.js?v=dev", `karaoke-sources.js?v=${hash(karaokeSrc)}`, "index.html karaoke-sources.js?v=dev");
+src = mustReplace(src, "app.js?v=dev", `app.js?v=${hash(app)}`, "index.html app.js?v=dev");
+src = mustReplace(src, '<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data-lyrics="${LYV}"${STAGE3DV ? ` data-stage3d="${STAGE3DV}"` : ""}>`, 'index.html <html lang="zh-Hant-TW">');
 
-// 每種語言的字典另存一個小檔，英文版只載英文、日文版只載日文
-const i18nFiles = Object.fromEntries(["en", "ja"].map(code => [code, `window.ADO_I18N = ${JSON.stringify({ [code]: I18N[code] || {} })};\n`]));
+// 每種語言的字典另存一個小檔，英文版只載英文、日文版只載日文；只保留執行期（app.js 與歌曲／歌詞資料）會用到的 key
+const TIER_LABEL = { 1: "必練", 2: "跟唱・聆聽", 3: "看巡演" };
+const runtimeKeySet = new Set([
+  "歌ネット ↗", "在 YouTube 開啟 ↗",
+  ...Object.values(TIER_LABEL),
+  ...Object.values(PENC).map(([name]) => name),
+  "彩色",
+  ...Object.values(ACT_MAP).flatMap(a => [a.name, a.how]),
+  "{0} – {1} · 全 {2} 首", "；", "、"
+]);
+for (const s of SONGS) {
+  for (const t of (s.tips || [])) runtimeKeySet.add(t);
+  if (s.tie) runtimeKeySet.add(s.tie);
+  if (s.album) runtimeKeySet.add(s.album);
+}
+for (const g of (SERIES || [])) runtimeKeySet.add(g.name);
+for (const b of [...LYRICS, ...LYRICS_LIVE]) {
+  for (const l of (b.lyrics || [])) {
+    if (l.call) runtimeKeySet.add(l.call);
+    const jp = (l.jp || "").trim();
+    if (isNote(jp)) runtimeKeySet.add(jp);
+  }
+}
+const isRuntimeKey = k => {
+  if (runtimeKeySet.has(k)) return true;
+  const escKey = JSON.stringify(k).slice(1, -1);
+  return app.includes(k) || app.includes(escKey)
+    || songsText.includes(k) || songsText.includes(escKey);
+};
+const i18nFiles = Object.fromEntries(["en", "ja"].map(code => {
+  const dict = I18N[code] || {};
+  const pruned = Object.fromEntries(Object.entries(dict).filter(([k]) => isRuntimeKey(k)));
+  return [code, `window.ADO_I18N = ${JSON.stringify({ [code]: pruned })};\n`];
+}));
 
 // ── 版型翻譯：把 index.html 裡的中文換成目前語言（歌曲內容是之後才填進去的，不會被換到） ──
 // 1. 字典裡含 HTML 的 key（一句話中間夾著標籤，例如「從<span>〈唱〉</span>開始練」）整段換
@@ -351,12 +401,12 @@ function translateTemplate(html, L, T) {
 // 英文、日文版在子資料夾：共用的 CSS、JS、圖示往上一層找；<html> 標上語言
 function langTemplate(L, T) {
   const up = L.dir ? "../" : "";
-  let html = translateTemplate(src, L, T)
-    .replace('<html lang="zh-Hant-TW" ', `<html lang="${L.html}" data-lang="${L.code}"${up ? ` data-root="${up}"` : ""} `)
-    .replace("<!-- build:i18n -->", L.code === "zh" ? "" : `<script src="${up}i18n/${L.code}.js?v=${hash(i18nFiles[L.code])}"></script>`);
+  let html = translateTemplate(src, L, T);
+  html = mustReplace(html, '<html lang="zh-Hant-TW" ', `<html lang="${L.html}" data-lang="${L.code}"${up ? ` data-root="${up}"` : ""} `, "langTemplate <html");
+  html = mustReplace(html, "<!-- build:i18n -->", L.code === "zh" ? "" : `<script defer src="${up}i18n/${L.code}.js?v=${hash(i18nFiles[L.code])}"></script>`, "langTemplate build:i18n");
   // 頂欄的站名：英文用短名，手機上放得下
   const SHORT = { en: "Ado Chant Guide" };
-  if (SHORT[L.code]) html = html.replace(/(<span class="mark-name">)[^<]*(<\/span>)/, `$1${SHORT[L.code]}$2`);
+  if (SHORT[L.code]) html = mustReplace(html, /(<span class="mark-name">)[^<]*(<\/span>)/, (m, a, b) => `${a}${SHORT[L.code]}${b}`, "langTemplate mark-name");
   if (up) html = html.replace(/(\s(?:href|src)=")((?:favicon\.ico|assets\/|manifest\.webmanifest|style\.css|songs\.js|karaoke-sources\.js|app\.js)[^"]*")/g, `$1${up}$2`);
   return html;
 }
@@ -380,33 +430,34 @@ function langLinks(html, L, rest) {
 
 function page(tpl, L, T, { rest, title, desc, ld, base, song, extra = "" }) {
   const url = SITE + L.dir + rest;
-  let html = tpl
-    .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`)
-    .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${esc(desc)}">`)
-    .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${esc(title)}">`)
-    .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${esc(desc)}">`)
-    .replace(/<meta property="og:type" content="[^"]*">/, `<meta property="og:type" content="${song ? "music.song" : "website"}">`)
-    .replace(/<!-- build:seo[^>]*-->/, [
-      `<link rel="canonical" href="${url}">`,
-      altLinks(rest),
-      `<meta property="og:url" content="${url}">`,
-      `<meta property="og:site_name" content="${L.name}">`,
-      `<meta property="og:locale" content="${L.og}">`,
-      ...LANGS.filter(x => x !== L).map(x => `<meta property="og:locale:alternate" content="${x.og}">`),
-      `<meta property="og:image" content="${OG_IMG}">`,
-      `<meta property="og:image:alt" content="${esc(T("Ado 應援指南：看 MV，跟著同步歌詞先把應援練熟"))}">`,
-      `<meta property="og:image:width" content="1200">`,
-      `<meta property="og:image:height" content="630">`,
-      `<meta name="twitter:card" content="summary_large_image">`,
-      `<meta name="twitter:title" content="${esc(title)}">`,
-      `<meta name="twitter:description" content="${esc(desc)}">`,
-      `<meta name="twitter:image" content="${OG_IMG}">`,
-      `<script type="application/ld+json">${json(ld)}</script>`,
-      gaScript,
-      extra
-    ].filter(Boolean).join("\n"));
-  if (base) html = html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n<base href="${base}">`);
-  if (song) html = html.replace(/<html lang="([^"]+)" /, `<html lang="$1" data-song="${song.id}" `);
+  const seoBlock = [
+    `<link rel="canonical" href="${url}">`,
+    altLinks(rest),
+    `<meta property="og:url" content="${url}">`,
+    `<meta property="og:site_name" content="${L.name}">`,
+    `<meta property="og:locale" content="${L.og}">`,
+    ...LANGS.filter(x => x !== L).map(x => `<meta property="og:locale:alternate" content="${x.og}">`),
+    `<meta property="og:image" content="${OG_IMG}">`,
+    `<meta property="og:image:alt" content="${esc(T("Ado 應援指南：看 MV，跟著同步歌詞先把應援練熟"))}">`,
+    `<meta property="og:image:width" content="1200">`,
+    `<meta property="og:image:height" content="630">`,
+    `<meta name="twitter:card" content="summary_large_image">`,
+    `<meta name="twitter:title" content="${esc(title)}">`,
+    `<meta name="twitter:description" content="${esc(desc)}">`,
+    `<meta name="twitter:image" content="${OG_IMG}">`,
+    `<script type="application/ld+json">${json(ld)}</script>`,
+    gaScript,
+    extra
+  ].filter(Boolean).join("\n");
+  let html = tpl;
+  html = mustReplace(html, /<title>[^<]*<\/title>/, () => `<title>${esc(title)}</title>`, "page <title>");
+  html = mustReplace(html, /<meta name="description" content="[^"]*">/, () => `<meta name="description" content="${esc(desc)}">`, "page meta description");
+  html = mustReplace(html, /<meta property="og:title" content="[^"]*">/, () => `<meta property="og:title" content="${esc(title)}">`, "page og:title");
+  html = mustReplace(html, /<meta property="og:description" content="[^"]*">/, () => `<meta property="og:description" content="${esc(desc)}">`, "page og:description");
+  html = mustReplace(html, /<meta property="og:type" content="[^"]*">/, () => `<meta property="og:type" content="${song ? "music.song" : "website"}">`, "page og:type");
+  html = mustReplace(html, /<!-- build:seo[^>]*-->/, () => seoBlock, "page build:seo");
+  if (base) html = mustReplace(html, '<meta charset="utf-8">', `<meta charset="utf-8">\n<base href="${base}">`, "page <meta charset>");
+  if (song) html = mustReplace(html, /<html lang="([^"]+)" /, (m, lang) => `<html lang="${lang}" data-song="${song.id}" `, "page data-song");
   return langLinks(html, L, rest);
 }
 
@@ -423,6 +474,9 @@ const FREQ_3 = (PRACTICE[3] || []).map(id => SONGS.find(s => s.id === id)).filte
 const STARTERS = FREQ_1;
 const FREQ_ALL_CNT = FREQ_1.length + FREQ_2.length + FREQ_3.length;
 const LATEST = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
+const songYears = SONGS.map(s => Number((s.date || "").slice(0, 4))).filter(Number.isFinite);
+const minYear = songYears.length ? Math.min(...songYears) : 2020;
+const maxYear = songYears.length ? Math.max(...songYears) : new Date().getFullYear();
 const thumbHtml = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
 const urls = [""];
 
@@ -457,9 +511,9 @@ function renderLang(L) {
   const homeSongIndexHtml = reelRows.map((row, idx) =>
     `<div class="reel-row" data-dir="${idx % 2 === 1 ? "1" : "-1"}"><div class="reel-track">${row.map(reelCardHtml).join("")}</div></div>`
   ).join("");
-  const shelfHtml = list => list.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, false)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
-  const homeShelfHtml = shelfHtml(STARTERS);
-  const homeLatestShelfHtml = shelfHtml(LATEST);
+  const shelfHtml = (list, lazy = false) => list.map(s => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, lazy)}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`).join("");
+  const homeShelfHtml = shelfHtml(STARTERS, false);
+  const homeLatestShelfHtml = shelfHtml(LATEST, true);
 
   // 常見問題：結構化資料直接讀這個語言畫面上的文字，兩邊一致
   const FAQ = [...tpl.matchAll(/<details class="faq-item"(?:\s+open)?>\s*<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)]
@@ -535,24 +589,23 @@ function renderLang(L) {
     ld: homeLd,
     extra: L.code === "zh" && GSC_VERIFY && `<meta name="google-site-verification" content="${GSC_VERIFY}">`
   });
-  homeHtml = homeHtml
-    .replace('<h1 id="sTitle" lang="ja"></h1>', '<p id="sTitle" lang="ja"></p>')
-    .replace('<nav class="song-index" id="songIndex" aria-label="' + esc(T("全部歌曲連結")) + '"></nav>', `<nav class="song-index" id="songIndex" aria-label="${esc(T("全部歌曲連結"))}">${homeSongIndexHtml}</nav>`)
-    .replace('<p class="reel-now" id="reelNow" aria-live="polite"></p>', `<p class="reel-now" id="reelNow" aria-live="polite">${esc(T("2020 – 2026 · 全 {0} 首", SONGS.length))}</p>`)
-    .replace('<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`)
-    .replace('<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`)
-    .replace('<ul class="shelf" id="latestShelf"></ul>', `<ul class="shelf" id="latestShelf">${homeLatestShelfHtml}</ul>`)
-    .replace('<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${T("{0} 首", SONGS.length)}</span>`)
-    .replace(/(<p class="list-progress" id="listProgress"[^>]*>)[^<]*(<\/p>)/, `$1${T("已列出 {0}／{1} 首", Math.min(12, SONGS.length), SONGS.length)}$2`)
-    .replace(/(<span id="factSongs">)[^<]*(<\/span>)/, `$1${SONGS.length}$2`)
-    .replace(/(<b class="cnt" id="cntFreqAll">)[^<]*(<\/b>)/, `$1${FREQ_ALL_CNT}$2`)
-    .replace(/(<b class="cnt" id="cntFreq1">)[^<]*(<\/b>)/, `$1${FREQ_1.length}$2`)
-    .replace(/(<b class="cnt" id="cntFreq2">)[^<]*(<\/b>)/, `$1${FREQ_2.length}$2`)
-    .replace(/(<b class="cnt" id="cntFreq3">)[^<]*(<\/b>)/, `$1${FREQ_3.length}$2`)
-    .replace(/(<b class="cnt" id="cntLiveAll">)[^<]*(<\/b>)/, `$1${LIVE_ALL_CNT}$2`)
-    .replace(/(<b class="cnt" id="cntLiveVideo">)[^<]*(<\/b>)/, `$1${LIVE_VID_CNT}$2`)
-    .replace(/(<b class="cnt" id="cntLiveAudio">)[^<]*(<\/b>)/, `$1${LIVE_AUD_CNT}$2`)
-    .replace(/(<div class="home-legend" id="homeLegend"[^>]*>)(<\/div>)/, `$1${homeLegendHtml}$2`);
+  homeHtml = mustReplace(homeHtml, '<h1 id="sTitle" lang="ja"></h1>', '<p id="sTitle" lang="ja"></p>', "home #sTitle");
+  homeHtml = mustReplace(homeHtml, '<nav class="song-index" id="songIndex" aria-label="' + esc(T("全部歌曲連結")) + '"></nav>', `<nav class="song-index" id="songIndex" aria-label="${esc(T("全部歌曲連結"))}">${homeSongIndexHtml}</nav>`, "home #songIndex");
+  homeHtml = mustReplace(homeHtml, '<p class="reel-now" id="reelNow" aria-live="polite"></p>', `<p class="reel-now" id="reelNow" aria-live="polite">${esc(T("{0} – {1} · 全 {2} 首", minYear, maxYear, SONGS.length))}</p>`, "home #reelNow");
+  homeHtml = mustReplace(homeHtml, '<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`, "home #songList");
+  homeHtml = mustReplace(homeHtml, '<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`, "home #shelf");
+  homeHtml = mustReplace(homeHtml, '<ul class="shelf" id="latestShelf"></ul>', `<ul class="shelf" id="latestShelf">${homeLatestShelfHtml}</ul>`, "home #latestShelf");
+  homeHtml = mustReplace(homeHtml, '<span class="count" id="songCount"></span>', `<span class="count" id="songCount">${T("{0} 首", SONGS.length)}</span>`, "home #songCount");
+  homeHtml = mustReplace(homeHtml, /(<p class="list-progress" id="listProgress"[^>]*>)[^<]*(<\/p>)/, (m, a, b) => `${a}${T("已列出 {0}／{1} 首", Math.min(12, SONGS.length), SONGS.length)}${b}`, "home #listProgress");
+  homeHtml = mustReplace(homeHtml, /(<span id="factSongs">)[^<]*(<\/span>)/, (m, a, b) => `${a}${SONGS.length}${b}`, "home #factSongs");
+  homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntFreqAll">)[^<]*(<\/b>)/, (m, a, b) => `${a}${FREQ_ALL_CNT}${b}`, "home #cntFreqAll");
+  homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntFreq1">)[^<]*(<\/b>)/, (m, a, b) => `${a}${FREQ_1.length}${b}`, "home #cntFreq1");
+  homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntFreq2">)[^<]*(<\/b>)/, (m, a, b) => `${a}${FREQ_2.length}${b}`, "home #cntFreq2");
+  homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntFreq3">)[^<]*(<\/b>)/, (m, a, b) => `${a}${FREQ_3.length}${b}`, "home #cntFreq3");
+  homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntLiveAll">)[^<]*(<\/b>)/, (m, a, b) => `${a}${LIVE_ALL_CNT}${b}`, "home #cntLiveAll");
+  homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntLiveVideo">)[^<]*(<\/b>)/, (m, a, b) => `${a}${LIVE_VID_CNT}${b}`, "home #cntLiveVideo");
+  homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntLiveAudio">)[^<]*(<\/b>)/, (m, a, b) => `${a}${LIVE_AUD_CNT}${b}`, "home #cntLiveAudio");
+  homeHtml = mustReplace(homeHtml, /(<div class="home-legend" id="homeLegend"[^>]*>)(<\/div>)/, (m, a, b) => `${a}${homeLegendHtml}${b}`, "home #homeLegend");
   write(`${L.dir}index.html`, homeHtml);
 
   // ── 各歌曲獨立頁面（完全靜態預渲染標題、應援重點、手燈顏色、歌詞與 JSON-LD 結構化資料） ──
@@ -696,22 +749,21 @@ function renderLang(L) {
     const inlineHtml = `<h2 class="guide-inline-h">${T("〈{0}〉應援速覽", `${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}`)}</h2><p class="guide-inline-lead">${esc(inlineLead)}</p><div class="song-guide-card">${inlineDl}${creditRows.length ? `<dl class="card-dl card-credit">${creditRows.join("")}</dl>` : ""}${relBlock}</div>`;
 
     // 轉換歌曲頁面的 HTML：預設展示歌曲 view，隱藏 home view，並將標題、螢光棒、歌詞、可見應援詳情填入靜態標籤
-    songHtml = songHtml
-      .replace('<body>', '<body class="on-song">')
-      .replace('<div class="view home" id="home">', '<div class="view home" id="home" hidden>')
-      .replace(/<h1 id="heroH">([\s\S]*?)<\/h1>/, '<p id="heroH">$1</p>')
-      .replace('<div class="view" id="song" hidden>', '<div class="view" id="song">')
-      .replace('<h1 id="sTitle" lang="ja"></h1>', `<h1 id="sTitle" lang="ja">${esc(s.ja)}${subTitleHtml}</h1>`)
-      .replace('<span class="pen" id="pen"></span>', `<span class="pen" id="pen">${T("螢光棒")}${penDots(s)}<b>${esc(pen.shortText)}</b></span>`)
-      .replace('<div class="how" id="cueHow"></div>', `<div class="how" id="cueHow">${esc(cueHowText)}</div>`)
-      .replace('<ul class="summary" id="cueSummary"></ul>', `<ul class="summary" id="cueSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`)
-      .replace('<div id="lines"></div>', `<div id="lines">${prerenderedLines}</div>`)
-      .replace(`<section class="song-guide-inline" id="songGuideInline" aria-label="${esc(T("歌曲應援詳情"))}"></section>`, `<section class="song-guide-inline" id="songGuideInline" data-song="${s.id}" aria-label="${esc(T("歌曲應援詳情"))}">${inlineHtml}</section>`)
-      .replace(/<section class="song-guide-card" id="songGuideCard"[^>]*>[\s\S]*?<\/section>/, cardHtml);
+    songHtml = mustReplace(songHtml, '<body>', '<body class="on-song">', "song <body>");
+    songHtml = mustReplace(songHtml, '<div class="view home" id="home">', '<div class="view home" id="home" hidden>', "song #home");
+    songHtml = mustReplace(songHtml, /<h1 id="heroH">([\s\S]*?)<\/h1>/, (m, inner) => `<p id="heroH">${inner}</p>`, "song #heroH");
+    songHtml = mustReplace(songHtml, '<div class="view" id="song" hidden>', '<div class="view" id="song">', "song #song");
+    songHtml = mustReplace(songHtml, '<h1 id="sTitle" lang="ja"></h1>', `<h1 id="sTitle" lang="ja">${esc(s.ja)}${subTitleHtml}</h1>`, "song #sTitle");
+    songHtml = mustReplace(songHtml, '<span class="pen" id="pen"></span>', `<span class="pen" id="pen">${T("螢光棒")}${penDots(s)}<b>${esc(pen.shortText)}</b></span>`, "song #pen");
+    songHtml = mustReplace(songHtml, '<div class="how" id="cueHow"></div>', `<div class="how" id="cueHow">${esc(cueHowText)}</div>`, "song #cueHow");
+    songHtml = mustReplace(songHtml, '<ul class="summary" id="cueSummary"></ul>', `<ul class="summary" id="cueSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`, "song #cueSummary");
+    songHtml = mustReplace(songHtml, '<div id="lines"></div>', `<div id="lines">${prerenderedLines}</div>`, "song #lines");
+    songHtml = mustReplace(songHtml, `<section class="song-guide-inline" id="songGuideInline" aria-label="${esc(T("歌曲應援詳情"))}"></section>`, `<section class="song-guide-inline" id="songGuideInline" data-song="${s.id}" aria-label="${esc(T("歌曲應援詳情"))}">${inlineHtml}</section>`, "song #songGuideInline");
+    songHtml = mustReplace(songHtml, /<section class="song-guide-card" id="songGuideCard"[^>]*>[\s\S]*?<\/section>/, () => cardHtml, "song #songGuideCard");
 
     // 上一首／下一首連結預渲染
-    if (prevSong) songHtml = songHtml.replace(/<a class="ib" id="prevSong" aria-label="[^"]*">/, `<a class="ib" id="prevSong" href="song/${prevSong.id}/" data-id="${prevSong.id}" aria-label="${esc(T("上一首：{0}", prevSong.ja))}">`);
-    if (nextSong) songHtml = songHtml.replace(/<a class="ib" id="nextSong" aria-label="[^"]*">/, `<a class="ib" id="nextSong" href="song/${nextSong.id}/" data-id="${nextSong.id}" aria-label="${esc(T("下一首：{0}", nextSong.ja))}">`);
+    if (prevSong) songHtml = mustReplace(songHtml, /<a class="ib" id="prevSong" aria-label="[^"]*">/, () => `<a class="ib" id="prevSong" href="song/${prevSong.id}/" data-id="${prevSong.id}" aria-label="${esc(T("上一首：{0}", prevSong.ja))}">`, "song #prevSong");
+    if (nextSong) songHtml = mustReplace(songHtml, /<a class="ib" id="nextSong" aria-label="[^"]*">/, () => `<a class="ib" id="nextSong" href="song/${nextSong.id}/" data-id="${nextSong.id}" aria-label="${esc(T("下一首：{0}", nextSong.ja))}">`, "song #nextSong");
 
     write(`${L.dir}song/${s.id}/index.html`, songHtml);
   }
@@ -861,16 +913,25 @@ for (const f of [
 if (fs.existsSync(path.join(root, "assets/favicon.ico"))) {
   fs.copyFileSync(path.join(root, "assets/favicon.ico"), path.join(out, "favicon.ico"));
 }
-// 離線用的 Service Worker：先存三種語言的首頁、共用的 CSS／JS 和每首歌詞檔；VERSION 跟著這些檔案的版本走，有改才會換新版
-const precache = [
+// 離線用的 Service Worker：先存核心外殼與 lyrics/index.json（__PRECACHE__），再分批存每首歌詞（__LYRICS_PRECACHE__）；VERSION 跟著內容走
+const corePrecache = [
   ...LANGS.map(L => L.dir || "./"),
   `style.css?v=${hash(css)}`, `songs.js?v=${hash(songsText)}`, `karaoke-sources.js?v=${hash(karaokeSrc)}`, `app.js?v=${hash(app)}`,
   ...Object.entries(i18nFiles).map(([code, text]) => `i18n/${code}.js?v=${hash(text)}`),
-  ...Object.keys(lyFiles).map(f => `${f}?v=${LYV}`),
+  `lyrics/index.json?v=${LYV}`,
   "manifest.webmanifest", "favicon.ico", "assets/favicon.svg", "assets/icon-192.png"
 ];
+const lyricsPrecache = Object.keys(lyFiles)
+  .filter(f => f !== "lyrics/index.json")
+  .map(f => `${f}?v=${LYV}`);
 const swSrc = read("sw.js");
-write("sw.js", swSrc.replace("__VERSION__", hash(precache.join("\n") + swSrc)).replace("__PRECACHE__", JSON.stringify(precache)));
+const hasSplitPrecache = swSrc.includes("__LYRICS_PRECACHE__");
+const swPre = hasSplitPrecache ? corePrecache : [...corePrecache, ...lyricsPrecache];
+const swVer = hash([...corePrecache, ...lyricsPrecache].join("\n") + swSrc);
+let swOut = mustReplace(swSrc, "__VERSION__", swVer, "sw.js __VERSION__");
+swOut = mustReplace(swOut, "__PRECACHE__", JSON.stringify(swPre), "sw.js __PRECACHE__");
+if (hasSplitPrecache) swOut = mustReplace(swOut, "__LYRICS_PRECACHE__", JSON.stringify(lyricsPrecache), "sw.js __LYRICS_PRECACHE__");
+write("sw.js", swOut);
 write("CNAME", "ado.kuti.cc\n");
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 

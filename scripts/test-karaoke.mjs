@@ -275,20 +275,30 @@ assert.ok(spaceTiming.start >= 2.0 - 0.01 && spaceTiming.end <= 2.2 + 0.01);
 const rubyTiming = mapped.timings[10];
 assert.ok(rubyTiming && rubyTiming.start >= 3.6);
 
-// 13. Integration test with live songs: show, odo, kokoro
-console.log("Test 13: Live probe and alignment test for show, odo, kokoro");
-const targetSongs = [
-  { id: "show", title: "唱", dur: 190, minExpectedRate: 0.85 },
-  { id: "odo", title: "踊", dur: 209, minExpectedRate: 0.85 },
-  { id: "kokoro", title: "心という名の不可解", dur: 270, minExpectedRate: 0.90 }
-];
+// 13. Live network integration test (gated behind --live; never put assert.* inside catch)
+if (process.argv.includes("--live")) {
+  console.log("Test 13: Live probe and alignment test for show, odo, kokoro");
+  const targetSongs = [
+    { id: "show", title: "唱", dur: 190, minExpectedRate: 0.85 },
+    { id: "odo", title: "踊", dur: 209, minExpectedRate: 0.85 },
+    { id: "kokoro", title: "心という名の不可解", dur: 270, minExpectedRate: 0.90 }
+  ];
 
-for (const s of targetSongs) {
-  const songData = lyrics.find(l => l.id === s.id);
-  assert.ok(songData, `Song ${s.id} must exist in song-lyrics.js`);
+  for (const s of targetSongs) {
+    const songData = lyrics.find(l => l.id === s.id);
+    assert.ok(songData, `Song ${s.id} must exist in song-lyrics.js`);
 
-  try {
-    const timed = await karaoke.load({ id: s.id, ja: s.title, dur: s.dur }, { timeoutMs: 8000 });
+    let timed = null;
+    let netErr = null;
+    try {
+      timed = await karaoke.load({ id: s.id, ja: s.title, dur: s.dur }, { timeoutMs: 8000 });
+    } catch (err) {
+      netErr = err;
+    }
+    if (netErr) {
+      console.log(`  [${s.id}] Network error: ${netErr.message}; skipped live assertions.`);
+      continue;
+    }
     if (timed) {
       assert.equal(timed.format, "timed-lyrics-v1");
       const aligned = karaoke.alignToLocalLyrics(timed, songData.lyrics);
@@ -297,11 +307,11 @@ for (const s of targetSongs) {
       console.log(`  [${s.id}] Source: ${aligned.source}, matched: ${aligned.matchedLines}/${aligned.totalLines} (${(rate * 100).toFixed(1)}%), offset: ${aligned.offset.toFixed(2)}s`);
       assert.ok(rate >= s.minExpectedRate, `${s.id} match rate ${rate} should be >= ${s.minExpectedRate}`);
     } else {
-      console.log(`  [${s.id}] Live network source unavailable or timed out; verified fallback behavior.`);
+      console.log(`  [${s.id}] Live network source unavailable or timed out.`);
     }
-  } catch (err) {
-    console.log(`  [${s.id}] Network error: ${err.message}; verified fallback behavior.`);
   }
+} else {
+  console.log("Test 13: Skipped live network test (pass --live to run)");
 }
 
 // 14. Verify song-lyrics data integrity (brief requirement 4)
@@ -312,5 +322,162 @@ assert.equal(show.title, "唱");
 assert.equal(show.lyrics[0].jp, "Nah-Nah-Nah-Nah-Nah, Ready for my show");
 assert.ok(Number.isFinite(show.lyrics[0].time), "First line must have finite time");
 assert.deepEqual(show.lyrics[0].acts, ["sing"]);
+
+// 15. parseTtml with mocked DOMParser (valid TTML + parsererror rejection)
+console.log("Test 15: parseTtml parsing and parsererror handling");
+{
+  const prevDOMParser = globalThis.DOMParser;
+  const makeNode = (tag, attrs = {}, text = "", children = []) => ({
+    tagName: tag,
+    attributes: attrs,
+    children,
+    textContent: text || children.map(c => c.textContent).join(""),
+    hasAttribute: k => Object.hasOwn(attrs, k),
+    getAttribute: k => (Object.hasOwn(attrs, k) ? attrs[k] : null),
+    getElementsByTagName: t => {
+      const out = [];
+      const walk = list => list.forEach(c => {
+        if (c.tagName === t) out.push(c);
+        if (c.children) walk(c.children);
+      });
+      walk(children);
+      return out;
+    }
+  });
+  try {
+    globalThis.DOMParser = class MockDOMParser {
+      parseFromString(xml) {
+        if (xml.includes("parsererror")) {
+          const errNode = makeNode("parsererror", {}, "SyntaxError");
+          return {
+            querySelector: sel => (sel === "parsererror" ? errNode : null),
+            getElementsByTagName: tag => (tag === "parsererror" ? [errNode] : [])
+          };
+        }
+        const p1 = makeNode("p", { begin: "00:01.00", end: "00:03.00" }, "", [
+          makeNode("span", { begin: "00:01.00", end: "00:01.50" }, "あ"),
+          makeNode("span", { begin: "00:01.50", end: "00:03.00" }, "い")
+        ]);
+        const p2 = makeNode("p", { begin: "00:04.00", end: "00:06.00" }, "う", []);
+        const root = makeNode("tt", {}, "", [p1, p2]);
+        return {
+          querySelector: () => null,
+          getElementsByTagName: tag => root.getElementsByTagName(tag)
+        };
+      }
+    };
+    const valid = karaoke.parseTtml("<tt><p>...</p></tt>");
+    assert.ok(valid, "parseTtml must parse valid TTML");
+    assert.equal(valid.source, "AMLL TTML DB");
+    assert.equal(valid.lines.length, 2);
+    assert.equal(valid.lines[0].words.length, 2);
+    assert.equal(valid.lines[0].words[0].text, "あ");
+    assert.equal(valid.lines[0].words[0].start, 1.0);
+    assert.equal(valid.lines[1].words[0].text, "う");
+    assert.equal(valid.lines[1].words[0].end, 6.0);
+    assert.equal(karaoke.parseTtml("<parsererror>bad</parsererror>"), null, "parseTtml must return null on parsererror");
+  } finally {
+    if (prevDOMParser === undefined) delete globalThis.DOMParser;
+    else globalThis.DOMParser = prevDOMParser;
+  }
+}
+
+// 16. alignToLocalLyrics repeated chorus without rewinding cursor (depends on frontend-js karaoke-sources.js fix)
+console.log("Test 16: alignToLocalLyrics repeated chorus advances forward without index-0 rewind");
+{
+  const repeatedTimed = {
+    format: "timed-lyrics-v1",
+    source: "mock",
+    granularity: "word",
+    lines: [
+      { start: 10, end: 12, text: "繰り返しサビ", words: [{ text: "繰り返しサビ", start: 10, end: 12 }] },
+      { start: 20, end: 22, text: "中間の歌詞", words: [{ text: "中間の歌詞", start: 20, end: 22 }] },
+      { start: 40, end: 42, text: "繰り返しサビ", words: [{ text: "繰り返しサビ", start: 40, end: 42 }] }
+    ]
+  };
+  const repeatedLocal = [
+    { time: 10.5, jp: "繰り返しサビ" },
+    { time: 20.5, jp: "中間の歌詞" },
+    { time: 40.5, jp: "繰り返しサビ" }
+  ];
+  const alignedRep = karaoke.alignToLocalLyrics(repeatedTimed, repeatedLocal);
+  assert.ok(alignedRep, "Repeated chorus present forward should align");
+  assert.equal(alignedRep.matchedLines, 3);
+  assert.equal(alignedRep.lines[2].start, 40.5);
+
+  // When second chorus is missing from provider after cursor, must NOT rewind to index 0
+  const missingSecondTimed = {
+    format: "timed-lyrics-v1",
+    source: "mock",
+    granularity: "word",
+    lines: repeatedTimed.lines.slice(0, 2)
+  };
+  const noRewind = karaoke.alignToLocalLyrics(missingSecondTimed, repeatedLocal);
+  assert.ok(noRewind, "First two lines should still align");
+  assert.equal(noRewind.matchedLines, 2, "Missing repeated chorus must not rewind cursor to index 0");
+  assert.equal(noRewind.lines[2], null, "Unmatched repeated chorus after cursor must remain null");
+}
+
+// 17. mapUnitsToWords repeated kana without backward jump (depends on frontend-js karaoke-sources.js fix)
+console.log("Test 17: mapUnitsToWords repeated kana does not jump backward");
+{
+  const units = karaoke.extractUnits("あいあ");
+  const words = [{ text: "あい", start: 1.0, end: 2.0 }];
+  const mappedRep = karaoke.mapUnitsToWords(units, words, 1.0, 3.0);
+  assert.equal(mappedRep.matchedUnits, 2, "Third repeated kana after cursor must not rewind to 1.0s");
+  assert.ok(mappedRep.timings[2].start >= mappedRep.timings[1].end - 0.001, "Third unit must not jump backwards");
+}
+
+// 18. writeCache LRU cap (max 20 songs, mock localStorage + fetch; depends on frontend-js karaoke-sources.js fix)
+console.log("Test 18: writeCache LRU cap keeps at most 20 songs");
+{
+  const prevLSDesc = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const prevFetch = globalThis.fetch;
+  const store = new Map();
+  const mockStorage = {
+    get length() { return store.size; },
+    key: i => Array.from(store.keys())[i] ?? null,
+    getItem: k => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(String(k), String(v)); },
+    removeItem: k => { store.delete(String(k)); },
+    clear: () => { store.clear(); }
+  };
+  const storageProxy = new Proxy(mockStorage, {
+    ownKeys: () => Array.from(store.keys()),
+    getOwnPropertyDescriptor: (target, prop) => {
+      if (store.has(prop)) return { enumerable: true, configurable: true, value: store.get(prop) };
+      return Object.getOwnPropertyDescriptor(target, prop);
+    }
+  });
+  try {
+    Object.defineProperty(globalThis, "localStorage", { value: storageProxy, configurable: true, writable: true });
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes("lrclib.net")) {
+        const q = new URL(u).searchParams.get("track_name") || "Song";
+        return {
+          ok: true,
+          json: async () => ([{ artistName: "Ado", trackName: q, duration: 180, syncedLyrics: "[00:01.00] テスト歌詞" }])
+        };
+      }
+      return { ok: false, json: async () => null };
+    };
+    for (let i = 0; i < 25; i++) {
+      const res = await karaoke.load({ id: `lru-${i}`, ja: `LruSong${i}`, dur: 180 }, { timeoutMs: 2000 });
+      assert.ok(res, `Mock fetch must populate cache for lru-${i}`);
+    }
+    const songKeys = Array.from(store.keys()).filter(k => {
+      try { return JSON.parse(store.get(k))?.format === "timed-lyrics-v1"; } catch { return false; }
+    });
+    assert.ok(songKeys.length <= 20 && songKeys.length > 0, `Expected 1..20 cached songs, got ${songKeys.length}`);
+    assert.ok(!songKeys.some(k => k.endsWith("-lru-0")), "Oldest entry lru-0 must be evicted");
+    assert.ok(songKeys.some(k => k.endsWith("-lru-24")), "Newest entry lru-24 must remain cached");
+  } finally {
+    if (prevLSDesc) Object.defineProperty(globalThis, "localStorage", prevLSDesc);
+    else delete globalThis.localStorage;
+    if (prevFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = prevFetch;
+  }
+}
 
 console.log("All unit and integration test suites passed successfully!");

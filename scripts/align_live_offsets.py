@@ -1,12 +1,16 @@
-import subprocess
-import os
-import sys
+import glob
 import json
+import os
+import shutil
+import subprocess
+import sys
+
 import numpy as np
 
-sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
-FFMPEG = r"C:\Users\gary2\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe"
+FFMPEG = os.environ.get("FFMPEG") or shutil.which("ffmpeg")
 
 SONGS_TO_ALIGN = [
     {"id": "show", "name": "唱", "mv": "pgXpM4l_MwI", "live": "Igr6jQJEoNs"},
@@ -23,38 +27,57 @@ SONGS_TO_ALIGN = [
     {"id": "sakura", "name": "桜日和とタイムマシン", "mv": "nIWZfhpnq6M", "live": "Vrr2gFTYMGQ"},
     {"id": "unravel", "name": "unravel", "mv": "eZuDklxsaRg", "live": "khplMpm4ctc"},
     {"id": "hibana", "name": "ヒバナ", "mv": "EFsSYiNl2AQ", "live": "JsZASL6V0QU"},
-    {"id": "kira", "name": "綺羅", "mv": "qpcz3-iDUP8", "live": "Cjtt_BlQ6Us"}
+    {"id": "kira", "name": "綺羅", "mv": "qpcz3-iDUP8", "live": "Cjtt_BlQ6Us"},
 ]
 
-def download_audio_head(yt_id, out_name):
+
+def download_audio_head(yt_id, out_prefix):
     url = f"https://www.youtube.com/watch?v={yt_id}"
     cmd = [
         sys.executable, "-m", "yt_dlp",
         "-f", "ba",
         "--no-playlist",
         "--quiet", "--no-warnings",
-        "-o", out_name,
-        url
+        "-o", f"{out_prefix}.%(ext)s",
+        url,
     ]
     subprocess.run(cmd, check=True)
+    matches = sorted(
+        p for p in glob.glob(f"{out_prefix}.*")
+        if not p.endswith((".part", ".ytdl"))
+    )
+    if not matches:
+        raise FileNotFoundError(f"yt-dlp finished but no file matched {out_prefix}.*")
+    return matches[0]
+
 
 def load_audio_pcm(filepath, duration=50, sr=16000):
+    ffmpeg_bin = os.environ.get("FFMPEG") or FFMPEG or shutil.which("ffmpeg")
+    if not ffmpeg_bin:
+        raise FileNotFoundError("ffmpeg executable not found (set FFMPEG or install ffmpeg in PATH)")
     cmd = [
-        FFMPEG, "-y", "-ss", "0", "-t", str(duration),
+        ffmpeg_bin, "-y", "-ss", "0", "-t", str(duration),
         "-i", filepath,
         "-ac", "1", "-ar", str(sr),
-        "-f", "s16le", "-"
+        "-f", "s16le", "-",
     ]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    raw, _ = proc.communicate()
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    raw, err = proc.communicate()
+    if proc.returncode != 0:
+        msg = err.decode("utf-8", "ignore").strip()
+        raise RuntimeError(f"ffmpeg failed ({proc.returncode}) for {filepath}: {msg}")
     samples = np.frombuffer(raw, dtype=np.int16).astype(np.float32)
-    max_val = np.max(np.abs(samples)) or 1.0
+    if samples.size == 0:
+        raise RuntimeError(f"ffmpeg produced 0 audio samples for {filepath}")
+    max_val = float(np.max(np.abs(samples))) or 1.0
     return samples / max_val, sr
+
 
 def envelope(sig, window=160):
     sq = sig ** 2
     kern = np.ones(window) / window
-    return np.sqrt(np.convolve(sq, kern, mode='same'))
+    return np.sqrt(np.convolve(sq, kern, mode="same"))
+
 
 def calculate_offset(mv_file, live_file):
     mv_sig, _ = load_audio_pcm(mv_file, duration=25)
@@ -63,10 +86,21 @@ def calculate_offset(mv_file, live_file):
     mv_env = envelope(mv_sig)[::16]  # 1kHz downsampled envelope
     live_env = envelope(live_sig)[::16]
 
-    corr = np.correlate(live_env, mv_env, mode='valid')
-    best_lag_samples = np.argmax(corr)
+    mv_z = mv_env - np.mean(mv_env)
+    live_z = live_env - np.mean(live_env)
+    corr = np.correlate(live_z, mv_z, mode="full")
+    lags = np.arange(-(len(mv_env) - 1), len(live_env))
+    min_overlap = max(1, min(len(mv_env), len(live_env)) // 2)
+    overlaps = np.minimum(len(live_env), lags + len(mv_env)) - np.maximum(0, lags)
+    valid_mask = overlaps >= min_overlap
+    if np.any(valid_mask):
+        masked_corr = np.where(valid_mask, corr, -np.inf)
+        best_lag_samples = int(lags[int(np.argmax(masked_corr))])
+    else:
+        best_lag_samples = int(lags[int(np.argmax(corr))])
     offset_sec = best_lag_samples / 1000.0
     return round(offset_sec, 2)
+
 
 def main():
     print("=== 開始自動計算 15 首官方 LIVE 映像之時間偏移量 (Offset) ===\n")
@@ -77,25 +111,25 @@ def main():
                 results = json.load(f)
         except Exception:
             results = {}
-    
+
     for i, item in enumerate(SONGS_TO_ALIGN):
         sid = item["id"]
         name = item["name"]
         mv_yt = item["mv"]
         live_yt = item["live"]
-        
+
         if sid in results and results[sid] != 0.0:
             print(f"[{i+1}/{len(SONGS_TO_ALIGN)}] 《{name}》 已有紀錄: {results[sid]:+.2f} 秒，跳過。")
             continue
 
         print(f"[{i+1}/{len(SONGS_TO_ALIGN)}] 正在分析 《{name}》 ({sid})...")
-        mv_file = f"temp_{sid}_mv.webm"
-        live_file = f"temp_{sid}_live.webm"
-        
+        mv_prefix = f"temp_{sid}_mv"
+        live_prefix = f"temp_{sid}_live"
+
         try:
-            download_audio_head(mv_yt, mv_file)
-            download_audio_head(live_yt, live_file)
-            
+            mv_file = download_audio_head(mv_yt, mv_prefix)
+            live_file = download_audio_head(live_yt, live_prefix)
+
             offset = calculate_offset(mv_file, live_file)
             results[sid] = offset
             print(f"  ✓ 檢測完成！現場版時間偏移量: {offset:+.2f} 秒\n")
@@ -103,17 +137,19 @@ def main():
             print(f"  ⚠ 分析失敗: {e}，預設為 0.00 秒\n")
             results[sid] = 0.0
         finally:
-            if os.path.exists(mv_file): os.remove(mv_file)
-            if os.path.exists(live_file): os.remove(live_file)
-            
+            for p in glob.glob(f"{mv_prefix}.*") + glob.glob(f"{live_prefix}.*"):
+                if os.path.exists(p):
+                    os.remove(p)
+
         with open("live_offsets_calibrated.json", "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
-            
+
     print("==========================================")
     print("所有 Live 偏移量已計算完成：")
     for k, v in results.items():
         print(f"  - {k}: {v:+.2f}s")
     print("==========================================")
+
 
 if __name__ == "__main__":
     main()

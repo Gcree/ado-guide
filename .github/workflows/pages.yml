@@ -1,26 +1,23 @@
-# 推到 main 就建置（每首歌一頁、網站地圖）並發布到 GitHub Pages
+# 推到 main 就建置（每首歌一頁、網站地圖）並發布到 GitHub Pages；PR 僅執行驗證
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: pages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  deploy:
+  verify:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,6 +27,8 @@ jobs:
         run: node scripts/check-data.mjs
       - name: Test karaoke
         run: node scripts/test-karaoke.mjs
+      - name: Unit tests
+        run: node --test tools/studio/studio.test.mjs tools/romaji/kana.test.mjs
       # 英文版歌詞下面的羅馬拼音：裝 kuromoji（日文斷詞）產生 song-romaji.json；失敗的話照常建置，只是英文版不放羅馬拼音
       - name: Romaji
         continue-on-error: true
@@ -39,6 +38,31 @@ jobs:
       # 畫面冒煙測試：開建置好的網站走一遍首頁、歌曲頁、分享、測驗模式、離線；沒過就不發布
       - name: UI test
         run: npm install --no-save --no-package-lock playwright@1.64.1 && npx playwright install --with-deps chromium-headless-shell && node scripts/test-ui.mjs dist
+      - name: Upload built site
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-dist
+          path: dist
+          retention-days: 1
+
+  deploy:
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download built site
+        uses: actions/download-artifact@v4
+        with:
+          name: site-dist
+          path: dist
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

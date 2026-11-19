@@ -10,16 +10,28 @@ const karaoke = require(path.join(root, "karaoke-sources.js"));
 const { SONGS } = require(path.join(root, "songs.js"));
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 
+const cacheFile = path.join(root, "karaoke-cache.json");
+let existing = {};
+if (fs.existsSync(cacheFile)) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(cacheFile, "utf8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) existing = parsed;
+  } catch (err) {
+    console.warn(`⚠ 無法讀取現有 karaoke-cache.json（${err.message}），將從空快取開始`);
+  }
+}
+
 console.log(`=== 開始為 ${SONGS.length} 首歌曲抓取並校對卡拉OK檔案 ===\n`);
 
 const results = [];
-const bundled = {};
+const bundled = { ...existing };
 
-// 依序處理，每次間隔 100ms 避免觸發 API 限流
+// 依序處理，每次間隔 120ms 避免觸發 API 限流
 for (let i = 0; i < SONGS.length; i++) {
   const song = SONGS[i];
   const lyricData = LYRICS.find(l => l.id === song.id);
-  
+  const hadExisting = Object.hasOwn(existing, song.id);
+
   if (!lyricData || !Array.isArray(lyricData.lyrics) || lyricData.lyrics.length === 0) {
     results.push({ id: song.id, title: song.ja, status: "no_lyrics" });
     continue;
@@ -29,14 +41,14 @@ for (let i = 0; i < SONGS.length; i++) {
 
   try {
     const timed = await karaoke.load({ id: song.id, ja: song.ja, dur: lyricData.duration }, { timeoutMs: 8000 });
-    
+
     if (timed) {
       const aligned = karaoke.alignToLocalLyrics(timed, lyricData.lyrics);
       if (aligned) {
         const rate = (aligned.matchedLines / aligned.totalLines * 100).toFixed(1);
         const offset = aligned.offset.toFixed(2);
         console.log(`✓ 成功！來源: ${timed.source} | 匹配: ${aligned.matchedLines}/${aligned.totalLines} (${rate}%) | 偏移: ${offset}s`);
-        
+
         bundled[song.id] = timed;
         results.push({
           id: song.id,
@@ -50,24 +62,30 @@ for (let i = 0; i < SONGS.length; i++) {
           offset: Number(offset)
         });
       } else {
-        console.log(`⚠ 已取得時間檔，但歌詞對齊未達門檻（將採用行估算同步）`);
-        results.push({ id: song.id, title: song.ja, status: "align_failed", source: timed.source });
+        console.log(`⚠ 已取得時間檔，但歌詞對齊未達門檻${hadExisting ? "（保留既有快取）" : "（將採用行估算同步）"}`);
+        results.push({ id: song.id, title: song.ja, status: "align_failed", source: timed.source, preserved: hadExisting });
       }
     } else {
-      console.log(`- 無開源卡拉OK檔（將採用本地行時間同步）`);
-      results.push({ id: song.id, title: song.ja, status: "miss" });
+      console.log(`- 無開源卡拉OK檔${hadExisting ? "（保留既有快取）" : "（將採用本地行時間同步）"}`);
+      results.push({ id: song.id, title: song.ja, status: "miss", preserved: hadExisting });
     }
   } catch (err) {
-    console.log(`✗ 錯誤: ${err.message}`);
-    results.push({ id: song.id, title: song.ja, status: "error", error: err.message });
+    console.log(`✗ 錯誤: ${err.message}${hadExisting ? "（保留既有快取）" : ""}`);
+    results.push({ id: song.id, title: song.ja, status: "error", error: err.message, preserved: hadExisting });
   }
 
   await new Promise(r => setTimeout(r, 120));
 }
 
-// 輸出快取檔案
-const cacheFile = path.join(root, "karaoke-cache.json");
-fs.writeFileSync(cacheFile, JSON.stringify(bundled, null, 2));
+// 原子寫入快取檔案，避免中途中斷留下毀損 JSON
+const tmpFile = `${cacheFile}.${process.pid}.${Date.now()}.tmp`;
+try {
+  fs.writeFileSync(tmpFile, JSON.stringify(bundled, null, 2));
+  fs.renameSync(tmpFile, cacheFile);
+} catch (err) {
+  if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+  throw err;
+}
 
 const successCount = results.filter(r => r.status === "success").length;
 const totalCount = results.length;
@@ -75,6 +93,7 @@ const totalCount = results.length;
 console.log("\n==========================================");
 console.log(`校對完成！共 ${totalCount} 首歌曲：`);
 console.log(`  ✓ 成功對齊卡拉OK：${successCount} 首 (${(successCount / totalCount * 100).toFixed(1)}%)`);
+console.log(`  - 保留既有快取：${results.filter(r => r.preserved).length} 首`);
 console.log(`  - 採用本地行時間：${totalCount - successCount} 首`);
 console.log(`已輸出完整快取檔至: ${path.relative(root, cacheFile)}`);
 console.log("==========================================");
