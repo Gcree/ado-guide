@@ -121,6 +121,20 @@
   /* 常用組合：填色按鈕的顏色變化、按下縮小後放開回彈 */
   --tr-color: background-color var(--dur-hover) var(--ease), color var(--dur-hover) var(--ease), opacity var(--dur-hover) var(--ease);
   --tr-press: transform var(--dur-base) var(--ease-spring);
+  /* 測驗等第標籤、待練清單書籤按鈕、篩選膠囊計數 */
+  --grade-s-bg: rgba(255, 216, 74, .18);
+  --grade-s-fg: #ffd84a;
+  --grade-a-bg: rgba(2, 180, 245, .18);
+  --grade-a-fg: #5fd4ff;
+  --grade-b-bg: rgba(95, 214, 138, .18);
+  --grade-b-fg: #5fd68a;
+  --grade-c-bg: rgba(255, 154, 60, .18);
+  --grade-c-fg: #ffb36b;
+  --grade-d-bg: var(--fill);
+  --grade-d-fg: var(--faint);
+  --setlist-on-bg: rgba(2, 180, 245, .14);
+  --setlist-on-fg: var(--color-bahama-blue-400);
+  --chip-cnt-on-bg: rgba(2, 6, 23, .12);
 }
 
 * {
@@ -3472,6 +3486,19 @@ body.no-lights .climax-surge {
   --call: #be185d;
   --gesture: #6d28d9;
   --listen: #5b6779;
+  --grade-s-bg: rgba(180, 83, 9, .12);
+  --grade-s-fg: #92400e;
+  --grade-a-bg: rgba(0, 117, 170, .12);
+  --grade-a-fg: var(--color-bahama-blue-800);
+  --grade-b-bg: rgba(21, 128, 61, .12);
+  --grade-b-fg: #166534;
+  --grade-c-bg: rgba(194, 65, 12, .12);
+  --grade-c-fg: #9a3412;
+  --grade-d-bg: var(--fill);
+  --grade-d-fg: var(--faint);
+  --setlist-on-bg: rgba(0, 117, 170, .12);
+  --setlist-on-fg: var(--color-bahama-blue-800);
+  --chip-cnt-on-bg: rgba(255, 255, 255, .22);
 }
 
 @media (prefers-color-scheme: light) {
@@ -3512,6 +3539,19 @@ body.no-lights .climax-surge {
     --call: #be185d;
     --gesture: #6d28d9;
     --listen: #5b6779;
+    --grade-s-bg: rgba(180, 83, 9, .12);
+    --grade-s-fg: #92400e;
+    --grade-a-bg: rgba(0, 117, 170, .12);
+    --grade-a-fg: var(--color-bahama-blue-800);
+    --grade-b-bg: rgba(21, 128, 61, .12);
+    --grade-b-fg: #166534;
+    --grade-c-bg: rgba(194, 65, 12, .12);
+    --grade-c-fg: #9a3412;
+    --grade-d-bg: var(--fill);
+    --grade-d-fg: var(--faint);
+    --setlist-on-bg: rgba(0, 117, 170, .12);
+    --setlist-on-fg: var(--color-bahama-blue-800);
+    --chip-cnt-on-bg: rgba(255, 255, 255, .22);
   }
 }
 
@@ -5079,6 +5119,7 @@ html:not(.on-song) #fx {
 .chip>span {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   height: 34px;
   padding: 0 16px;
   border-radius: 999px;
@@ -5088,6 +5129,76 @@ html:not(.on-song) #fx {
   font-weight: 500;
   white-space: nowrap;
   transition: var(--tr-color), var(--tr-press);
+}
+
+.chip>span .cnt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--fill-press);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+
+.chip[aria-pressed="true"]>span .cnt {
+  background: var(--chip-cnt-on-bg);
+  color: var(--chip-on-fg);
+}
+
+.chip.sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  height: auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: var(--tr-color), var(--tr-press);
+}
+
+@media (hover: hover) {
+  .chip.sm:hover:not(:disabled) {
+    background: var(--fill-hover);
+  }
+}
+
+.chip.sm:active:not(:disabled) {
+  background: var(--fill-press);
+  transform: scale(.96);
+}
+
+.chip.sm:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+.chip.sm:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+#setlistPlayBtn {
+  background: var(--chip-on-bg);
+  color: var(--chip-on-fg);
+}
+
+@media (hover: hover) {
+  #setlistPlayBtn:hover:not(:disabled) {
+    background: var(--chip-on-hover);
+  }
 }
 
 @media (hover: hover) {
@@ -5211,6 +5322,67 @@ html:not(.on-song) #fx {
   outline-offset: 2px;
 }
 
+/* 常唱熟練度進度列 & 待練清單操作列 */
+.mastery-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  margin: 4px 0 6px;
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.mastery-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mastery-track {
+  flex: 1 1 120px;
+  min-width: 80px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--fill);
+}
+
+.mastery-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tint);
+  transition: width var(--dur-base) var(--ease-out);
+}
+
+.setlist-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin: 4px 0 8px;
+  border-radius: 12px;
+  background: var(--card);
+  animation: reveal-down var(--dur-base) var(--ease-out);
+}
+
+.setlist-info {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.setlist-info:empty {
+  display: none;
+}
+
 /* 圖例＋看全部 */
 .list-tools {
   display: flex;
@@ -5280,6 +5452,19 @@ html:not(.on-song) #fx {
 
 .songs.collapsed li:nth-child(n+13) {
   display: none;
+}
+
+.songs li {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-inline: -8px;
+}
+
+.songs li>.song {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-inline: 0;
 }
 
 .song {
@@ -5431,6 +5616,117 @@ html:not(.on-song) #fx {
 .song:focus-visible {
   outline: 2px solid var(--tint);
   outline-offset: 0;
+}
+
+.quiz-grade {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.quiz-grade.grade-s {
+  background: var(--grade-s-bg);
+  color: var(--grade-s-fg);
+}
+
+.quiz-grade.grade-a {
+  background: var(--grade-a-bg);
+  color: var(--grade-a-fg);
+}
+
+.quiz-grade.grade-b {
+  background: var(--grade-b-bg);
+  color: var(--grade-b-fg);
+}
+
+.quiz-grade.grade-c {
+  background: var(--grade-c-bg);
+  color: var(--grade-c-fg);
+}
+
+.quiz-grade.grade-d {
+  background: var(--grade-d-bg);
+  color: var(--grade-d-fg);
+}
+
+.setlist-btn {
+  flex: none;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: var(--tr-color), var(--tr-press);
+}
+
+.setlist-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (hover: hover) {
+  .setlist-btn:hover {
+    background: var(--fill);
+    color: var(--text);
+  }
+}
+
+.setlist-btn:active {
+  background: var(--fill-press);
+  transform: scale(.92);
+}
+
+.setlist-btn[aria-pressed="true"] {
+  background: var(--setlist-on-bg);
+  color: var(--setlist-on-fg);
+}
+
+.setlist-btn[aria-pressed="true"] svg {
+  fill: currentColor;
+}
+
+.setlist-btn:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .songs li {
+    gap: 2px;
+  }
+
+  .songs li>.song {
+    gap: 10px;
+  }
+
+  .song-main {
+    gap: 8px;
+  }
 }
 
 .home .dots {
@@ -7755,7 +8051,10 @@ body.immersive-mode .dock.autohide {
   .pill-btn,
   .round-btn > span,
   .chip > span,
+  .chip.sm,
   .sub-chip > span,
+  .setlist-btn,
+  .quiz-grade,
   .dock-btn,
   .ly-btn,
   .ib,
@@ -7778,6 +8077,7 @@ body.immersive-mode .dock.autohide {
   [aria-checked="true"],
   .chip[aria-pressed="true"] > span,
   .sub-chip[aria-pressed="true"] > span,
+  .setlist-btn[aria-pressed="true"],
   .dock-btn[aria-pressed="true"],
   .sheet-seg button[aria-pressed="true"],
   .video-source-pill button[aria-pressed="true"],
@@ -7800,7 +8100,10 @@ body.immersive-mode .dock.autohide {
   .toast,
   .rel-block .rel-link,
   .cue-track,
-  .shelf-track {
+  .shelf-track,
+  .mastery-track,
+  .setlist-bar,
+  .mastery-bar {
     border: 1px solid CanvasText;
   }
 
@@ -7819,6 +8122,10 @@ body.immersive-mode .dock.autohide {
   .cue-track .head,
   .shelf-thumb {
     border: 1px solid CanvasText;
+  }
+
+  .mastery-fill {
+    background: Highlight;
   }
 
   :focus-visible {

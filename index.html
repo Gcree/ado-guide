@@ -31,6 +31,7 @@
 <link rel="dns-prefetch" href="https://www.youtube.com">
 <link rel="dns-prefetch" href="https://i.ytimg.com">
 <!-- build:seo（scripts/build.mjs 在這裡放網址、分享圖與結構化資料） -->
+<!-- fonts:tw:start -->
 <link rel="preconnect" href="https://font.emtech.cc">
 <link rel="preconnect" href="https://font.emtech.cc" crossorigin>
 <!-- 只載入實際用到的字重；整包網址會再用 @import 串 4 個檔，包含用不到的 100。
@@ -41,6 +42,7 @@
   <link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/400" crossorigin>
   <link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/700" crossorigin>
 </noscript>
+<!-- fonts:tw:end -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Google Fonts 的 CSS 很大（約 217 KiB）：改成先不擋畫面，載完再套用（media=print 換成 all）；沒開 JS 時由 noscript 照常載入 -->
@@ -234,6 +236,7 @@
           <button type="button" class="chip" data-f="cheer" aria-pressed="false" title="粉絲整理過固定應援的歌"><span>有應援</span></button>
           <button type="button" class="chip" data-f="live" aria-pressed="false" title="全部有現場版本（影片或音源）的歌"><span>有現場版</span></button>
           <button type="button" class="chip" data-f="cover" aria-pressed="false" title="Ado 翻唱曲"><span>翻唱</span></button>
+          <button type="button" class="chip" data-f="setlist" aria-pressed="false"><span>待練清單 <b class="cnt" id="cntSetlist">0</b></span></button>
         </div>
         <div class="sub-chips" id="freqSubFilter" hidden role="group" aria-label="常唱分層">
           <button type="button" class="sub-chip active" data-freq-sub="all" aria-pressed="true" title="全部三層常唱推薦曲"><span>全部常唱 <b class="cnt" id="cntFreqAll"></b></span></button>
@@ -246,6 +249,8 @@
           <button type="button" class="sub-chip" data-sub="video" aria-pressed="false" title="有官方演唱會現場真實畫面的歌"><span>現場影片 <b class="cnt" id="cntLiveVideo"></b></span></button>
           <button type="button" class="sub-chip" data-sub="audio" aria-pressed="false" title="有官方演唱會現場音源但無獨立畫面的歌"><span>純音源 <b class="cnt" id="cntLiveAudio"></b></span></button>
         </div>
+        <div class="mastery-bar" id="masteryBar" hidden><span class="mastery-label" id="masteryLabel"></span><span class="mastery-track" aria-hidden="true"><i class="mastery-fill" id="masteryFill"></i></span></div>
+        <div class="setlist-bar" id="setlistBar" hidden><span class="setlist-info" id="setlistInfo"></span><button type="button" class="chip sm" id="setlistPlayBtn">依清單播放</button><button type="button" class="chip sm" id="setlistShareBtn">複製分享連結</button><button type="button" class="chip sm" id="setlistClearBtn">清空清單</button><button type="button" class="chip sm" id="setlistSaveBtn" hidden>存成我的清單</button><button type="button" class="chip sm" id="setlistExitBtn" hidden>關閉分享清單</button></div>
         <div class="list-tools">
           <div class="home-legend" id="homeLegend" aria-label="圖示代表的動作"></div>
         </div>
@@ -571,6 +576,7 @@
     </div>
     <div class="sheet-group">
       <p class="sheet-h">播放</p>
+      <button type="button" class="pop-item" id="toolSetlistBtn" aria-pressed="false"><span>加入待練清單</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-tool="prefer-live" id="tool-prefer-live" aria-pressed="false"><span>優先播放 Live 版</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-tool="autonext" id="tool-autonext" aria-pressed="false"><span>播完自動下一首</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       <button type="button" class="pop-item" data-tool="shuffle" id="tool-shuffle" aria-pressed="false"><span>隨機播放</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
@@ -596,6 +602,12 @@
 <!-- build:i18n -->
 <script defer src="songs.js?v=dev"></script>
 <script defer src="karaoke-sources.js?v=dev"></script>
+<!-- build:app-scripts:start -->
+<script defer src="shared/render.js?v=dev"></script>
+<script defer src="js/setlist.js?v=dev"></script>
+<script defer src="js/penlight.js?v=dev"></script>
+<script defer src="js/quiz-engine.js?v=dev"></script>
 <script defer src="app.js?v=dev"></script>
+<!-- build:app-scripts:end -->
 </body>
 </html>
