@@ -22299,6 +22299,531 @@
         "tr": ""
       }
     ]
+  },
+  {
+    "id": "fairytale",
+    "title": "Fairytale,",
+    "youtubeId": "MhViuFoLkbs",
+    "duration": 299,
+    "lyrics": []
+  },
+  {
+    "id": "eaasou",
+    "title": "え？あぁ、そう。",
+    "youtubeId": "u_xepAGGEGM",
+    "duration": 194,
+    "lyrics": []
+  },
+  {
+    "id": "kuchibashi",
+    "title": "くちばしにチェリー",
+    "youtubeId": "vKUyCIJfYfY",
+    "duration": 88,
+    "lyrics": []
+  },
+  {
+    "id": "suiseiressha",
+    "title": "彗星列車のベルが鳴る",
+    "youtubeId": "j3nwow5QXkw",
+    "duration": 267,
+    "lyrics": []
+  },
+  {
+    "id": "wakaisayyo",
+    "title": "和解Say Yo!",
+    "youtubeId": "ErQTJSkle9g",
+    "duration": 211,
+    "lyrics": []
+  },
+  {
+    "id": "yuukinoreason",
+    "title": "勇気のReason",
+    "youtubeId": "JC0R7B3VRiA",
+    "duration": 231,
+    "lyrics": []
+  },
+  {
+    "id": "natsuyo",
+    "title": "夏夜のマジック",
+    "youtubeId": "4NA6FJOCmjE",
+    "duration": 305,
+    "lyrics": []
+  },
+  {
+    "id": "kubozono",
+    "title": "怪盗・窪園チヨコは絶対ミスらない",
+    "youtubeId": "Wjzd6O_CsEc",
+    "duration": 241,
+    "lyrics": []
+  },
+  {
+    "id": "daidaigenome",
+    "title": "橙ゲノム",
+    "youtubeId": "dir5nFkhpcc",
+    "duration": 219,
+    "lyrics": []
+  },
+  {
+    "id": "juuzokufuritter",
+    "title": "従属ふりったー",
+    "youtubeId": "Tbi4kahNcdc",
+    "duration": 218,
+    "lyrics": []
+  },
+  {
+    "id": "egorock",
+    "title": "エゴロック(long ver.)",
+    "youtubeId": "TbOLDRuKsgA",
+    "duration": 169,
+    "lyrics": []
+  },
+  {
+    "id": "vivahappy",
+    "title": "ビバハピ",
+    "youtubeId": "eXy6ZSEIAX0",
+    "duration": 213,
+    "lyrics": []
+  },
+  {
+    "id": "imodemoiijan",
+    "title": "イモでもいいじゃん",
+    "youtubeId": "zS2bYiGdfLE",
+    "duration": 180,
+    "lyrics": []
+  },
+  {
+    "id": "villainstella",
+    "title": "Villain (Stella Jang)",
+    "youtubeId": "vvG3BhuBLz8",
+    "duration": 190,
+    "lyrics": []
+  },
+  {
+    "id": "sugarvine",
+    "title": "シュガーバイン",
+    "youtubeId": "OyrXt_XnHEE",
+    "duration": 258,
+    "lyrics": []
+  },
+  {
+    "id": "accidentcoordinator",
+    "title": "アクシデントコーディネイター",
+    "youtubeId": "o0eEFR6Q9as",
+    "duration": 245,
+    "lyrics": []
+  },
+  {
+    "id": "rokugatsu",
+    "title": "とても素敵な六月でした",
+    "youtubeId": "5cUq9qgez5w",
+    "duration": 285,
+    "lyrics": []
+  },
+  {
+    "id": "katsuairon2",
+    "title": "渇愛論II",
+    "youtubeId": "kRZ9y2yqjxQ",
+    "duration": 177,
+    "lyrics": []
+  },
+  {
+    "id": "yorunokujira",
+    "title": "夜のくじら",
+    "youtubeId": "ZErhdHtPar0",
+    "duration": 225,
+    "lyrics": []
+  },
+  {
+    "id": "mabel",
+    "title": "メーベル",
+    "youtubeId": "CdcSSJZS89w",
+    "duration": 193,
+    "lyrics": []
+  },
+  {
+    "id": "culture",
+    "title": "カルチャ",
+    "youtubeId": "13ZBjvLH9NE",
+    "duration": 153,
+    "lyrics": []
+  },
+  {
+    "id": "blueflame",
+    "title": "Blue Flame",
+    "youtubeId": "OqmvHWZ2dhc",
+    "duration": 202,
+    "lyrics": []
+  },
+  {
+    "id": "interviewer",
+    "title": "インタビュア",
+    "youtubeId": "LyorMhAGkxE",
+    "duration": 268,
+    "lyrics": []
+  },
+  {
+    "id": "shinjinrui",
+    "title": "新人類",
+    "youtubeId": "eoV6Cb8sYGs",
+    "duration": 154,
+    "lyrics": []
+  },
+  {
+    "id": "readysteady",
+    "title": "Ready Steady",
+    "youtubeId": "lZwThdw6IYA",
+    "duration": 211,
+    "lyrics": []
+  },
+  {
+    "id": "overdose",
+    "title": "Overdose",
+    "youtubeId": "sGNkT6XyQRc",
+    "duration": 193,
+    "lyrics": []
+  },
+  {
+    "id": "darlingdance",
+    "title": "ダーリンダンス",
+    "youtubeId": "2EmstVQeEiA",
+    "duration": 205,
+    "lyrics": []
+  },
+  {
+    "id": "precure5",
+    "title": "プリキュア5、スマイル go go!",
+    "youtubeId": "LVgCDkzSJwI",
+    "duration": 237,
+    "lyrics": []
+  },
+  {
+    "id": "schadenfreude",
+    "title": "Mr.シャーデンフロイデ",
+    "youtubeId": "OSVLeArML9c",
+    "duration": 249,
+    "lyrics": []
+  },
+  {
+    "id": "tokyowayoru",
+    "title": "東京は夜",
+    "youtubeId": "1UVwsed3JQU",
+    "duration": 182,
+    "lyrics": []
+  },
+  {
+    "id": "lovedestroy",
+    "title": "ラブ＆デストロイ",
+    "youtubeId": "wuYIVacOTF8",
+    "duration": 213,
+    "lyrics": []
+  },
+  {
+    "id": "nyansei",
+    "title": "嗚呼、素晴らしきニャン生",
+    "youtubeId": "Uuqp7WH4-Wo",
+    "duration": 222,
+    "lyrics": []
+  },
+  {
+    "id": "snowsongshow",
+    "title": "Snow Song Show",
+    "youtubeId": "nuvNgt60km4",
+    "duration": 265,
+    "lyrics": []
+  },
+  {
+    "id": "scissorhands",
+    "title": "シザーハンズ",
+    "youtubeId": "Flw53ezXBYg",
+    "duration": 276,
+    "lyrics": []
+  },
+  {
+    "id": "adamtoibu",
+    "title": "アダムとイブになれたら",
+    "youtubeId": "PcA3BIzKxiw",
+    "duration": 267,
+    "lyrics": []
+  },
+  {
+    "id": "yokubari",
+    "title": "よくばり",
+    "youtubeId": "y-dMrhGdCms",
+    "duration": 208,
+    "lyrics": []
+  },
+  {
+    "id": "zaneri",
+    "title": "ザネリ",
+    "youtubeId": "pWZwiUaA0O8",
+    "duration": 245,
+    "lyrics": []
+  },
+  {
+    "id": "antisystems",
+    "title": "アンチシステム’s",
+    "youtubeId": "P12337hMnbI",
+    "duration": 98,
+    "lyrics": []
+  },
+  {
+    "id": "bocca",
+    "title": "ボッカデラベリタ",
+    "youtubeId": "X9aKVLPoKJk",
+    "duration": 200,
+    "lyrics": []
+  },
+  {
+    "id": "jama",
+    "title": "邪魔",
+    "youtubeId": "6uR_UxqGoug",
+    "duration": 208,
+    "lyrics": []
+  },
+  {
+    "id": "baka",
+    "title": "馬鹿",
+    "youtubeId": "aOIrxUTBRgs",
+    "duration": 201,
+    "lyrics": []
+  },
+  {
+    "id": "otomekaibou",
+    "title": "乙女解剖",
+    "youtubeId": "N5cSFdGANVc",
+    "duration": 230,
+    "lyrics": []
+  },
+  {
+    "id": "hungrynicole",
+    "title": "ハングリーニコル",
+    "youtubeId": "8Lf_sgxIWlg",
+    "duration": 287,
+    "lyrics": []
+  },
+  {
+    "id": "renaesaiban",
+    "title": "恋愛裁判",
+    "youtubeId": "iHIrEqU5cwM",
+    "duration": 222,
+    "lyrics": []
+  },
+  {
+    "id": "hystericnightgirl",
+    "title": "ヒステリックナイトガール",
+    "youtubeId": "UoGacSBPYPc",
+    "duration": 308,
+    "lyrics": []
+  },
+  {
+    "id": "kiraikiraizigahidai",
+    "title": "キライ・キライ・ジガヒダイ！",
+    "youtubeId": "gmJiYoRhO5g",
+    "duration": 214,
+    "lyrics": []
+  },
+  {
+    "id": "lastresort",
+    "title": "ラストリゾート",
+    "youtubeId": "slcfa-0urok",
+    "duration": 187,
+    "lyrics": []
+  },
+  {
+    "id": "nounai",
+    "title": "脳内革命ガール",
+    "youtubeId": "tYMSo9gW8Ks",
+    "duration": 219,
+    "lyrics": []
+  },
+  {
+    "id": "bin",
+    "title": "bin",
+    "youtubeId": "NfkXMkJV98A",
+    "duration": 209,
+    "lyrics": []
+  },
+  {
+    "id": "hanironokanshou",
+    "title": "半色の感傷",
+    "youtubeId": "n_sDtV5oZR0",
+    "duration": 234,
+    "lyrics": []
+  },
+  {
+    "id": "uminaoshi",
+    "title": "うみなおし",
+    "youtubeId": "cfVYSHvAhaQ",
+    "duration": 248,
+    "lyrics": []
+  },
+  {
+    "id": "mousoukanshou",
+    "title": "妄想感傷代償連盟",
+    "youtubeId": "Io9gOyAlq9g",
+    "duration": 119,
+    "lyrics": []
+  },
+  {
+    "id": "basketworm",
+    "title": "バスケットワーム",
+    "youtubeId": "A4fcb5LV1F8",
+    "duration": 246,
+    "lyrics": []
+  },
+  {
+    "id": "meltyland",
+    "title": "メルティランドナイトメア",
+    "youtubeId": "OZYqBsmtwuA",
+    "duration": 270,
+    "lyrics": []
+  },
+  {
+    "id": "limbo",
+    "title": "Limbo",
+    "youtubeId": "13dECLUD-5Q",
+    "duration": 140,
+    "lyrics": []
+  },
+  {
+    "id": "additionalmemory",
+    "title": "アディショナルメモリー",
+    "youtubeId": "h1q7BNK5U9A",
+    "duration": 240,
+    "lyrics": []
+  },
+  {
+    "id": "sunnywave",
+    "title": "Sunny Wave",
+    "youtubeId": "1M_A3OIEceg",
+    "duration": 274,
+    "lyrics": []
+  },
+  {
+    "id": "rabuka",
+    "title": "ラブカ？",
+    "youtubeId": "YTQV48V44Sw",
+    "duration": 185,
+    "lyrics": []
+  },
+  {
+    "id": "blackrockshooter",
+    "title": "ブラック★ロックシューター",
+    "youtubeId": "nMpD5q5wqPM",
+    "duration": 293,
+    "lyrics": []
+  },
+  {
+    "id": "kiminotaion",
+    "title": "君の体温",
+    "youtubeId": "QLsXgj4_gOc",
+    "duration": 242,
+    "lyrics": []
+  },
+  {
+    "id": "kirakiraboshi",
+    "title": "きらきら星",
+    "youtubeId": "zs6Mnu4gMHM",
+    "duration": 34,
+    "lyrics": []
+  },
+  {
+    "id": "koihasensou",
+    "title": "恋は戦争",
+    "youtubeId": "1OI4Bp8fGYw",
+    "duration": 236,
+    "lyrics": []
+  },
+  {
+    "id": "sixteenbitgirl",
+    "title": "16ビットガール",
+    "youtubeId": "UcpAHDF8yZI",
+    "duration": 263,
+    "lyrics": []
+  },
+  {
+    "id": "binks",
+    "title": "ビンクスの酒",
+    "youtubeId": "Z-WdGYi9Pv4",
+    "duration": 206,
+    "lyrics": []
+  },
+  {
+    "id": "sayonara",
+    "title": "SAYONARA feat. Ado",
+    "youtubeId": "gTYb8pTz3VU",
+    "duration": 92,
+    "lyrics": []
+  },
+  {
+    "id": "takemetothebeach",
+    "title": "Take Me to the Beach (feat. Ado)",
+    "youtubeId": "5Duje_sZko8",
+    "duration": 167,
+    "lyrics": []
+  },
+  {
+    "id": "unforgiven",
+    "title": "UNFORGIVEN (feat. Nile Rodgers, Ado) -Japanese ver.-",
+    "youtubeId": "vMddOrUGwDw",
+    "duration": 242,
+    "lyrics": []
+  },
+  {
+    "id": "shikabanese",
+    "title": "シカバネーゼ",
+    "youtubeId": "-yl6v5ezpuo",
+    "duration": 256,
+    "lyrics": []
+  },
+  {
+    "id": "kinmokusei",
+    "title": "金木犀",
+    "youtubeId": "Baw-cAvS5xc",
+    "duration": 141,
+    "lyrics": []
+  },
+  {
+    "id": "taemanaku",
+    "title": "絶え間なく藍色",
+    "youtubeId": "i8qxs5oJ24E",
+    "duration": 221,
+    "lyrics": []
+  },
+  {
+    "id": "unknownmothergoose",
+    "title": "アンノウン・マザーグース",
+    "youtubeId": "",
+    "duration": 0,
+    "lyrics": []
+  },
+  {
+    "id": "mousoushikkan",
+    "title": "妄想疾患□ガール",
+    "youtubeId": "",
+    "duration": 0,
+    "lyrics": []
+  },
+  {
+    "id": "entersandman",
+    "title": "Enter Sandman",
+    "youtubeId": "",
+    "duration": 0,
+    "lyrics": []
+  },
+  {
+    "id": "kawakiwoameku",
+    "title": "カワキヲアメク",
+    "youtubeId": "",
+    "duration": 0,
+    "lyrics": []
+  },
+  {
+    "id": "lagata",
+    "title": "La Gata Bajo La Lluvia",
+    "youtubeId": "",
+    "duration": 0,
+    "lyrics": []
   }
 ];
 
