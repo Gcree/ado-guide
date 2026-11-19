@@ -1,5 +1,10 @@
 (() => {
   "use strict";
+  const SHARED = window.ADO_SHARED || {};
+  const SETLIST = window.ADO_SETLIST || {};
+  const PENLIGHT = window.ADO_PENLIGHT || {};
+  const QUIZ = window.ADO_QUIZ || {};
+
   // ── 語言：<html data-lang> 由建置寫入（zh／en／ja）；文字以中文原文當 key 查 i18n.js 的字典，查不到就顯示中文
   // ROOT：英文、日文版在 /en/、/jp/ 底下，歌詞檔、更新日誌這些共用檔案要往上一層找
   const LANG = document.documentElement.dataset.lang || "zh";
@@ -9,18 +14,20 @@
   // 英文版歌詞下面那行放羅馬拼音，日文版不放，中文版放中譯
   const subLine = item => (LANG === "en" ? item.ro || "" : LANG === "ja" ? "" : item.tr || "");
   // 反拍：喊聲標籤裡有「反拍」（或翻譯後的同一個詞）就用反拍的提示樣式
-  const isOffbeat = txt => !!txt && (txt.includes("反拍") || txt.includes(T("反拍")));
+  const isOffbeat = txt => (SHARED.isOffbeat ? SHARED.isOffbeat(txt, T) : (!!txt && (txt.includes("反拍") || txt.includes(T("反拍")))));
+  const isNote = SHARED.isNote || (txt => /^（[^）]+）$/.test(String(txt || "").trim()));
 
   // ── 動作 ──
-  const ACT = {
-    sing:    { name: T("大合唱"),   icon: "i-sing",    how: T("跟著一起唱") },
-    clap:    { name: T("拍手"),     icon: "i-clap",    how: T("跟著節拍拍手") },
-    wave:    { name: T("舉手揮動"), icon: "i-wave",    how: T("舉手左右揮") },
-    jump:    { name: T("跳躍"),     icon: "i-jump",    how: T("跟著節奏跳") },
-    call:    { name: T("喊聲"),     icon: "i-call",    how: T("跟著喊短句") },
-    gesture: { name: T("手勢"),     icon: "i-gesture", how: T("跟 Ado 做同樣的動作") },
-    listen:  { name: T("安靜聽"),   icon: "i-listen",  how: T("留給 Ado 唱") }
+  const ACT_MAP = SHARED.ACT_MAP || {
+    sing:    { name: "大合唱",   icon: "i-sing",    how: "跟著一起唱" },
+    clap:    { name: "拍手",     icon: "i-clap",    how: "跟著節拍拍手" },
+    wave:    { name: "舉手揮動", icon: "i-wave",    how: "舉手左右揮" },
+    jump:    { name: "跳躍",     icon: "i-jump",    how: "跟著節奏跳" },
+    call:    { name: "喊聲",     icon: "i-call",    how: "跟著喊短句" },
+    gesture: { name: "手勢",     icon: "i-gesture", how: "跟 Ado 做同樣的動作" },
+    listen:  { name: "安靜聽",   icon: "i-listen",  how: "留給 Ado 唱" }
   };
+  const ACT = Object.fromEntries(Object.entries(ACT_MAP).map(([k, v]) => [k, { name: T(v.name), icon: v.icon, how: T(v.how) }]));
 
   const { SONGS, UT, PEN, BEAT, CLIMAX, SERIES = [], PRACTICE = {} } = window.ADO_SONGS;
   // hold：應援和螢光棒顏色還沒有可靠來源（例如剛出的新歌），資料先留著、畫面不顯示，確認後拿掉 hold；sug 的建議也一樣先不顯示；沒有 tips 又不是 free 的歌也先視為 hold
@@ -28,11 +35,13 @@
   SONGS.forEach(s => { s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`; s.acts = s.acts || []; s.tips = (s.tips || []).map(t => T(t)); s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0); });
   // 推出順序：MV 在 YouTube 公開的日期（日本時間）；編號照這個順序
   SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => s.no = i + 1);
+  const VALID_SONG_IDS = new Set(SONGS.map(s => s.id));
   // 歌詞：正式網站由 scripts/build.mjs 拆成每首一個檔（lyrics/<id>.json），<html data-lyrics> 是版本；
-  // 先讀小小的 lyrics/index.json（每首的應援數量），打開哪首才載那首。直接開原始檔時沒有拆，改讀整份 song-lyrics.js
+  // 先讀小小的 lyrics/index.json（每首的應援數量）與 hashes.json（每首內容雜湊），打開哪首才載那首。直接開原始檔時沒有拆，改讀整份 song-lyrics.js
   // 應援數量：歌詞裡有動作的行數（「安靜聽」不算）；index.json 裡沒有的歌就是沒有逐行歌詞
   const LYV = document.documentElement.dataset.lyrics, LY = {}, lyWait = {}, LY_LIVE = {}, lyLiveWait = {}, lyLiveLoaded = new Set();
-  let lyReady = false;
+  let lyReady = false, hashesFound = false;
+  let lyHashes = { mv: {}, live: {}, karaoke: {} };
   const loadScript = src => new Promise(res => {
     const el = document.createElement("script");
     el.src = src;
@@ -40,8 +49,21 @@
     document.head.appendChild(el);
   });
   const getJSON = url => fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  const hashesLoaded = LYV
+    ? getJSON(`${ROOT}lyrics/hashes.json?v=${LYV}`).then(h => {
+        if (h && typeof h === "object" && !Array.isArray(h)) {
+          hashesFound = true;
+          lyHashes = {
+            mv: (h.mv && typeof h.mv === "object") ? h.mv : {},
+            live: (h.live && typeof h.live === "object") ? h.live : {},
+            karaoke: (h.karaoke && typeof h.karaoke === "object") ? h.karaoke : {}
+          };
+        }
+        return lyHashes;
+      })
+    : Promise.resolve(lyHashes);
   const lyLoaded = (LYV
-    ? getJSON(`${ROOT}lyrics/index.json?v=${LYV}`)
+    ? Promise.all([getJSON(`${ROOT}lyrics/index.json?v=${LYV}`), hashesLoaded]).then(([idx]) => idx)
     : Promise.all([
         loadScript(ROOT + "song-lyrics.js"),
         loadScript(ROOT + "song-lyrics-live.js")
@@ -70,7 +92,10 @@
   const fetchLy = id => {
     if (LY[id]) return Promise.resolve(true);
     if (!lyWait[id]) {
-      lyWait[id] = getJSON(`${ROOT}lyrics/${id}.json?v=${LYV}`).then(b => {
+      lyWait[id] = hashesLoaded.then(() => {
+        const v = (lyHashes.mv && lyHashes.mv[id]) || LYV;
+        return getJSON(`${ROOT}lyrics/${id}.json?v=${v}`);
+      }).then(b => {
         if (b) { LY[id] = b; return true; }
         delete lyWait[id];
         return false;
@@ -84,7 +109,10 @@
   const fetchLyLive = id => {
     if (lyLiveLoaded.has(id)) return Promise.resolve(true);
     if (!lyLiveWait[id]) {
-      lyLiveWait[id] = fetch(`${ROOT}lyrics-live/${id}.json?v=${LYV}`).then(async r => {
+      lyLiveWait[id] = hashesLoaded.then(() => {
+        const v = (lyHashes.live && lyHashes.live[id]) || LYV;
+        return fetch(`${ROOT}lyrics-live/${id}.json?v=${v}`);
+      }).then(async r => {
         if (r.ok) {
           const b = await r.json();
           if (b) LY_LIVE[id] = b;
@@ -118,21 +146,24 @@
     if (firstSongObj.liveVideo) fetchLyLive(firstSong);
   }
   const BY = Object.fromEntries(SONGS.map(s => [s.id, s]));
-  const PENC = { 青: [T("藍"), "#5d9dfe"], 水: [T("水藍"), "#5fd4ff"], 白: [T("白"), "#f2efe8"], 赤: [T("紅"), "#ff4a5a"], 桃: [T("粉紅"), "#ff7ab8"], 紫: [T("紫"), "#a374ff"], 橙: [T("橘"), "#ff9a3c"], 黄: [T("黃"), "#ffd84a"], 緑: [T("綠"), "#4ee08a"] };
-  const penName = k => (k === "彩" ? T("彩色") : PENC[k][0]);
-  const RAINBOW = [..."赤橙黄緑水青紫"];
+  const PENC_RAW = SHARED.PENC || { 青: ["藍", "#5d9dfe"], 水: ["水藍", "#5fd4ff"], 白: ["白", "#f2efe8"], 赤: ["紅", "#ff4a5a"], 桃: ["粉紅", "#ff7ab8"], 紫: ["紫", "#a374ff"], 橙: ["橘", "#ff9a3c"], 黄: ["黃", "#ffd84a"], 緑: ["綠", "#4ee08a"] };
+  const PENC = Object.fromEntries(Object.entries(PENC_RAW).map(([k, [n, col]]) => [k, [T(n), col]]));
+  const RAINBOW = SHARED.RAINBOW || [..."赤橙黄緑水青紫"];
+  const PEN_ORDER = SHARED.PEN_ORDER || ["青", "水", "白", "赤", "桃", "紫", "橙", "黄", "緑", "彩"];
+  const penName = k => (SHARED.penName ? SHARED.penName(k, T) : (k === "彩" ? T("彩色") : PENC[k][0]));
   function penOf(s) {
+    if (SHARED.penOf) return SHARED.penOf(s, PEN, T);
     const pen = !s.hold && PEN[s.id] && PEN[s.id][0] !== "?" && PEN[s.id], keys = [...(pen || "青")];
     return { keys, none: !pen, cols: keys.flatMap(k => (k === "彩" ? RAINBOW : [k]).map(c => PENC[c][1])) };
   }
 
-  const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fmt = SHARED.fmt || (s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`);
+  const esc = SHARED.esc || (s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])));
   const icon = a => `<svg class="a-${a}" role="img" aria-label="${esc(ACT[a].name)}"><use href="#${ACT[a].icon}"/></svg>`;
   // 一行的主色：第一個不是「安靜聽」的動作
-  const mainAct = acts => acts.find(a => a !== "listen") || (acts.length ? "listen" : "");
+  const mainAct = SHARED.mainAct || (acts => acts.find(a => a !== "listen") || (acts.length ? "listen" : ""));
   // 歌詞行的底色：有要唱的字時整行不染色，只染那幾個字；其他行用第一個不是「唱」的動作
-  const lineAct = l => l.sing.length ? "sing" : mainAct(l.acts.filter(a => a !== "sing")) || mainAct(l.acts);
+  const lineAct = SHARED.lineAct || (l => l.sing.length ? "sing" : mainAct(l.acts.filter(a => a !== "sing")) || mainAct(l.acts));
   // 提醒文字：有標籤用標籤，有要唱的字就寫出來
   const cueLabel = l => l.call || (l.sing.length ? T("唱「{0}」", l.sing.join(T("」「"))) : l.acts.map(a => ACT[a].name).join(T("、")));
   const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
@@ -178,7 +209,153 @@
   const FREQ_ALL = FREQ_TIERS.flatMap(t => FREQ_BY_TIER[t]);
   const FREQ_ORDER = new Map(FREQ_ALL.map((id, i) => [id, i]));
   const FREQ_TIER = new Map(FREQ_TIERS.flatMap(t => FREQ_BY_TIER[t].map(id => [id, t])));
-  const TIER_LABEL = { 1: "必練", 2: "跟唱・聆聽", 3: "看巡演" };
+  const TIER_LABEL = SHARED.TIER_LABEL || { 1: "必練", 2: "跟唱・聆聽", 3: "看巡演" };
+
+  // ── 待練清單 & 熟練度（js/setlist.js） ──
+  const parseListHash = (h, valid = VALID_SONG_IDS) => {
+    if (SETLIST.parseListHash) return SETLIST.parseListHash(h, valid);
+    const m = String(h || "").match(/^#?list=([^@?#]+)/);
+    if (!m) return null;
+    const out = [], seen = new Set();
+    m[1].split(",").forEach(raw => {
+      const id = raw.trim();
+      if (!id || seen.has(id) || (valid && !valid.has(id))) return;
+      seen.add(id); out.push(id);
+    });
+    return out;
+  };
+  const formatListHash = ids => (SETLIST.formatListHash ? SETLIST.formatListHash(ids) : "#list=" + ids.join(","));
+  const loadSetlist = (st = store, valid = VALID_SONG_IDS) => {
+    if (SETLIST.loadSetlist) return SETLIST.loadSetlist(st, valid);
+    try {
+      const arr = JSON.parse(st.get("practice-setlist") || "[]");
+      if (!Array.isArray(arr)) return [];
+      const out = [], seen = new Set();
+      arr.forEach(id => { if (typeof id === "string" && !seen.has(id) && (!valid || valid.has(id))) { seen.add(id); out.push(id); } });
+      return out;
+    } catch (e) { return []; }
+  };
+  const saveSetlist = (st, ids) => {
+    if (SETLIST.saveSetlist) return SETLIST.saveSetlist(st, ids);
+    st.set("practice-setlist", JSON.stringify(ids));
+  };
+  const toggleSetlistId = (ids, id) => {
+    if (SETLIST.toggleSetlistId) return SETLIST.toggleSetlistId(ids, id);
+    const has = ids.includes(id);
+    return { ids: has ? ids.filter(x => x !== id) : [...ids, id], added: !has };
+  };
+  const gradeOf = score => (SETLIST.gradeOf ? SETLIST.gradeOf(score) : (score >= 95 ? "S" : score >= 85 ? "A" : score >= 70 ? "B" : score >= 50 ? "C" : "D"));
+  const loadQuizBest = (st = store) => {
+    if (SETLIST.loadQuizBest) return SETLIST.loadQuizBest(st);
+    try {
+      const parsed = JSON.parse(st.get("quiz-best") || "{}");
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+      const out = {};
+      Object.entries(parsed).forEach(([id, v]) => {
+        if (v && typeof v === "object" && !Array.isArray(v) && typeof v.score === "number" && Number.isFinite(v.score)) out[id] = v;
+      });
+      return out;
+    } catch (e) { return {}; }
+  };
+  const computeMastery = (best, freqIds) => {
+    if (SETLIST.computeMastery) return SETLIST.computeMastery(best, freqIds);
+    let completed = 0, mastered = 0;
+    freqIds.forEach(id => {
+      const entry = best && best[id];
+      if (entry && typeof entry.score === "number" && Number.isFinite(entry.score)) {
+        completed++;
+        if (entry.score >= 85) mastered++;
+      }
+    });
+    return { completed, mastered, total: freqIds.length };
+  };
+
+  let S = null;
+  let mySetlist = loadSetlist(store, VALID_SONG_IDS);
+  let sharedList = null;
+  let activePlayList = null;
+  const cntSetlistEl = document.getElementById("cntSetlist");
+  const masteryBarEl = document.getElementById("masteryBar");
+  const masteryLabelEl = document.getElementById("masteryLabel");
+  const masteryFillEl = document.getElementById("masteryFill");
+  const setlistBarEl = document.getElementById("setlistBar");
+  const setlistInfoEl = document.getElementById("setlistInfo");
+  const setlistPlayBtn = document.getElementById("setlistPlayBtn");
+  const setlistShareBtn = document.getElementById("setlistShareBtn");
+  const setlistClearBtn = document.getElementById("setlistClearBtn");
+  const setlistSaveBtn = document.getElementById("setlistSaveBtn");
+  const setlistExitBtn = document.getElementById("setlistExitBtn");
+  const toolSetlistBtn = document.getElementById("toolSetlistBtn");
+
+  const activeSetlistIds = () => (sharedList || mySetlist).filter(id => BY[id]);
+
+  function updateMasteryBar() {
+    if (!masteryBarEl) return;
+    const best = loadQuizBest(store);
+    const { completed, mastered, total } = computeMastery(best, FREQ_ALL);
+    masteryBarEl.hidden = completed === 0;
+    if (masteryLabelEl) masteryLabelEl.textContent = T("常唱曲熟練度 {0}／{1} 首", mastered, total);
+    if (masteryFillEl) masteryFillEl.style.width = `${total > 0 ? Math.round((mastered / total) * 100) : 0}%`;
+  }
+
+  function syncToolSetlistBtn() {
+    if (!toolSetlistBtn) return;
+    const inList = !!(S && mySetlist.includes(S.id));
+    toolSetlistBtn.setAttribute("aria-pressed", String(inList));
+    const label = T(inList ? "移出待練清單" : "加入待練清單");
+    const span = toolSetlistBtn.querySelector("span");
+    if (span) span.textContent = label;
+  }
+
+  function syncSetlistUi() {
+    if (cntSetlistEl) cntSetlistEl.textContent = String(mySetlist.length);
+    syncToolSetlistBtn();
+    if (!setlistBarEl) return;
+    const showBar = filter === "setlist" || !!sharedList;
+    setlistBarEl.hidden = !showBar;
+    const ids = activeSetlistIds();
+    if (setlistInfoEl) {
+      if (sharedList) {
+        setlistInfoEl.hidden = false;
+        setlistInfoEl.textContent = T("分享的待練清單（共 {0} 首）", sharedList.length);
+      } else {
+        setlistInfoEl.hidden = true;
+        setlistInfoEl.textContent = "";
+      }
+    }
+    if (setlistPlayBtn) setlistPlayBtn.disabled = ids.length === 0;
+    if (setlistShareBtn) setlistShareBtn.disabled = ids.length === 0;
+    if (setlistClearBtn) setlistClearBtn.disabled = mySetlist.length === 0;
+    if (setlistSaveBtn) setlistSaveBtn.hidden = !sharedList;
+    if (setlistExitBtn) setlistExitBtn.hidden = !sharedList;
+  }
+
+  function syncFilterChips() {
+    document.querySelectorAll("[data-f]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.f === filter)));
+  }
+
+  function toggleSetlistSong(id) {
+    if (!BY[id]) return;
+    const res = toggleSetlistId(mySetlist, id);
+    mySetlist = res.ids;
+    saveSetlist(store, mySetlist);
+    syncSetlistUi();
+    const label = T(res.added ? "移出待練清單" : "加入待練清單");
+    list.querySelectorAll(`.setlist-btn[data-setlist-id="${id}"]`).forEach(btn => {
+      btn.setAttribute("aria-pressed", String(res.added));
+      btn.setAttribute("aria-label", label);
+      btn.title = label;
+    });
+    if (filter === "setlist" && !sharedList) renderList();
+    toast(T(res.added ? "已加入待練清單" : "已移出待練清單"));
+  }
+
+  // 螢光棒顏色的小圓點
+  const penDots = s => (SHARED.penDots ? SHARED.penDots(s, PEN, T) : (() => {
+    const p = penOf(s);
+    const short = p.shortText || p.keys.map(penName).join(T("、"));
+    return `<span class="dots" aria-label="${esc(T("螢光棒：") + short)}">${p.keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")}</span>`;
+  })());
 
   const tierTagOf = s => {
     if (filter !== "frequent" || freqSub !== "all") return "";
@@ -196,7 +373,16 @@
     return "";
   };
 
-  const rowHtml = s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${tierTagOf(s)}${liveTagOf(s)}${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}${sort === "cheer" && s.cheer ? `<span class="cnt">${T("{0} 句", s.cheer)}</span>` : ""}</span></span></a></li>`;
+  const rowHtml = (s, quizBest = loadQuizBest(store), mySet = new Set(mySetlist)) => {
+    const bestEntry = quizBest && quizBest[s.id];
+    const grade = bestEntry && typeof bestEntry.score === "number" ? gradeOf(bestEntry.score) : "";
+    const gradeTitle = grade ? T("測驗最高分：{0} 分（{1}）", bestEntry.score, grade) : "";
+    const gradeBadge = grade ? `<span class="quiz-grade grade-${grade.toLowerCase()}" title="${esc(gradeTitle)}" aria-label="${esc(gradeTitle)}">${grade}</span>` : "";
+    const inList = mySet.has(s.id);
+    const setlistLbl = T(inList ? "移出待練清單" : "加入待練清單");
+    const setlistBtn = `<button type="button" class="setlist-btn" data-setlist-id="${s.id}" aria-pressed="${inList}" aria-label="${esc(setlistLbl)}" title="${esc(setlistLbl)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v17l-6-4-6 4V4z"/></svg></button>`;
+    return `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${tierTagOf(s)}${liveTagOf(s)}${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}${sort === "cheer" && s.cheer ? `<span class="cnt">${T("{0} 句", s.cheer)}</span>` : ""}${gradeBadge}</span></span></a>${setlistBtn}</li>`;
+  };
   let searchTimer = 0;
   function syncListPaging() {
     const items = list.children, total = items.length;
@@ -216,37 +402,61 @@
     searchTimer = 0;
     const term = q.value.trim().toLowerCase();
     const cleanTerm = term.replace(/[\s\-_'’"!?！？()（）/]/g, "");
-    const rows = ordered().filter(s => {
-      if (term) {
-        const pool = [s.ja, s.zh, s.en || "", s.ro || "", s.id, ...(s.alias || [])];
-        const matchPlain = pool.some(x => x.toLowerCase().includes(term));
-        const matchClean = cleanTerm ? pool.some(x => x.toLowerCase().replace(/[\s\-_'’"!?！？()（）/]/g, "").includes(cleanTerm)) : false;
-        if (!matchPlain && !matchClean) return false;
-      }
-      if (filter === "frequent") {
-        const tier = FREQ_TIER.get(s.id);
-        return !!tier && (freqSub === "all" || String(tier) === freqSub);
-      }
-      if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
-      if (filter === "live") {
-        if (liveSub === "video") return hasLiveVideo(s);
-        if (liveSub === "audio") return hasLiveAudio(s);
-        return hasLive(s);
-      }
-      if (filter === "cover") return !!s.cover;
-      return true;
-    });
-    if (filter === "frequent" && sort !== "cheer") rows.sort((a, b) => FREQ_ORDER.get(a.id) - FREQ_ORDER.get(b.id));
-    list.innerHTML = rows.map(rowHtml).join("");
+    const matchesTerm = s => {
+      if (!term) return true;
+      const pool = [s.ja, s.zh, s.en || "", s.ro || "", s.id, ...(s.alias || [])];
+      const matchPlain = pool.some(x => x.toLowerCase().includes(term));
+      const matchClean = cleanTerm ? pool.some(x => x.toLowerCase().replace(/[\s\-_'’"!?！？()（）/]/g, "").includes(cleanTerm)) : false;
+      return matchPlain || matchClean;
+    };
+    let rows;
+    if (filter === "setlist") {
+      const sourceIds = sharedList || mySetlist;
+      rows = sourceIds.map(id => BY[id]).filter(Boolean).filter(matchesTerm);
+      if (sort === "cheer") rows.sort((a, b) => b.cheer - a.cheer || a.no - b.no);
+    } else {
+      rows = ordered().filter(s => {
+        if (!matchesTerm(s)) return false;
+        if (filter === "frequent") {
+          const tier = FREQ_TIER.get(s.id);
+          return !!tier && (freqSub === "all" || String(tier) === freqSub);
+        }
+        if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
+        if (filter === "live") {
+          if (liveSub === "video") return hasLiveVideo(s);
+          if (liveSub === "audio") return hasLiveAudio(s);
+          return hasLive(s);
+        }
+        if (filter === "cover") return !!s.cover;
+        return true;
+      });
+      if (filter === "frequent" && sort !== "cheer") rows.sort((a, b) => FREQ_ORDER.get(a.id) - FREQ_ORDER.get(b.id));
+    }
+    const quizBest = loadQuizBest(store), mySet = new Set(mySetlist);
+    list.innerHTML = rows.map(s => rowHtml(s, quizBest, mySet)).join("");
     const plain = !term && filter === "all", total = rows.length;
     list.classList.remove("collapsed");
     syncListPaging();
     countEl.textContent = plain ? T("{0} 首", SONGS.length) : T("{0} 首符合", total);
     emptyEl.hidden = total > 0;
-    if (!total) emptyEl.textContent = term ? T("找不到「{0}」，試試日文、中文或英文歌名。", q.value.trim()) : T("這個分類目前沒有歌。");
+    if (!total) {
+      emptyEl.textContent = term
+        ? T("找不到「{0}」，試試日文、中文或英文歌名。", q.value.trim())
+        : filter === "setlist"
+          ? T("待練清單是空的，點歌曲右側的書籤圖示即可加入。")
+          : T("這個分類目前沒有歌。");
+    }
   }
   // 首頁上所有歌曲連結（清單、書架、主視覺）：普通左鍵點擊用 SPA 即時切換；帶修飾鍵就讓瀏覽器開新分頁
   homeEl.addEventListener("click", ev => {
+    const sb = ev.target.closest(".setlist-btn");
+    if (sb) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const id = sb.dataset.setlistId;
+      if (id && BY[id]) toggleSetlistSong(id);
+      return;
+    }
     const a = ev.target.closest("a[data-id]");
     if (!a || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
     if (BY[a.dataset.id]) {
@@ -254,8 +464,67 @@
       location.hash = a.dataset.id;
     }
   });
-  // 螢光棒顏色的小圓點
-  const penDots = s => `<span class="dots" aria-label="${esc(T("螢光棒：") + penOf(s).keys.map(penName).join(T("、")))}">${penOf(s).keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")}</span>`;
+  if (toolSetlistBtn) {
+    toolSetlistBtn.addEventListener("click", () => {
+      if (S) toggleSetlistSong(S.id);
+    });
+  }
+  if (setlistPlayBtn) {
+    setlistPlayBtn.addEventListener("click", () => {
+      const ids = activeSetlistIds();
+      if (!ids.length) return;
+      activePlayList = [...ids];
+      if (BY[ids[0]]) tapPlay(BY[ids[0]]);
+      if (PAGE_SONG) goSong(ids[0]);
+      else location.hash = ids[0];
+    });
+  }
+  if (setlistShareBtn) {
+    setlistShareBtn.addEventListener("click", async () => {
+      const ids = activeSetlistIds();
+      if (!ids.length) return;
+      const base = LYV ? new URL("./", document.baseURI).href : `${location.origin}${location.pathname}`;
+      const url = base + formatListHash(ids);
+      try { await navigator.clipboard.writeText(url); toast(T("已複製待練清單分享連結")); }
+      catch (e) { prompt(T("複製這個連結："), url); }
+    });
+  }
+  if (setlistClearBtn) {
+    setlistClearBtn.addEventListener("click", () => {
+      mySetlist = [];
+      saveSetlist(store, mySetlist);
+      syncSetlistUi();
+      renderList();
+      toast(T("已清空待練清單"));
+    });
+  }
+  if (setlistSaveBtn) {
+    setlistSaveBtn.addEventListener("click", () => {
+      if (!sharedList) return;
+      const merged = [...mySetlist];
+      sharedList.forEach(id => { if (BY[id] && !merged.includes(id)) merged.push(id); });
+      mySetlist = merged;
+      saveSetlist(store, mySetlist);
+      sharedList = null;
+      filter = "setlist";
+      if (parseListHash(location.hash, VALID_SONG_IDS) !== null) history.replaceState(null, "", "#songs");
+      syncFilterChips();
+      syncSetlistUi();
+      renderList();
+      toast(T("已儲存為我的待練清單"));
+    });
+  }
+  if (setlistExitBtn) {
+    setlistExitBtn.addEventListener("click", () => {
+      sharedList = null;
+      if (!mySetlist.length) filter = "all";
+      if (parseListHash(location.hash, VALID_SONG_IDS) !== null) history.replaceState(null, "", "#songs");
+      syncFilterChips();
+      syncSubFilters();
+      syncSetlistUi();
+      renderList();
+    });
+  }
   // 兩個搜尋框（主視覺、頂欄）內容同步；在頂欄打字時，清單不在眼前就捲過去
   const songsSec = document.getElementById("songs");
   function onSearch(src, ev) {
@@ -323,13 +592,15 @@
     });
   }
   syncSubFilters();
+  syncSetlistUi();
 
   document.querySelectorAll("[data-f]").forEach(b => b.addEventListener("click", () => {
     filter = b.dataset.f; shown = LIMIT;
     if (filter === "live") liveSub = "all";
     if (filter === "frequent") freqSub = "all";
     syncSubFilters();
-    document.querySelectorAll("[data-f]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    syncFilterChips();
+    syncSetlistUi();
     renderList(); replay(list, "swap");
   }));
 
@@ -373,7 +644,10 @@
     if (homeReady) return;
     homeReady = true;
     syncSort();
+    syncFilterChips();
     syncSubFilters();
+    updateMasteryBar();
+    syncSetlistUi();
     renderList();
     setupShelf(STARTERS, "shelf");
     setupShelf(LATEST, "latestShelf");
@@ -908,7 +1182,7 @@
     ev.preventDefault();
     goSong(getSongIdFromEl(a));
   }));
-  let S = null, LINES = [], TAGGED = false, lineEls = [], curLine = -1, curKey = "", lastCueNextHtml = "", lastTrackPct = -1, maxLitLine = -1;
+  let LINES = [], TAGGED = false, lineEls = [], curLine = -1, curKey = "", lastCueNextHtml = "", lastTrackPct = -1, maxLitLine = -1;
   let frameId = 0, stageT = 0, lastMs = 0, idleDrawn = false, penSong = null, blasted = false, crowdOn = false, venueOn = false, venueRaise = 0, venueClap = 0, venueJump = 0;
   function ensureFrame() { if (!frameId) frameId = requestAnimationFrame(frame); }
 
@@ -959,7 +1233,7 @@
     const lines = (builtin.lyrics || []).map(item => ({
       t: +item.time || 0,
       dur: item.duration != null && +item.duration > 0 ? +item.duration : null,
-      ja: (j => (j && /^（[^）]+）$/.test(j) ? T(j) : j))(String(item.jp || "").trim()) || null,
+      ja: (j => (j && isNote(j) ? T(j) : j))(String(item.jp || "").trim()) || null,
       zh: String(subLine(item)).trim() || null,
       acts: S.hold ? [] : (item.acts || []).filter(a => ACT[a] && a !== "listen"),
       listen: S.hold ? false : (item.acts || []).includes("listen"),
@@ -996,6 +1270,7 @@
   // 假名：歌詞裡寫「漢字(かな)」就會標在漢字上方；每個字包成 .k 給卡拉OK與字體飛入動畫用
   // sung 是觀眾要唱的字，取最後一次出現的位置（Ado 先唱、觀眾接時，觀眾在後面）
   function jaHTML(txt, sung = []) {
+    if (SHARED.jaHTML) return SHARED.jaHTML(txt, sung);
     const out = [], re = /([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g, hit = new Set();
     sung.forEach(w => { const i = txt.lastIndexOf(w); if (i >= 0) for (let j = i; j < i + w.length; j++) hit.add(j); });
     // 英文、數字連在一起的字包成一組（.kw），一個單字不會被拆到兩行
@@ -1125,9 +1400,21 @@
       return;
     }
 
+    if (LYV) await hashesLoaded;
+    if (seq !== karaokeLoadSeq || S !== song) return;
+
+    const karaokeHash = lyHashes.karaoke && lyHashes.karaoke[song.id];
+    const localUrl = hashesFound
+      ? (karaokeHash ? `${ROOT}karaoke/${song.id}.json?v=${karaokeHash}` : null)
+      : (LYV ? `${ROOT}karaoke/${song.id}.json?v=${LYV}` : null);
+
     let timed = null;
     try {
-      timed = await api.load(song, { duration: DUR() });
+      timed = await api.load(song, {
+        duration: DUR(),
+        localUrl,
+        localLabel: T("（靜態快取）")
+      });
     } catch (e) {
       timed = null;
     }
@@ -1610,6 +1897,12 @@
       + `<b>${p.keys.map(penName).join(T("、"))}${p.none ? T("（沒指定）") : ""}</b>`;
     // 接關聯曲：換到的是上一首說好的那首，告訴使用者為什麼接這首
     if (TOOL.related && nextUp && nextUp.id === s.id && nextUp.why) toast(T("接著聽關聯曲：{0}", nextUp.why));
+    if (!TOOL.shuffle && !TOOL.related && activePlayList && activePlayList.length) {
+      const plIdx = activePlayList.indexOf(s.id);
+      if (plIdx >= 0) toast(T("清單第 {0}／{1} 首", plIdx + 1, activePlayList.length));
+      else activePlayList = null;
+    }
+    syncToolSetlistBtn();
     shuffleSeen(s);
     paintNav(s);
     fillSong();
@@ -2232,6 +2525,12 @@
     session.set("shuffle-queue", JSON.stringify(shufList("shuffle-queue").filter(id => id !== s.id)));
   }
   function navTargets(s) {
+    if (!TOOL.shuffle && !TOOL.related && activePlayList && activePlayList.length) {
+      const idx = activePlayList.indexOf(s.id);
+      if (idx >= 0) {
+        return [BY[activePlayList[idx - 1]] || null, BY[activePlayList[idx + 1]] || null];
+      }
+    }
     const seq = ordered(), at = seq.indexOf(s);
     if (!TOOL.shuffle && !TOOL.related) return [seq[at - 1], seq[at + 1]];
     const h = shufList("shuffle-hist"), prev = h[h.length - 1] === s.id ? BY[h[h.length - 2]] : null;
@@ -2267,15 +2566,17 @@
 
   // ── 關聯曲：同一位作詞／作曲／編曲者、同一部作品（songs.js 的 CREDIT、SERIES） ──
   // 名字後面括號裡的團名只顯示，比對時拿掉
-  const credKey = n => n.replace(/\s*\(.*\)\s*$/, "").trim();
-  const credHas = (s, part, key) => !!(s.credit && (s.credit[part] || []).some(n => credKey(n) === key));
+  const credKey = SHARED.credKey || (n => n.replace(/\s*\(.*\)\s*$/, "").trim());
+  const credHas = SHARED.credHas || ((s, part, key) => !!(s.credit && (s.credit[part] || []).some(n => credKey(n) === key)));
   function credRole(s, key) {
+    if (SHARED.credRole) return SHARED.credRole(s, key, T);
     const w = credHas(s, "w", key), c = credHas(s, "c", key);
     return w && c ? T("詞曲") : w ? T("作詞") : c ? T("作曲") : credHas(s, "a", key) ? T("編曲") : "";
   }
   const relCache = {};
   function relatedOf(s) {
     if (relCache[s.id]) return relCache[s.id];
+    if (SHARED.relatedOf) return (relCache[s.id] = SHARED.relatedOf(s, SONGS, SERIES, T));
     const groups = [], c = s.credit;
     if (c) {
       const names = [...c.w || [], ...c.c || [], ...c.a || []], keys = [...new Set(names.map(credKey))];
@@ -3064,7 +3365,6 @@
     const k = b.dataset.tool;
     if (k === "lamp" && TOOL.lamp && lampStatusText === T("找不到 PenlightSync")) {
       toast(T("請先在電腦開啟 PenlightSync App，並在色彩頁將「取色來源」選為網站"));
-      lampRetryCount = 0;
       lampConnect();
       return;
     }
@@ -3079,7 +3379,7 @@
       else toast(TOOL.related ? T("接關聯曲：下一首先接同一位創作者或同一部作品的歌") : T("已關閉接關聯曲"));
     }
     if (k === "lamp") {
-      if (TOOL.lamp) { lampRetryCount = 0; lampConnect(); }
+      if (TOOL.lamp) { lampConnect(); }
       else { lampDisconnect(true); }
     }
     if (k === "prefer-live") {
@@ -3135,8 +3435,8 @@
     }
   }
 
-  // ── 手燈連動（PenlightSync） ──
-  let lampWS = null, lampTimer = null, lampRetryCount = 0, lampHasConnected = false;
+  // ── 手燈連動（PenlightSync，js/penlight.js） ──
+  let lampHasConnected = false;
   let lampLastSent = null, lampLastSentWallTime = 0, lampSeq = 0, lampStatusText = "";
   const lampStatusEl = document.getElementById("tool-lamp-status");
   const toolLampEl = document.getElementById("tool-lamp");
@@ -3154,99 +3454,121 @@
     }
   }
 
-  function lampDisconnect(sendStop) {
-    if (lampTimer) { clearTimeout(lampTimer); lampTimer = null; }
-    lampRetryCount = 0;
-    if (lampWS) {
-      if (sendStop && lampWS.readyState === WebSocket.OPEN) {
-        try { lampWS.send(JSON.stringify({ v: 1, type: "stop" })); } catch (e) {}
+  function handleLampState(nextState, detail = {}) {
+    if (detail.msg && detail.msg.type === "hello") {
+      if (detail.lamp === "linked") {
+        const wasLinked = lampStatusText === T("已連動");
+        setLampStatus(T("已連動"), true);
+        if (!wasLinked) toast(T("✨ 已與 PenlightSync 手燈連動！"));
+      } else if (detail.lamp === "connecting") {
+        setLampStatus(T("手燈連線中…"), false);
+      } else {
+        setLampStatus(T("App 已開，手燈未連"), false);
       }
-      try { lampWS.close(); } catch (e) {}
-      lampWS = null;
+      return;
     }
+    if (nextState === "connecting" || nextState === "reconnecting") {
+      if (TOOL.lamp) setLampStatus(T("連線中…"), false);
+    } else if (nextState === "connected") {
+      if (!lampHasConnected) {
+        lampHasConnected = true;
+        toast(T("已連上 PenlightSync"));
+      }
+      lampLastSent = null;
+    } else if (nextState === "unavailable") {
+      setLampStatus(T("找不到 PenlightSync"), false);
+    } else if (nextState === "error") {
+      if (detail.reason === "SecurityError" || (detail.error && detail.error.name === "SecurityError")) {
+        setLampStatus(T("找不到 PenlightSync"), false);
+      }
+    } else if (nextState === "disconnected") {
+      lampLastSent = null;
+      if (!TOOL.lamp || detail.enabled === false) setLampStatus("", false);
+    }
+  }
+
+  function createFallbackLampClient(onState) {
+    let ws = null, timer = null, retries = 0, enabled = false, state = "disconnected";
+    const setState = (s, d = {}) => { state = s; onState(s, { state: s, enabled, retryCount: retries, ...d }); };
+    const connect = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (!enabled || typeof WebSocket !== "function") { if (typeof WebSocket !== "function") setState("unavailable"); return; }
+      if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+      setState("connecting");
+      try {
+        const cur = new WebSocket("ws://127.0.0.1:51730/ado");
+        ws = cur;
+        cur.onopen = () => { if (cur !== ws) return; retries = 0; setState("connected"); };
+        cur.onmessage = ev => {
+          if (cur !== ws) return;
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg && msg.type === "hello") setState("connected", { lamp: msg.lamp ?? null, msg });
+          } catch (e) {}
+        };
+        cur.onerror = () => {};
+        cur.onclose = () => {
+          if (cur !== ws) return;
+          ws = null;
+          if (!enabled) { setState("disconnected"); return; }
+          if (retries < 12) { retries++; setState("reconnecting"); timer = setTimeout(connect, 5000); }
+          else setState("unavailable");
+        };
+      } catch (e) {
+        if (!enabled) return;
+        if (e && e.name === "SecurityError") { setState("unavailable", { reason: "SecurityError", error: e }); return; }
+        if (retries < 12) { retries++; setState("reconnecting"); timer = setTimeout(connect, 5000); }
+        else setState("unavailable");
+      }
+    };
+    const sendImmediate = p => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      try { ws.send(typeof p === "string" ? p : JSON.stringify(p)); return true; } catch (e) { return false; }
+    };
+    const disconnect = stop => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      retries = 0;
+      if (ws) {
+        if (stop) sendImmediate(stop);
+        try { ws.close(); } catch (e) {}
+        ws = null;
+      }
+      setState("disconnected");
+    };
+    return {
+      connect,
+      disconnect,
+      send: sendImmediate,
+      sendImmediate,
+      isConnected: () => !!(ws && ws.readyState === WebSocket.OPEN),
+      isEnabled: () => enabled,
+      setEnabled: v => { enabled = !!v; if (!enabled && timer) { clearTimeout(timer); timer = null; } },
+      get state() { return state; }
+    };
+  }
+
+  const lampClient = PENLIGHT.createPenlightClient
+    ? PENLIGHT.createPenlightClient({ url: "ws://127.0.0.1:51730/ado", throttleMs: 200, onState: handleLampState })
+    : createFallbackLampClient(handleLampState);
+
+  function lampDisconnect(sendStop) {
+    lampClient.setEnabled(false);
+    lampClient.disconnect(sendStop ? { v: 1, type: "stop" } : undefined);
     setLampStatus("", false);
     lampLastSent = null;
   }
 
   function lampStop() {
-    if (lampWS && lampWS.readyState === WebSocket.OPEN) {
-      try { lampWS.send(JSON.stringify({ v: 1, type: "stop" })); } catch (e) {}
+    if (lampClient.isConnected()) {
+      lampClient.sendImmediate({ v: 1, type: "stop" });
     }
     lampLastSent = null;
   }
 
   function lampConnect() {
-    if (lampTimer) { clearTimeout(lampTimer); lampTimer = null; }
     if (!TOOL.lamp || matchMedia("(pointer: coarse)").matches) return;
-    if (lampWS && (lampWS.readyState === WebSocket.CONNECTING || lampWS.readyState === WebSocket.OPEN)) return;
-
-    setLampStatus(T("連線中…"), false);
-    try {
-      const ws = new WebSocket("ws://127.0.0.1:51730/ado");
-      lampWS = ws;
-
-      ws.onopen = () => {
-        if (ws !== lampWS) return;
-        lampRetryCount = 0;
-        if (!lampHasConnected) {
-          lampHasConnected = true;
-          toast(T("已連上 PenlightSync"));
-        }
-        lampLastSent = null;
-      };
-
-      ws.onmessage = ev => {
-        if (ws !== lampWS) return;
-        try {
-          const msg = JSON.parse(ev.data);
-          if (msg && msg.type === "hello") {
-            if (msg.lamp === "linked") {
-              const wasLinked = lampStatusText === T("已連動");
-              setLampStatus(T("已連動"), true);
-              if (!wasLinked) toast(T("✨ 已與 PenlightSync 手燈連動！"));
-            } else if (msg.lamp === "connecting") {
-              setLampStatus(T("手燈連線中…"), false);
-            } else {
-              setLampStatus(T("App 已開，手燈未連"), false);
-            }
-          }
-        } catch (e) {}
-      };
-
-      ws.onerror = () => {
-        // 連線失敗時交由 onclose 處理重試，避免重送
-      };
-
-      ws.onclose = () => {
-        if (ws !== lampWS) return;
-        lampWS = null;
-        if (!TOOL.lamp) {
-          setLampStatus("", false);
-          return;
-        }
-        // 連不上就每 5 秒重試，最多試 1 分鐘（12 次）
-        if (lampRetryCount < 12) {
-          lampRetryCount++;
-          setLampStatus(T("連線中…"), false);
-          lampTimer = setTimeout(lampConnect, 5000);
-        } else {
-          setLampStatus(T("找不到 PenlightSync"), false);
-        }
-      };
-    } catch (e) {
-      if (!TOOL.lamp) return;
-      if (e && e.name === "SecurityError") {
-        setLampStatus(T("找不到 PenlightSync"), false);
-        return;
-      }
-      if (lampRetryCount < 12) {
-        lampRetryCount++;
-        setLampStatus(T("連線中…"), false);
-        lampTimer = setTimeout(lampConnect, 5000);
-      } else {
-        setLampStatus(T("找不到 PenlightSync"), false);
-      }
-    }
+    lampClient.setEnabled(true);
+    lampClient.connect();
   }
 
   function currentCue(t) {
@@ -3287,7 +3609,7 @@
   const mod4 = k => ((k % 4) + 4) % 4;
 
   function lampFrame(t, playing) {
-    if (!TOOL.lamp || !lampWS || lampWS.readyState !== WebSocket.OPEN) return;
+    if (!TOOL.lamp || !lampClient.isConnected()) return;
     if (!S || songV.hidden) return;
 
     const nowWall = performance.now();
@@ -3344,9 +3666,11 @@
       };
 
       try {
-        lampWS.send(JSON.stringify(payload));
-        lampLastSent = { song: S.id, playing: Boolean(playing), rate: RATE, cue, t: roundedT };
-        lampLastSentWallTime = nowWall;
+        const ok = lampClient.send(payload);
+        if (ok !== false) {
+          lampLastSent = { song: S.id, playing: Boolean(playing), rate: RATE, cue, t: roundedT };
+          lampLastSentWallTime = nowWall;
+        }
       } catch (e) {}
     }
   }
@@ -3356,17 +3680,27 @@
   }
   addEventListener("pagehide", lampStop);
 
-  // ── 測驗模式：應援提示藏起來，該應援的地方自己按空白鍵或點「按這裡」，依時間準不準給分 ──
+  // ── 測驗模式（js/quiz-engine.js）：應援提示藏起來，該應援的地方自己按空白鍵或點「按這裡」，依時間準不準給分 ──
   // 題目：連續同一個動作（含標籤）的行合成一段；有拍點資料的拍手段每拍一題（反拍只算第 2、4 拍），其他動作只在段落開頭一題
   // 判定窗以真實秒數計（影片秒數 ÷ 速度），放慢練也一樣公平；段落開頭比較難抓，判定窗放寬
-  const QZ_WIN = { beat: [.08, .16], onset: [.15, .35] };
-  const QZ_POINT = { perfect: 1, good: .6, miss: 0 };
+  const QZ_WIN = QUIZ.QZ_WIN || { beat: [.08, .16], onset: [.15, .35] };
+  const QZ_POINT = QUIZ.QZ_POINT || { perfect: 1, good: .6, miss: 0 };
   const quizBtn = document.getElementById("toolQuiz"), quizHud = document.getElementById("quizHud"), quizPad = document.getElementById("quizPad"), quizDlg = document.getElementById("quizDlg");
   const qzScore = document.getElementById("qzScore"), qzJudge = document.getElementById("qzJudge"), qzCombo = document.getElementById("qzCombo"), qzProg = document.getElementById("qzProg");
   let QZ = null;
   // 這行要做的主要動作：跟大字提醒的字卡同一套判斷
-  const quizAct = l => isOffbeat(l.call) ? "clap" : l.sing.length ? "sing" : l.call && l.acts.includes("call") ? "call" : mainAct(l.acts);
+  const quizAct = QUIZ.quizAct || (l => isOffbeat(l.call) ? "clap" : l.sing.length ? "sing" : l.call && l.acts.includes("call") ? "call" : mainAct(l.acts));
   function quizTargets() {
+    if (QUIZ.buildTargets) {
+      return QUIZ.buildTargets({
+        lines: LINES,
+        beat: BEAT[S.id] || null,
+        dur: DUR(),
+        isOffbeat,
+        lineEnd,
+        actMap: ACT_MAP
+      });
+    }
     const out = [], bt = BEAT[S.id], sig = l => l.acts.join(",") + cueLabel(l);
     for (let i = 0; i < LINES.length; i++) {
       const l = LINES[i];
@@ -3380,16 +3714,22 @@
         for (let k = Math.ceil((l.t - .1 - bt[1]) / P); bt[1] + k * P < end - .05; k++) {
           const bar = ((k % 4) + 4) % 4;
           if (off && bar !== 1 && bar !== 3) continue;
-          out.push({ t: bt[1] + k * P, act, kind: "beat", res: null }); n++;
+          out.push({ t: bt[1] + k * P, act, kind: "beat", res: null, result: null, done: false }); n++;
         }
       }
-      if (!n) out.push({ t: l.t, act, kind: "onset", res: null });
+      if (!n) out.push({ t: l.t, act, kind: "onset", res: null, result: null, done: false });
       i = j;
     }
     return out;
   }
-  const quizWin = tg => QZ_WIN[tg.kind].map(w => w * RATE);
+  const quizWin = tg => ((tg && tg.win) || QZ_WIN[tg.kind]).map(w => w * RATE);
   function quizStats() {
+    if (QUIZ.summarizeQuiz) {
+      const sum = QUIZ.summarizeQuiz({ targets: QZ.targets, extra: QZ.stray });
+      const c = { perfect: sum.perfect || 0, good: sum.good || 0, miss: sum.miss || 0, skip: sum.skipped || 0 };
+      const per = sum.per || {};
+      return { c, per, judged: sum.judged, total: sum.total, score: sum.score, grade: sum.grade || gradeOf(sum.score) };
+    }
     const c = { perfect: 0, good: 0, miss: 0, skip: 0 }, per = {};
     QZ.targets.forEach(tg => {
       if (tg.res) c[tg.res]++;
@@ -3398,9 +3738,9 @@
       p.total++; if (tg.res !== "miss") p.hit++;
     });
     const judged = c.perfect + c.good + c.miss;
-    return { c, per, judged, total: QZ.targets.length - c.skip, score: judged ? Math.round((c.perfect + c.good * QZ_POINT.good) / judged * 100) : 0 };
+    const score = judged ? Math.round((c.perfect + c.good * QZ_POINT.good) / judged * 100) : 0;
+    return { c, per, judged, total: QZ.targets.length - c.skip, score, grade: gradeOf(score) };
   }
-  const quizRank = n => n >= 95 ? "S" : n >= 85 ? "A" : n >= 70 ? "B" : n >= 50 ? "C" : "D";
   function quizPaint() {
     const st = quizStats();
     qzScore.textContent = st.score;
@@ -3424,7 +3764,7 @@
     const song = S;
     const seq = ++quizStartSeq;
     if (song.liveVideo && currentVideoSource(song) === "live") {
-      if (LYV && !lyLoaded) await lyWait.index;
+      if (!lyReady) await lyLoaded;
       if (!lyHave(song, "mv")) await loadLyrics(song, "mv");
       if (seq !== quizStartSeq || S !== song || songV.hidden || !ready) return;
       switchVideoSource("mv", { startSeconds: 0 });
@@ -3458,12 +3798,23 @@
     if (!QZ || QZ.done) return;
     replay(quizPad, "hit", 120);
     const t = now();
-    let hit = null, bd = Infinity;
-    QZ.targets.forEach(tg => { const d = Math.abs(t - tg.t); if (!tg.res && d <= quizWin(tg)[1] && d < bd) { bd = d; hit = tg; } });
+    let hit = null, kind = "stray", delta = null;
+    if (QUIZ.judgeTap) {
+      ({ hit, kind, delta } = QUIZ.judgeTap({ targets: QZ.targets, t, rate: RATE }));
+    } else {
+      let bd = Infinity;
+      QZ.targets.forEach(tg => { const d = Math.abs(t - tg.t); if (!tg.res && !tg.done && d <= quizWin(tg)[1] && d < bd) { bd = d; hit = tg; } });
+      if (hit) {
+        kind = bd <= quizWin(hit)[0] ? "perfect" : "good";
+        delta = t - hit.t;
+      }
+    }
     if (!hit) { QZ.stray++; quizJudge("stray"); return; }
-    hit.res = bd <= quizWin(hit)[0] ? "perfect" : "good";
+    hit.res = kind;
+    hit.result = kind;
+    hit.done = true;
     QZ.combo++; QZ.maxCombo = Math.max(QZ.maxCombo, QZ.combo);
-    quizJudge(hit.res, hit.act, t - hit.t);
+    quizJudge(kind, hit.act, delta);
     quizPaint();
   }
   function quizFrame(t) {
@@ -3476,37 +3827,38 @@
     let changed = false;
     if (t < QZ.lastT - .5) {
       // 往回跳：跳回點之後的題目重新作答，可以只重練一段
-      QZ.targets.forEach(tg => { if (tg.t >= t - .2 && tg.res) { tg.res = null; changed = true; } });
+      QZ.targets.forEach(tg => { if (tg.t >= t - .2 && (tg.res || tg.done)) { tg.res = null; tg.result = null; tg.done = false; changed = true; } });
       QZ.combo = 0;
     } else if (t - QZ.lastT > 1.2) {
       // 往前跳（點歌詞、按 →、切到別的分頁回來）：中間沒機會按的題目不算分
-      QZ.targets.forEach(tg => { if (!tg.res && tg.t >= QZ.lastT && tg.t < t - quizWin(tg)[1]) { tg.res = "skip"; changed = true; } });
+      QZ.targets.forEach(tg => { if (!tg.res && !tg.done && tg.t >= QZ.lastT && tg.t < t - quizWin(tg)[1]) { tg.res = "skip"; tg.result = "skip"; tg.done = true; changed = true; } });
     }
     QZ.targets.forEach(tg => {
-      if (tg.res || t <= tg.t + quizWin(tg)[1]) return;
-      tg.res = "miss"; QZ.combo = 0; changed = true;
+      if (tg.res || tg.done || t <= tg.t + quizWin(tg)[1]) return;
+      tg.res = "miss"; tg.result = "miss"; tg.done = true; QZ.combo = 0; changed = true;
       quizJudge("miss", tg.act);
     });
     QZ.lastT = t;
     if (changed) quizPaint();
     const last = QZ.targets[QZ.targets.length - 1];
-    if (t > last.t + 2 && QZ.targets.every(tg => tg.res)) quizFinish();
+    if (t > last.t + 2 && QZ.targets.every(tg => tg.res || tg.done)) quizFinish();
   }
   function quizFinish() {
     if (!QZ || QZ.done) return;
-    QZ.targets.forEach(tg => { if (!tg.res) tg.res = "miss"; });
+    QZ.targets.forEach(tg => { if (!tg.res && !tg.done) { tg.res = "miss"; tg.result = "miss"; tg.done = true; } });
     QZ.done = true;
     pause();
-    const st = quizStats(), rank = quizRank(st.score);
+    const st = quizStats(), rank = st.grade || gradeOf(st.score);
     // 最佳成績：整首都有作答（沒有略過）才記
-    let best = {};
-    try {
-      const parsed = JSON.parse(store.get("quiz-best") || "{}");
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) best = parsed;
-    } catch (e) {}
-    const prevRaw = best[S.id], prev = (prevRaw && typeof prevRaw === "object" && typeof prevRaw.score === "number") ? prevRaw : null;
+    const best = loadQuizBest(store);
+    const prev = best[S.id] || null;
     const full = !st.c.skip, isNew = full && (!prev || st.score > prev.score);
-    if (isNew) { best[S.id] = { score: st.score, rate: QZ.rate }; store.set("quiz-best", JSON.stringify(best)); }
+    if (isNew) {
+      best[S.id] = { score: st.score, rate: QZ.rate };
+      store.set(SETLIST.QUIZ_BEST_KEY || "quiz-best", JSON.stringify(best));
+      updateMasteryBar();
+      if (homeReady) renderList();
+    }
     QZ.result = { score: st.score, rank, c: st.c };
     document.getElementById("qrRank").textContent = rank;
     document.getElementById("qrScore").textContent = T("{0} 分", st.score);
@@ -3514,8 +3866,9 @@
     ["perfect", "good", "miss"].forEach(k => document.getElementById("qr" + k[0].toUpperCase() + k.slice(1)).textContent = st.c[k]);
     document.getElementById("qrStray").textContent = QZ.stray;
     document.getElementById("qrActs").innerHTML = Object.keys(ACT).filter(a => st.per[a]).map(a => {
-      const p = st.per[a], pct = Math.round(p.hit / p.total * 100);
-      return `<li class="a-${a}"><span>${ACT[a].name}</span><i><span style="width:${pct}%"></span></i><b>${p.hit}／${p.total}</b></li>`;
+      const p = st.per[a], hitCnt = typeof p.hit === "number" ? p.hit : ((p.perfect || 0) + (p.good || 0));
+      const pct = p.total ? Math.round(hitCnt / p.total * 100) : 0;
+      return `<li class="a-${a}"><span>${ACT[a].name}</span><i><span style="width:${pct}%"></span></i><b>${hitCnt}／${p.total}</b></li>`;
     }).join("");
     document.getElementById("qrBest").textContent = !full ? T("中間有跳過的段落，這次不記最佳成績。") : isNew ? (prev ? T("刷新最佳成績！（之前 {0} 分）", prev.score) : T("第一次挑戰這首，已記下成績。")) : T("最佳成績 {0} 分", prev.score);
     quizDlg.showModal();
@@ -3695,14 +4048,28 @@
     const rawH = location.hash.slice(1) || pathSong();
     let h = rawH;
     routeSource = null;
+    let routeFilter = null;
     const qIdx = h.indexOf("?");
     if (qIdx >= 0) {
       const q = new URLSearchParams(h.slice(qIdx + 1));
       const sVal = (q.get("src") || "").toLowerCase();
       if (sVal === "live" || sVal === "mv") routeSource = sVal;
+      const fVal = (q.get("f") || "").toLowerCase();
+      if (fVal) routeFilter = fVal;
       h = h.slice(0, qIdx);
     }
-    const [id, at] = h.split("@"), s = BY[id];
+    const parsedList = parseListHash(h, VALID_SONG_IDS);
+    let [id, at] = h.split("@"), s = BY[id];
+    if (!s && parsedList === null && h === "random") {
+      const pool = SONGS.filter(x => !x.hold && !x.sug && (x.free || (x.tips && x.tips.length > 0)));
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      if (pick) {
+        s = pick;
+        id = pick.id;
+        if (!PAGE_SONG) history.replaceState(null, "", `#${pick.id}`);
+        else if (pick.id !== PAGE_SONG) history.replaceState(null, "", new URL(`song/${pick.id}/`, document.baseURI));
+      }
+    }
     syncLangLinks(s);
     if (s) {
       if (!homeV.hidden) listY = scrollY;
@@ -3719,6 +4086,21 @@
       trackView(s);
     } else {
       const wasSong = !songV.hidden;
+      activePlayList = null;
+      if (parsedList !== null) {
+        sharedList = parsedList;
+        filter = "setlist";
+        shown = LIMIT;
+      } else if (routeFilter && ["all", "frequent", "cheer", "live", "cover", "setlist"].includes(routeFilter)) {
+        sharedList = null;
+        filter = routeFilter;
+        shown = LIMIT;
+        if (filter === "live") liveSub = "all";
+        if (filter === "frequent") freqSub = "all";
+      } else if (wasSong && sharedList && !h) {
+        sharedList = null;
+        if (filter === "setlist" && !mySetlist.length) filter = "all";
+      }
       ensureHomeReady();
       closeSheets();
       setImmersive(false, true); quizStop();
@@ -3735,8 +4117,14 @@
       syncBar();
       idleDrawn = false; ensureFrame();
       document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
+      updateMasteryBar();
+      syncFilterChips();
+      syncSubFilters();
+      syncSetlistUi();
+      renderList();
       renderRecent(); crateShow(); resumeReel(); measureHomeReel();
-      const target = h && document.getElementById(h);
+      const targetId = parsedList !== null ? "songs" : h;
+      const target = targetId && document.getElementById(targetId);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
       if (hasRouted && wasSong && (!document.activeElement || document.activeElement === document.body || songV.contains(document.activeElement))) {
         const focusEl = target || document.getElementById("heroH");

@@ -523,6 +523,29 @@
     return parseLrclib(sorted[0]);
   }
 
+  function normaliseLocalPayload(payload, opts) {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload) || !Array.isArray(payload.lines)) return null;
+    if (payload.format && payload.format !== "timed-lyrics-v1") return null;
+    const cleanLines = sanitiseCachedLines(payload.lines).map((line) => {
+      if (!line || typeof line !== "object") return line;
+      if (line.words || line.Syllables || line.syllables) return line;
+      const start = parseTime(line.start ?? line.StartTime);
+      if (typeof line.text === "string" && line.text && start != null) {
+        const end = parseTime(line.end ?? line.EndTime);
+        return { ...line, words: [{ text: line.text, start, end: end != null ? end : start + 0.04 }] };
+      }
+      return line;
+    });
+    const fallbackLabel = typeof opts.localLabel === "string" && opts.localLabel ? opts.localLabel : "靜態快取";
+    const sourceName = (typeof payload.source === "string" && payload.source) ? payload.source : fallbackLabel;
+    const granularity = payload.granularity === "line" ? "line" : "word";
+    const timed = normaliseLines(cleanLines, sourceName, granularity);
+    if (!timed) return null;
+    if (typeof payload.source === "string" && payload.source) timed.source = payload.source;
+    else if (typeof opts.localLabel === "string") timed.source = opts.localLabel;
+    return timed;
+  }
+
   async function load(song, options) {
     if (!song || !song.id) return null;
     const opts = options || {};
@@ -534,13 +557,35 @@
       notify(opts, { state: "cache", source: cached.source, granularity: cached.granularity });
       return cached;
     }
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+
+    const localUrl = typeof opts.localUrl === "string" && opts.localUrl.trim() ? opts.localUrl.trim() : "";
+    if (!localUrl && typeof navigator !== "undefined" && navigator.onLine === false) {
       notify(opts, { state: "offline" });
       return null;
     }
 
     const request = (async () => {
       let timed = null;
+      if (localUrl) {
+        const localSource = typeof opts.localLabel === "string" ? opts.localLabel : "靜態快取";
+        notify(opts, { state: "loading", source: localSource });
+        const payload = await fetchJson(localUrl, { timeoutMs: (opts && opts.timeoutMs) || 7000 });
+        timed = normaliseLocalPayload(payload, opts);
+        if (timed) {
+          writeCache(song, timed);
+          notify(opts, {
+            state: "ready",
+            source: timed.source || (typeof opts.localLabel === "string" ? opts.localLabel : "靜態快取"),
+            granularity: timed.granularity
+          });
+          return timed;
+        }
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          notify(opts, { state: "offline" });
+          return null;
+        }
+      }
+
       if (opts.workerUrl) {
         notify(opts, { state: "loading", source: PROVIDER_ORDER[0] });
         timed = await fetchWorker(song, opts);
