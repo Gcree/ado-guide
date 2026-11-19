@@ -54,7 +54,8 @@
       penGuess: pen.startsWith("?"),
       climax: typeof data.CLIMAX[id] === "number" ? data.CLIMAX[id] : null,
       liveVideo: lv ? { yt: lv.yt, concert: lv.concert || "" } : null,
-      len: s.len
+      len: s.len,
+      upcoming: Boolean(s.upcoming)
     };
   }
 
@@ -68,6 +69,7 @@
     if (!meta.status && !tips.length) errors.push("狀態是「正式」時至少要有一條應援重點（或把狀態改成自由、整理中）");
     [...(meta.pen || "")].forEach(c => { if (!PEN_KEYS.includes(c)) errors.push(`手燈色有不認得的顏色「${c}」`); });
     if (new Set(meta.pen || "").size !== (meta.pen || "").length) errors.push("手燈色有重複的顏色");
+    if (meta.len && !/^\d+:[0-5]\d$/.test(meta.len)) errors.push(`歌曲長度格式錯誤（${meta.len}）`);
     const dur = typeof meta.len === "string" && /^\d+:\d+$/.test(meta.len) ? meta.len.split(":").reduce((a, b) => a * 60 + +b, 0) : NaN;
     if (meta.climax != null && !(typeof meta.climax === "number" && Number.isFinite(meta.climax) && meta.climax > 0 && Number.isFinite(dur) && meta.climax < dur)) {
       errors.push(`副歌高潮 ${meta.climax} 秒無效或超出 MV 長度（${meta.len}）`);
@@ -111,7 +113,7 @@
     const ordered = {};
     let placed = !meta.status;
     for (const [k, v] of Object.entries(next)) {
-      if (!placed && (k === "cover" || k === "live")) { ordered[meta.status] = true; placed = true; }
+      if (!placed && (k === "cover" || k === "live" || k === "upcoming")) { ordered[meta.status] = true; placed = true; }
       ordered[k] = v;
     }
     if (!placed) ordered[meta.status] = true;

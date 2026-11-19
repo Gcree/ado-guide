@@ -60,7 +60,7 @@ export function loadFrom(src) {
 }
 
 export const statusOf = s => (s.hold ? "hold" : s.sug ? "sug" : s.free ? "free" : "");
-const lenToSec = len => len.split(":").reduce((a, b) => a * 60 + +b, 0);
+const lenToSec = len => (typeof len === "string" && /^\d+:\d+$/.test(len) ? len.split(":").reduce((a, b) => a * 60 + +b, 0) : 0);
 export const fmtTime = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, "0")}`;
 
 function songOrThrow(db, id) {
@@ -84,7 +84,7 @@ export function list(db = load(), { status } = {}) {
     .map(s => {
       const l = db.lyrics.find(x => x.id === s.id);
       return {
-        id: s.id, ja: s.ja, status: statusOf(s), cover: !!s.cover, date: s.date, len: s.len,
+        id: s.id, ja: s.ja, status: statusOf(s), cover: !!s.cover, upcoming: !!s.upcoming, date: s.date, len: s.len || "",
         lines: l ? l.lyrics.length : 0, bpm: BEAT[s.id]?.[0] ?? null, climax: CLIMAX[s.id] ?? null, pen: PEN[s.id] || ""
       };
     });
@@ -99,7 +99,7 @@ export function show(id, db = load()) {
   const lines = l ? l.lyrics : [];
   const work = path.join(here, "work", id);
   return {
-    id, ja: s.ja, zh: s.zh, en: s.en, ro: s.ro, yt: s.yt, len: s.len, date: s.date, cover: !!s.cover,
+    id, ja: s.ja, zh: s.zh, en: s.en, ro: s.ro, yt: s.yt || "", len: s.len || "", date: s.date, cover: !!s.cover, upcoming: !!s.upcoming,
     status: meta.status, statusName: STATUS_NAME[meta.status], acts: meta.acts, tips: meta.tips,
     pen: meta.pen, penGuess: meta.penGuess, climax: meta.climax, liveVideo: meta.liveVideo,
     beat: db.songs.BEAT[id] || null, ut: db.songs.UT[id] || null,
@@ -188,7 +188,7 @@ export function addSong(o, db = load()) {
   if (!/^\d+:\d\d$/.test(o.len || "")) throw new Error("--len 要寫成 m:ss，例如 3:20");
   const date = o.date || new Date().toISOString().slice(0, 10);
   if (!/^\d{4}-\d\d-\d\d$/.test(date)) throw new Error("--date 要寫成 YYYY-MM-DD");
-  if (db.songs.SONGS.some(s => s.yt === yt)) throw new Error(`這支影片已經在歌單裡了（${db.songs.SONGS.find(s => s.yt === yt).id}）`);
+  if (yt && db.songs.SONGS.some(s => s.yt && s.yt === yt)) throw new Error(`這支影片已經在歌單裡了（${db.songs.SONGS.find(s => s.yt && s.yt === yt).id}）`);
   const song = { id: o.id, ja: o.ja, zh: o.zh || o.ja, en: o.en || o.ro || o.ja, ro: o.ro || o.en || o.ja, date, yt, len: o.len, hold: true };
   if (o.cover) song.cover = true;
   const songsOut = MetaStore.addSong(db.src["songs.js"], song);
@@ -260,11 +260,11 @@ export function importLyrics(id, input, { live = false, liveMeta = null, keepAct
       e = JSON.parse(JSON.stringify(curLive));
     }
   } else {
-    e = (() => { try { return lyricsEntry(db, id, false); } catch { return { id, title: song.ja, youtubeId: song.yt, duration: lenToSec(song.len), lyrics: [] }; } })();
+    e = (() => { try { return lyricsEntry(db, id, false); } catch { return { id, title: song.ja, youtubeId: song.yt || "", duration: lenToSec(song.len), lyrics: [] }; } })();
     prevLyrics = e.lyrics || [];
   }
   let untimed = false;
-  let lines = typeof input === "string" ? (() => { const p = parseText(input, e.duration || lenToSec(song.len)); untimed = p.untimed; return p.lines; })() : input;
+  let lines = typeof input === "string" ? (() => { const p = parseText(input, e.duration || lenToSec(song.len) || 180); untimed = p.untimed; return p.lines; })() : input;
   if (lines && !Array.isArray(lines)) lines = lines.lyrics;
   if (!Array.isArray(lines)) throw new Error("匯入格式錯誤：找不到歌詞陣列");
   lines = lines.map(l => {
@@ -664,7 +664,7 @@ export async function fetchSong(url, o = {}, { dryRun = false, autoCommit = fals
   if (!vid) throw new Error("不是 YouTube 網址");
   if (o.id != null && o.id !== "") assertSongId(o.id);
   const initialDb = load();
-  const dup = initialDb.songs.SONGS.find(s => s.yt === vid);
+  const dup = initialDb.songs.SONGS.find(s => s.yt && s.yt === vid);
   if (dup) throw new Error(`這支影片已經在歌單裡了：〈${dup.ja}〉（${dup.id}）`);
   if (o.id && initialDb.songs.SONGS.some(s => s.id === o.id)) throw new Error(`id「${o.id}」已經有人用了`);
   const link = `https://www.youtube.com/watch?v=${vid}`;
@@ -718,7 +718,7 @@ export async function fetchSong(url, o = {}, { dryRun = false, autoCommit = fals
 
   return withWriteLock(async () => {
     const db = load();
-    const freshDup = db.songs.SONGS.find(s => s.yt === vid);
+    const freshDup = db.songs.SONGS.find(s => s.yt && s.yt === vid);
     if (freshDup) throw new Error(`這支影片已經在歌單裡了：〈${freshDup.ja}〉（${freshDup.id}）`);
     if (db.songs.SONGS.some(s => s.id === id)) throw new Error(`id「${id}」已經有人用了`);
 
@@ -799,6 +799,7 @@ function track(map, id, run) {
 export async function fetchAudio(id, { onLog = () => {} } = {}) {
   assertSongId(id);
   const s = songOrThrow(load(), id);
+  if (!s.yt) throw new Error(`〈${s.ja}〉（${id}）還沒有官方 YouTube 影片`);
   const existing = audioFile(id);
   if (existing) return existing;
   const running = fetching.get(id);

@@ -102,7 +102,7 @@ SONGS.forEach(s => {
   s.ut = UT[s.id] ? `https://www.uta-net.com/song/${UT[s.id]}/` : `https://www.uta-net.com/artist/29298/`;
   s.acts = s.acts || [];
   s.tips = s.tips || [];
-  s.dur = s.len.split(":").reduce((a, b) => a * 60 + +b, 0);
+  s.dur = s.len ? s.len.split(":").reduce((a, b) => a * 60 + +b, 0) : 0;
 });
 SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => (s.no = i + 1));
 const hasLiveVideo = s => Boolean(s.liveVideo || (s.live && s.yt));
@@ -255,7 +255,7 @@ src = mustReplace(src, '<html lang="zh-Hant-TW">', `<html lang="zh-Hant-TW" data
 
 // 每種語言的字典另存一個小檔，英文版只載英文、日文版只載日文；只保留執行期（app.js、共用模組與歌曲／歌詞資料）會用到的 key
 const runtimeKeySet = new Set([
-  "歌ネット ↗", "在 YouTube 開啟 ↗",
+  "歌ネット ↗", "在 YouTube 開啟 ↗", "尚未公開", "預留曲目", "尚無 MV", "即將發行",
   ...Object.values(TIER_LABEL),
   ...Object.values(PENC).map(([name]) => name),
   "彩色",
@@ -391,11 +391,10 @@ const FREQ_2 = (PRACTICE[2] || []).map(id => SONGS.find(s => s.id === id)).filte
 const FREQ_3 = (PRACTICE[3] || []).map(id => SONGS.find(s => s.id === id)).filter(Boolean);
 const STARTERS = FREQ_1;
 const FREQ_ALL_CNT = FREQ_1.length + FREQ_2.length + FREQ_3.length;
-const LATEST = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
+const LATEST = SONGS.filter(s => !s.upcoming).sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
 const songYears = SONGS.map(s => Number((s.date || "").slice(0, 4))).filter(Number.isFinite);
 const minYear = songYears.length ? Math.min(...songYears) : 2020;
 const maxYear = songYears.length ? Math.max(...songYears) : new Date().getFullYear();
-const thumbHtml = (s, w, h, lazy) => `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`;
 const urls = [""];
 
 const rootManifest = JSON.parse(read("manifest.webmanifest"));
@@ -416,9 +415,12 @@ const MANIFEST_COPY = {
 function renderLang(L) {
   const T = makeT(L.code);
   const tpl = langTemplate(L, T);
+  const thumbHtml = (s, w, h, lazy) => s.yt
+    ? `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`
+    : `<span class="thumb thumb-ph" aria-hidden="true"><span>${esc(s.upcoming ? T("預留曲目") : T("尚無 MV"))}</span></span>`;
   const icon = a => `<svg class="a-${a}" role="img" aria-label="${esc(T(ACT_MAP[a]?.name || a))}"><use href="#${ACT_MAP[a]?.icon || "i-sing"}"/></svg>`;
   const penDots = s => sharedPenDots(s, PEN, T);
-  const subOf = s => [namePart(s, L.code), s.cover ? T("翻唱") : ""].filter(Boolean).join("・");
+  const subOf = s => [namePart(s, L.code), s.cover ? T("翻唱") : "", s.upcoming ? T("即將發行") : ""].filter(Boolean).join("・");
   const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
   const tipsOf = s => (s.hold || s.sug ? [] : s.tips || []).map(t => T(t));
 
@@ -433,7 +435,7 @@ function renderLang(L) {
     return sortedForReel.slice(start, end);
   });
   const reelCardHtml = s => {
-    const sub = namePart(s, L.code) || (s.cover ? T("翻唱") : "");
+    const sub = namePart(s, L.code) || (s.upcoming ? T("即將發行") : "") || (s.cover ? T("翻唱") : "");
     const year = (s.date || "").slice(0, 4);
     return `<a class="reel-card" href="song/${s.id}/" data-id="${s.id}" draggable="false">${thumbHtml(s, 116, 65, true)}<span class="reel-info"><span class="reel-ja" lang="ja">${esc(s.ja)}</span><span class="reel-meta">${penDots(s)}<span class="reel-year">${esc(year)}</span>${sub ? `<span class="reel-sub">${esc(sub)}</span>` : ""}</span></span></a>`;
   };
@@ -566,7 +568,7 @@ function renderLang(L) {
           "isPartOf": { "@type": "WebSite", "@id": `${home}#website` },
           "about": { "@id": `${url}#song` },
           "dateModified": UPDATED,
-          "primaryImageOfPage": { "@type": "ImageObject", "url": `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg` },
+          "primaryImageOfPage": { "@type": "ImageObject", "url": s.yt ? `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg` : OG_IMG },
           "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS, INSTAGRAM] },
           "breadcrumb": { "@id": `${url}#breadcrumb` }
         },
@@ -586,17 +588,19 @@ function renderLang(L) {
           "alternateName": [...new Set([s.zh, s.en, s.ro, ...(s.alias || [])])].filter(x => x && x !== s.ja),
           "byArtist": ADO,
           "datePublished": s.date,
-          "duration": isoDuration(s.len),
+          ...(s.len ? { "duration": isoDuration(s.len) } : {}),
           "url": url,
           "inLanguage": "ja",
-          "video": {
-            "@type": "VideoObject",
-            "name": T("Ado〈{0}〉官方 MV", s.ja),
-            "description": T("Ado〈{0}〉官方音樂錄影帶 MV", s.ja),
-            "thumbnailUrl": `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg`,
-            "embedUrl": `https://www.youtube.com/embed/${s.yt}`,
-            "uploadDate": `${s.date}T00:00:00+09:00`
-          }
+          ...(s.yt ? {
+            "video": {
+              "@type": "VideoObject",
+              "name": T("Ado〈{0}〉官方 MV", s.ja),
+              "description": T("Ado〈{0}〉官方音樂錄影帶 MV", s.ja),
+              "thumbnailUrl": `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg`,
+              "embedUrl": `https://www.youtube.com/embed/${s.yt}`,
+              "uploadDate": `${s.date}T00:00:00+09:00`
+            }
+          } : {})
         },
         {
           "@type": "FAQPage",
@@ -662,7 +666,7 @@ function renderLang(L) {
     const akaText = L.code === "zh" ? [...new Set([...otherNames(s), s.en && s.en !== s.ja ? s.en : ""].filter(Boolean))].join("・") : L.code === "en" ? (s.ro && s.ro !== s.en ? s.ro : "") : "";
     const tie = s.tie ? T(s.tie) : "";
     const album = s.album ? T(s.album) : "";
-    const cardInnerDl = `<dl class="card-dl"><dt id="cardAkaDt"${akaText ? "" : " hidden"}>${T("也叫")}</dt><dd id="cardAkaDd"${akaText ? "" : " hidden"}>${esc(akaText)}</dd><dt id="cardTieDt"${tie ? "" : " hidden"}>${T("出處")}</dt><dd id="cardTieDd"${tie ? "" : " hidden"}>${esc(tie)}</dd><dt id="cardAlbumDt"${album ? "" : " hidden"}>${T("收錄專輯")}</dt><dd id="cardAlbumDd"${album ? "" : " hidden"}>${esc(album)}</dd><dt id="cardDateDt">${T("發布日期")}</dt><dd id="cardDateDd">${esc(s.date.replace(/-/g, "/"))}</dd><dt>${T("推薦手燈")}</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>${T("應援重點")}</dt><dd id="cardTips">${esc(tips.length ? tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。")))}</dd><dt>${T("官方 MV")}</dt><dd><a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">${T("在 YouTube 開啟 ↗")}</a></dd><dt>${T("正版歌詞")}</dt><dd><a id="cardLyrics" href="${s.ut}" target="_blank" rel="noopener">${T("歌ネット ↗")}</a></dd><dt>${T("串流平台")}</dt><dd id="cardStream">${s.stream.map(x => `<a href="${x.url}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ")}</dd>${liveRows}</dl>`;
+    const cardInnerDl = `<dl class="card-dl"><dt id="cardAkaDt"${akaText ? "" : " hidden"}>${T("也叫")}</dt><dd id="cardAkaDd"${akaText ? "" : " hidden"}>${esc(akaText)}</dd><dt id="cardTieDt"${tie ? "" : " hidden"}>${T("出處")}</dt><dd id="cardTieDd"${tie ? "" : " hidden"}>${esc(tie)}</dd><dt id="cardAlbumDt"${album ? "" : " hidden"}>${T("收錄專輯")}</dt><dd id="cardAlbumDd"${album ? "" : " hidden"}>${esc(album)}</dd><dt id="cardDateDt">${T("發布日期")}</dt><dd id="cardDateDd">${esc(s.date.replace(/-/g, "/"))}</dd><dt>${T("推薦手燈")}</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>${T("應援重點")}</dt><dd id="cardTips">${esc(tips.length ? tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。")))}</dd><dt>${T("官方 MV")}</dt><dd>${s.yt ? `<a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">${T("在 YouTube 開啟 ↗")}</a>` : `<a id="cardYt">${T("尚未公開")}</a>`}</dd><dt>${T("正版歌詞")}</dt><dd><a id="cardLyrics" href="${s.ut}" target="_blank" rel="noopener">${T("歌ネット ↗")}</a></dd><dt>${T("串流平台")}</dt><dd id="cardStream">${s.stream.map(x => `<a href="${x.url}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ")}</dd>${liveRows}</dl>`;
     const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="${esc(T("歌曲應援速覽"))}"><h3 class="card-title">${T("〈{0}〉應援速覽", `<span id="cardJa">${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}</span>`)}</h3>${cardInnerDl}</section>`;
 
     const c = s.credit;
@@ -771,7 +775,7 @@ function generateLlmsTxt() {
       `### [${s.ja}${s.zh !== s.ja ? `（${s.zh}）` : ""}](${SITE}song/${s.id}/)`,
       `- **發行日期**：${s.date}`,
       `- **推薦手燈顏色**：${pen.text}`,
-      `- **官方 MV**：https://www.youtube.com/watch?v=${s.yt} (${s.len})`,
+      `- **官方 MV**：${s.yt ? `https://www.youtube.com/watch?v=${s.yt}${s.len ? ` (${s.len})` : ""}` : "尚未公開"}`,
       ...(lives.length ? [`- **官方現場音源**：${lives.map(l => `${l.concert} (https://www.youtube.com/watch?v=${l.yt})`).join("、")}`] : []),
       `- **應援重點**：${tips}`,
       ``
@@ -802,11 +806,11 @@ function generateLlmsFullTxt() {
       `## ${String(s.no).padStart(2, "0")}. Ado〈${s.ja}〉${s.zh !== s.ja ? `（${s.zh}）` : ""}${s.en ? ` / ${s.en}` : ""}`,
       `- 頁面網址：${SITE}song/${s.id}/`,
       `- 發行日期：${s.date}`,
-      `- 歌曲長度：${s.len}`,
+      `- 歌曲長度：${s.len || "尚未公開"}`,
       `- 推薦手燈顏色：${pen.text}`,
       `- 應援動作：${s.acts.map(a => ACT_MAP[a]?.name || a).join("、") || "自由跟隨節奏"}`,
       `- 應援重點指南：${tips}`,
-      `- 官方 MV 連結：https://www.youtube.com/watch?v=${s.yt}`,
+      `- 官方 MV 連結：${s.yt ? `https://www.youtube.com/watch?v=${s.yt}` : "尚未公開"}`,
       ...(s.lives.length ? [`- 官方現場音源：${s.lives.map(l => `${l.concert} (https://www.youtube.com/watch?v=${l.yt})`).join("、")}`] : []),
       `- 正版歌詞連結：${s.ut}`,
       ``

@@ -579,3 +579,105 @@ test("server.mjs: /api/lyrics-import (live + align 拒絕) 與 /api/fix-overlaps
   const betaLive = LyricsStore.parse(memLiveJs, "live").songs.find(x => x.id === "beta-live");
   assert.equal(betaLive.lyrics[0].duration, 4.98);
 });
+
+test("預留曲目（upcoming: true, yt: '', len: ''）：SongMetaStore、LyricsStore 與 core.mjs 相容性", () => {
+  const placeholderSongsJs = `(function (root, factory) {
+  module.exports = factory();
+})(this, function () {
+  "use strict";
+  const SONGS = [
+    { id: "gamma", ja: "ガンマ", zh: "Gamma", en: "Gamma", ro: "Gamma", date: "2026-12-23", yt: "", len: "", hold: true, upcoming: true  },
+    // 翻唱
+    { id: "delta", ja: "デルタ", zh: "Delta", en: "Delta", ro: "Delta", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  }
+  ];
+  const UT = {};
+  const PEN = {};
+  const BEAT = {};
+  const CLIMAX = {};
+  const LIVE_VIDEOS = {
+  };
+  const LIVES = {};
+  return { SONGS, UT, PEN, BEAT, CLIMAX, LIVE_VIDEOS, LIVES };
+});`;
+  const placeholderLyricsJs = `(function (root, factory) {
+  module.exports = factory();
+})(this, function () {
+  var SONGS = [
+  {
+    "id": "gamma",
+    "title": "ガンマ",
+    "youtubeId": "",
+    "duration": 0,
+    "lyrics": []
+  },
+  {
+    "id": "delta",
+    "title": "デルタ",
+    "youtubeId": "",
+    "duration": 0,
+    "lyrics": []
+  }
+];
+
+  return SONGS;
+});`;
+
+  // 1. SongMetaStore.readMeta / validate / applyMeta 保留 upcoming 與 len: ""
+  const metaGamma = SongMetaStore.readMeta(placeholderSongsJs, MOCK_I18N_JS, "gamma");
+  assert.equal(metaGamma.status, "hold");
+  assert.equal(metaGamma.len, "");
+  assert.equal(metaGamma.upcoming, true);
+  assert.deepEqual(SongMetaStore.validate(metaGamma).errors, []);
+  assert.ok(SongMetaStore.validate({ ...metaGamma, climax: 30 }).errors.some(e => e.includes("副歌高潮")));
+
+  metaGamma.pen = "赤";
+  metaGamma.penGuess = true;
+  const appliedGamma = SongMetaStore.applyMeta(placeholderSongsJs, MOCK_I18N_JS, metaGamma);
+  const afterGamma = SongMetaStore.evalUmd(appliedGamma.songs).SONGS.find(s => s.id === "gamma");
+  assert.equal(afterGamma.upcoming, true);
+  assert.equal(afterGamma.hold, true);
+  assert.equal(afterGamma.yt, "");
+  assert.equal(afterGamma.len, "");
+  assert.equal(SongMetaStore.readMeta(appliedGamma.songs, appliedGamma.i18n, "gamma").pen, "赤");
+
+  const metaDelta = SongMetaStore.readMeta(appliedGamma.songs, appliedGamma.i18n, "delta");
+  metaDelta.status = "free";
+  const appliedDelta = SongMetaStore.applyMeta(appliedGamma.songs, appliedGamma.i18n, metaDelta);
+  const afterDelta = SongMetaStore.evalUmd(appliedDelta.songs).SONGS.find(s => s.id === "delta");
+  assert.equal(afterDelta.free, true);
+  assert.equal(afterDelta.cover, true);
+  assert.equal(afterDelta.upcoming, true);
+  assert.equal(afterDelta.hold, undefined);
+
+  // 2. LyricsStore.validate：僅在 !youtubeId && !lyrics.length 時允許 duration === 0
+  const placeholderSong = { id: "delta", yt: "", len: "", hold: true, cover: true, upcoming: true };
+  const placeholderEntry = { id: "delta", youtubeId: "", duration: 0, lyrics: [] };
+  assert.deepEqual(LyricsStore.validate(placeholderEntry, placeholderSong).errors, []);
+
+  assert.ok(LyricsStore.validate({ id: "delta", youtubeId: "xxxxxxxxxxx", duration: 0, lyrics: [] }, { id: "delta", yt: "xxxxxxxxxxx", len: "3:00" }).errors.some(e => e.includes("duration")));
+  assert.ok(LyricsStore.validate({ id: "delta", youtubeId: "", duration: 0, lyrics: [{ time: 1, jp: "あ", tr: "a" }] }, placeholderSong).errors.some(e => e.includes("duration")));
+  assert.ok(LyricsStore.validate(placeholderEntry, { id: "delta", yt: "xxxxxxxxxxx", len: "3:00" }).errors.some(e => e.includes("YouTube ID")));
+
+  // 3. core.mjs：songsIndex、songDetail、saveLyrics 與 addSong 處理 yt: "" / len: ""
+  const db = core.loadFrom({
+    "songs.js": placeholderSongsJs,
+    "i18n.js": MOCK_I18N_JS,
+    "song-lyrics.js": placeholderLyricsJs,
+    "song-lyrics-live.js": placeholderLyricsJs.replace(/SONGS/g, "LIVE_SONGS")
+  });
+  const idx = core.songsIndex(db);
+  assert.equal(idx[0].len, "");
+  assert.equal(idx[0].upcoming, true);
+
+  const detail = core.songDetail("delta", db);
+  assert.equal(detail.duration, 0);
+  assert.equal(detail.song.yt, "");
+  assert.equal(detail.song.len, "");
+  assert.equal(detail.song.upcoming, true);
+
+  const savedEmpty = core.saveLyrics("delta", [], undefined, db);
+  assert.deepEqual(savedEmpty.files, {});
+
+  const added = core.addSong({ id: "epsilon", yt: "eeeeeeeeeee", ja: "イプシロン", len: "3:15", date: "2026-11-20" }, db);
+  assert.ok(added.files["songs.js"]);
+});

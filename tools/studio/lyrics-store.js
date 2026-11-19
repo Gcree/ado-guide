@@ -42,7 +42,7 @@
     return { text, kind, file: p.target.file, replaced: !!old, unchanged: !!old && JSON.stringify(old) === JSON.stringify(entry), oldCount: old ? old.lyrics.length : 0 };
   }
 
-  const lenToSec = len => (typeof len === "string" ? len.split(":").reduce((a, b) => a * 60 + +b, 0) : NaN);
+  const lenToSec = len => (typeof len === "string" && /^\d+:\d+$/.test(len) ? len.split(":").reduce((a, b) => a * 60 + +b, 0) : NaN);
 
   // 跟 scripts/check-data.mjs 同樣的逐行檢查；errors 會擋下存檔，warnings 只是提醒
   // song：songs.js 裡的那首歌（MV 版用來比對影片和曲長）
@@ -54,10 +54,13 @@
     }
     const live = kindOf(entry) === "live";
     const dur = entry.duration;
-    if (typeof dur !== "number" || !Number.isFinite(dur) || dur <= 0) errors.push(`duration 不是有效的秒數（${dur}）`);
-    if (!entry.lyrics.length) errors.push("一句有時間的歌詞都沒有");
+    const isPlaceholder = !live && !entry.youtubeId && !entry.lyrics.length;
+    if (!(isPlaceholder && dur === 0) && (typeof dur !== "number" || !Number.isFinite(dur) || dur <= 0)) {
+      errors.push(`duration 不是有效的秒數（${dur}）`);
+    }
+    if (!entry.lyrics.length && !isPlaceholder) errors.push("一句有時間的歌詞都沒有");
     if (!live && song) {
-      if (entry.youtubeId !== song.yt) errors.push(`YouTube ID 跟 songs.js 不一致（${entry.youtubeId} / ${song.yt}）`);
+      if ((entry.youtubeId || "") !== (song.yt || "")) errors.push(`YouTube ID 跟 songs.js 不一致（${entry.youtubeId} / ${song.yt}）`);
       const sDur = lenToSec(song.len);
       if (Number.isFinite(dur) && Number.isFinite(sDur) && Math.abs(sDur - dur) > 2) errors.push(`曲長跟 songs.js 差超過 2 秒（${dur}s / ${song.len}）`);
     }

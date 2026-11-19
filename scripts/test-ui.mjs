@@ -101,7 +101,12 @@ await test("首頁：歌單、搜尋、篩選", async page => {
   assert.equal(await page.isVisible("#songEmpty"), true);
   await page.fill("#q", "");
   await page.click('[data-f="cover"]');
-  assert.match(await page.textContent("#songCount"), /符合/);
+  const coverCount = await page.evaluate(() => window.ADO_SONGS.SONGS.filter(s => s.cover).length);
+  assert.equal(await page.textContent("#songCount"), `${coverCount} 首符合`);
+  assert.equal(await page.locator("#songList li").count(), coverCount);
+  for (const id of ["soldiergame", "fairytale", "binks"]) {
+    assert.equal(await page.locator(`#songList a[data-id="${id}"]`).count(), 1, `翻唱篩選應包含 ${id}`);
+  }
 });
 
 await test("點歌進歌曲頁，返回首頁", async page => {
@@ -502,6 +507,56 @@ checkSync("建置產物檢查：多語 manifest、字型剝離、karaoke JSON、
 
   assert.equal(fs.existsSync(path.join(dir, "song-lyrics.js")), false, "song-lyrics.js 不應複製進 dist/");
   assert.equal(fs.existsSync(path.join(dir, "song-lyrics-live.js")), false, "song-lyrics-live.js 不應複製進 dist/");
+
+  const htmlFiles = [];
+  const walkHtml = d => {
+    for (const ent of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, ent.name);
+      if (ent.isDirectory()) walkHtml(p);
+      else if (ent.isFile() && ent.name.endsWith(".html")) htmlFiles.push(p);
+    }
+  };
+  walkHtml(dir);
+  assert.ok(htmlFiles.length > 0, "dist/ 應該包含建置好的 HTML 檔");
+  for (const f of htmlFiles) {
+    const html = fs.readFileSync(f, "utf8");
+    assert.equal(/ytimg\.com\/vi\/\//.test(html), false, `${path.relative(dir, f)} 不應含 ytimg.com/vi//`);
+    assert.equal(/watch\?v=(?:["'&<\s]|$)/.test(html), false, `${path.relative(dir, f)} 不應含空的 watch?v= 連結`);
+  }
+});
+
+await test("預留曲目（#unknownmothergoose）：顯示 #vstatus、#cardYt 不含 watch?v=、無空 ytimg 網址", async page => {
+  await page.goto(BASE + "#unknownmothergoose");
+  await page.waitForFunction(() =>
+    !document.getElementById("song").hidden &&
+    /アンノウン・マザーグース/.test(document.getElementById("sTitle")?.textContent || "") &&
+    !document.getElementById("vstatus").hidden
+  );
+  assert.equal(await page.isVisible("#vstatus"), true);
+  assert.ok((await page.textContent("#vmsg")).trim().length > 0, "#vmsg 應顯示尚未公開提示");
+  const cardYtHref = await page.getAttribute("#cardYt", "href");
+  assert.ok(!cardYtHref || !cardYtHref.includes("watch?v="), `#cardYt 不應含壞掉的 watch?v= 連結：${cardYtHref}`);
+  assert.equal((await page.textContent("#cardYt")).trim(), "尚未公開");
+  assert.equal(await page.isDisabled("#toolQuiz"), true, "沒有歌詞的預留曲目應停用測驗");
+  const badImgs = await page.evaluate(() =>
+    [...document.querySelectorAll("img[src]")].map(i => i.getAttribute("src")).filter(s => /ytimg\.com\/vi\/\//.test(s || ""))
+  );
+  assert.deepEqual(badImgs, [], "不應出現 https://i.ytimg.com/vi// 圖片網址");
+});
+
+await test("新收錄歌曲（#binks、#fairytale）：正常開啟且無 JS 錯誤", async page => {
+  for (const [id, titlePat] of [["binks", "ビンクスの酒"], ["fairytale", "Fairytale"]]) {
+    await page.goto(BASE + "#" + id);
+    await page.waitForFunction(([sid, pat]) => {
+      const re = new RegExp(pat);
+      return !document.getElementById("song").hidden &&
+        location.hash === "#" + sid &&
+        re.test(document.getElementById("sTitle")?.textContent || "") &&
+        window.__yt && window.__ytReady &&
+        (document.querySelector("#lines .empty") !== null || document.querySelectorAll("#lines .ln").length > 0);
+    }, [id, titlePat]);
+    assert.equal(await page.isVisible("#song"), true);
+  }
 });
 
 await test("無障礙（A11y）稽核：圖片 alt、按鈕名稱、表單標籤、跳轉連結與 axe-core", async page => {
@@ -563,6 +618,14 @@ await test("無障礙（A11y）稽核：圖片 alt、按鈕名稱、表單標籤
 
   await openSong(page, "#usseewa");
   await auditPage("歌曲頁 #usseewa");
+
+  await page.goto(BASE + "#unknownmothergoose");
+  await page.waitForFunction(() =>
+    !document.getElementById("song").hidden &&
+    !document.getElementById("vstatus").hidden &&
+    /アンノウン・マザーグース/.test(document.getElementById("sTitle")?.textContent || "")
+  );
+  await auditPage("預留曲目頁 #unknownmothergoose");
 });
 
 await browser.close();

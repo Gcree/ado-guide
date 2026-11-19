@@ -62,8 +62,9 @@ for (const b of LYRICS_LIVE) {
 
 // 1. songs.js 基本欄位與 song-lyrics.js 一致性檢查
 for (const s of SONGS) {
-  if (!YT_RE.test(s.yt || "")) error(`[${s.id}] songs.js 的 yt 格式不對（應為 11 碼）: ${s.yt}`);
-  if (!LEN_RE.test(s.len || "")) error(`[${s.id}] songs.js 的 len 格式不對（應為 M:SS）: ${s.len}`);
+  const allowEmpty = Boolean(s.upcoming || s.hold);
+  if (s.yt === "" ? !allowEmpty : !YT_RE.test(s.yt || "")) error(`[${s.id}] songs.js 的 yt 格式不對（應為 11 碼）: ${s.yt}`);
+  if (s.len === "" ? !allowEmpty : !LEN_RE.test(s.len || "")) error(`[${s.id}] songs.js 的 len 格式不對（應為 M:SS）: ${s.len}`);
   if (!isValidDate(s.date)) error(`[${s.id}] songs.js 的 date 格式不對（應為 YYYY-MM-DD）: ${s.date}`);
   if (!lyricsMap.has(s.id)) error(`[${s.id}] 在 songs.js 存在，但在 song-lyrics.js 找不到對應項目`);
 }
@@ -74,21 +75,37 @@ for (const b of LYRICS) {
 for (const s of SONGS) {
   const b = lyricsMap.get(s.id);
   if (!b) continue;
-  if (s.yt !== b.youtubeId) {
-    error(`[${s.id}] YouTube ID 不一致: songs.js=${s.yt}, song-lyrics.js=${b.youtubeId}`);
-  }
-  if (LEN_RE.test(s.len || "")) {
-    const sDur = parseLen(s.len);
-    if (typeof b.duration !== "number" || !Number.isFinite(b.duration) || Math.abs(sDur - b.duration) > 2) {
-      error(`[${s.id}] 曲長差距大於 2 秒: songs.js=${s.len} (${sDur}s), song-lyrics.js=${b.duration}s`);
+  if (!s.yt) {
+    if (b.youtubeId !== "") {
+      error(`[${s.id}] yt 為空時，song-lyrics.js 的 youtubeId 也必須為空（目前: ${b.youtubeId}）`);
+    }
+    if (b.duration !== 0) {
+      error(`[${s.id}] yt 為空時，song-lyrics.js 的 duration 必須為 0（目前: ${b.duration}）`);
+    }
+    if (!Array.isArray(b.lyrics) || b.lyrics.length !== 0) {
+      error(`[${s.id}] yt 為空時，song-lyrics.js 的 lyrics 必須為空陣列`);
+    }
+  } else {
+    if (s.yt !== b.youtubeId) {
+      error(`[${s.id}] YouTube ID 不一致: songs.js=${s.yt}, song-lyrics.js=${b.youtubeId}`);
+    }
+    if (LEN_RE.test(s.len || "")) {
+      const sDur = parseLen(s.len);
+      if (typeof b.duration !== "number" || !Number.isFinite(b.duration) || Math.abs(sDur - b.duration) > 2) {
+        error(`[${s.id}] 曲長差距大於 2 秒: songs.js=${s.len} (${sDur}s), song-lyrics.js=${b.duration}s`);
+      }
     }
   }
 }
 
+const emptyLyricsHold = [];
+const emptyLyricsUpcoming = [];
+
 // 共用歌詞區塊檢查（MV 與現場版）
 function validateLyricsBlock(b, dur, { label, song = null, isLive = false }) {
   const prefix = isLive ? `[${b.id} (${label})]` : `[${b.id}]`;
-  if (typeof b.duration !== "number" || !Number.isFinite(b.duration) || b.duration <= 0) {
+  const isEmptyPlaceholder = !isLive && song && !song.yt && (song.upcoming || song.hold) && b.youtubeId === "" && b.duration === 0 && (!Array.isArray(b.lyrics) || b.lyrics.length === 0);
+  if (!isEmptyPlaceholder && (typeof b.duration !== "number" || !Number.isFinite(b.duration) || b.duration <= 0)) {
     error(`${prefix} duration 不是有效的正數 (${b.duration})`);
   }
   const lines = Array.isArray(b.lyrics) ? b.lyrics : [];
@@ -151,7 +168,9 @@ function validateLyricsBlock(b, dur, { label, song = null, isLive = false }) {
   });
 
   if (!lines.length) {
-    warn(`${prefix} 沒有逐行歌詞資料`);
+    if (!isLive && song?.upcoming) emptyLyricsUpcoming.push(b.id);
+    else if (!isLive && song?.hold) emptyLyricsHold.push(b.id);
+    else warn(`${prefix} 沒有逐行歌詞資料`);
   } else if (missingTr > 0) {
     warn(`${prefix} 有 ${missingTr} / ${lines.length} 行非括號補位行缺少中文翻譯 tr`);
   }
@@ -380,13 +399,16 @@ if (fs.existsSync(karaokeCachePath)) {
 }
 
 // 9. WARN 提醒（不使檢查失敗）
-const missingUT = SONGS.filter(s => !UT[s.id]).map(s => s.id);
+if (emptyLyricsHold.length) warn(`整理中（hold）且沒有逐行歌詞的歌曲 (${emptyLyricsHold.length} 首): ${emptyLyricsHold.join(", ")}`);
+if (emptyLyricsUpcoming.length) warn(`預留曲目（upcoming）尚無 MV 與逐行歌詞 (${emptyLyricsUpcoming.length} 首): ${emptyLyricsUpcoming.join(", ")}`);
+
+const missingUT = SONGS.filter(s => !s.upcoming && !UT[s.id]).map(s => s.id);
 if (missingUT.length) warn(`缺少 UT（歌ネット）編號的歌曲 (${missingUT.length} 首): ${missingUT.join(", ")}`);
 
-const missingBEAT = SONGS.filter(s => !BEAT[s.id]).map(s => s.id);
+const missingBEAT = SONGS.filter(s => !s.upcoming && !BEAT[s.id]).map(s => s.id);
 if (missingBEAT.length) warn(`缺少 BEAT 拍點資料的歌曲 (${missingBEAT.length} 首): ${missingBEAT.join(", ")}`);
 
-const missingCLIMAX = SONGS.filter(s => !CLIMAX[s.id]).map(s => s.id);
+const missingCLIMAX = SONGS.filter(s => !s.upcoming && !CLIMAX[s.id]).map(s => s.id);
 if (missingCLIMAX.length) warn(`缺少 CLIMAX 副歌高潮秒數的歌曲 (${missingCLIMAX.length} 首): ${missingCLIMAX.join(", ")}`);
 
 // 印出結果
