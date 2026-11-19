@@ -3771,8 +3771,9 @@
     }
     const targets = quizTargets();
     if (!targets.length) { toast(T("這首沒有逐行應援，不能測驗")); return; }
-    // lastT 先記現在的位置，seek(0) 之後會當成往回跳，把成績整個清掉
-    QZ = { targets, stray: 0, combo: 0, maxCombo: 0, lastT: now(), armed: false, done: false, rate: RATE };
+    // lastT 先記現在的位置，seek(0) 若是非同步延遲，armed 先保持 false 等真正回到開頭才開始判定
+    const startT = now();
+    QZ = { targets, stray: 0, combo: 0, maxCombo: 0, lastT: startT, armed: startT < 1.0, done: false, rate: RATE };
     clearRippleTimers();
     setVideoSourcePillDisabled(true);
     document.body.classList.add("quiz-on");
@@ -3781,6 +3782,11 @@
     quizHud.hidden = false; qzJudge.innerHTML = "";
     hideAlert(); quizPaint();
     seek(0);
+    const afterT = now();
+    if (afterT < 1.0) {
+      QZ.armed = true;
+      QZ.lastT = afterT;
+    }
     toast(T("測驗開始：該應援的地方按空白鍵或點「按這裡」"));
   }
   function quizStop() {
