@@ -19,6 +19,10 @@
 
   const CACHE_VERSION = "v1";
   const CACHE_PREFIX = "ado-karaoke-";
+  const MAX_CACHE_SONGS = 20;
+  const MAX_LINES = 500;
+  const MAX_WORDS = 300;
+  const CACHE_INDEX_KEY = "__ado_karaoke_lru__";
   const DEFAULT_WORKER = "https://lyrics.txw.qzz.io";
   const AMLL_API = "https://api.amll.dev";
   const LRCLIB_API = "https://lrclib.net/api";
@@ -29,6 +33,7 @@
   ]);
 
   const pending = new Map();
+  let lruClock = 0;
 
   function finite(value) {
     const number = Number(value);
@@ -104,25 +109,28 @@
   function normaliseWords(rawWords) {
     if (!Array.isArray(rawWords)) return [];
     const out = [];
-    rawWords.forEach((raw, index) => {
-      if (!raw || typeof raw !== "object") return;
+    const limit = Math.min(rawWords.length, MAX_WORDS);
+    for (let index = 0; index < limit; index++) {
+      const raw = rawWords[index];
+      if (!raw || typeof raw !== "object") continue;
       const text = String(raw.text ?? raw.Text ?? raw.c ?? "");
-      if (!text) return;
+      if (!text) continue;
       const start = parseTime(raw.start ?? raw.StartTime ?? raw.ts ?? raw.time);
       let end = parseTime(raw.end ?? raw.EndTime ?? raw.te);
       const next = rawWords[index + 1];
       const nextStart = next && parseTime(next.start ?? next.StartTime ?? next.ts ?? next.time);
       if (end == null && nextStart != null) end = nextStart;
-      if (start == null) return;
+      if (start == null) continue;
       if (end == null || end <= start) end = start + 0.04;
       out.push({ text, start, end });
-    });
+    }
     return out;
   }
 
   function normaliseLines(lines, sourceName, granularity = "word") {
     if (!Array.isArray(lines)) return null;
-    const result = lines.map((line) => {
+    const capped = lines.length > MAX_LINES ? lines.slice(0, MAX_LINES) : lines;
+    const result = capped.map((line) => {
       const words = normaliseWords(line && (line.words || line.Syllables || line.syllables));
       if (!words.length) return null;
       const start = finite(line.start ?? line.StartTime) ?? words[0].start;
@@ -188,7 +196,7 @@
     } catch (e) {
       return null;
     }
-    if (!doc || doc.querySelector("parsererror")) return null;
+    if (!doc || (typeof doc.getElementsByTagName === "function" && doc.getElementsByTagName("parsererror").length > 0)) return null;
     const paragraphs = Array.from(doc.getElementsByTagName("p"));
     const lines = [];
     paragraphs.forEach((paragraph) => {
@@ -282,12 +290,52 @@
     return `${CACHE_PREFIX}${CACHE_VERSION}-${String(song && song.id || "unknown")}`;
   }
 
+  function sanitiseCachedLines(rawLines) {
+    if (!Array.isArray(rawLines)) return [];
+    const out = [];
+    const lineLimit = Math.min(rawLines.length, MAX_LINES);
+    for (let i = 0; i < lineLimit; i++) {
+      const line = rawLines[i];
+      if (!line || typeof line !== "object") continue;
+      const words = Array.isArray(line.words) ? line.words.slice(0, MAX_WORDS) : [];
+      out.push({ ...line, words });
+    }
+    return out;
+  }
+
   function readCache(song) {
     const storage = getLocalStorage();
     if (!storage) return null;
+    const key = cacheKey(song);
     try {
-      const val = JSON.parse(storage.getItem(cacheKey(song)) || "null");
-      return val && val.format === "timed-lyrics-v1" ? val : null;
+      const val = JSON.parse(storage.getItem(key) || "null");
+      if (!val || typeof val !== "object" || Array.isArray(val) || val.format !== "timed-lyrics-v1" || !Array.isArray(val.lines)) {
+        return null;
+      }
+      const lines = sanitiseCachedLines(val.lines);
+      if (!lines.length) return null;
+      const existingLru = Number.isFinite(val._lru) ? val._lru : 0;
+      lruClock = Math.max(lruClock + 1, Date.now() * 1000, existingLru + 1);
+      if (typeof storage.key === "function" && typeof storage.length === "number") {
+        try {
+          storage.setItem(key, JSON.stringify({ ...val, lines, _lru: lruClock }));
+        } catch (e) {}
+      } else {
+        try {
+          const idxRaw = JSON.parse(storage.getItem(CACHE_INDEX_KEY) || "[]");
+          if (Array.isArray(idxRaw)) {
+            const nextIdx = idxRaw.filter((k) => k !== key);
+            nextIdx.push(key);
+            storage.setItem(CACHE_INDEX_KEY, JSON.stringify(nextIdx));
+          }
+        } catch (e) {}
+      }
+      return {
+        format: val.format,
+        source: val.source,
+        granularity: val.granularity,
+        lines
+      };
     } catch (e) {
       return null;
     }
@@ -296,8 +344,59 @@
   function writeCache(song, value) {
     const storage = getLocalStorage();
     if (!storage || !value) return;
+    const key = cacheKey(song);
+    const keyPrefix = `${CACHE_PREFIX}${CACHE_VERSION}-`;
+    const lines = sanitiseCachedLines(value.lines);
+    const cleanPayload = {
+      format: value.format,
+      source: value.source,
+      granularity: value.granularity,
+      lines
+    };
     try {
-      storage.setItem(cacheKey(song), JSON.stringify(value));
+      if (typeof storage.key === "function" && typeof storage.length === "number") {
+        const entries = [];
+        let maxLru = 0;
+        for (let i = 0; i < storage.length; i++) {
+          const k = storage.key(i);
+          if (!k || !k.startsWith(keyPrefix) || k === key) continue;
+          let lru = 0;
+          try {
+            const parsed = JSON.parse(storage.getItem(k) || "null");
+            if (parsed && Number.isFinite(parsed._lru)) lru = parsed._lru;
+          } catch (e) {}
+          if (lru > maxLru) maxLru = lru;
+          entries.push({ key: k, lru });
+        }
+        lruClock = Math.max(lruClock + 1, Date.now() * 1000, maxLru + 1);
+        entries.sort((a, b) => a.lru - b.lru);
+        while (entries.length >= MAX_CACHE_SONGS) {
+          const oldest = entries.shift();
+          if (oldest) storage.removeItem(oldest.key);
+        }
+        const serialized = JSON.stringify({ ...cleanPayload, _lru: lruClock });
+        try {
+          storage.setItem(key, serialized);
+        } catch (err) {
+          if (entries.length) {
+            storage.removeItem(entries[0].key);
+            storage.setItem(key, serialized);
+          }
+        }
+      } else {
+        let order = [];
+        try {
+          const parsed = JSON.parse(storage.getItem(CACHE_INDEX_KEY) || "[]");
+          if (Array.isArray(parsed)) order = parsed.filter((k) => typeof k === "string" && k !== key);
+        } catch (e) {}
+        order.push(key);
+        while (order.length > MAX_CACHE_SONGS) {
+          const oldest = order.shift();
+          if (oldest && oldest !== key) storage.removeItem(oldest);
+        }
+        storage.setItem(key, JSON.stringify(cleanPayload));
+        storage.setItem(CACHE_INDEX_KEY, JSON.stringify(order));
+      }
     } catch (e) {
       // Ignore quota errors
     }
@@ -351,6 +450,24 @@
     return normaliseBeautifulLyrics(payload);
   }
 
+  function isAdoName(name) {
+    const text = String(name || "");
+    return /\bado\b/i.test(text) || text.includes("アド");
+  }
+
+  function isAdoCandidate(candidate) {
+    if (!candidate || typeof candidate !== "object") return false;
+    const raw = candidate.artists ?? candidate.artistNames ?? candidate.artistName ?? candidate.artist;
+    if (raw == null) return false;
+    const list = Array.isArray(raw) ? raw : [raw];
+    return list.some((entry) => {
+      const name = typeof entry === "string"
+        ? entry
+        : (entry && (entry.name || entry.artistName || entry.text)) || "";
+      return isAdoName(name);
+    });
+  }
+
   async function fetchAmll(song, options) {
     const url = new URL(`${AMLL_API}/v1/lyrics/search`);
     url.searchParams.set("musicName", sourceTitle(song));
@@ -362,9 +479,12 @@
       ? search.data.items : [];
     const wantedTitle = normaliseText(sourceTitle(song));
     const item = items.find((candidate) => {
-      const titles = Array.isArray(candidate.musicNames) ? candidate.musicNames : [];
+      if (!candidate || !isAdoCandidate(candidate)) return false;
+      const titles = Array.isArray(candidate.musicNames)
+        ? candidate.musicNames
+        : (candidate.musicName ? [candidate.musicName] : []);
       return titles.some((t) => normaliseText(t) === wantedTitle);
-    }) || items[0];
+    });
     if (!item) return null;
 
     const lyricUrl = new URL(`${AMLL_API}/v1/lyrics/get`);
@@ -380,15 +500,21 @@
     url.searchParams.set("track_name", title);
     url.searchParams.set("artist_name", "Ado");
     let search = await fetchJson(url.toString(), { timeoutMs: (options && options.timeoutMs) || 7000 });
+    let usedFallback = false;
     if (!Array.isArray(search) || !search.length) {
       url = new URL(`${LRCLIB_API}/search`);
       url.searchParams.set("q", title);
       search = await fetchJson(url.toString(), { timeoutMs: (options && options.timeoutMs) || 7000 });
+      usedFallback = true;
     }
     if (!Array.isArray(search) || !search.length) return null;
 
     const wantedDur = sourceDuration(song, options);
-    const sorted = search.filter(c => c && c.syncedLyrics).sort((a, b) => {
+    const sorted = search.filter((c) => {
+      if (!c || !c.syncedLyrics) return false;
+      if (usedFallback && !isAdoName(c.artistName)) return false;
+      return true;
+    }).sort((a, b) => {
       const da = wantedDur && a.duration ? Math.abs(a.duration - wantedDur) : 999;
       const db = wantedDur && b.duration ? Math.abs(b.duration - wantedDur) : 999;
       return da - db;
@@ -486,13 +612,11 @@
       if (kanjiText.length < 2) return;
 
       let position = sourceText.indexOf(kanjiText, cursor);
-      if (position < 0) position = sourceText.indexOf(kanjiText);
       let matchedText = kanjiText;
       if (position < 0) {
         const readText = normaliseText(stripRuby(rawJp, "reading"));
         if (readText.length >= 2) {
           position = sourceText.indexOf(readText, cursor);
-          if (position < 0) position = sourceText.indexOf(readText);
           if (position >= 0) matchedText = readText;
         }
       }
@@ -523,7 +647,7 @@
       const raw = line && (line.jp || line.ja);
       return raw && !isStageDirection(raw) && normaliseText(stripRuby(raw, "kanji")).length >= 2;
     }).length;
-    const minimum = Math.min(3, Math.max(1, eligible));
+    const minimum = Math.min(3, Math.max(1, Math.ceil(eligible * 0.6)));
     if (matches.length < minimum) return null;
     if (eligible >= 6 && matches.length / eligible < 0.20) return null;
 
@@ -587,12 +711,12 @@
       totalMeaningfulUnits++;
 
       let pos = fullCharText.indexOf(wanted, cursor);
-      if (pos < 0) pos = fullCharText.indexOf(wanted);
       if (pos < 0 && u && u.isRuby) {
         const readWanted = normaliseText(u.reading);
-        pos = fullCharText.indexOf(readWanted, cursor);
-        if (pos < 0) pos = fullCharText.indexOf(readWanted);
-        if (pos >= 0) wanted = readWanted;
+        if (readWanted) {
+          pos = fullCharText.indexOf(readWanted, cursor);
+          if (pos >= 0) wanted = readWanted;
+        }
       }
 
       if (pos >= 0) {
@@ -607,13 +731,21 @@
       }
     });
 
-    // Interpolate whitespace / punctuation and unmatched gaps
+    // Interpolate whitespace / punctuation and unmatched gaps in two O(U) passes
+    const nextMatched = new Array(units.length).fill(null);
+    let nextT = null;
+    for (let i = units.length - 1; i >= 0; i--) {
+      nextMatched[i] = nextT;
+      if (timings[i]) nextT = timings[i];
+    }
+    let prevT = null;
     for (let i = 0; i < units.length; i++) {
-      if (!timings[i]) {
-        const prev = timings.slice(0, i).reverse().find((t) => t != null);
-        const next = timings.slice(i + 1).find((t) => t != null);
-        const s = prev ? prev.end : (next ? Math.max(0, next.start - 0.05) : lineStart);
-        const e = next ? next.start : (prev ? prev.end + 0.05 : lineEnd);
+      if (timings[i]) {
+        prevT = timings[i];
+      } else {
+        const next = nextMatched[i];
+        const s = prevT ? prevT.end : (next ? Math.max(0, next.start - 0.05) : lineStart);
+        const e = next ? next.start : (prevT ? prevT.end + 0.05 : lineEnd);
         timings[i] = { start: s, end: Math.max(s + 0.02, e) };
       }
     }

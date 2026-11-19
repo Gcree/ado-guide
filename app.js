@@ -1,4 +1,5 @@
 (() => {
+  "use strict";
   // ── 語言：<html data-lang> 由建置寫入（zh／en／ja）；文字以中文原文當 key 查 i18n.js 的字典，查不到就顯示中文
   // ROOT：英文、日文版在 /en/、/jp/ 底下，歌詞檔、更新日誌這些共用檔案要往上一層找
   const LANG = document.documentElement.dataset.lang || "zh";
@@ -30,7 +31,7 @@
   // 歌詞：正式網站由 scripts/build.mjs 拆成每首一個檔（lyrics/<id>.json），<html data-lyrics> 是版本；
   // 先讀小小的 lyrics/index.json（每首的應援數量），打開哪首才載那首。直接開原始檔時沒有拆，改讀整份 song-lyrics.js
   // 應援數量：歌詞裡有動作的行數（「安靜聽」不算）；index.json 裡沒有的歌就是沒有逐行歌詞
-  const LYV = document.documentElement.dataset.lyrics, LY = {}, lyWait = {}, LY_LIVE = {}, lyLiveWait = {};
+  const LYV = document.documentElement.dataset.lyrics, LY = {}, lyWait = {}, LY_LIVE = {}, lyLiveWait = {}, lyLiveLoaded = new Set();
   let lyReady = false;
   const loadScript = src => new Promise(res => {
     const el = document.createElement("script");
@@ -48,8 +49,9 @@
         const idx = {};
         (window.SONG_LYRICS || []).forEach(b => { LY[b.id] = b; if (b.lyrics && b.lyrics.length) idx[b.id] = b.lyrics.filter(l => (l.acts || []).some(a => a !== "listen")).length; });
         (window.SONG_LYRICS_LIVE || []).forEach(b => {
-          const baseId = b.baseId || b.id.replace('-live', '');
+          const baseId = b.baseId || b.id.replace(/-live$/, "");
           LY_LIVE[baseId] = b;
+          lyLiveLoaded.add(baseId);
         });
         return idx;
       })
@@ -60,19 +62,56 @@
   // 這首的歌詞載好了沒（拆檔時打開才載）；網址一開始就指向的歌，和 index.json 一起先載
   const lyHave = (s, source = (typeof currentVideoSource === "function" ? currentVideoSource(s) : "mv")) => {
     if (!lyReady) return false;
+    if (!LYV) return true;
     if (!s.lines) return true;
-    if (source === "live" && s.liveVideo) return !!LY_LIVE[s.id] || !!LY[s.id];
+    if (source === "live" && s.liveVideo) return lyLiveLoaded.has(s.id);
     return !!LY[s.id];
   };
-  const fetchLy = id => lyWait[id] = lyWait[id] || getJSON(`${ROOT}lyrics/${id}.json?v=${LYV}`).then(b => { if (b) LY[id] = b; });
-  const fetchLyLive = id => lyLiveWait[id] = lyLiveWait[id] || getJSON(`${ROOT}lyrics-live/${id}.json?v=${LYV}`).then(b => { if (b) LY_LIVE[id] = b; });
-  function loadLyrics(s) {
-    if (!LYV || lyHave(s)) return Promise.resolve();
-    const tasks = [fetchLy(s.id)];
-    if (s.liveVideo) tasks.push(fetchLyLive(s.id));
-    return Promise.all(tasks).then(() => { if (!LY[s.id] && !LY_LIVE[s.id]) s.lines = false; });
+  const fetchLy = id => {
+    if (LY[id]) return Promise.resolve(true);
+    if (!lyWait[id]) {
+      lyWait[id] = getJSON(`${ROOT}lyrics/${id}.json?v=${LYV}`).then(b => {
+        if (b) { LY[id] = b; return true; }
+        delete lyWait[id];
+        return false;
+      }, () => {
+        delete lyWait[id];
+        return false;
+      });
+    }
+    return lyWait[id];
+  };
+  const fetchLyLive = id => {
+    if (lyLiveLoaded.has(id)) return Promise.resolve(true);
+    if (!lyLiveWait[id]) {
+      lyLiveWait[id] = fetch(`${ROOT}lyrics-live/${id}.json?v=${LYV}`).then(async r => {
+        if (r.ok) {
+          const b = await r.json();
+          if (b) LY_LIVE[id] = b;
+          lyLiveLoaded.add(id);
+          return true;
+        }
+        if (r.status === 404) {
+          lyLiveLoaded.add(id);
+          return true;
+        }
+        delete lyLiveWait[id];
+        return false;
+      }).catch(() => {
+        delete lyLiveWait[id];
+        return false;
+      });
+    }
+    return lyLiveWait[id];
+  };
+  function loadLyrics(s, source = (typeof currentVideoSource === "function" ? currentVideoSource(s) : "mv")) {
+    if (!LYV || lyHave(s, source)) return Promise.resolve(true);
+    if (source === "live" && s.liveVideo) {
+      return fetchLyLive(s.id).then(ok => (ok && !LY_LIVE[s.id] && !LY[s.id] ? fetchLy(s.id) : ok));
+    }
+    return fetchLy(s.id);
   }
-  const firstSong = (location.hash.slice(1) || document.documentElement.dataset.song || "").split("@")[0];
+  const firstSong = (location.hash.slice(1) || document.documentElement.dataset.song || "").split(/[?@]/)[0];
   const firstSongObj = SONGS.find(s => s.id === firstSong);
   if (LYV && firstSongObj) {
     fetchLy(firstSong);
@@ -88,8 +127,8 @@
   }
 
   const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const icon = a => `<svg class="a-${a}" role="img" aria-label="${ACT[a].name}"><use href="#${ACT[a].icon}"/></svg>`;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const icon = a => `<svg class="a-${a}" role="img" aria-label="${esc(ACT[a].name)}"><use href="#${ACT[a].icon}"/></svg>`;
   // 一行的主色：第一個不是「安靜聽」的動作
   const mainAct = acts => acts.find(a => a !== "listen") || (acts.length ? "listen" : "");
   // 歌詞行的底色：有要唱的字時整行不染色，只染那幾個字；其他行用第一個不是「唱」的動作
@@ -111,6 +150,7 @@
 
   // ── 首頁 ──
   const homeEl = document.getElementById("home");
+  const homeV = homeEl, songV = document.getElementById("song");
   const list = document.getElementById("songList"), q = document.getElementById("q"), barQ = document.getElementById("barQ"), countEl = document.getElementById("songCount");
   const moreBtn = document.getElementById("moreBtn"), emptyEl = document.getElementById("songEmpty"), listMore = document.getElementById("listMore");
   const sortBtn = document.getElementById("sortBtn"), sortLabel = document.getElementById("sortLabel");
@@ -157,8 +197,23 @@
   };
 
   const rowHtml = s => `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${tierTagOf(s)}${liveTagOf(s)}${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}${sort === "cheer" && s.cheer ? `<span class="cnt">${T("{0} 句", s.cheer)}</span>` : ""}</span></span></a></li>`;
+  let searchTimer = 0;
+  function syncListPaging() {
+    const items = list.children, total = items.length;
+    for (let i = 0; i < total; i++) items[i].hidden = i >= shown;
+    const plain = !q.value.trim() && filter === "all";
+    const shownCount = Math.min(shown, total);
+    const rest = Math.max(0, total - shownCount);
+    if (plain) session.set(shownKey, shown);
+    listMore.hidden = total <= LIMIT;
+    listProgress.textContent = rest ? T("已列出 {0}／{1} 首", shownCount, total) : T("{0} 首都列出來了", total);
+    // 列完了換成「收合」，帶回清單開頭
+    moreBtn.textContent = rest ? T("再看 {0} 首", Math.min(STEP, rest)) : T("收合清單");
+  }
   // free：粉絲說沒有固定應援；hold（含 sug）：還查不到可靠的應援資料
   function renderList() {
+    clearTimeout(searchTimer);
+    searchTimer = 0;
     const term = q.value.trim().toLowerCase();
     const cleanTerm = term.replace(/[\s\-_'’"!?！？()（）/]/g, "");
     const rows = ordered().filter(s => {
@@ -184,18 +239,11 @@
     if (filter === "frequent" && sort !== "cheer") rows.sort((a, b) => FREQ_ORDER.get(a.id) - FREQ_ORDER.get(b.id));
     list.innerHTML = rows.map(rowHtml).join("");
     const plain = !term && filter === "all", total = rows.length;
-    // 還沒輪到的歌先藏起來（hidden），還在 HTML 裡
-    [...list.children].forEach((li, i) => li.hidden = i >= shown);
     list.classList.remove("collapsed");
-    const rest = Math.max(0, total - shown);
-    if (plain) session.set(shownKey, shown);
-    listMore.hidden = total <= LIMIT;
-    listProgress.textContent = rest ? T("已列出 {0}／{1} 首", shown, total) : T("{0} 首都列出來了", total);
-    // 列完了換成「收合」，帶回清單開頭
-    moreBtn.textContent = rest ? T("再看 {0} 首", Math.min(STEP, rest)) : T("收合清單");
-    countEl.textContent = plain ? T("{0} 首", SONGS.length) : T("{0} 首符合", rows.length);
-    emptyEl.hidden = rows.length > 0;
-    if (!rows.length) emptyEl.textContent = term ? T("找不到「{0}」，試試日文、中文或英文歌名。", q.value.trim()) : T("這個分類目前沒有歌。");
+    syncListPaging();
+    countEl.textContent = plain ? T("{0} 首", SONGS.length) : T("{0} 首符合", total);
+    emptyEl.hidden = total > 0;
+    if (!total) emptyEl.textContent = term ? T("找不到「{0}」，試試日文、中文或英文歌名。", q.value.trim()) : T("這個分類目前沒有歌。");
   }
   // 首頁上所有歌曲連結（清單、書架、主視覺）：普通左鍵點擊用 SPA 即時切換；帶修飾鍵就讓瀏覽器開新分頁
   homeEl.addEventListener("click", ev => {
@@ -207,18 +255,23 @@
     }
   });
   // 螢光棒顏色的小圓點
-  const penDots = s => `<span class="dots" aria-label="${T("螢光棒：")}${penOf(s).keys.map(penName).join(T("、"))}">${penOf(s).keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")}</span>`;
+  const penDots = s => `<span class="dots" aria-label="${esc(T("螢光棒：") + penOf(s).keys.map(penName).join(T("、")))}">${penOf(s).keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")}</span>`;
   // 兩個搜尋框（主視覺、頂欄）內容同步；在頂欄打字時，清單不在眼前就捲過去
   const songsSec = document.getElementById("songs");
-  function onSearch(src) {
+  function onSearch(src, ev) {
     const other = src === q ? barQ : q;
     if (other.value !== src.value) other.value = src.value;
     shown = LIMIT;
-    renderList();
+    clearTimeout(searchTimer);
+    if (ev && ev.isTrusted && ev.inputType && src.value) {
+      searchTimer = setTimeout(() => { searchTimer = 0; renderList(); }, 80);
+    } else {
+      renderList();
+    }
   }
-  q.addEventListener("input", () => onSearch(q));
-  barQ.addEventListener("input", () => {
-    onSearch(barQ);
+  q.addEventListener("input", ev => onSearch(q, ev));
+  barQ.addEventListener("input", ev => {
+    onSearch(barQ, ev);
     const r = songsSec.getBoundingClientRect();
     if (r.top > innerHeight * .6 || r.bottom < 120) songsSec.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   });
@@ -303,19 +356,19 @@
   moreBtn.addEventListener("click", e => {
     const before = shown, total = list.children.length;
     if (before >= total) {
-      shown = LIMIT; renderList();
+      shown = LIMIT; syncListPaging();
       // 收合時清單變短，把畫面帶回清單開頭，不然會停在頁尾
       if (songsSec.getBoundingClientRect().top < 0) songsSec.scrollIntoView({ block: "start" });
       return;
     }
     shown = Math.min(total, before + STEP);
-    renderList();
+    syncListPaging();
     // 新露出的這一批依序進場；用鍵盤按的，焦點移到這批第一首
     const fresh = [...list.children].slice(before, shown);
     if (!reduce) fresh.forEach((li, i) => { li.style.setProperty("--k", i); li.classList.add("fresh"); });
     if (e.detail === 0 && fresh[0]) fresh[0].querySelector("a").focus();
   });
-  let homeReady = false;
+  let homeReady = false, resumeReel = () => {}, measureHomeReel = () => {};
   function ensureHomeReady() {
     if (homeReady) return;
     homeReady = true;
@@ -326,7 +379,10 @@
     setupShelf(LATEST, "latestShelf");
     const idxNav = document.getElementById("songIndex");
     const reelNowEl = document.getElementById("reelNow");
-    const defaultReelNow = T("2020 – 2026 · 全 {0} 首", SONGS.length);
+    const years = SONGS.map(s => Number((s.date || "").slice(0, 4))).filter(y => y >= 2000 && y <= 2100);
+    const minYear = years.length ? Math.min(...years) : 2020;
+    const maxYear = years.length ? Math.max(...years) : 2026;
+    const defaultReelNow = T("{0} – {1} · 全 {2} 首", minYear, maxYear, SONGS.length);
     if (reelNowEl && !reelNowEl.textContent) reelNowEl.textContent = defaultReelNow;
     if (idxNav) {
       if (!idxNav.children.length) {
@@ -369,7 +425,7 @@
         });
         const dir = Number(row.dataset.dir) || (i % 2 === 1 ? 1 : -1);
         const baseSpeed = (i === 0 ? 28 : i === 1 ? 24 : 32) * dir;
-        const st = { row, track, dir, baseSpeed, curSpeed: baseSpeed, vel: 0, x: dir > 0 ? -600 : 0, half: 0, hover: false, drag: false, startX: 0, lastMoveT: 0, moved: 0 };
+        const st = { row, track, dir, baseSpeed, curSpeed: reduce ? 0 : baseSpeed, vel: 0, x: dir > 0 ? -600 : 0, half: 0, hover: false, drag: false, startX: 0, lastMoveT: 0, moved: 0 };
         row.addEventListener("pointerenter", () => { st.hover = true; });
         row.addEventListener("pointerleave", () => { st.hover = false; });
         row.addEventListener("focusin", () => { st.hover = true; });
@@ -400,7 +456,7 @@
           st.drag = false;
           st.curSpeed = st.vel;
           row.classList.remove("is-dragging");
-          if (!rafId) { lastT = 0; rafId = requestAnimationFrame(stepReel); }
+          if (!rafId && reelVis && !homeV.hidden) { lastT = 0; rafId = requestAnimationFrame(stepReel); }
         };
         window.addEventListener("pointerup", endDrag, { passive: true });
         window.addEventListener("pointercancel", endDrag, { passive: true });
@@ -435,36 +491,54 @@
         const card = e.target.closest(".reel-card");
         if (card) showCardMeta(card);
       });
+      idxNav.addEventListener("focusout", e => {
+        if (reelNowEl && (!e.relatedTarget || !idxNav.contains(e.relatedTarget))) {
+          reelNowEl.textContent = defaultReelNow;
+        }
+      });
       idxNav.addEventListener("pointerleave", () => {
         if (reelNowEl) reelNowEl.textContent = defaultReelNow;
       });
       const measureReel = () => {
+        if (homeV.hidden || !idxNav.offsetParent) return;
         states.forEach(st => { st.half = st.track.scrollWidth / 2; wrapAndApply(st); });
       };
+      measureHomeReel = measureReel;
       measureReel();
       window.addEventListener("resize", measureReel, { passive: true });
       function stepReel(now) {
-        if (!reelVis && states.every(st => !st.drag && Math.abs(st.curSpeed) < 1)) { rafId = 0; return; }
+        if (!reelVis || homeV.hidden || (reduce && states.every(st => !st.drag && Math.abs(st.curSpeed) < 0.5))) {
+          rafId = 0;
+          return;
+        }
         const dt = lastT ? Math.min(0.06, (now - lastT) / 1000) : 0.016;
         lastT = now;
         states.forEach(st => {
           if (st.drag) return;
-          const target = (reduce || st.hover) ? 0 : st.baseSpeed;
+          const target = (!reelVis || reduce || st.hover) ? 0 : st.baseSpeed;
           st.curSpeed += (target - st.curSpeed) * Math.min(1, dt * 6);
           st.x += st.curSpeed * dt;
           wrapAndApply(st);
         });
         rafId = requestAnimationFrame(stepReel);
       }
+      const startReel = () => {
+        if (reelVis && !homeV.hidden && !rafId && (!reduce || states.some(st => st.drag || Math.abs(st.curSpeed) >= 0.5))) {
+          lastT = 0;
+          measureReel();
+          rafId = requestAnimationFrame(stepReel);
+        }
+      };
+      resumeReel = startReel;
       if ("IntersectionObserver" in window) {
         const io = new IntersectionObserver(entries => {
           reelVis = entries.some(en => en.isIntersecting);
-          if (reelVis && !rafId) { lastT = 0; measureReel(); rafId = requestAnimationFrame(stepReel); }
+          startReel();
         }, { rootMargin: "160px" });
         io.observe(idxNav);
       } else {
         reelVis = true;
-        rafId = requestAnimationFrame(stepReel);
+        startReel();
       }
     }
   }
@@ -477,7 +551,17 @@
     randomLink.dataset.id = s.id;
     randomLink.href = `song/${s.id}/`;
   };
-  ["pointerdown", "keydown", "click"].forEach(ev => randomLink.addEventListener(ev, e => { if (ev !== "keydown" || e.key === "Enter") pickRandom(); }));
+  let randomPickedByKey = false;
+  randomLink.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      randomPickedByKey = true;
+      pickRandom();
+    }
+  });
+  randomLink.addEventListener("click", () => {
+    if (randomPickedByKey) { randomPickedByKey = false; return; }
+    pickRandom();
+  });
 
   // 書架：推薦先練的 9 首＋最近發佈的 6 首；下方進度條跟著捲動走，箭頭到底就停用
   const STARTERS = FREQ_BY_TIER[1].map(id => BY[id]).filter(Boolean);
@@ -584,6 +668,7 @@
   document.addEventListener("keydown", ev => {
     const m = ev.key === "Escape" && barMenus.find(x => !x.pop.hidden);
     if (!m) return;
+    ev.stopPropagation();
     closeMenus();
     m.btn.focus();
   });
@@ -603,6 +688,10 @@
     const light = document.documentElement.dataset.theme === "light" && !document.body.classList.contains("immersive-mode");
     document.querySelector('meta[name="theme-color"]').content = light ? "#ffffff" : "#070a12";
   }
+  let pipWin = null, pipEls = null, canvasPip = null, isPipActive = false;
+  let lastPipLine = -2, lastPipPlayState = null, lastPipSongNo = -1, lastPipLines = null, lastPipPct = -1;
+  let venue = null, venueP = null, venueRO = null, venueResizeHandler = null;
+  let quizStartSeq = 0;
   function applyTheme() {
     const p = themePref();
     document.documentElement.dataset.theme = p === "light" || (p === "system" && sysLight.matches) ? "light" : "dark";
@@ -610,6 +699,7 @@
     themeBtn.setAttribute("aria-label", T("外觀：{0}", THEME_NAME[p]));
     document.querySelectorAll("[data-theme-pick]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.themePick === p)));
     syncThemeColor();
+    if (typeof syncPipState === "function") syncPipState();
   }
   document.querySelectorAll("[data-theme-pick]").forEach(b => b.addEventListener("click", () => {
     store.set("theme", b.dataset.themePick === "system" ? null : b.dataset.themePick);
@@ -622,21 +712,49 @@
   const lampDlWinLink = document.getElementById("lampDlWinLink"), lampDlMacLink = document.getElementById("lampDlMacLink");
   const lampDlWinDesc = document.getElementById("lampDlWinDesc"), lampDlMacDesc = document.getElementById("lampDlMacDesc");
   [[lampDlWinLink, "Windows"], [lampDlMacLink, "macOS"]].forEach(([a, os]) => a.addEventListener("click", () => toast(T("✨ 已開始下載 PenlightSync {0} 版！", os))));
-  fetch("https://api.github.com/repos/Gcree/penlight-sync/releases/latest")
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      if (!data || !Array.isArray(data.assets)) return;
-      const tag = data.tag_name || "";
-      const fill = (re, link, desc) => {
-        const asset = data.assets.find(a => re.test(a.name));
-        if (!asset) return;
-        link.href = asset.browser_download_url;
-        desc.textContent = `${tag ? `${tag}・` : ""}${(asset.size / 1048576).toFixed(1)} MB`;
-      };
-      fill(/win/i, lampDlWinLink, lampDlWinDesc);
-      fill(/mac/i, lampDlMacLink, lampDlMacDesc);
-    })
-    .catch(() => {});
+  const LAMP_RELEASE_KEY = "penlight-sync-release-v1";
+  const LAMP_DL_PREFIX = "https://github.com/Gcree/penlight-sync/releases/download/";
+  let lampReleaseLoaded = false;
+  function applyLampRelease(data) {
+    if (!data || !Array.isArray(data.assets)) return;
+    const tag = typeof data.tag_name === "string" ? data.tag_name : "";
+    const fill = (re, link, desc) => {
+      if (!link || !desc) return;
+      const asset = data.assets.find(a => a && typeof a.name === "string" && re.test(a.name) && typeof a.browser_download_url === "string" && a.browser_download_url.startsWith(LAMP_DL_PREFIX));
+      if (!asset) return;
+      link.href = asset.browser_download_url;
+      desc.textContent = `${tag ? `${tag}・` : ""}${(asset.size / 1048576).toFixed(1)} MB`;
+    };
+    fill(/win/i, lampDlWinLink, lampDlWinDesc);
+    fill(/mac/i, lampDlMacLink, lampDlMacDesc);
+  }
+  function loadLampRelease() {
+    if (lampReleaseLoaded) return;
+    lampReleaseLoaded = true;
+    try {
+      const cached = JSON.parse(session.get(LAMP_RELEASE_KEY) || "null");
+      if (cached && typeof cached === "object" && typeof cached.ts === "number" && Date.now() - cached.ts < 3600000 && cached.data) {
+        applyLampRelease(cached.data);
+        return;
+      }
+    } catch (e) {}
+    fetch("https://api.github.com/repos/Gcree/penlight-sync/releases/latest")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data || !Array.isArray(data.assets)) return;
+        applyLampRelease(data);
+        session.set(LAMP_RELEASE_KEY, JSON.stringify({
+          ts: Date.now(),
+          data: {
+            tag_name: data.tag_name,
+            assets: data.assets.map(a => ({ name: a.name, size: a.size, browser_download_url: a.browser_download_url }))
+          }
+        }));
+      })
+      .catch(() => { lampReleaseLoaded = false; });
+  }
+  const lampBtnEl = document.getElementById("lampBtn");
+  if (lampBtnEl) lampBtnEl.addEventListener("click", loadLampRelease);
 
   // ── 加入主畫面 Toast（PWA Install Toast） ──
   const pwaToast = document.getElementById("pwaToast");
@@ -769,8 +887,8 @@
   }
 
   // ── 歌曲頁 ──
-  const homeV = document.getElementById("home"), songV = document.getElementById("song");
   const box = document.getElementById("lines"), legend = document.getElementById("legend");
+  const sTitleEl = document.getElementById("sTitle"), mvEl = document.querySelector("#song .mv");
   const PAGE_SONG = document.documentElement.dataset.song || "", PAGE_TITLE = document.title;
   // 在歌曲獨立頁（song/<id>/）上切歌：網址換成那首的獨立頁，不重新載入整頁；從首頁進來的（#id）照舊用 #
   const pathSong = () => { const m = location.pathname.match(/\/song\/([^/]+)\/?$/); return m && BY[m[1]] ? m[1] : ""; };
@@ -790,7 +908,9 @@
     ev.preventDefault();
     goSong(getSongIdFromEl(a));
   }));
-  let S = null, LINES = [], TAGGED = false, lineEls = [], curLine = -1, curKey = "";
+  let S = null, LINES = [], TAGGED = false, lineEls = [], curLine = -1, curKey = "", lastCueNextHtml = "", lastTrackPct = -1, maxLitLine = -1;
+  let frameId = 0, stageT = 0, lastMs = 0, idleDrawn = false, penSong = null, blasted = false, crowdOn = false, venueOn = false, venueRaise = 0, venueClap = 0, venueJump = 0;
+  function ensureFrame() { if (!frameId) frameId = requestAnimationFrame(frame); }
 
   // 歌詞捲動：自己做 0.26 秒先快後慢的動畫，把目前這行放到框的正中央；新的一行來了就從現在位置接著捲，不會疊在一起
   // 歌詞在唱到的那一刻亮起，不提前（提前會覺得歌詞比音樂快）
@@ -842,6 +962,7 @@
       ja: (j => (j && /^（[^）]+）$/.test(j) ? T(j) : j))(String(item.jp || "").trim()) || null,
       zh: String(subLine(item)).trim() || null,
       acts: S.hold ? [] : (item.acts || []).filter(a => ACT[a] && a !== "listen"),
+      listen: S.hold ? false : (item.acts || []).includes("listen"),
       sing: S.hold ? [] : item.sing || [],
       call: S.hold ? null : (item.call ? T(item.call) : null)
     }));
@@ -892,11 +1013,15 @@
     flush();
     return out.join("");
   }
-  function renderLines() {
+  function renderLines(lyFailed = false) {
     // 歌詞換了（換歌、切 MV／Live）：提示框下半部的時間軸重畫、重新看放不放得下
-    queueMicrotask(() => { trackSig = " "; upHtml = ""; fitCueMore(); });
+    clearRippleTimers();
+    maxLitLine = -1;
+    lastCueNextHtml = "";
+    lastTrackPct = -1;
+    queueMicrotask(() => { trackSig = null; upHtml = ""; fitCueMore(); });
     box.innerHTML = "";
-    if (!lyHave(S)) { box.innerHTML = `<div class="empty is-loading"><span class="spinner" aria-hidden="true"></span><span>${T("正在載入歌詞…")}</span></div>`; legend.innerHTML = ""; singJump.hidden = true; return; }
+    if (!lyHave(S) && !lyFailed) { box.innerHTML = `<div class="empty is-loading"><span class="spinner" aria-hidden="true"></span><span>${T("正在載入歌詞…")}</span></div>`; legend.innerHTML = ""; SING = []; singJump.hidden = true; return; }
     if (!LINES.length) {
       box.innerHTML = `<div class="empty"><b>${T("這首還沒有逐行時間軸")}</b>${S.tips.length ? `<ul class="summary">${S.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul><span>${T("先邊看 MV 邊照上面的重點練。")}</span>` : `<span>${T("應援還在整理，先看 MV 熟悉旋律，副歌跟著現場氣氛就好。")}</span>`}<span>${T('歌詞請看<a href="{0}" target="_blank" rel="noopener">歌ネット的正版歌詞頁</a>。', S.ut)}</span></div>`;
       legend.innerHTML = ""; SING = []; singJump.hidden = true; sc.scrollTop = 0; padEnd(); return;
@@ -904,7 +1029,7 @@
     LINES.forEach((l, i) => {
       const el = document.createElement("div");
       const m = lineAct(l);
-      el.className = "ln" + (m ? " a-" + m : "") + (l.acts.includes("sing") ? " sing" : ""); el.tabIndex = 0;
+      el.className = "ln" + (m ? " a-" + m : "") + (l.acts.includes("sing") ? " sing" : ""); el.tabIndex = 0; el.setAttribute("role", "button");
       const ja = l.ja ? jaHTML(l.ja, l.sing) : `<span class="ph">${T("日文歌詞（{0}）", fmt(l.t))}</span>`;
       const zh = l.zh ? esc(l.zh) : (l.ja || LANG !== "zh" ? "" : `<span class="ph">中譯</span>`);
       // 喊聲標籤只放在同一句喊聲的第一行
@@ -921,10 +1046,12 @@
       el.addEventListener("keydown", e => { if (e.key === "Enter") seek(l.t); });
       box.appendChild(el);
     });
-    lineEls = [...box.querySelectorAll(".ln")]; curLine = -1; box.classList.remove("has-now");
+    lineEls = [...box.querySelectorAll(".ln")];
+    lineEls.forEach(el => { el._ks = [...el.querySelectorAll(".k")]; });
+    curLine = -1; box.classList.remove("has-now");
     const used = new Set(LINES.flatMap(l => l.acts));
     focusAct = "";
-    legend.innerHTML = Object.keys(ACT).filter(a => used.has(a)).map(a => `<button class="a-${a}" data-act="${a}" aria-pressed="false" title="${T("只亮出要{0}的句子", ACT[a].name)}"><i></i>${ACT[a].name}</button>`).join("");
+    legend.innerHTML = Object.keys(ACT).filter(a => used.has(a)).map(a => `<button class="a-${a}" data-act="${a}" aria-pressed="false" title="${esc(T("只亮出要{0}的句子", ACT[a].name))}"><i></i>${ACT[a].name}</button>`).join("");
     SING = LINES.filter((l, i) => l.acts.includes("sing") && !(i && LINES[i - 1].acts.includes("sing"))).map(l => l.t);
     singJump.hidden = !SING.length;
     sc.scrollTop = 0; holdUntil = 0; padEnd();
@@ -936,6 +1063,7 @@
   // ── 卡拉 OK 逐字時間整合 ──
   let karaokeTiming = null;
   let karaokeLoadSeq = 0;
+  let karaokeLoadingId = null;
   let lastUpdateT = -1;
 
   function applyKaraokeTimingToDom(song) {
@@ -945,7 +1073,7 @@
       const lineData = LINES[i];
       if (!lineData) return;
       const timedLine = karaokeTiming && karaokeTiming.lines && karaokeTiming.lines[i];
-      const ks = el.querySelectorAll(".k");
+      const ks = el._ks || (el._ks = [...el.querySelectorAll(".k")]);
       if (!ks.length) return;
 
       if (timedLine && timedLine.granularity === "word" && Array.isArray(timedLine.words) && timedLine.words.length && api && typeof api.mapUnitsToWords === "function") {
@@ -985,11 +1113,14 @@
 
   async function loadKaraokeTiming(song) {
     if (!song) return;
+    if (karaokeLoadingId === song.id) return;
     const seq = ++karaokeLoadSeq;
+    karaokeLoadingId = song.id;
     karaokeTiming = null;
 
     const api = window.KARAOKE_SOURCES;
     if (!api || typeof api.load !== "function" || typeof api.alignToLocalLyrics !== "function") {
+      if (seq === karaokeLoadSeq) karaokeLoadingId = null;
       applyKaraokeTimingToDom(song);
       return;
     }
@@ -1002,6 +1133,7 @@
     }
 
     if (seq !== karaokeLoadSeq || S !== song) return;
+    karaokeLoadingId = null;
 
     if (!timed) {
       applyKaraokeTimingToDom(song);
@@ -1036,10 +1168,11 @@
   // ── 影片版本（MV / Live）控制 ──
   let videoSourceOverride = null; // null | "mv" | "live"
   let routeSource = null;
+  let switchSeq = 0;
 
   function currentVideoSource(s = S) {
     if (!s || !s.liveVideo) return "mv";
-    if (videoSourceOverride === "mv" || videoSourceOverride === "live") return videoSourceOverride;
+    if (s === S && (videoSourceOverride === "mv" || videoSourceOverride === "live")) return videoSourceOverride;
     return TOOL["prefer-live"] ? "live" : "mv";
   }
 
@@ -1079,53 +1212,91 @@
     if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${curYt}`;
   }
 
-  function currentOffset(s = S) {
-    if (!s || !s.liveVideo || currentVideoSource(s) !== "live") return 0;
-    // 如果這首歌已有手動對時的專屬現場歌詞檔，時間軸已精確對齊現場影片，offset 為 0
-    if (LY_LIVE[s.id]) return 0;
-    return Number(s.liveVideo.offset) || 0;
-  }
+  const normLyricText = txt => String(txt || "")
+    .replace(/([\u4e00-\u9fff々〆ヵヶ]+)[(（][\u3040-\u30ffー]+[)）]/g, "$1")
+    .replace(/[\s\u3000、。！？!?.,，．・「」『』（）()\[\]{}【】<>《》:：;；…—–\-‐‑〜~_“”‘’'"']/g, "")
+    .toLowerCase();
 
-  function switchVideoSource(source) {
+  function switchVideoSource(source, opts) {
     if (!S || !S.liveVideo) return;
     const targetSource = source === "live" ? "live" : "mv";
     if (currentVideoSource(S) === targetSource) return;
 
-    const curIdx = lineAt(now());
+    const song = S;
+    const seq = ++switchSeq;
+    const curTime = now();
+    const curIdx = lineAt(curTime);
+    const oldLen = LINES.length;
+    const curLineObj = curIdx >= 0 ? LINES[curIdx] : null;
+    const curNorm = curLineObj && curLineObj.ja ? normLyricText(curLineObj.ja) : "";
     videoSourceOverride = targetSource;
     updateVideoSourceUi();
+    videoMsg("");
+    hideAlert();
+    quizStop();
 
-    const doSwitch = () => {
+    const doSwitch = (ok = true) => {
+      if (seq !== switchSeq || S !== song || songV.hidden) return;
       loadSongData(targetSource);
-      renderLines();
+      curKey = null;
+      hideAlert();
+      blasted = false;
+      renderLines(!ok);
+      document.getElementById("toolQuiz").disabled = !TAGGED;
+      document.querySelectorAll('[data-tool="click"]').forEach(b => b.disabled = !BEAT[song.id] || targetSource === "live");
 
-      const targetVid = activeVideoId(S);
+      const targetVid = activeVideoId(song);
       if (player && ready) {
         let targetStart = 0;
-        if (curIdx >= 0 && LINES[curIdx]) {
-          targetStart = LINES[curIdx].t;
+        if (opts && typeof opts.startSeconds === "number") {
+          targetStart = opts.startSeconds;
+        } else if (curIdx >= 0 && LINES.length) {
+          let matchIdx = -1;
+          if (curNorm) {
+            const est = oldLen ? (curIdx / oldLen) * LINES.length : curIdx;
+            let bestDist = Infinity;
+            for (let i = 0; i < LINES.length; i++) {
+              if (normLyricText(LINES[i].ja) === curNorm) {
+                const d = Math.abs(i - est);
+                if (d < bestDist) { bestDist = d; matchIdx = i; }
+              }
+            }
+          }
+          if (matchIdx < 0) matchIdx = Math.min(curIdx, LINES.length - 1);
+          targetStart = LINES[matchIdx].t;
         } else {
-          targetStart = player.getCurrentTime() || 0;
+          targetStart = Math.max(0, Math.min(DUR(), curTime));
         }
         vid = targetVid;
-        try { player.unMute(); } catch (e) {}
-        player.loadVideoById({ videoId: targetVid, startSeconds: targetStart });
+        videoMsg("");
+        setVideoLoading(true);
+        try {
+          player.unMute();
+          autoMuted = false;
+          player.loadVideoById({ videoId: targetVid, startSeconds: targetStart });
+        } catch (e) {}
+        syncSwitchLoading();
         ensurePlaying();
       }
-      updateExternalLinks(S);
+      updateExternalLinks(song);
 
       if (targetSource === "live") {
+        karaokeLoadSeq++;
+        karaokeLoadingId = null;
         karaokeTiming = null;
-        applyKaraokeTimingToDom(S);
-      } else {
-        loadKaraokeTiming(S);
+        applyKaraokeTimingToDom(song);
+      } else if (OPT.karaoke && LINES.length > 0) {
+        loadKaraokeTiming(song);
       }
     };
 
-    if (lyReady && !lyHave(S, targetSource)) {
-      loadLyrics(S, targetSource).then(doSwitch);
+    if (!lyReady || !lyHave(song, targetSource)) {
+      setVideoLoading(true);
+      (lyReady ? Promise.resolve() : lyLoaded)
+        .then(() => loadLyrics(song, targetSource))
+        .then(ok => doSwitch(ok !== false));
     } else {
-      doSwitch();
+      doSwitch(true);
     }
   }
 
@@ -1152,8 +1323,9 @@
   };
   const now = () => { try { return ready && player.getCurrentTime() || 0; } catch (e) { return 0; } };
   const isPlaying = () => { try { return ready && [1, 3].includes(player.getPlayerState()); } catch (e) { return false; } };
-  function pause() { if (ready) player.pauseVideo(); }
-  function seek(t) { if (!ready) return; player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); }
+  function play() { if (ready && player) try { player.playVideo(); } catch (e) {} }
+  function pause() { clearTimeout(muteTimer); if (ready && player) try { player.pauseVideo(); } catch (e) {} }
+  function seek(t) { if (!ready || !player) return; try { player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); } catch (e) {} }
 
   // 播放速度：放慢練應援時間點，記在這台裝置
   // 電腦是工具列上的下拉選單，手機是一顆按鈕輪流切換（1 → 0.75 → 0.5）
@@ -1173,12 +1345,24 @@
   // 跳到大合唱：每段連續 sing 行的第一行
   const singJump = document.getElementById("singJump"), singPrev = document.getElementById("singPrev"), singNext = document.getElementById("singNext");
   let SING = [];
-  const singAt = (dir, t) => dir < 0 ? SING.filter(x => x < t - 1.5).pop() : SING.find(x => x > t + .5);
+  const singAt = (dir, t) => {
+    if (dir < 0) {
+      for (let i = SING.length - 1; i >= 0; i--) {
+        if (SING[i] < t - 1.5) return SING[i];
+      }
+      return undefined;
+    }
+    for (let i = 0; i < SING.length; i++) {
+      if (SING[i] > t + .5) return SING[i];
+    }
+    return undefined;
+  };
   singPrev.addEventListener("click", () => { const t = singAt(-1, now()); if (t != null) seek(t); });
   singNext.addEventListener("click", () => { const t = singAt(1, now()); if (t != null) seek(t); });
 
   function resetPlayer() {
     clearTimeout(readyTimer);
+    clearTimeout(muteTimer);
     if (player) { try { player.destroy(); } catch (e) {} }
     player = null;
     ready = false;
@@ -1204,6 +1388,7 @@
         } else {
           if (ytScriptEl) { ytScriptEl.remove(); ytScriptEl = null; }
           if (typeof reloadYT === "function") reloadYT();
+          scheduleReadyCheck();
         }
       } else {
         setVideoLoading(false);
@@ -1243,7 +1428,7 @@
           if (startPlaying) {
             // 點連結時播放器先建好，之後才知道網址上的 @秒數
             if (START && START !== startAt) seek(START);
-            try { player.unMute(); player.playVideo(); } catch (e) {}
+            try { player.unMute(); autoMuted = false; player.playVideo(); } catch (e) {}
             ensurePlaying();
           }
           START = 0;
@@ -1252,10 +1437,11 @@
         onStateChange: e => {
           if (e.data === 3) setVideoLoading(true);
           else if (e.data === 0 || e.data === 1 || e.data === 2 || e.data === 5) setVideoLoading(false);
-          if (e.data === 1 || e.data === 5) applyRate();
+          if (e.data === 1) { videoMsg(""); applyRate(); }
+          else if (e.data === 5) applyRate();
           if (e.data === 0) ended();
         },
-        onError: () => { setVideoLoading(false); videoMsg(T("無法播放影片，請到 YouTube 觀看。")); }
+        onError: () => { clearTimeout(muteTimer); setVideoLoading(false); videoMsg(T("無法播放影片，請到 YouTube 觀看。")); }
       }
     });
     scheduleReadyCheck();
@@ -1285,13 +1471,19 @@
     if (vid !== targetVid) {
       vid = targetVid;
       setVideoLoading(true);
-      try { player.unMute(); } catch (e) {}
-      player.loadVideoById({ videoId: targetVid, startSeconds: startSec });
+      try {
+        player.unMute();
+        autoMuted = false;
+        player.loadVideoById({ videoId: targetVid, startSeconds: startSec });
+      } catch (e) {}
       syncSwitchLoading();
     } else {
       if (START) seek(START);
-      try { player.unMute(); } catch (e) {}
-      player.playVideo();
+      try {
+        player.unMute();
+        autoMuted = false;
+        player.playVideo();
+      } catch (e) {}
     }
     START = 0;
     ensurePlaying();
@@ -1318,10 +1510,12 @@
     if (targetSong) tapPlay(targetSong);
   });
   function tapPlay(targetSong) {
-    const targetVid = activeVideoId(targetSong);
+    const src = targetSong === S ? currentVideoSource(targetSong) : (targetSong.liveVideo && TOOL["prefer-live"] ? "live" : "mv");
+    const targetVid = src === "live" && targetSong.liveVideo ? targetSong.liveVideo.yt : targetSong.yt;
     if (player && ready) {
       try {
         player.unMute();
+        autoMuted = false;
         if (vid !== targetVid) {
           vid = targetVid;
           setVideoLoading(true);
@@ -1338,11 +1532,13 @@
   function ensurePlaying() {
     clearTimeout(muteTimer);
     muteTimer = setTimeout(() => {
-      if (!ready || songV.hidden) return;
-      const st = player.getPlayerState();
-      if (st === 1 || st === 2 || st === 3) return;  // 在播、使用者自己暫停了、或還在緩衝
-      player.mute(); player.playVideo(); autoMuted = true;
-      toast(T("瀏覽器不讓影片自動出聲，先靜音播放；點一下畫面就有聲音"));
+      if (!ready || !player || songV.hidden) return;
+      try {
+        const st = player.getPlayerState();
+        if (st === 1 || st === 2 || st === 3) return;  // 在播、使用者自己暫停了、或還在緩衝
+        player.mute(); player.playVideo(); autoMuted = true;
+        toast(T("瀏覽器不讓影片自動出聲，先靜音播放；點一下畫面就有聲音"));
+      } catch (e) {}
     }, 3000);
   }
   // 被迫靜音之後，使用者在頁面上點的第一下（任何地方）就順便開聲音：點擊當下叫 unMute 才算數
@@ -1386,6 +1582,8 @@
 
   function openSong(s, t = 0) {
     quizStop(); closeSheets(); playerRetries = 0;
+    switchSeq++; quizStartSeq++; karaokeLoadSeq++; karaokeLoadingId = null; karaokeTiming = null;
+    clearRippleTimers(); lastCueNextHtml = ""; lastTrackPct = -1; blasted = false;
     S = s; curKey = null; hideAlert(); START = t; remember(s.id);
     if (routeSource) {
       videoSourceOverride = routeSource;
@@ -1403,11 +1601,10 @@
     document.title = s.id === PAGE_SONG ? PAGE_TITLE : `${s.ja}｜${T("Ado 應援指南")}`;
     const sub = otherName(s);
     // 歌名前的小唱片：首頁唱片架飛過來的落點，播放時會轉
-    document.getElementById("sTitle").innerHTML = (window.ADO_CD ? `<span class="sdisc" aria-hidden="true">${window.ADO_CD(s)}</span>` : "") + esc(s.ja) + (sub ? `<span lang="${LANG === "zh" && s.zh !== s.ja ? "zh-Hant-TW" : "en"}">${esc(sub)}</span>` : "");
+    sTitleEl.innerHTML = (window.ADO_CD ? `<span class="sdisc" aria-hidden="true">${window.ADO_CD(s)}</span>` : "") + esc(s.ja) + (sub ? `<span lang="${LANG === "zh" && s.zh !== s.ja ? "zh-Hant-TW" : "en"}">${esc(sub)}</span>` : "");
     updateExternalLinks(s);
     // 正版歌詞、現場音源、YouTube 連結都只放在「速覽」
     document.getElementById("cardLyrics").href = s.ut;
-    const lives = s.lives;
     const p = penOf(s);
     document.getElementById("pen").innerHTML = T("螢光棒") + p.keys.map(k => k === "彩" ? '<i class="rb"></i>' : `<i style="--c:${PENC[k][1]}"></i>`).join("")
       + `<b>${p.keys.map(penName).join(T("、"))}${p.none ? T("（沒指定）") : ""}</b>`;
@@ -1415,23 +1612,33 @@
     if (TOOL.related && nextUp && nextUp.id === s.id && nextUp.why) toast(T("接著聽關聯曲：{0}", nextUp.why));
     shuffleSeen(s);
     paintNav(s);
-    paintRelated(s);
     fillSong();
-    document.querySelectorAll('[data-tool="click"]').forEach(b => b.disabled = !BEAT[s.id]);
+    paintRelated(s);
+    document.querySelectorAll('[data-tool="click"]').forEach(b => b.disabled = !BEAT[s.id] || curSrc === "live");
     loadVideo();
-    loadKaraokeTiming(s);
     updateAmbientColors(s);
     if (!hasDocPip()) prepCanvasPip();
+    ensureFrame();
   }
   // 歌詞相關的部分：歌詞檔載好後會再跑一次
   function fillSong() {
     const s = S;
+    if (!s) return;
     const curSrc = currentVideoSource(s);
-    if (lyReady && !lyHave(s)) loadLyrics(s).then(() => { if (S === s && !songV.hidden) fillSong(); });
+    if (lyReady && !lyHave(s, curSrc)) {
+      loadLyrics(s, curSrc).then(ok => {
+        if (S === s && !songV.hidden && currentVideoSource(s) === curSrc) {
+          if (ok) fillSong();
+          else renderLines(true);
+        }
+      });
+    }
     loadSongData(curSrc);
     renderLines();
     if (karaokeTiming && S && karaokeTiming.songId === S.id) {
       applyKaraokeTimingToDom(S);
+    } else if (OPT.karaoke && curSrc === "mv" && LINES.length > 0 && (!karaokeTiming || karaokeTiming.songId !== s.id)) {
+      loadKaraokeTiming(s);
     }
     // 測驗要有逐行應援才出得了題
     document.getElementById("toolQuiz").disabled = !TAGGED;
@@ -1439,8 +1646,9 @@
     document.getElementById("cueIcon").innerHTML = `<use href="#${ACT[s.acts[0] || "listen"].icon}"/>`;
     cueBox.className = "cue";
     document.getElementById("cueName").textContent = T("按播放開始");
-    document.getElementById("cueHow").textContent = !lyHave(s) ? "" : LINES.length ? T("播放後，這裡會顯示現在要做的動作。") : T("這首還沒有逐行時間軸，不會跳提示，照歌詞欄的重點練。");
-    document.getElementById("cueNext").innerHTML = "";
+    document.getElementById("cueHow").textContent = !lyHave(s, curSrc) ? "" : LINES.length ? T("播放後，這裡會顯示現在要做的動作。") : T("這首還沒有逐行時間軸，不會跳提示，照歌詞欄的重點練。");
+    cueNext.innerHTML = "";
+    lastCueNextHtml = "";
 
     // 同步更新歌曲應援速覽卡片（若存在於 DOM 中）
     const cardJa = document.getElementById("cardJa");
@@ -1454,11 +1662,11 @@
         const dt = document.getElementById(k + "Dt"), dd = document.getElementById(k + "Dd");
         if (dt && dd) { dd.textContent = v; dt.hidden = dd.hidden = !v; }
       });
-      document.getElementById("cardTips").textContent = s.tips && s.tips.length ? s.tips.join("；") : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。"));
+      document.getElementById("cardTips").textContent = s.tips && s.tips.length ? s.tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。"));
       const cardYt = document.getElementById("cardYt");
       if (cardYt) cardYt.href = `https://www.youtube.com/watch?v=${activeVideoId(s)}`;
       const cardStream = document.getElementById("cardStream");
-      if (cardStream) cardStream.innerHTML = (s.stream || []).map(x => `<a href="${x.url}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ");
+      if (cardStream) cardStream.innerHTML = (s.stream || []).map(x => `<a href="${esc(x.url)}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ");
       const cardLiveDt = document.getElementById("cardLiveDt");
       const cardLiveDd = document.getElementById("cardLiveDd");
       if (cardLiveDt && cardLiveDd) {
@@ -1466,7 +1674,7 @@
         if (lives.length > 0) {
           cardLiveDt.hidden = false;
           cardLiveDd.hidden = false;
-          cardLiveDd.innerHTML = lives.map(l => `<a href="https://www.youtube.com/watch?v=${l.yt}" class="live-chip" target="_blank" rel="noopener">${esc(l.concert)} ↗</a>`).join(" ");
+          cardLiveDd.innerHTML = lives.map(l => `<a href="https://www.youtube.com/watch?v=${esc(l.yt)}" class="live-chip" target="_blank" rel="noopener">${esc(l.concert)} ↗</a>`).join(" ");
         } else {
           cardLiveDt.hidden = true;
           cardLiveDd.hidden = true;
@@ -1489,7 +1697,7 @@
     if (!l) return null;
     if (!TAGGED) { const c = songCue(); if (c) return { key: "song", ...c, whole: true, beat: c.acts.length > 0 }; }
     if (!l.acts.length) return { key: li, acts: [], name: "", how: "", listen: true };
-    return { key: li, acts: l.acts, name: cueLabel(l), how: l.acts.map(a => ACT[a].how).join("，"), claps: S.claps, beat: true };
+    return { key: li, acts: l.acts, name: cueLabel(l), how: l.acts.map(a => ACT[a].how).join("，"), claps: currentVideoSource(S) === "live" ? null : S.claps, beat: true, listenLine: l.listen };
   }
   // 接下來的 n 個動作（同一個動作連續好幾句只算一次，安靜聽的句子跳過）
   function nextChanges(t, n) {
@@ -1513,7 +1721,8 @@
 
   // 拍點：x 是第幾拍（含小數）、f 是這拍過了多少、bar 是小節裡的第幾拍、down 是小節第一拍；這首沒有拍點資料回 null
   function beatAt(t) {
-    const bt = S && BEAT[S.id]; if (!bt) return null;
+    if (!S || currentVideoSource(S) === "live") return null;
+    const bt = BEAT[S.id]; if (!bt) return null;
     const P = 60 / bt[0], x = (t - bt[1]) / P, k = Math.floor(x), bar = ((k % 4) + 4) % 4;
     return { P, x, k, f: x - k, bar, known: !!bt[2], down: !!bt[2] && bar === 0 };
   }
@@ -1546,7 +1755,7 @@
     }
     const act = l.sing.length ? "sing" : l.call ? (l.acts.includes("call") ? "call" : mainAct(l.acts)) : mainAct(l.acts);
     const extra = l.acts.filter(a => a !== act).map(a => ACT[a].name);
-    const head = { act, name: ACT[act].name + (extra.length ? `<em>＋${extra.join("、")}</em>` : "") };
+    const head = { act, name: ACT[act].name + (extra.length ? `<em>＋${extra.join(T("、"))}</em>` : "") };
     // 整句都要唱（沒標要唱哪幾個字）時，整句放大
     const words = l.sing.length ? l.sing : act === "sing" && l.ja && !l.call ? [l.ja] : null;
     if (words) return { ...head, kind: "sing", words, body: `<div class="words">${words.map(w => jaHTML(w)).join("　")}</div>`, how: "" };
@@ -1568,8 +1777,7 @@
     placeCard();
   }
   function placeCard() {
-    const mv = document.querySelector(".mv");
-    const r = (mv || screenEl).getBoundingClientRect(), c = cueBox.getBoundingClientRect();
+    const r = (mvEl || screenEl).getBoundingClientRect(), c = cueBox.getBoundingClientRect();
     al.style.setProperty("--al-left", Math.round(r.left + r.width / 2) + "px");
     al.style.setProperty("--al-max", Math.round(r.width - 16) + "px");
     const top = c.height > 0 ? (c.top + 40) : (r.bottom + 12);
@@ -1581,12 +1789,10 @@
     // 測驗中不提示：字卡和邊框光都會洩題
     if (!alertOn || !playing || !cue || QZ) return hideAlert();
     const b = beatAt(t), pulse = b && !reduce ? beatPulse(b) * (b.known && !b.down ? .6 : 1) : 0;
-    const pen = penOf(S).cols;
-    cueFrame.style.setProperty("--c1", pen[0]); cueFrame.style.setProperty("--c2", pen[1 % pen.length]);
     al.style.setProperty("--pulse", pulse.toFixed(3));
     // 「唱」最後的 Clap Clap Clap：三下圓點
-    if (cue.claps && t >= cue.claps && t < cue.claps + 2.2) {
-      showCard("claps3", { act: "clap", name: T("拍三下"), kind: "claps3", body: dotsHTML(3), how: T("啪、啪、啪") });
+    if (cue.claps && currentVideoSource(S) !== "live" && t >= cue.claps && t < cue.claps + 2.2) {
+      if (alKey !== "claps3") showCard("claps3", { act: "clap", name: T("拍三下"), kind: "claps3", body: dotsHTML(3), how: T("啪、啪、啪") });
       const d = t - cue.claps; alDots.forEach((x, j) => x.classList.toggle("on", d > j * .55 && d < j * .55 + .3));
       cueFrame.style.opacity = .8;
       return;
@@ -1599,13 +1805,15 @@
       cueFrame.style.opacity = left > 0 && left < lead ? (.15 + .35 * (1 - left / lead)).toFixed(2) : 0;
       return;
     }
-    showCard("l" + cue.key, cardFor(cue, l));
+    const nextKey = "l" + cue.key;
+    if (nextKey !== alKey) showCard(nextKey, cardFor(cue, l));
     cueFrame.style.opacity = (.6 + .4 * pulse).toFixed(2);
     if (alKind === "sing") {
       // 唱到的字亮起：要唱的字在這行的位置，照這行的進度換算
       const end = lineEnd(cue.key), frac = Math.max(0, Math.min(1, (t - l.t) / Math.max(.5, (end - l.t) * .9)));
-      const at = Math.min(...alSing.map(w => l.ja.lastIndexOf(w)).filter(i => i >= 0), l.ja.length), len = Math.max(1, l.ja.length - at);
-      const lit = Math.round(Math.max(0, Math.min(1, (frac * l.ja.length - at) / len)) * alWords.length);
+      const ja = l.ja || "";
+      const at = Math.min(...alSing.map(w => ja.lastIndexOf(w)).filter(i => i >= 0), ja.length), len = Math.max(1, ja.length - at);
+      const lit = Math.round(Math.max(0, Math.min(1, (frac * ja.length - at) / len)) * alWords.length);
       alWords.forEach((k, i) => k.classList.toggle("lit", i < lit));
     } else if (alKind === "dots") {
       const on = b ? (b.known ? b.bar : ((b.k % 4) + 4) % 4) : Math.floor((t - l.t) * 2) % 4;
@@ -1624,8 +1832,21 @@
   }
 
   // ── Folia 風格：字型輪廓音波衝擊 (Glyph Shockwave) ──
+  const rippleTimers = new Set();
+  function clearRippleTimers() {
+    rippleTimers.forEach(id => clearTimeout(id));
+    rippleTimers.clear();
+  }
+  function addRippleTimer(fn, ms) {
+    const id = setTimeout(() => {
+      rippleTimers.delete(id);
+      fn();
+    }, ms);
+    rippleTimers.add(id);
+    return id;
+  }
   function spawnGlyphWave(targetEl) {
-    if (!targetEl || reduce || QZ) return;
+    if (!targetEl || OPT.light === false || reduce || QZ) return;
     const old = targetEl.querySelectorAll(".chorus-glyph-wave");
     old.forEach(w => w.remove());
 
@@ -1634,15 +1855,20 @@
     wave.setAttribute("aria-hidden", "true");
     wave.innerHTML = targetEl.innerHTML;
     targetEl.appendChild(wave);
-    wave.addEventListener("animationend", () => wave.remove(), { once: true });
+    const fbId = addRippleTimer(() => wave.remove(), 950);
+    wave.addEventListener("animationend", () => {
+      clearTimeout(fbId);
+      rippleTimers.delete(fbId);
+      wave.remove();
+    }, { once: true });
   }
 
   function triggerChorusRipples(lineEl, lineData, isClimax) {
-    if (!lineEl || reduce) return;
+    if (!lineEl || OPT.light === false || reduce || QZ) return;
     const sungEls = lineEl.querySelectorAll(".sung");
     if (sungEls.length) {
       sungEls.forEach((el, idx) => {
-        setTimeout(() => { spawnGlyphWave(el); }, idx * 90);
+        addRippleTimer(() => { spawnGlyphWave(el); }, idx * 90);
       });
     } else if (lineData && (lineData.acts.includes("sing") || isClimax)) {
       const jaEl = lineEl.querySelector(".ja");
@@ -1683,7 +1909,15 @@
   function paintCueMore(t) {
     if (cueMore.hidden) return;
     buildTrack();
-    if (trackDur) cueTrack.style.setProperty("--p", Math.min(1, Math.max(0, t / trackDur)).toFixed(4));
+    if (trackDur) {
+      const p = Math.min(1, Math.max(0, t / trackDur));
+      cueTrack.style.setProperty("--p", p.toFixed(4));
+      const pct = Math.round(p * 100);
+      if (pct !== lastTrackPct) {
+        lastTrackPct = pct;
+        cueTrack.setAttribute("aria-valuenow", String(pct));
+      }
+    }
     if (cueUpWrap.hidden) return;
     const html = nextChanges(t, 3).map(x => {
       const left = x.t - t;
@@ -1698,12 +1932,31 @@
     const r = cueTrack.getBoundingClientRect();
     seek(Math.max(0, (e.clientX - r.left) / r.width * trackDur - 1));
   });
+  cueTrack.addEventListener("keydown", e => {
+    if (!trackDur || !ready) return;
+    const step = e.shiftKey ? 15 : 5;
+    if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      e.preventDefault();
+      e.stopPropagation();
+      seek(Math.max(0, now() - step));
+    } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      seek(Math.min(DUR(), now() + step));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      seek(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      seek(DUR());
+    }
+  });
 
   function update() {
     if (!S || songV.hidden) return null;
     const t = now(), playing = isPlaying();
     paintCueMore(t);
-    document.getElementById("sTitle").classList.toggle("spinning", playing);
+    sTitleEl.classList.toggle("spinning", playing);
     if (SING.length) { singPrev.disabled = singAt(-1, t) == null; singNext.disabled = singAt(1, t) == null; }
     const started = playing || t > 0, cue = cueAt(t);
     cueBox.classList.toggle("playing", playing); cueBox.classList.toggle("alerting", playing && alertOn);
@@ -1724,7 +1977,8 @@
         curKey = key;
       }
       const nx = nextChange(t);
-      cueNext.innerHTML = nx ? (nx.t - t <= 5 ? T("{0} 秒後", Math.ceil(nx.t - t)) : T("下一個 {0}", fmt(nx.t))) + `<b class="a-${mainAct(nx.acts)}">${esc(nx.name)}</b>` : "";
+      const nextHtml = nx ? (nx.t - t <= 5 ? T("{0} 秒後", Math.ceil(nx.t - t)) : T("下一個 {0}", fmt(nx.t))) + `<b class="a-${mainAct(nx.acts)}">${esc(nx.name)}</b>` : "";
+      if (nextHtml !== lastCueNextHtml) { cueNext.innerHTML = nextHtml; lastCueNextHtml = nextHtml; }
     } else if (started) {
       // 第一句之前的前奏：先空著，顯示下一個動作；整首沒有時間軸的新歌：不要一直停在「按播放開始」
       const key = LINES.length ? "intro" : "free";
@@ -1734,29 +1988,45 @@
         cueName.textContent = LINES.length ? "" : T("自由跟著節奏"); cueHow.textContent = LINES.length ? "" : T("應援還在整理，跟著現場氣氛就好"); curKey = key;
       }
       const nx = LINES.length && nextChange(t);
-      cueNext.innerHTML = nx ? (nx.t - t <= 5 ? T("{0} 秒後", Math.ceil(nx.t - t)) : T("下一個 {0}", fmt(nx.t))) + `<b class="a-${mainAct(nx.acts)}">${esc(nx.name)}</b>` : "";
+      const nextHtml = nx ? (nx.t - t <= 5 ? T("{0} 秒後", Math.ceil(nx.t - t)) : T("下一個 {0}", fmt(nx.t))) + `<b class="a-${mainAct(nx.acts)}">${esc(nx.name)}</b>` : "";
+      if (nextHtml !== lastCueNextHtml) { cueNext.innerHTML = nextHtml; lastCueNextHtml = nextHtml; }
     }
     const li = lineAt(t);
     if (started && li !== curLine && lineEls.length) {
-      const cx = S && CLIMAX[S.id];
+      const cx = S && currentVideoSource(S) !== "live" ? CLIMAX[S.id] : null;
       const isClimax = cx != null && (t >= cx - 2.5 && t <= cx + 28);
       const pastUntil = li >= 0 ? li : nextIdxAt(t);
       lineEls.forEach((e, i) => {
         const isNow = i === li;
         e.classList.toggle("now", isNow);
+        if (isNow) e.setAttribute("aria-current", "true");
+        else e.removeAttribute("aria-current");
         e.classList.toggle("past", i < pastUntil);
         e.classList.toggle("climax-surge", isNow && isClimax);
       });
       box.classList.toggle("has-now", li >= 0);
+      if (OPT.karaoke && maxLitLine >= 0 && (li < curLine || (li >= 0 && maxLitLine > li) || (li < 0 && pastUntil <= maxLitLine))) {
+        const clearFrom = li >= 0 ? li + 1 : Math.max(0, pastUntil);
+        for (let i = clearFrom; i <= maxLitLine; i++) {
+          (lineEls[i] && lineEls[i]._ks || []).forEach(k => k.classList.remove("lit"));
+        }
+        maxLitLine = li >= 0 ? li : Math.max(-1, pastUntil - 1);
+      }
       if (li >= 0 && OPT.scroll) centerLine(lineEls[li]);
       if (li >= 0 && lineEls[li] && !reduce) {
         triggerChorusRipples(lineEls[li], LINES[li], isClimax);
       }
       curLine = li;
+    } else if (!started && maxLitLine >= 0) {
+      for (let i = 0; i <= maxLitLine; i++) {
+        (lineEls[i] && lineEls[i]._ks || []).forEach(k => k.classList.remove("lit"));
+      }
+      maxLitLine = -1;
     }
     if (OPT.karaoke && li >= 0 && lineEls[li]) {
-      const ks = lineEls[li].querySelectorAll(".k");
+      const ks = lineEls[li]._ks || [];
       if (ks.length) {
+        if (li > maxLitLine) maxLitLine = li;
         const isWordTimed = lineEls[li].dataset.karaokeSource === "word";
         if (isWordTimed) {
           ks.forEach((k) => {
@@ -1790,7 +2060,15 @@
   // 語言切換
   // 歌詞顯示選項：預設值 → 記在這台裝置
   const OPT = { ja: true, kana: true, zh: true, karaoke: false, sing: false, scroll: true, size: "m", blur: true, fly: true, light: true };
-  try { Object.assign(OPT, JSON.parse(store.get("view-opts") || "{}")); } catch (e) {}
+  try {
+    const savedOpt = JSON.parse(store.get("view-opts") || "null");
+    if (savedOpt && typeof savedOpt === "object" && !Array.isArray(savedOpt)) {
+      ["ja", "kana", "zh", "karaoke", "sing", "scroll", "blur", "fly", "light"].forEach(k => {
+        if (typeof savedOpt[k] === "boolean") OPT[k] = savedOpt[k];
+      });
+      if (savedOpt.size === "s" || savedOpt.size === "m" || savedOpt.size === "l") OPT.size = savedOpt.size;
+    }
+  } catch (e) {}
   function applyOpts() {
     box.classList.toggle("hide-ja", !OPT.ja); box.classList.toggle("hide-kana", !OPT.kana); box.classList.toggle("hide-zh", !OPT.zh);
     box.classList.toggle("karaoke", OPT.karaoke); box.classList.toggle("only-sing", OPT.sing);
@@ -1800,13 +2078,28 @@
     document.body.classList.toggle("no-lights", OPT.light === false);
     if (!OPT.karaoke) {
       box.querySelectorAll(".k.lit").forEach(k => k.classList.remove("lit"));
+      maxLitLine = -1;
     }
     document.querySelectorAll("[data-opt]").forEach(b => b.setAttribute("aria-pressed", !!OPT[b.dataset.opt]));
     document.querySelectorAll("[data-size]").forEach(b => b.setAttribute("aria-pressed", b.dataset.size === OPT.size));
     singOnly.setAttribute("aria-pressed", OPT.sing);
+    if (typeof syncPipState === "function") syncPipState();
   }
   const singOnly = document.getElementById("singOnly");
-  const setOpt = (k, v) => { OPT[k] = v; store.set("view-opts", JSON.stringify(OPT)); applyOpts(); holdUntil = 0; if (k === "light") idleDrawn = false; if (OPT.scroll && lineEls[curLine]) centerLine(lineEls[curLine]); };
+  const setOpt = (k, v) => {
+    OPT[k] = v;
+    store.set("view-opts", JSON.stringify(OPT));
+    applyOpts();
+    holdUntil = 0;
+    if (k === "light") {
+      idleDrawn = false;
+      ensureFrame();
+    }
+    if (k === "karaoke" && v && S && !songV.hidden && currentVideoSource(S) === "mv" && LINES.length > 0 && (!karaokeTiming || karaokeTiming.songId !== S.id)) {
+      loadKaraokeTiming(S);
+    }
+    if (OPT.scroll && lineEls[curLine]) centerLine(lineEls[curLine]);
+  };
   singOnly.addEventListener("click", () => setOpt("sing", !OPT.sing));
   document.querySelectorAll("[data-size]").forEach(b => b.addEventListener("click", () => setOpt("size", b.dataset.size)));
   document.querySelectorAll("[data-opt]").forEach(b => b.addEventListener("click", () => setOpt(b.dataset.opt, !OPT[b.dataset.opt])));
@@ -1847,11 +2140,15 @@
     sh.dlg.style.left = sh.dlg.style.top = "";
     if (asSheet) sh.dlg.showModal(); else { sh.dlg.show(); placeSheet(sh, btn); }
     sh.btns.forEach(b => b.setAttribute("aria-expanded", "true"));
-    // 用鍵盤打開時焦點移到第一個項目
-    if (!asSheet) (sh.dlg.querySelector("button:not(:disabled), a") || sh.dlg).focus();
+    // 用鍵盤打開時焦點移到第一個可見項目
+    if (!asSheet) {
+      const focusable = [...sh.dlg.querySelectorAll("button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled)")].find(el => el.getClientRects().length > 0);
+      (focusable || sh.dlg).focus({ preventScroll: true });
+    }
   }
   SHEETS.forEach(sh => {
     sh.btns.forEach(b => b.addEventListener("click", ev => { ev.stopPropagation(); openSheet(sh, b); }));
+    sh.dlg.querySelectorAll(".sheet-close").forEach(btn => btn.addEventListener("click", () => sh.dlg.close()));
     sh.dlg.addEventListener("close", () => {
       sh.btns.forEach(b => b.setAttribute("aria-expanded", "false"));
       sh.dlg.classList.remove("dragging"); sh.dlg.firstElementChild.style.transform = "";
@@ -1864,7 +2161,9 @@
     let drag = null;
     panel.addEventListener("pointerdown", e => {
       if (!sh.dlg.classList.contains("as-sheet") || !e.target.closest(".sheet-grip, .sheet-title, .card-title")) return;
-      drag = { y: e.clientY, id: e.pointerId }; panel.setPointerCapture(e.pointerId); sh.dlg.classList.add("dragging");
+      drag = { y: e.clientY, id: e.pointerId };
+      try { panel.setPointerCapture(e.pointerId); } catch (err) {}
+      sh.dlg.classList.add("dragging");
     });
     panel.addEventListener("pointermove", e => { if (drag && e.pointerId === drag.id) panel.style.transform = `translateY(${Math.max(0, e.clientY - drag.y)}px)`; });
     const end = e => {
@@ -1875,13 +2174,28 @@
     panel.addEventListener("pointerup", end);
     panel.addEventListener("pointercancel", end);
   });
-  // 浮出的選單：點外面、按 Esc、捲動或改變視窗大小就關
+  // 浮出的選單：點外面、按 Esc、Tab 離開、捲動或改變視窗大小就關
   document.addEventListener("click", e => SHEETS.forEach(sh => { if (sh.dlg.open && !sh.dlg.classList.contains("as-sheet") && !sh.dlg.contains(e.target)) sh.dlg.close(); }));
+  document.addEventListener("focusin", e => SHEETS.forEach(sh => {
+    if (sh.dlg.open && !sh.dlg.classList.contains("as-sheet") && !sh.dlg.contains(e.target) && !sh.btns.includes(e.target)) sh.dlg.close();
+  }));
   document.addEventListener("keydown", e => {
-    const sh = e.key === "Escape" && SHEETS.find(x => x.dlg.open && !x.dlg.classList.contains("as-sheet"));
-    if (!sh) return;
-    e.stopImmediatePropagation(); sh.dlg.close();
+    if (e.key === "Escape") {
+      const sh = SHEETS.find(x => x.dlg.open && !x.dlg.classList.contains("as-sheet"));
+      if (!sh) return;
+      e.stopImmediatePropagation(); sh.dlg.close();
+    } else if (e.key === "Tab") {
+      const sh = SHEETS.find(x => x.dlg.open && !x.dlg.classList.contains("as-sheet"));
+      if (!sh) return;
+      const focusables = [...sh.dlg.querySelectorAll("button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex='-1'])")].filter(el => el.getClientRects().length > 0);
+      if (!focusables.length) { sh.dlg.close(); return; }
+      const first = focusables[0], last = focusables[focusables.length - 1];
+      if ((e.shiftKey && document.activeElement === first) || (!e.shiftKey && document.activeElement === last)) {
+        sh.dlg.close();
+      }
+    }
   }, true);
+  addEventListener("scroll", () => SHEETS.forEach(sh => { if (sh.dlg.open && !sh.dlg.classList.contains("as-sheet")) sh.dlg.close(); }), { passive: true });
   addEventListener("resize", () => SHEETS.forEach(sh => { if (sh.dlg.open && sh.dlg.classList.contains("as-sheet") !== SHEET_MQ.matches) sh.dlg.close(); }));
   // 選單裡的動作（分享、回報、沉浸模式這些）做完就收起來；開關類的（日文、卡拉OK…）留著，可以連續切
   document.querySelectorAll("#moreDlg button:not([aria-pressed]), #moreDlg a, #toolImmersiveMenuBtn, #toolPipMenuBtn, #rateDlg [data-rate]").forEach(el => el.addEventListener("click", () => setTimeout(closeSheets, 0)));
@@ -1929,7 +2243,17 @@
     const nextWord = TOOL.shuffle ? T("下一首（隨機）") : TOOL.related ? T("下一首（關聯曲）") : T("下一首");
     [["prevSong", prev, T("上一首")], ["nextSong", next, nextWord]].forEach(([id, x, word]) => {
       const a = document.getElementById(id);
-      if (x) { a.setAttribute("href", songHref(x.id)); a.setAttribute("aria-label", `${word}：${x.ja}`); a.title = `${word}：${x.ja}${id === "nextSong" && why ? `（${why}）` : ""}`; } else { a.removeAttribute("href"); a.removeAttribute("title"); }
+      if (x) {
+        a.setAttribute("href", songHref(x.id));
+        a.setAttribute("aria-label", `${word}：${x.ja}`);
+        a.removeAttribute("aria-disabled");
+        a.title = `${word}：${x.ja}${id === "nextSong" && why ? `（${why}）` : ""}`;
+      } else {
+        a.removeAttribute("href");
+        a.removeAttribute("title");
+        a.setAttribute("aria-label", word);
+        a.setAttribute("aria-disabled", "true");
+      }
     });
     const nb = document.getElementById("nextSong");
     nb.classList.toggle("is-shuffle", TOOL.shuffle);
@@ -1976,12 +2300,6 @@
   const extIco = `<svg class="ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
   function paintRelated(s) {
     const groups = relatedOf(s), n = new Set(groups.flatMap(g => g.songs.map(r => r.s.id))).size;
-    const opt = document.getElementById("relOpt");
-    if (opt) {
-      opt.hidden = !n; opt.open = false;
-      document.getElementById("relCount").textContent = n || "";
-      document.getElementById("relPop").innerHTML = n ? relHtml(s) : "";
-    }
     // 速覽卡：詞曲、關聯曲、本站沒收的同作者作品（建置出來的歌曲頁沒有這塊，第一次用到時補上）
     const card = document.getElementById("songGuideCard");
     if (!card) return;
@@ -1991,12 +2309,12 @@
     const rows = !c ? [] : [[T("作詞"), c.w], [T("作曲"), c.c], [T("編曲"), c.a]].filter(([, v]) => v && v.length).map(([k, v]) => `<dt>${k}</dt><dd>${who(v)}</dd>`);
     if (c && c.x && c.x.length) rows.push(`<dt>${T("延伸聽")}</dt><dd><span class="card-note">${T("本站還沒收、Ado 也唱過的同作者作品")}</span>${c.x.map(t => `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent("Ado " + t)}" target="_blank" rel="noopener" class="live-chip" lang="ja">${esc(t)} ${extIco}</a>`).join(" ")}</dd>`);
     const relHtmlStr = (rows.length ? `<dl class="card-dl card-credit">${rows.join("")}</dl>` : "")
-      + (n ? `<section class="rel-block" aria-label="${T("關聯曲")}"><h4 class="rel-title">${T("關聯曲")}<small>${T("同一位創作者、同一部作品，點了直接換歌")}</small></h4>${relHtml(s)}</section>` : "");
+      + (n ? `<section class="rel-block" aria-label="${esc(T("關聯曲"))}"><h4 class="rel-title">${T("關聯曲")}<small>${T("同一位創作者、同一部作品，點了直接換歌")}</small></h4>${relHtml(s)}</section>` : "");
     more.innerHTML = relHtmlStr;
     const inlineEl = document.getElementById("songGuideInline");
     if (inlineEl && inlineEl.dataset.song !== s.id) {
       inlineEl.dataset.song = s.id;
-      const dn = otherName(s), p = penOf(s), tipText = s.tips && s.tips.length ? s.tips.join("；") : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。"));
+      const dn = otherName(s), p = penOf(s), tipText = s.tips && s.tips.length ? s.tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。"));
       const cloned = card.cloneNode(true);
       cloned.removeAttribute("id");
       cloned.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
@@ -2031,9 +2349,14 @@
   let songbarHideTimer = null;
 
   function updateAmbientColors(s) {
-    if (!s || !ambientMesh) return;
+    if (!s) return;
     const p = penOf(s);
     const cols = p && p.cols && p.cols.length ? p.cols : ["#5d9dfe", "#ff4a5a"];
+    if (cueFrame) {
+      cueFrame.style.setProperty("--c1", cols[0]);
+      cueFrame.style.setProperty("--c2", cols[1 % cols.length]);
+    }
+    if (!ambientMesh) return;
     // 設在 body：場館光暈、舞台螢幕的光、字幕發光都用這首的手燈色
     document.body.style.setProperty("--mesh-c1", cols[0]);
     document.body.style.setProperty("--mesh-c2", cols[1] || cols[0]);
@@ -2051,19 +2374,38 @@
 
   // 開關沉浸模式：先熄燈（黑幕淡入），換版面，再亮出舞台螢幕；離開時像場燈亮起。instant：回首頁時直接關
   let immBusy = false;
-  const veilFade = (el, from, to, ms) => el.animate([{ opacity: from }, { opacity: to }], { duration: ms, easing: to ? "cubic-bezier(.4, 0, 1, 1)" : "cubic-bezier(0, 0, .2, 1)", fill: "forwards" }).finished.catch(() => {});
+  let immVeil = null, immVeilAnim = null, immIntroAnims = [], immIntroTimer = null, immCenterTimer = null;
+  function cancelImmersiveAnims() {
+    clearTimeout(immIntroTimer); immIntroTimer = null;
+    clearTimeout(immCenterTimer); immCenterTimer = null;
+    if (immIntroAnims.length) {
+      immIntroAnims.forEach(a => { try { if (a) a.cancel(); } catch (e) {} });
+      immIntroAnims = [];
+    }
+    if (immVeilAnim) { try { immVeilAnim.cancel(); } catch (e) {} immVeilAnim = null; }
+    if (immVeil) { immVeil.remove(); immVeil = null; }
+  }
+  const veilFade = (el, from, to, ms) => {
+    immVeilAnim = el.animate([{ opacity: from }, { opacity: to }], { duration: ms, easing: to ? "cubic-bezier(.4, 0, 1, 1)" : "cubic-bezier(0, 0, .2, 1)", fill: "forwards" });
+    return immVeilAnim.finished.catch(() => {});
+  };
   async function setImmersive(on, instant) {
+    if (instant) {
+      cancelImmersiveAnims();
+      immBusy = false;
+    }
     if (isImmersive === on || (immBusy && !instant)) return;
     isImmersive = on;
     [toolImmersive, toolImmersiveMenuBtn].forEach(b => b && b.setAttribute("aria-pressed", isImmersive));
     const veil = !reduce && !instant ? document.body.appendChild(Object.assign(document.createElement("div"), { className: "imm-veil" })) : null;
-    if (veil) { immBusy = true; await veilFade(veil, 0, 1, on ? 260 : 180); }
-    if (isImmersive !== on) { if (veil) veil.remove(); immBusy = false; return; }
+    if (veil) { immVeil = veil; immBusy = true; await veilFade(veil, 0, 1, on ? 260 : 180); }
+    if (isImmersive !== on) { if (veil) { veil.remove(); if (immVeil === veil) immVeil = null; } immBusy = false; return; }
     document.body.classList.toggle("immersive-mode", isImmersive);
     syncThemeColor();
     padEnd();
     if (isImmersive) {
       updateAmbientColors(S);
+      ensureFrame();
       ensureVenue().then(() => requestAnimationFrame(venueLayout));
       toast(T("✨ 已開啟沉浸播放模式（按 Esc 或 F 退出）"));
       resetSongbarAutohide();
@@ -2072,47 +2414,81 @@
       // iPhone Safari 的 delay + fill: backwards 動畫偶爾停在透明的第一格，時間到了一律取消，保證看得到
       if (!reduce) {
         const ease = "cubic-bezier(.2, .7, .2, 1)";
-        const intro = [document.querySelector("#song .mv")?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 900, delay: 200, easing: ease, fill: "backwards" })];
+        const intro = [mvEl?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 900, delay: 200, easing: ease, fill: "backwards" })];
         [cueBox, document.querySelector("#song .lyrics")].forEach((el, i) => el && intro.push(el.animate([{ opacity: 0, transform: "translateY(14px)" }, { opacity: 1, transform: "none" }], { duration: 800, delay: 650 + i * 70, easing: ease, fill: "backwards" })));
-        setTimeout(() => intro.forEach(a => a && a.cancel()), 1800);
+        immIntroAnims = intro;
+        immIntroTimer = setTimeout(() => { intro.forEach(a => a && a.cancel()); immIntroAnims = []; }, 1800);
       }
     } else {
+      cancelImmersiveAnims();
       [songbar, dockEl].forEach(el => el && el.classList.remove("autohide"));
       clearTimeout(songbarHideTimer);
       document.body.classList.remove("imm-crowd", "has-venue");
+      if (ambientMesh) ambientMesh.style.setProperty("--beat-hit", "0");
+      if (mvEl) mvEl.style.setProperty("--beat-hit", "0");
+      disposeVenue();
     }
-    if (curLine >= 0 && lineEls[curLine]) setTimeout(() => centerLine(lineEls[curLine]), 80);
-    if (veil) { await veilFade(veil, 1, 0, on ? 700 : 380); veil.remove(); immBusy = false; }
+    if (curLine >= 0 && lineEls[curLine]) immCenterTimer = setTimeout(() => centerLine(lineEls[curLine]), 80);
+    if (veil) { await veilFade(veil, 1, 0, on ? 700 : 380); veil.remove(); if (immVeil === veil) immVeil = null; immBusy = false; }
   }
 
   // ── 3D 場館（assets/stage3d.js，原始碼在 tools/stage3d）：第一次開沉浸模式才載入 ──
   // 減少動態、沒有 WebGL、載入失敗：照舊用 2D 的燈光畫布
-  let venue = null, venueP = null, venueRO = null;
   const pointer = { x: 0, y: 0 };
   addEventListener("pointermove", e => { pointer.x = e.clientX / innerWidth * 2 - 1; pointer.y = e.clientY / innerHeight * 2 - 1; }, { passive: true });
   function venueLayout() {
     if (!venue || !isImmersive) return;
+    const cv = document.getElementById("venue"), scr = document.getElementById("screen");
+    if (!cv || !scr) return;
+    venue.layout(scr.getBoundingClientRect(), cv.clientWidth, cv.clientHeight);
+  }
+  function disposeVenue() {
+    if (venueRO) { try { venueRO.disconnect(); } catch (e) {} venueRO = null; }
+    if (venueResizeHandler) { removeEventListener("resize", venueResizeHandler); venueResizeHandler = null; }
     const cv = document.getElementById("venue");
-    venue.layout(document.getElementById("screen").getBoundingClientRect(), cv.clientWidth, cv.clientHeight);
+    if (venue && typeof venue.dispose === "function") { try { venue.dispose(); } catch (e) {} }
+    if (cv) {
+      try {
+        const gl = cv.getContext("webgl2") || cv.getContext("webgl");
+        const ext = gl && gl.getExtension("WEBGL_lose_context");
+        if (ext) ext.loseContext();
+      } catch (e) {}
+      cv.remove();
+    }
+    venue = null;
+    venueP = null;
+    document.body.classList.remove("has-venue");
   }
   function ensureVenue() {
     if (reduce) return Promise.resolve(null);
     if (!venueP) {
       const app = document.querySelector('script[src*="app.js"]');
-      const url = new URL("assets/stage3d.js" + (app ? new URL(app.src).search : ""), app ? app.src : location.href).href;
+      const stage3dV = document.documentElement.dataset.stage3d;
+      const query = stage3dV ? `?v=${encodeURIComponent(stage3dV)}` : (app ? new URL(app.src).search : "");
+      const url = new URL("assets/stage3d.js" + query, app ? app.src : location.href).href;
       venueP = import(url).then(m => {
-        const cv = document.createElement("canvas");
-        cv.id = "venue"; cv.setAttribute("aria-hidden", "true");
-        document.body.insertBefore(cv, document.getElementById("fx"));
+        if (!isImmersive || songV.hidden) { venueP = null; return null; }
+        let cv = document.getElementById("venue");
+        if (!cv) {
+          cv = document.createElement("canvas");
+          cv.id = "venue"; cv.setAttribute("aria-hidden", "true");
+          document.body.insertBefore(cv, document.getElementById("fx"));
+        }
         venue = m.createVenue(cv, { mobile: matchMedia("(max-width: 900px), (pointer: coarse)").matches });
         if (S) venue.setPen(penOf(S).cols);
         if (/[?&]debug3d(&|$)/.test(location.search)) window.__venue = venue;
-        cv.addEventListener("webglcontextlost", e => { e.preventDefault(); venue = null; document.body.classList.remove("has-venue"); });
-        addEventListener("resize", () => requestAnimationFrame(venueLayout));
+        cv.addEventListener("webglcontextlost", e => { e.preventDefault(); disposeVenue(); });
+        venueResizeHandler = () => requestAnimationFrame(venueLayout);
+        addEventListener("resize", venueResizeHandler);
         venueRO = new ResizeObserver(() => venueLayout());
-        venueRO.observe(document.getElementById("screen"));
+        const scr = document.getElementById("screen");
+        if (scr) venueRO.observe(scr);
         return venue;
-      }).catch(err => { console.warn("3D venue unavailable", err); return null; });
+      }).catch(err => {
+        console.warn("3D venue unavailable", err);
+        venueP = null;
+        return null;
+      });
     }
     return venueP;
   }
@@ -2131,13 +2507,6 @@
   const stripFurigana = s => (s || "").replace(/([\u4e00-\u9fff々〆ヵヶ]+)[(（]([\u3040-\u30ffー]+)[)）]/g, "$1");
   const toolPipBtn = document.getElementById("toolPipBtn");
   const toolPipMenuBtn = document.getElementById("toolPipMenuBtn");
-  let pipWin = null;
-  let canvasPip = null;
-  let isPipActive = false;
-  let lastPipLine = -2;
-  let lastPipPlayState = null;
-  let lastPipSongNo = -1;
-  let lastPipLines = null;
 
   const PIP_STYLES = `
     html, body {
@@ -2232,10 +2601,10 @@
     }
     .document-pip .pip-current-line .ln {
       min-height: 52px; border-left: 3px solid var(--accent, #02b4f5);
-      background: rgba(255, 255, 255, 0.05);
+      background: color-mix(in srgb, var(--text, #fff) 6%, transparent);
     }
     .document-pip .pip-current-line .ja {
-      font-size: clamp(15px, 3.8vw, 19px); font-weight: 700; line-height: 1.35; color: #fff;
+      font-size: clamp(15px, 3.8vw, 19px); font-weight: 700; line-height: 1.35; color: var(--text, #f8fafc);
     }
     .document-pip .pip-current-line .ja ruby { ruby-position: over; }
     .document-pip .pip-current-line .ja rt { font-size: 10px; color: var(--faint, #64748b); font-weight: normal; }
@@ -2284,10 +2653,32 @@
     });
   }
 
+  function syncPipState() {
+    if (!pipWin || pipWin.closed) return;
+    const doc = pipWin.document;
+    doc.documentElement.lang = document.documentElement.lang || "zh-Hant-TW";
+    if (document.documentElement.dataset.theme) {
+      doc.documentElement.dataset.theme = document.documentElement.dataset.theme;
+    } else {
+      delete doc.documentElement.dataset.theme;
+    }
+    const mainEl = pipEls ? pipEls.main : doc.querySelector("main.document-pip");
+    if (mainEl) {
+      mainEl.classList.toggle("hide-ja", !OPT.ja);
+      mainEl.classList.toggle("hide-kana", !OPT.kana);
+      mainEl.classList.toggle("hide-zh", !OPT.zh);
+      mainEl.classList.toggle("karaoke", !!OPT.karaoke);
+      if (!OPT.karaoke && pipEls && pipEls.curKs) {
+        pipEls.curKs.forEach(k => k.classList.remove("lit"));
+      }
+    }
+  }
+
   async function openDocPip() {
     if (pipWin && !pipWin.closed) {
       pipWin.close();
       pipWin = null;
+      pipEls = null;
       updatePipButtonStates(false);
       return;
     }
@@ -2299,6 +2690,7 @@
       });
     } catch (err) {
       pipWin = null;
+      pipEls = null;
       // requestWindow 失敗通常已用掉這次點擊的授權，授權還在才試備援，不然備援一定被擋
       if (navigator.userActivation && navigator.userActivation.isActive) {
         console.warn("documentPictureInPicture failed, falling back to Canvas PiP:", err);
@@ -2316,14 +2708,16 @@
     lastPipLine = -2;
     lastPipPlayState = null;
     lastPipSongNo = -1;
+    lastPipPct = -1;
 
     pipWin.addEventListener("pagehide", () => {
       pipWin = null;
+      pipEls = null;
       updatePipButtonStates(false);
     });
 
     const doc = pipWin.document;
-    doc.documentElement.lang = "zh-Hant-TW";
+    doc.documentElement.lang = document.documentElement.lang || "zh-Hant-TW";
     doc.title = `${T("歌詞小窗")}｜${S ? S.ja : T("Ado 應援指南")}`;
 
     copyStylesToPip(doc);
@@ -2332,31 +2726,31 @@
     const mainEl = doc.createElement("main");
     mainEl.className = "document-pip song-page";
     mainEl.innerHTML = `
-      <div class="pip-progress" role="progressbar" aria-label="${T("播放進度")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="pip-progress" role="progressbar" aria-label="${esc(T("播放進度"))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <span class="pip-progress-fill"></span>
       </div>
-      <header class="pip-controls" aria-label="${T("字幕窗控制")}">
-        <button type="button" class="pip-action pip-return" title="${T("返回主頁")}" aria-label="${T("返回主頁")}">
+      <header class="pip-controls" aria-label="${esc(T("字幕窗控制"))}">
+        <button type="button" class="pip-action pip-return" title="${esc(T("返回主頁"))}" aria-label="${esc(T("返回主頁"))}">
           <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </button>
-        <div class="pip-track-controls" role="group" aria-label="${T("切換歌曲")}">
-          <button type="button" class="pip-action pip-prev" title="${T("上一首")}" aria-label="${T("上一首")}">
+        <div class="pip-track-controls" role="group" aria-label="${esc(T("切換歌曲"))}">
+          <button type="button" class="pip-action pip-prev" title="${esc(T("上一首"))}" aria-label="${esc(T("上一首"))}">
             <svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg>
           </button>
           <div class="pip-song-label" aria-live="polite">
             <span class="pip-song-number"></span>
             <span class="pip-title"></span>
           </div>
-          <button type="button" class="pip-action pip-next" title="${T("下一首")}" aria-label="${T("下一首")}">
+          <button type="button" class="pip-action pip-next" title="${esc(T("下一首"))}" aria-label="${esc(T("下一首"))}">
             <svg viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg>
           </button>
         </div>
-        <button type="button" class="pip-action pip-play" title="${T("播放")}" aria-label="${T("播放主頁影片")}">
+        <button type="button" class="pip-action pip-play" title="${esc(T("播放"))}" aria-label="${esc(T("播放主頁影片"))}">
           <svg class="icon-play" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <svg class="icon-pause" viewBox="0 0 24 24" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
         </button>
       </header>
-      <section class="pip-lyrics" aria-label="${T("同步歌詞")}">
+      <section class="pip-lyrics" aria-label="${esc(T("同步歌詞"))}">
         <div class="pip-line-group pip-current-group">
           <div class="pip-current-line"></div>
         </div>
@@ -2367,28 +2761,60 @@
     `;
     doc.body.appendChild(mainEl);
 
-    doc.querySelector(".pip-return").addEventListener("click", () => {
+    const playBtn = mainEl.querySelector(".pip-play");
+    pipEls = {
+      main: mainEl,
+      progressBar: mainEl.querySelector(".pip-progress"),
+      fill: mainEl.querySelector(".pip-progress-fill"),
+      noEl: mainEl.querySelector(".pip-song-number"),
+      titleEl: mainEl.querySelector(".pip-title"),
+      playBtn,
+      playSvg: playBtn.querySelector(".icon-play"),
+      pauseSvg: playBtn.querySelector(".icon-pause"),
+      curContainer: mainEl.querySelector(".pip-current-line"),
+      nextContainer: mainEl.querySelector(".pip-next-line"),
+      nextGroup: mainEl.querySelector(".pip-next-group"),
+      curKs: []
+    };
+    syncPipState();
+
+    mainEl.querySelector(".pip-return").addEventListener("click", () => {
       try { window.focus(); } catch (e) {}
     });
-    doc.querySelector(".pip-prev").addEventListener("click", () => {
+    mainEl.querySelector(".pip-prev").addEventListener("click", () => {
       const prev = document.getElementById("prevSong");
       if (prev && prev.getAttribute("href")) prev.click();
     });
-    doc.querySelector(".pip-next").addEventListener("click", () => {
+    mainEl.querySelector(".pip-next").addEventListener("click", () => {
       const next = document.getElementById("nextSong");
       if (next && next.getAttribute("href")) next.click();
     });
-    doc.querySelector(".pip-play").addEventListener("click", () => {
-      if (isPlaying()) pause(); else if (player && ready) player.playVideo();
+    playBtn.addEventListener("click", () => {
+      if (isPlaying()) pause(); else play();
     });
 
     updatePip();
+  }
+
+  function stopCanvasPip() {
+    if (!canvasPip) return;
+    try { canvasPip.video.pause(); } catch (e) {}
+    try {
+      const stream = canvasPip.video.srcObject;
+      if (stream && typeof stream.getTracks === "function") {
+        stream.getTracks().forEach(tr => tr.stop());
+      }
+      canvasPip.video.srcObject = null;
+      canvasPip.video.remove();
+    } catch (e) {}
+    canvasPip = null;
   }
 
   async function openCanvasPip() {
     if (document.pictureInPictureElement) {
       await document.exitPictureInPicture().catch(() => {});
       updatePipButtonStates(false);
+      stopCanvasPip();
       return;
     }
 
@@ -2398,6 +2824,10 @@
     }
 
     prepCanvasPip();
+    if (!canvasPip) {
+      toast(T("您的瀏覽器不支援子母畫面 (Picture-in-Picture) 功能"));
+      return;
+    }
     lastPipLine = -2;
     const nextIdx = curLine >= 0 ? curLine + 1 : nextIdxAt(now());
     renderCanvasPip(isPlaying(), curLine >= 0 ? LINES[curLine] : null, nextIdx < LINES.length ? LINES[nextIdx] : null);
@@ -2418,6 +2848,7 @@
   function prepCanvasPip() {
     if (canvasPip || !document.pictureInPictureEnabled) return;
     const canvas = document.createElement("canvas");
+    if (typeof canvas.captureStream !== "function") return;
     canvas.width = 640;
     canvas.height = 360;
     const ctx = canvas.getContext("2d");
@@ -2426,10 +2857,14 @@
     video.playsInline = true;
     video.setAttribute("aria-hidden", "true");
     video.style.cssText = "position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none";
-    video.srcObject = canvas.captureStream(25);
+    const stream = canvas.captureStream(25);
+    video.srcObject = stream;
     document.body.appendChild(video);
-    canvasPip = { canvas, ctx, video };
-    video.addEventListener("leavepictureinpicture", () => updatePipButtonStates(false));
+    canvasPip = { canvas, ctx, video, stream };
+    video.addEventListener("leavepictureinpicture", () => {
+      updatePipButtonStates(false);
+      stopCanvasPip();
+    });
     renderCanvasPip(false, null, null);
     video.play().catch(() => {});
   }
@@ -2528,58 +2963,61 @@
     const nextIdx = curLine >= 0 ? curLine + 1 : nextIdxAt(t);
     const nextL = nextIdx < LINES.length ? LINES[nextIdx] : null;
 
-    if (pipWin && !pipWin.closed) {
+    if (pipWin && !pipWin.closed && pipEls) {
       const doc = pipWin.document;
 
       // Progress bar
-      const fill = doc.querySelector(".pip-progress-fill");
-      if (fill) fill.style.transform = `scaleX(${progress})`;
+      if (pipEls.fill) pipEls.fill.style.transform = `scaleX(${progress})`;
+      const pct = Math.round(progress * 100);
+      if (pipEls.progressBar && pct !== lastPipPct) {
+        lastPipPct = pct;
+        pipEls.progressBar.setAttribute("aria-valuenow", String(pct));
+      }
 
       // Song header & title
       if (S && lastPipSongNo !== S.no) {
         lastPipSongNo = S.no;
-        const noEl = doc.querySelector(".pip-song-number");
-        const titleEl = doc.querySelector(".pip-title");
-        if (noEl) noEl.textContent = String(S.no).padStart(2, "0");
-        if (titleEl) titleEl.textContent = S.ja;
+        if (pipEls.noEl) pipEls.noEl.textContent = String(S.no).padStart(2, "0");
+        if (pipEls.titleEl) pipEls.titleEl.textContent = S.ja;
         doc.title = `${T("歌詞小窗")}｜${S.ja}`;
       }
 
       // Play/Pause button
       if (lastPipPlayState !== playing) {
         lastPipPlayState = playing;
-        const playBtn = doc.querySelector(".pip-play");
-        if (playBtn) {
-          const playSvg = playBtn.querySelector(".icon-play");
-          const pauseSvg = playBtn.querySelector(".icon-pause");
-          if (playSvg) playSvg.style.display = playing ? "none" : "";
-          if (pauseSvg) pauseSvg.style.display = playing ? "" : "none";
-          playBtn.setAttribute("title", playing ? T("暫停") : T("播放"));
-          playBtn.setAttribute("aria-label", playing ? T("暫停主頁影片") : T("播放主頁影片"));
+        if (pipEls.playBtn) {
+          if (pipEls.playSvg) pipEls.playSvg.style.display = playing ? "none" : "";
+          if (pipEls.pauseSvg) pipEls.pauseSvg.style.display = playing ? "" : "none";
+          pipEls.playBtn.setAttribute("title", playing ? T("暫停") : T("播放"));
+          pipEls.playBtn.setAttribute("aria-label", playing ? T("暫停主頁影片") : T("播放主頁影片"));
         }
       }
 
       // Current Line & Next Line
       if (lastPipLine !== curLine) {
         lastPipLine = curLine;
-        const curContainer = doc.querySelector(".pip-current-line");
-        const nextContainer = doc.querySelector(".pip-next-line");
-        const nextGroup = doc.querySelector(".pip-next-group");
+        const { curContainer, nextContainer, nextGroup } = pipEls;
 
         if (curContainer) {
           if (curLine >= 0 && lineEls[curLine]) {
-            curContainer.innerHTML = lineEls[curLine].outerHTML;
+            const cloned = lineEls[curLine].cloneNode(true);
+            cloned.querySelectorAll(".chorus-glyph-wave").forEach(el => el.remove());
+            curContainer.replaceChildren(cloned);
+            pipEls.curKs = [...cloned.querySelectorAll(".k")];
           } else {
             curContainer.innerHTML = `<p class="pip-empty">${S ? T("〈{0}〉等待播放…", esc(S.ja)) : T("等待同步…")}</p>`;
+            pipEls.curKs = [];
           }
         }
 
         if (nextContainer && nextGroup) {
           if (curLine >= 0 && curLine + 1 < lineEls.length && lineEls[curLine + 1]) {
-            nextContainer.innerHTML = lineEls[curLine + 1].outerHTML;
+            const nextClone = lineEls[curLine + 1].cloneNode(true);
+            nextClone.querySelectorAll(".chorus-glyph-wave").forEach(el => el.remove());
+            nextContainer.replaceChildren(nextClone);
             nextGroup.hidden = false;
           } else {
-            nextContainer.innerHTML = "";
+            nextContainer.textContent = "";
             nextGroup.hidden = true;
           }
         }
@@ -2587,12 +3025,12 @@
 
       // 卡拉OK逐字點亮即時同步至子母小窗
       if (OPT.karaoke && curLine >= 0 && lineEls[curLine]) {
-        const curKs = doc.querySelectorAll(".pip-current-line .k");
-        const origKs = lineEls[curLine].querySelectorAll(".k");
-        if (curKs.length && origKs && curKs.length === origKs.length) {
-          curKs.forEach((k, idx) => {
-            k.classList.toggle("lit", origKs[idx].classList.contains("lit"));
-          });
+        const curKs = pipEls.curKs;
+        const origKs = lineEls[curLine]._ks || lineEls[curLine].querySelectorAll(".k");
+        if (curKs && curKs.length && origKs && curKs.length === origKs.length) {
+          for (let idx = 0; idx < curKs.length; idx++) {
+            curKs[idx].classList.toggle("lit", origKs[idx].classList.contains("lit"));
+          }
         }
       }
     }
@@ -2626,7 +3064,7 @@
       return;
     }
     TOOL[k] = !TOOL[k]; store.set("tool-" + k, TOOL[k] ? "1" : null); paintTools();
-    if (k === "click" && TOOL.click) clickCtx();
+    if (k === "click" && TOOL.click && !songV.hidden) clickCtx();
     // 隨機播放、接關聯曲只能開一個
     if ((k === "shuffle" || k === "related") && TOOL[k]) { const o = k === "shuffle" ? "related" : "shuffle"; TOOL[o] = false; store.set("tool-" + o, null); paintTools(); }
     if ((k === "shuffle" || k === "related") && S) {
@@ -2652,12 +3090,12 @@
   if (videoSourcePill) {
     videoSourcePill.addEventListener("click", e => {
       const btn = e.target.closest("[data-video-source]");
-      if (!btn) return;
+      if (!btn || btn.disabled) return;
       switchVideoSource(btn.dataset.videoSource);
     });
   }
   // 上次就開著拍點聲：瀏覽器要等使用者點一下或按鍵才肯出聲，第一次互動時把聲音準備好
-  ["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (TOOL.click) clickCtx(); }, true));
+  ["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (TOOL.click && !songV.hidden) clickCtx(); }, true));
 
   // 播完自動下一首：跟下一首按鈕同一首（照首頁目前的排序，開了隨機播放就照洗過的順序）
   function ended() {
@@ -2681,7 +3119,7 @@
     o.connect(g).connect(actx.destination); o.start(at); o.stop(at + .06);
   }
   function clicks(t, playing) {
-    if (!TOOL.click || !playing || !actx) { lastClick = null; return; }
+    if (!TOOL.click || !playing || !actx || actx.state !== "running") { lastClick = null; return; }
     const b = beatAt(t); if (!b) return;
     // 下一拍在 0.12 秒內就先排進去（影片時間換成真實時間要除以速度）
     const wait = (1 - b.f) * b.P / RATE;
@@ -2733,6 +3171,7 @@
   }
 
   function lampConnect() {
+    if (lampTimer) { clearTimeout(lampTimer); lampTimer = null; }
     if (!TOOL.lamp || matchMedia("(pointer: coarse)").matches) return;
     if (lampWS && (lampWS.readyState === WebSocket.CONNECTING || lampWS.readyState === WebSocket.OPEN)) return;
 
@@ -2791,12 +3230,16 @@
       };
     } catch (e) {
       if (!TOOL.lamp) return;
+      if (e && e.name === "SecurityError") {
+        setLampStatus(T("找不到 PenlightSync"), false);
+        return;
+      }
       if (lampRetryCount < 12) {
         lampRetryCount++;
-        setLampStatus(T("連線中…"));
+        setLampStatus(T("連線中…"), false);
         lampTimer = setTimeout(lampConnect, 5000);
       } else {
-        setLampStatus(T("找不到 PenlightSync"));
+        setLampStatus(T("找不到 PenlightSync"), false);
       }
     }
   }
@@ -2805,6 +3248,8 @@
     if (!TAGGED) return "free";
     const li = lineAt(t);
     if (li < 0) return "";
+    const l = LINES[li];
+    if (l && l.listen) return "listen";
     const c = cueAt(t);
     if (!c) return "";
     // 只有在整首歌為抒情歌（如夜明けと蛍、ドライフラワー），或該句明確標記為 listen 時，才送 listen
@@ -2820,7 +3265,8 @@
   // 跟 PenlightSync「網站」取色模式（SiteLightEvaluator，自動節奏）同一套規則：沉浸模式的 3D 觀眾手燈用，現場看起來跟實體手燈一致
   // 一般段落每 2 拍換色；拍手、喊聲、跳躍、135 BPM 以上每拍換；副歌高潮（8 拍）連續鼓聲每半拍換；沒有拍點資料每 4 秒換；安靜聽亮度減半
   function lampLook(t) {
-    const n = penOf(S).cols.length || 1, bd = BEAT[S.id], cueName = currentCue(t), cx = CLIMAX[S.id];
+    const isLive = S && currentVideoSource(S) === "live";
+    const n = penOf(S).cols.length || 1, bd = isLive ? null : BEAT[S.id], cueName = currentCue(t), cx = isLive ? null : CLIMAX[S.id];
     const bpm = bd && bd[0] > 0 ? bd[0] : 0;
     const climax = cx != null && t >= cx && t < cx + (bpm ? 8 * 60 / bpm : 4);
     const listen = cueName === "listen", hype = cueName === "jump" || cueName === "call" || cueName === "clap" || climax;
@@ -2862,16 +3308,17 @@
       const predictedT = lampLastSent.playing ? (lampLastSent.t + elapsedSec * lampLastSent.rate) : lampLastSent.t;
       if (Math.abs(t - predictedT) > 0.3) {
         shouldSend = true; // 偵測到跳轉超過 0.3 秒
-      } else if (nowWall - lampLastSentWallTime >= 1000) {
-        shouldSend = true; // 每 1 秒心跳校時
+      } else if (playing && nowWall - lampLastSentWallTime >= 1000) {
+        shouldSend = true; // 播放中每 1 秒心跳校時
       }
     }
 
     if (shouldSend) {
       const pen = penOf(S);
-      const bData = BEAT[S.id];
+      const isLive = currentVideoSource(S) === "live";
+      const bData = isLive ? null : BEAT[S.id];
       const beat = bData ? { bpm: bData[0], offset: bData[1], barKnown: Boolean(bData[2]) } : null;
-      const climax = CLIMAX[S.id] != null ? CLIMAX[S.id] : null;
+      const climax = !isLive && CLIMAX[S.id] != null ? CLIMAX[S.id] : null;
       const roundedT = Math.round(t * 100) / 100;
 
       lampSeq++;
@@ -2961,15 +3408,28 @@
     qzJudge.innerHTML = `<b class="j-${kind}">${NAME[kind]}</b>${hint ? `<span>${esc(hint)}</span>` : ""}`;
     replay(qzJudge, "pop", 300);
   }
-  function quizStart() {
+  function setVideoSourcePillDisabled(disabled) {
+    if (!videoSourcePill) return;
+    videoSourcePill.querySelectorAll("[data-video-source]").forEach(btn => {
+      btn.disabled = !!disabled;
+    });
+  }
+  async function quizStart() {
     if (!S || !ready) return;
-    if (S.liveVideo && currentVideoSource(S) === "live") {
-      switchVideoSource("mv");
+    const song = S;
+    const seq = ++quizStartSeq;
+    if (song.liveVideo && currentVideoSource(song) === "live") {
+      if (LYV && !lyLoaded) await lyWait.index;
+      if (!lyHave(song, "mv")) await loadLyrics(song, "mv");
+      if (seq !== quizStartSeq || S !== song || songV.hidden || !ready) return;
+      switchVideoSource("mv", { startSeconds: 0 });
     }
     const targets = quizTargets();
     if (!targets.length) { toast(T("這首沒有逐行應援，不能測驗")); return; }
     // lastT 先記現在的位置，seek(0) 之後會當成往回跳，把成績整個清掉
-    QZ = { targets, stray: 0, combo: 0, maxCombo: 0, lastT: now(), done: false, rate: RATE };
+    QZ = { targets, stray: 0, combo: 0, maxCombo: 0, lastT: now(), armed: false, done: false, rate: RATE };
+    clearRippleTimers();
+    setVideoSourcePillDisabled(true);
     document.body.classList.add("quiz-on");
     cueBox.querySelector("h2").textContent = T("測驗模式");
     quizBtn.setAttribute("aria-pressed", "true");
@@ -2979,6 +3439,8 @@
     toast(T("測驗開始：該應援的地方按空白鍵或點「按這裡」"));
   }
   function quizStop() {
+    quizStartSeq++;
+    setVideoSourcePillDisabled(false);
     if (!QZ) return;
     QZ = null;
     document.body.classList.remove("quiz-on");
@@ -3001,6 +3463,11 @@
   }
   function quizFrame(t) {
     if (!QZ || QZ.done) return;
+    if (!QZ.armed) {
+      if (!(t < 1.0 || t < QZ.lastT - 0.5)) return;
+      QZ.armed = true;
+      QZ.lastT = t;
+    }
     let changed = false;
     if (t < QZ.lastT - .5) {
       // 往回跳：跳回點之後的題目重新作答，可以只重練一段
@@ -3028,8 +3495,12 @@
     const st = quizStats(), rank = quizRank(st.score);
     // 最佳成績：整首都有作答（沒有略過）才記
     let best = {};
-    try { best = JSON.parse(store.get("quiz-best") || "{}") || {}; } catch (e) {}
-    const prev = best[S.id], full = !st.c.skip, isNew = full && (!prev || st.score > prev.score);
+    try {
+      const parsed = JSON.parse(store.get("quiz-best") || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) best = parsed;
+    } catch (e) {}
+    const prevRaw = best[S.id], prev = (prevRaw && typeof prevRaw === "object" && typeof prevRaw.score === "number") ? prevRaw : null;
+    const full = !st.c.skip, isNew = full && (!prev || st.score > prev.score);
     if (isNew) { best[S.id] = { score: st.score, rate: QZ.rate }; store.set("quiz-best", JSON.stringify(best)); }
     QZ.result = { score: st.score, rank, c: st.c };
     document.getElementById("qrRank").textContent = rank;
@@ -3049,11 +3520,12 @@
     quizDlg.returnValue = "";
     if (!QZ) return;
     if (v === "retry") { quizStop(); quizStart(); }
-    else if (v === "answer") quizStop();
     else if (v === "copy" && QZ.result) {
       const r = QZ.result, text = T("〈{0}〉應援測驗 {1}（{2} 分，Perfect {3}・Good {4}・Miss {5}）", S.ja, r.rank, r.score, r.c.perfect, r.c.good, r.c.miss) + `｜${T("Ado 應援指南")} ${LYV ? new URL(`song/${S.id}/`, document.baseURI).href : location.href.split("#")[0] + "#" + S.id}`;
       try { await navigator.clipboard.writeText(text); toast(T("已複製成績")); } catch (e) { prompt(T("複製這段內容："), text); }
-      quizDlg.showModal();
+      if (QZ && !songV.hidden && !quizDlg.open) quizDlg.showModal();
+    } else {
+      quizStop();
     }
   });
   quizBtn.addEventListener("click", () => {
@@ -3092,6 +3564,7 @@
       pause();
       const t = now(), l = LINES[lineAt(t)];
       rpData = { song: `${S.ja}（${S.id}）`, time: fmt(t) + `（${t.toFixed(1)} 秒）`, line: l ? (l.ja || l.zh || "") : T("（還沒開始）") };
+      rpKind.selectedIndex = 0;
     } else {
       rpData = { song: "", time: "", line: "" };
       rpKind.value = "功能建議";
@@ -3111,8 +3584,8 @@
     const d = { ...rpData, kind: rpKind.value, note: rpNote.value.trim() };
     if (REPORT.form) {
       const q = Object.entries(REPORT.entry).filter(([k, e]) => e && d[k]).map(([k, e]) => `entry.${e}=${encodeURIComponent(d[k])}`).join("&");
-      open(`${REPORT.form}?usp=pp_url&${q}`, "_blank", "noopener");
-      return;
+      const win = open(`${REPORT.form}?usp=pp_url&${q}`, "_blank", "noopener");
+      if (win) return;
     }
     const text = `【Ado 應援指南 回報】${d.song ? `\n歌曲：${d.song}\n時間：${d.time}\n這一句：${d.line}` : ""}\n問題：${d.kind}${d.note ? "\n說明：" + d.note : ""}`;
     try { await navigator.clipboard.writeText(text); toast(T("已複製回報內容")); } catch (e) { prompt(T("複製這段內容："), text); }
@@ -3145,8 +3618,24 @@
 
   // 鍵盤：空白鍵播放／暫停，← → 上一句、下一句（在輸入框裡不搶按鍵）
   addEventListener("keydown", e => {
-    if (!S || songV.hidden || !ready || e.metaKey || e.ctrlKey || e.altKey || dlg.open || logDlg.open || quizDlg.open) return;
+    if (!S || songV.hidden || e.metaKey || e.ctrlKey || e.altKey || dlg.open || logDlg.open || quizDlg.open || SHEETS.some(sh => sh.dlg.open) || barMenus.some(m => !m.pop.hidden)) return;
     if (e.target.closest("input, textarea, select, [contenteditable]")) return;
+    if (e.key === "Escape" && isImmersive) {
+      e.preventDefault();
+      setImmersive(false);
+      return;
+    }
+    if (e.key === "Escape" && QZ) {
+      e.preventDefault();
+      quizStop();
+      return;
+    }
+    if (e.key === "f" || e.key === "F") {
+      e.preventDefault();
+      toggleImmersive();
+      return;
+    }
+    if (!ready) return;
     // 測驗中空白鍵拿來作答（播放／暫停改用 K）；按住不放不算連按
     if (QZ && e.key === " ") {
       e.preventDefault();
@@ -3154,22 +3643,13 @@
     } else if (e.key === "q" || e.key === "Q") {
       e.preventDefault();
       if (!quizBtn.disabled) QZ ? quizStop() : quizStart();
-    } else if (e.key === "f" || e.key === "F") {
-      e.preventDefault();
-      toggleImmersive();
     } else if (e.key === "p" || e.key === "P") {
       e.preventDefault();
       togglePip();
-    } else if (e.key === "Escape" && isImmersive) {
-      e.preventDefault();
-      setImmersive(false);
-    } else if (e.key === "Escape" && QZ) {
-      e.preventDefault();
-      quizStop();
-    } else if (e.key === " " || e.key === "k") {
+    } else if (e.key === " " || e.key === "k" || e.key === "K") {
       if (e.target.closest("button, summary, a") && e.key === " ") return;
-      e.preventDefault(); isPlaying() ? pause() : player.playVideo();
-    } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && LINES.length) {
+      e.preventDefault(); isPlaying() ? pause() : play();
+    } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && LINES.length && e.target !== cueTrack) {
       e.preventDefault();
       const t = now(), li = lineAt(t), cur = lastStartedAt(t);
       // 往前：這句剛開始 1.5 秒內就回上一句，不然回這句開頭（空白間奏中則回到上一句）
@@ -3180,7 +3660,7 @@
 
   // ── 路由：#歌曲 id 開歌曲頁，其他回首頁 ──
   // 回清單時捲回離開前的位置
-  let listY = 0, lastView = null;
+  let listY = 0, lastView = null, hasRouted = false;
   // GA 換頁：只在真的換到另一首歌或回首頁時記一次（跳秒數 @t、首頁錨點 #faq 不算），第一次進站由 gtag config 自己記
   function trackView(s) {
     const view = s ? s.id : "";
@@ -3224,17 +3704,42 @@
       document.documentElement.classList.add("seen");
       document.body.classList.add("on-song"); document.documentElement.classList.add("on-song"); syncThemeColor();
       hidePwaToast(false);
-      homeV.hidden = true; songV.hidden = false; openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
+      homeV.hidden = true; songV.hidden = false;
+      ensureFrame();
+      openSong(s, Math.max(0, Math.floor(+at || 0))); scrollTo(0, 0);
+      if (hasRouted && sTitleEl && (!document.activeElement || document.activeElement === document.body || !songV.contains(document.activeElement) || (document.activeElement.tagName === "A" && !document.activeElement.hasAttribute("href")))) {
+        sTitleEl.tabIndex = -1;
+        sTitleEl.focus({ preventScroll: true });
+      }
       trackView(s);
     } else {
+      const wasSong = !songV.hidden;
       ensureHomeReady();
+      closeSheets();
       setImmersive(false, true); quizStop();
-      clearTimeout(readyTimer); lampStop(); pause(); hideAlert(); setVideoLoading(false); karaokeLoadSeq++; karaokeTiming = null; document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor(); songV.hidden = true; homeV.hidden = false; document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
-      renderRecent(); crateShow();
+      clearTimeout(readyTimer); clearTimeout(muteTimer); clearRippleTimers();
+      switchSeq++; quizStartSeq++; karaokeLoadSeq++; karaokeLoadingId = null; karaokeTiming = null;
+      if (pipWin && !pipWin.closed) { try { pipWin.close(); } catch (e) {} pipWin = null; pipEls = null; }
+      if (document.pictureInPictureElement) { document.exitPictureInPicture().catch(() => {}); }
+      stopCanvasPip();
+      updatePipButtonStates(false);
+      disposeVenue();
+      lampStop(); pause(); hideAlert(); setVideoLoading(false); S = null;
+      document.body.classList.remove("on-song"); document.documentElement.classList.remove("on-song"); syncThemeColor();
+      songV.hidden = true; homeV.hidden = false;
+      syncBar();
+      idleDrawn = false; ensureFrame();
+      document.title = PAGE_SONG ? T("Ado 應援指南") : PAGE_TITLE;
+      renderRecent(); crateShow(); resumeReel(); measureHomeReel();
       const target = h && document.getElementById(h);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
+      if (hasRouted && wasSong && (!document.activeElement || document.activeElement === document.body || songV.contains(document.activeElement))) {
+        const focusEl = target || document.getElementById("heroH");
+        if (focusEl) { focusEl.tabIndex = -1; focusEl.focus({ preventScroll: true }); }
+      }
       trackView(null);
     }
+    hasRouted = true;
   }
   // 唱片架點下去時自己做轉場（CD 和封面飛過去），這次換頁不用交叉淡化
   let quietNav = false, crateShow = () => {};
@@ -3262,9 +3767,16 @@
     const art = s => {
       const i = new Image();
       i.alt = ""; i.decoding = "async";
-      i.src = `https://i.ytimg.com/vi/${s.yt}/maxresdefault.jpg`;
+      let fellBack = false;
+      const fallback = () => {
+        if (fellBack) return;
+        fellBack = true;
+        i.src = `https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg`;
+      };
       // 沒有高解析縮圖時 YouTube 回 120×90 的灰圖，改用中尺寸
-      i.onload = () => { if (i.naturalWidth < 200) i.src = `https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg`; };
+      i.onload = () => { if (!fellBack && i.naturalWidth < 200) fallback(); };
+      i.onerror = fallback;
+      i.src = `https://i.ytimg.com/vi/${s.yt}/maxresdefault.jpg`;
       return i;
     };
     let moldN = 0;
@@ -3403,10 +3915,15 @@
 
     shuffleBtn.addEventListener("click", () => {
       if (busy) return;
+      busy = true;
       shuffleBtn.classList.add("turning"); setTimeout(() => shuffleBtn.classList.remove("turning"), 600);
       clearInterval(cycle); setOn(null);
       [...crate.children].forEach((li, i) => setTimeout(() => li.classList.add("is-out"), reduce ? 0 : i * 60));
-      setTimeout(deal, reduce ? 0 : 520);
+      setTimeout(() => {
+        busy = false;
+        if (homeV.hidden) { dealt = false; return; }
+        deal();
+      }, reduce ? 0 : 520);
     });
 
     // 點擊：那張轉正抽出 → 首頁淡掉 → 換到歌曲頁 → CD 弧線飛到歌名旁變成小唱片，封面展開成 16:9 的 MV 畫面
@@ -3427,7 +3944,6 @@
     const box = (el, r) => (Object.assign(el.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" }), el);
     const div = (cls, html = "") => Object.assign(document.createElement("div"), { className: cls, innerHTML: html });
     const move = (from, to) => `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${to.width / from.width})`;
-    const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     // 節奏（毫秒）：抽出 260 → 首頁淡出 200 後換頁 → 第一段共 340 → 第二段 600 → 落地 160，約 1.2 秒到定位。
     // 第一段結尾保留速度、第二段帶速度起步，中間不會停住；CD 水平慢、垂直快，走成一道弧線
     const DUR = { pull: 260, fade: 200, up: 340, fly: 600, land: 160 };
@@ -3443,74 +3959,94 @@
       const s = li._song;
       if (reduce) { location.hash = s.id; return; }
       busy = true; clearInterval(cycle); clearTimeout(leaveT);
-      setOn(li);
-      crate.classList.add("pulling"); li.classList.add("is-pull");
-      // 抽出的轉場快結束就起飛，不停在原地等
-      await wait(DUR.pull);
-      const cd = li.querySelector(".cd"), sleeve = li.querySelector(".sleeve"), fx = FX[s.id];
-      const dr = cd.getBoundingClientRect(), sr = sleeve.getBoundingClientRect();
-      const layer = div("crate crate-fly");
-      ["--p1", "--p2", "--fx"].forEach(k => layer.style.setProperty(k, li.style.getPropertyValue(k)));
-      layer.style.setProperty("--px", crate.style.getPropertyValue("--px") || 0);
-      document.body.append(layer);
+      let layer = null, screen = null, mini = null, fades = [];
+      try {
+        setOn(li);
+        crate.classList.add("pulling"); li.classList.add("is-pull");
+        // 抽出的轉場快結束就起飛，不停在原地等
+        await wait(DUR.pull);
+        const cd = li.querySelector(".cd"), sleeve = li.querySelector(".sleeve"), fx = FX[s.id];
+        const dr = cd.getBoundingClientRect(), sr = sleeve.getBoundingClientRect();
+        layer = div("crate crate-fly");
+        ["--p1", "--p2", "--fx"].forEach(k => layer.style.setProperty(k, li.style.getPropertyValue(k)));
+        layer.style.setProperty("--px", crate.style.getPropertyValue("--px") || 0);
+        document.body.append(layer);
 
-      // 第一段（還在首頁）：CD 往上抽出、封面微微浮起，首頁和頂欄淡掉。這段不需要知道終點，先交給合成器跑
-      const gSq = box(div("fly-g"), sr);
-      gSq.style.setProperty("--s", sr.width + "px");
-      gSq.append(sleeve.cloneNode(true));
-      // CD 分兩層：外層只管水平、內層管垂直和縮放，兩個方向用不同的曲線就是弧線。
-      // CD 一路都在封面後面，跟它在封套裡的位置一致；飛到歌名旁時已經在影片框上方，不會被蓋住
-      const gCd = box(div("fly-g", `<div class="fly-y">${cd.outerHTML}</div>`), dr), gCdY = gCd.firstElementChild;
-      layer.append(gCd, gSq);
-      li.style.visibility = "hidden";
-      const lift = { left: dr.left + dr.width * .1, top: dr.top - dr.height * .5, width: dr.width * .8 };
-      const up = { left: sr.left - sr.width * .02, top: sr.top - sr.height * .04, width: sr.width * 1.04 };
-      const legUp = { duration: DUR.up, easing: EASE.up, fill: "forwards" };
-      const t0 = performance.now();
-      gCdY.animate([{ transform: "none" }, { transform: `translateY(${lift.top - dr.top}px) scale(.8)` }], legUp);
-      gCd.animate([{ transform: "none" }, { transform: `translateX(${lift.left - dr.left}px)` }], legUp);
-      gSq.animate([{ transform: "none" }, { transform: move(sr, up) }], legUp);
-      const bar = document.getElementById("bar");
-      const fades = [homeV, bar].map(el => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: DUR.fade, easing: "cubic-bezier(.3, 0, 1, 1)", fill: "forwards" }));
-      // 等首頁淡完才換頁；換頁那一下主執行緒很忙，第一段還在合成器上跑，畫面不會停
-      await Promise.all(fades.map(f => f.finished));
-      const routed = new Promise(r => addEventListener("hashchange", r, { once: true }));
-      quietNav = true;
-      location.hash = s.id;
-      await routed;
-      fades.forEach(f => f.cancel());
-      const left = Math.max(0, DUR.up - (performance.now() - t0));
-      // 歌曲頁（連同背景的舞台燈）先藏著，第二段開始才淡入
-      [songV, document.getElementById("fx")].forEach(el => el && el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, delay: left + 60, easing: "cubic-bezier(.05, .7, .1, 1)", fill: "backwards" }));
-      const screen = document.getElementById("screen"), mini = document.querySelector("#sTitle .sdisc");
-      const fr = screen.getBoundingClientRect(), mr = mini ? mini.getBoundingClientRect() : { left: fr.left + fr.width / 2, top: fr.top, width: 1, height: 1 };
-      [screen, mini].forEach(x => x && (x.style.visibility = "hidden"));
-      await wait(left);
+        // 第一段（還在首頁）：CD 往上抽出、封面微微浮起，首頁和頂欄淡掉。這段不需要知道終點，先交給合成器跑
+        const gSq = box(div("fly-g"), sr);
+        gSq.style.setProperty("--s", sr.width + "px");
+        gSq.append(sleeve.cloneNode(true));
+        // CD 分兩層：外層只管水平、內層管垂直和縮放，兩個方向用不同的曲線就是弧線。
+        // CD 一路都在封面後面，跟它在封套裡的位置一致；飛到歌名旁時已經在影片框上方，不會被蓋住
+        const gCd = box(div("fly-g", `<div class="fly-y">${cd.outerHTML}</div>`), dr), gCdY = gCd.firstElementChild;
+        layer.append(gCd, gSq);
+        li.style.visibility = "hidden";
+        const lift = { left: dr.left + dr.width * .1, top: dr.top - dr.height * .5, width: dr.width * .8 };
+        const up = { left: sr.left - sr.width * .02, top: sr.top - sr.height * .04, width: sr.width * 1.04 };
+        const legUp = { duration: DUR.up, easing: EASE.up, fill: "forwards" };
+        const t0 = performance.now();
+        gCdY.animate([{ transform: "none" }, { transform: `translateY(${lift.top - dr.top}px) scale(.8)` }], legUp);
+        gCd.animate([{ transform: "none" }, { transform: `translateX(${lift.left - dr.left}px)` }], legUp);
+        gSq.animate([{ transform: "none" }, { transform: move(sr, up) }], legUp);
+        const bar = document.getElementById("bar");
+        fades = [homeV, bar].map(el => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: DUR.fade, easing: "cubic-bezier(.3, 0, 1, 1)", fill: "forwards" }));
+        // 等首頁淡完才換頁；換頁那一下主執行緒很忙，第一段還在合成器上跑，畫面不會停
+        await Promise.all(fades.map(f => f.finished.catch(() => {})));
+        if (location.hash.slice(1) === s.id) {
+          route();
+        } else {
+          const routed = new Promise(r => addEventListener("hashchange", r, { once: true }));
+          quietNav = true;
+          location.hash = s.id;
+          await routed;
+        }
+        fades.forEach(f => { try { f.cancel(); } catch (e) {} });
+        fades = [];
+        const left = Math.max(0, DUR.up - (performance.now() - t0));
+        // 歌曲頁（連同背景的舞台燈）先藏著，第二段開始才淡入
+        [songV, document.getElementById("fx")].forEach(el => el && el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, delay: left + 60, easing: "cubic-bezier(.05, .7, .1, 1)", fill: "backwards" }));
+        screen = document.getElementById("screen");
+        mini = document.querySelector("#sTitle .sdisc");
+        const fr = screen.getBoundingClientRect(), mr = mini ? mini.getBoundingClientRect() : { left: fr.left + fr.width / 2, top: fr.top, width: 1, height: 1 };
+        [screen, mini].forEach(x => x && (x.style.visibility = "hidden"));
+        await wait(left);
 
-      // 第二段：封面換成終點大小的 16:9 畫面，先裁成剛才那塊正方形（上面疊著同一張封套，側帶和反光都在），
-      // 一邊展開一邊讓封套淡掉；CD 弧線飛到歌名旁縮成小唱片
-      const k = up.width / fr.height, ox = (fr.width - fr.height) * fx / 100, radius = parseFloat(getComputedStyle(screen).borderTopLeftRadius) || 0;
-      const gArt = box(div("fly-g fly-art", `<img src="${sleeve.querySelector("img").currentSrc || sleeve.querySelector("img").src}" alt="">`), fr);
-      const cover = div("fly-cover");
-      Object.assign(cover.style, { left: ox + "px", width: fr.height + "px" });
-      cover.style.setProperty("--s", fr.height + "px");
-      cover.append(sleeve.cloneNode(true));
-      gArt.append(cover);
-      gSq.replaceWith(gArt);
-      const legFly = { duration: DUR.fly, fill: "forwards" };
-      gArt.animate([
-        { transform: move(fr, { left: up.left - k * ox, top: up.top, width: fr.width * k }), clipPath: `inset(0 ${fr.width - ox - fr.height}px 0 ${ox}px round ${3 / k}px)` },
-        { transform: "none", clipPath: `inset(0 0 0 0 round ${radius}px)` }
-      ], { ...legFly, easing: EASE.fly });
-      cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: DUR.fly * .4, easing: "ease-out", fill: "forwards" });
-      gCd.animate([{ transform: `translateX(${lift.left - dr.left}px)` }, { transform: `translateX(${mr.left - dr.left}px)` }], { ...legFly, easing: EASE.flyX });
-      gCdY.animate([{ transform: `translateY(${lift.top - dr.top}px) scale(.8)` }, { transform: `translateY(${mr.top - dr.top}px) scale(${mr.width / dr.width})` }], { ...legFly, easing: EASE.flyY });
-      await wait(DUR.fly);
-      // 落地：底下的播放器和小唱片露出來，替身淡掉，不會硬切
-      [screen, mini].forEach(x => x && (x.style.visibility = ""));
-      layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: DUR.land, easing: "ease-out", fill: "forwards" }).finished.then(() => layer.remove());
-      if (kb) document.querySelector(".songbar a.ib")?.focus({ preventScroll: true });
-      reset();
+        // 第二段：封面換成終點大小的 16:9 畫面，先裁成剛才那塊正方形（上面疊著同一張封套，側帶和反光都在），
+        // 一邊展開一邊讓封套淡掉；CD 弧線飛到歌名旁縮成小唱片
+        const k = up.width / fr.height, ox = (fr.width - fr.height) * fx / 100, radius = parseFloat(getComputedStyle(screen).borderTopLeftRadius) || 0;
+        const gArt = box(div("fly-g fly-art"), fr);
+        const artImg = document.createElement("img");
+        const srcImg = sleeve.querySelector("img");
+        artImg.src = (srcImg && (srcImg.currentSrc || srcImg.src)) || "";
+        artImg.alt = "";
+        gArt.append(artImg);
+        const cover = div("fly-cover");
+        Object.assign(cover.style, { left: ox + "px", width: fr.height + "px" });
+        cover.style.setProperty("--s", fr.height + "px");
+        cover.append(sleeve.cloneNode(true));
+        gArt.append(cover);
+        gSq.replaceWith(gArt);
+        const legFly = { duration: DUR.fly, fill: "forwards" };
+        gArt.animate([
+          { transform: move(fr, { left: up.left - k * ox, top: up.top, width: fr.width * k }), clipPath: `inset(0 ${fr.width - ox - fr.height}px 0 ${ox}px round ${3 / k}px)` },
+          { transform: "none", clipPath: `inset(0 0 0 0 round ${radius}px)` }
+        ], { ...legFly, easing: EASE.fly });
+        cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: DUR.fly * .4, easing: "ease-out", fill: "forwards" });
+        gCd.animate([{ transform: `translateX(${lift.left - dr.left}px)` }, { transform: `translateX(${mr.left - dr.left}px)` }], { ...legFly, easing: EASE.flyX });
+        gCdY.animate([{ transform: `translateY(${lift.top - dr.top}px) scale(.8)` }, { transform: `translateY(${mr.top - dr.top}px) scale(${mr.width / dr.width})` }], { ...legFly, easing: EASE.flyY });
+        await wait(DUR.fly);
+        // 落地：底下的播放器和小唱片露出來，替身淡掉，不會硬切
+        [screen, mini].forEach(x => x && (x.style.visibility = ""));
+        const closingLayer = layer;
+        layer = null;
+        closingLayer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: DUR.land, easing: "ease-out", fill: "forwards" }).finished.catch(() => {}).then(() => closingLayer.remove());
+        if (kb) document.querySelector(".songbar a.ib")?.focus({ preventScroll: true });
+      } finally {
+        fades.forEach(f => { try { f.cancel(); } catch (e) {} });
+        [screen, mini].forEach(x => x && (x.style.visibility = ""));
+        if (layer) layer.remove();
+        reset();
+      }
     }
 
     // 直接打開歌曲頁時首頁是隱藏的，量不到唱片大小：等回到首頁再發牌
@@ -3543,24 +4079,28 @@
   }
 
   // ── 舞台燈光 ──
-  const hex = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${Math.max(0, Math.min(1, a))})`; };
+  const rgbCache = {};
+  const rgbOf = h => rgbCache[h] || (rgbCache[h] = (() => { const n = parseInt(h.slice(1), 16); return `${n >> 16 & 255},${n >> 8 & 255},${n & 255}`; })());
+  const rgba = (rgb, a) => `rgba(${rgb},${Math.max(0, Math.min(1, a))})`;
   const BLUE = "#02b4f5", DEEP = "#075073", IVORY = "#f8fafc";
+  const BLUE_RGB = rgbOf(BLUE), DEEP_RGB = rgbOf(DEEP), IVORY_RGB = rgbOf(IVORY);
   function stage(cv, o) {
     const ctx = cv.getContext("2d"); let W = 0, H = 0;
     const size = () => { const d = Math.min(2, devicePixelRatio || 1), r = cv.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
     addEventListener("resize", size); size();
-    const sticks = Array.from({ length: o.sticks }, () => ({ x: Math.random(), y: Math.random(), ph: Math.random() * 6.28, c: BLUE }));
+    const sticks = Array.from({ length: o.sticks }, () => ({ x: Math.random(), y: Math.random(), ph: Math.random() * 6.28, c: BLUE_RGB }));
     const petals = Array.from({ length: o.petals }, () => ({ x: Math.random(), y: Math.random(), r: 3 + Math.random() * 4, s: .2 + Math.random() * .4, a: Math.random() * 6.28 }));
     // pal：這首的螢光棒顏色；null 是首頁的藍白
-    let pal = null, beams = [];
+    let pal = null, palRgb = [BLUE_RGB], beams = [];
     const pen = cols => {
       pal = cols && cols.length ? cols : null;
-      beams = pal ? [0, 1, 2, 3].map(i => pal[i % pal.length]) : [DEEP, BLUE, IVORY, DEEP];
-      sticks.forEach((s, i) => s.c = pal ? pal[i % pal.length] : Math.random() < .75 ? BLUE : IVORY);
+      palRgb = pal ? pal.map(rgbOf) : [BLUE_RGB];
+      beams = pal ? [0, 1, 2, 3].map(i => palRgb[i % palRgb.length]) : [DEEP_RGB, BLUE_RGB, IVORY_RGB, DEEP_RGB];
+      sticks.forEach((s, i) => s.c = pal ? palRgb[i % palRgb.length] : Math.random() < .75 ? BLUE_RGB : IVORY_RGB);
     };
     pen(null);
     // hit：重拍的亮度（1 → 0），beat：第幾拍，用來輪流換閃光的顏色
-    const draw = (tt, energy, hit, listen, playing, beat) => {
+    const draw = (tt, energy, hit, listen, playing, beat, dt = 0.016) => {
       if (!cv.width) size();
       if (!W) return;
       ctx.clearRect(0, 0, W, H);
@@ -3569,26 +4109,26 @@
         const col = beams[i], sway = reduce ? 0 : Math.sin(tt * .45 + i * 1.7) * .16;
         const ox = W * (bx + (i % 2 ? .08 : -.08)), oy = H * 1.05, tx = W * (bx + sway), w = W * (.06 + .03 * hit);
         const g = ctx.createLinearGradient(ox, oy, tx, 0), a = (.05 + .12 * energy + .3 * hit) * o.k;
-        g.addColorStop(0, hex(col, 0)); g.addColorStop(.4, hex(col, a)); g.addColorStop(1, hex(col, 0));
+        g.addColorStop(0, rgba(col, 0)); g.addColorStop(.4, rgba(col, a)); g.addColorStop(1, rgba(col, 0));
         ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ox - 4, oy); ctx.lineTo(tx - w, -20); ctx.lineTo(tx + w, -20); ctx.lineTo(ox + 4, oy); ctx.fill();
       });
       // 重拍：從台下往上整片亮一下
       if (hit > .01) {
-        const col = (pal || [BLUE])[beat % (pal || [BLUE]).length], g = ctx.createRadialGradient(W / 2, H * 1.1, 0, W / 2, H * 1.1, Math.max(W, H) * .95);
-        g.addColorStop(0, hex(col, .2 * hit * o.k)); g.addColorStop(1, hex(col, 0));
+        const col = palRgb[beat % palRgb.length], g = ctx.createRadialGradient(W / 2, H * 1.1, 0, W / 2, H * 1.1, Math.max(W, H) * .95);
+        g.addColorStop(0, rgba(col, .2 * hit * o.k)); g.addColorStop(1, rgba(col, 0));
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       }
       petals.forEach((p, i) => {
-        if (!reduce && playing) { p.y += p.s * .0015 * (1 + energy); p.a += .008; if (p.y > 1.05) { p.y = -.05; p.x = Math.random(); } }
+        if (!reduce && playing) { p.y += p.s * .09 * (1 + energy) * dt; p.a += .48 * dt; if (p.y > 1.05) { p.y = -.05; p.x = Math.random(); } }
         ctx.save(); ctx.translate(p.x * W + Math.sin(p.a) * 12, p.y * H); ctx.rotate(p.a);
-        ctx.fillStyle = hex(pal ? pal[i % pal.length] : BLUE, .28 * o.k); ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * .55, 0, 0, 6.28); ctx.fill(); ctx.restore();
+        ctx.fillStyle = rgba(pal ? palRgb[i % palRgb.length] : BLUE_RGB, .28 * o.k); ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * .55, 0, 0, 6.28); ctx.fill(); ctx.restore();
       });
       // raise：0 一般、沉浸模式約 .35、大合唱時 1；手燈海變高、往上舉、更亮
       const rz = draw.raise * (Math.min(W, H) < 600 ? .45 : 1), baseY = H - 4, band = Math.min(70, H * .14) * (1 + rz * .8);
       sticks.forEach(s => {
         const swing = reduce ? 0 : Math.sin(tt * (playing ? 4.2 : 1.3) + s.ph) * (playing ? .5 : .2) * (listen ? .3 : 1);
         ctx.save(); ctx.translate(s.x * W, baseY - s.y * band - 6 * hit - rz * 8); ctx.rotate(swing);
-        ctx.strokeStyle = hex(s.c, (.16 + .3 * energy + .45 * hit) * (.45 + s.y * .55) * o.k * (1 + rz * .5));
+        ctx.strokeStyle = rgba(s.c, (.16 + .3 * energy + .45 * hit) * (.45 + s.y * .55) * o.k * (1 + rz * .5));
         ctx.lineWidth = 3 + rz; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -(12 + s.y * 8 + rz * 6)); ctx.stroke(); ctx.restore();
       });
       ctx.globalCompositeOperation = "source-over";
@@ -3620,7 +4160,7 @@
           // 每移動一小段記一個點，飄得慢時彩帶也保持一樣長
           const h = p.trail[0];
           if (!h || Math.hypot(p.x - h[0], p.y - h[1]) > 7) { p.trail.unshift([p.x, p.y]); if (p.trail.length > 16) p.trail.pop(); }
-          ctx.fillStyle = hex(p.c, a);
+          ctx.fillStyle = rgba(rgbOf(p.c), a);
           for (let i = 1; i < p.trail.length; i++) {
             const [x0, y0] = p.trail[i - 1], [x1, y1] = p.trail[i], dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1;
             const w = 3.5 * Math.abs(Math.cos(p.spin + i * .55)) + .6, nx = -dy / l * w, ny = dx / l * w;
@@ -3628,7 +4168,7 @@
           }
         } else {
           ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.spin * .6); ctx.scale(1, Math.cos(p.spin));
-          ctx.fillStyle = hex(p.c, a); ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+          ctx.fillStyle = rgba(rgbOf(p.c), a); ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
         }
       }
       run = bits.length > 0;
@@ -3651,79 +4191,90 @@
     };
   }
   const blast = cannon(document.getElementById("confetti"));
-  addEventListener("hashchange", () => setTimeout(() => dispatchEvent(new Event("resize")), 0));
 
   // 背景燈光只在播放時動；沒播放時畫一次就停，不在閱讀時晃
-  let stageT = 0, lastMs = 0, idleDrawn = false, penSong, blasted = false, crowdOn = false, venueOn = false, venueRaise = 0, venueClap = 0, venueJump = 0;
-  addEventListener("resize", () => { idleDrawn = false; });
+  addEventListener("resize", () => { idleDrawn = false; ensureFrame(); });
   function frame(ms) {
-    const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
-    clicks(t, playing);
-    lampFrame(t, playing);
-    quizFrame(t);
-    // 歌曲頁燈光換成這首的螢光棒顏色，回首頁換回藍白
-    const want = S && !songV.hidden ? S : null;
-    if (want !== penSong) { penSong = want; bg.pen(want && penOf(want).cols); idleDrawn = false; blasted = false; }
-    // 播到副歌高潮噴一次彩帶；倒回高潮前再播到會再噴
-    const cx = want && CLIMAX[want.id];
-    if (cx != null) {
-      if (t < cx - .3) blasted = false;
-      else if (playing && !blasted && t >= cx - .05 && t < cx + .8 && OPT.light !== false) { blasted = true; blast(penOf(want).cols); if (venueOn && venue && venue.fire) venue.fire(); }
-    }
-    // 「交給觀眾」：沉浸模式播到大合唱的句子，舞台螢幕退暗、字幕和手燈海亮起來
-    const cl = isImmersive && playing && LINES.length ? lineAt(t) : -1;
-    const crowd = cl >= 0 && LINES[cl].acts.includes("sing");
-    if (crowd !== crowdOn) { crowdOn = crowd; document.body.classList.toggle("imm-crowd", crowd); }
-    const prevMs = lastMs || ms;
-    if (OPT.light !== false) {
-      if (playing) stageT += Math.min(.1, (ms - lastMs) / 1000);
-      lastMs = ms;
-      // 每拍亮一下再退，小節第一拍最亮；這首沒有拍點資料時，改在每句歌詞開頭亮
-      const li = lineAt(t), l = LINES[li], b = beatAt(t);
-      let hit = 0, beat = Math.max(0, li);
-      if (playing && !reduce && b) { hit = beatPulse(b) * (b.down ? 1 : .5); beat = Math.max(0, Math.floor(b.k / 4)); }
-      else if (playing && !reduce && l) hit = Math.exp(-(t - l.t) / .4) * (l.acts.length ? 1 : .65);
-      const energy = playing && cue ? (cue.listen ? .2 : cue.beat ? 1 : .45) : .4;
-      if (isImmersive && ambientMesh) {
-        const bh = (playing && !reduce) ? hit.toFixed(3) : "0";
-        ambientMesh.style.setProperty("--beat-hit", bh);
-        songV.style.setProperty("--beat-hit", bh);
+    frameId = 0;
+    let keepRunning = true;
+    try {
+      const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
+      clicks(t, playing);
+      lampFrame(t, playing);
+      quizFrame(t);
+      // 歌曲頁燈光換成這首的螢光棒顏色，回首頁換回藍白
+      const want = S && !songV.hidden ? S : null;
+      if (want !== penSong) { penSong = want; bg.pen(want && penOf(want).cols); idleDrawn = false; blasted = false; }
+      // 播到副歌高潮噴一次彩帶；倒回高潮前再播到會再噴（Live 版時間軸不同，不套用 MV 的 CLIMAX）
+      const cx = want && currentVideoSource(want) !== "live" ? CLIMAX[want.id] : null;
+      if (cx != null) {
+        if (t < cx - .3) blasted = false;
+        else if (playing && !blasted && t >= cx - .05 && t < cx + .8 && OPT.light !== false) { blasted = true; blast(penOf(want).cols); if (venueOn && venue && venue.fire) venue.fire(); }
       }
-      // 沉浸模式的手燈海比較高；大合唱時整片舉起來
-      const raiseTo = isImmersive ? (crowd ? 1 : .35) : 0;
-      if (Math.abs(bg.raise - raiseTo) > .005) { bg.raise += (raiseTo - bg.raise) * Math.min(1, (ms - prevMs) / 1000 * 2.4); idleDrawn = false; }
-      // 3D 場館載好了就由它畫，2D 畫布休息
-      const useVenue = isImmersive && !!venue;
-      if (useVenue !== venueOn) { venueOn = useVenue; document.body.classList.toggle("has-venue", useVenue); idleDrawn = false; if (useVenue) venueLayout(); }
-      if (useVenue) {
-        const ease = Math.min(1, (ms - prevMs) / 1000 * 2.2), look = lampLook(t);
-        // 拍手：手燈放到胸前不擺，跟著拍子一開一合（反拍拍手只在第 2、4 拍合）；跳躍：全場跟著拍子彈
-        const offb = !!(cue && isOffbeat(cue.name)), clapOn = playing && (look.cue === "clap" || offb), jumpOn = playing && look.cue === "jump";
-        venueRaise += ((crowd ? 1 : 0) - venueRaise) * ease;
-        venueClap += ((clapOn ? 1 : 0) - venueClap) * ease * 1.5;
-        venueJump += ((jumpOn ? .16 : 0) - venueJump) * ease;
-        // 兩手合起來的程度：拍點上是 1、兩拍中間張最開，用 cos 讓開合是平順的來回，不是一下彈回去
-        // 反拍拍手只拍第 2、4 拍，所以開合週期拉長成兩拍
-        const clapPulse = clapOn ? (b ? .5 + .5 * Math.cos(2 * Math.PI * (offb ? (b.x - 1) / 2 : b.x)) : hit) : 0;
-        venue.render({ t: ms / 1000, swing: b ? b.x : ms / 1000 * (playing ? 1.6 : .35), amp: playing ? (look.cue === "listen" && !crowd ? .14 : .42) : .08,
-          hit: playing && !reduce ? hit : 0, raise: venueRaise, px: pointer.x, py: pointer.y, still: false,
-          colIdx: look.idx, bright: look.bright, clap: venueClap, clapPulse, jump: venueJump });
-      } else if (playing || !idleDrawn) { bg(stageT, playing ? Math.max(energy, crowd ? .9 : 0) : energy, hit, cue && cue.listen && !crowd, playing, beat); idleDrawn = !playing && Math.abs(bg.raise - raiseTo) <= .005; }
-    } else {
-      lastMs = ms;
-      if (venueOn) { venueOn = false; document.body.classList.remove("has-venue"); }
-      if (!idleDrawn) {
-        const cv = document.getElementById("fx");
-        if (cv) {
-          const ctx = cv.getContext("2d");
-          if (ctx) ctx.clearRect(0, 0, cv.width, cv.height);
+      // 「交給觀眾」：沉浸模式播到大合唱的句子，舞台螢幕退暗、字幕和手燈海亮起來
+      const cl = isImmersive && playing && LINES.length ? lineAt(t) : -1;
+      const crowd = cl >= 0 && LINES[cl].acts.includes("sing");
+      if (crowd !== crowdOn) { crowdOn = crowd; document.body.classList.toggle("imm-crowd", crowd); }
+      const prevMs = lastMs || ms;
+      const dt = Math.min(.1, Math.max(.001, (ms - prevMs) / 1000));
+      if (OPT.light !== false) {
+        if (playing) stageT += dt;
+        lastMs = ms;
+        // 每拍亮一下再退，小節第一拍最亮；這首沒有拍點資料時，改在每句歌詞開頭亮
+        const li = lineAt(t), l = LINES[li], b = beatAt(t);
+        let hit = 0, beat = Math.max(0, li);
+        if (playing && !reduce && b) { hit = beatPulse(b) * (b.down ? 1 : .5); beat = Math.max(0, Math.floor(b.k / 4)); }
+        else if (playing && !reduce && l) hit = Math.exp(-(t - l.t) / .4) * (l.acts.length ? 1 : .65);
+        const energy = playing && cue ? (cue.listen ? .2 : cue.beat ? 1 : .45) : .4;
+        if (isImmersive) {
+          const bh = (playing && !reduce) ? hit.toFixed(3) : "0";
+          if (ambientMesh) ambientMesh.style.setProperty("--beat-hit", bh);
+          if (mvEl) mvEl.style.setProperty("--beat-hit", bh);
         }
-        if (ambientMesh) ambientMesh.style.setProperty("--beat-hit", "0");
-        idleDrawn = true;
+        // 沉浸模式的手燈海比較高；大合唱時整片舉起來
+        const raiseTo = isImmersive ? (crowd ? 1 : .35) : 0;
+        if (Math.abs(bg.raise - raiseTo) > .005) { bg.raise += (raiseTo - bg.raise) * Math.min(1, dt * 2.4); idleDrawn = false; }
+        // 3D 場館載好了就由它畫，2D 畫布休息
+        const useVenue = isImmersive && !!venue;
+        if (useVenue !== venueOn) { venueOn = useVenue; document.body.classList.toggle("has-venue", useVenue); idleDrawn = false; if (useVenue) venueLayout(); }
+        if (useVenue) {
+          const ease = Math.min(1, dt * 2.2), look = lampLook(t);
+          // 拍手：手燈放到胸前不擺，跟著拍子一開一合（反拍拍手只在第 2、4 拍合）；跳躍：全場跟著拍子彈
+          const offb = !!(cue && isOffbeat(cue.name)), clapOn = playing && (look.cue === "clap" || offb), jumpOn = playing && look.cue === "jump";
+          venueRaise += ((crowd ? 1 : 0) - venueRaise) * ease;
+          venueClap += ((clapOn ? 1 : 0) - venueClap) * Math.min(1, ease * 1.5);
+          venueJump += ((jumpOn ? .16 : 0) - venueJump) * ease;
+          // 兩手合起來的程度：拍點上是 1、兩拍中間張最開，用 cos 讓開合是平順的來回，不是一下彈回去
+          // 反拍拍手只拍第 2、4 拍，所以開合週期拉長成兩拍
+          const clapPulse = clapOn ? (b ? .5 + .5 * Math.cos(2 * Math.PI * (offb ? (b.x - 1) / 2 : b.x)) : hit) : 0;
+          venue.render({ t: ms / 1000, swing: b ? b.x : ms / 1000 * (playing ? 1.6 : .35), amp: playing ? (look.cue === "listen" && !crowd ? .14 : .42) : .08,
+            hit: playing && !reduce ? hit : 0, raise: venueRaise, px: pointer.x, py: pointer.y, still: reduce,
+            colIdx: look.idx, bright: look.bright, clap: venueClap, clapPulse, jump: venueJump });
+        } else if (playing || !idleDrawn) { bg(stageT, playing ? Math.max(energy, crowd ? .9 : 0) : energy, hit, cue && cue.listen && !crowd, playing, beat, dt); idleDrawn = !playing && Math.abs(bg.raise - raiseTo) <= .005; }
+      } else {
+        lastMs = ms;
+        if (venueOn) { venueOn = false; document.body.classList.remove("has-venue"); }
+        if (!idleDrawn) {
+          const cv = document.getElementById("fx");
+          if (cv) {
+            const ctx = cv.getContext("2d");
+            if (ctx) ctx.clearRect(0, 0, cv.width, cv.height);
+          }
+          if (ambientMesh) ambientMesh.style.setProperty("--beat-hit", "0");
+          if (mvEl) mvEl.style.setProperty("--beat-hit", "0");
+          idleDrawn = true;
+        }
+      }
+      updatePip();
+      keepRunning = !songV.hidden || !idleDrawn;
+    } catch (err) {
+      console.error(err);
+      keepRunning = !songV.hidden;
+    } finally {
+      if (keepRunning && !frameId) {
+        frameId = requestAnimationFrame(frame);
       }
     }
-    updatePip();
-    requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
+  ensureFrame();
 })();

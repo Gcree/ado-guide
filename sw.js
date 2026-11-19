@@ -1,13 +1,21 @@
 // 離線用的 Service Worker：建置時 scripts/build.mjs 把 VERSION 和 PRECACHE（先存起來的檔案）填進來
 // 網頁（HTML）先問網路，沒網路才用存起來的；同網站帶 ?v= 版本號的檔案內容不會變，先用存起來的；字型存在另一格，換版也不用重抓
 // MV 是 YouTube 的，離線時播不了；歌詞和應援重點照樣能看
-const VERSION = "__VERSION__", PRECACHE = __PRECACHE__;
+const VERSION = "__VERSION__", CORE_PRECACHE = __PRECACHE__, LYRICS_PRECACHE = __LYRICS_PRECACHE__;
 const CACHE = `ado-${VERSION}`, FONTS = "ado-fonts";
 const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com", "font.emtech.cc"];
 const SCOPE = self.registration.scope;
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE);
+    await c.addAll(CORE_PRECACHE);
+    for (let i = 0; i < LYRICS_PRECACHE.length; i += 16) {
+      const batch = LYRICS_PRECACHE.slice(i, i + 16);
+      await Promise.allSettled(batch.map(url => c.add(url)));
+    }
+    await self.skipWaiting();
+  })());
 });
 // 新版接手後把舊版存的刪掉（字型那格留著）
 self.addEventListener("activate", e => {
@@ -36,7 +44,7 @@ async function cacheFirst(req, name) {
 async function fontCache(req, e) {
   const cache = await caches.open(FONTS), hit = await cache.match(req);
   const fresh = fetch(req).then(res => {
-    if (res.ok || res.type === "opaque") return cache.put(req, res.clone()).then(() => res);
+    if (res.ok || (!hit && res.type === "opaque")) return cache.put(req, res.clone()).then(() => res);
     return res;
   });
   if (!hit) return fresh;
@@ -64,8 +72,14 @@ async function page(req, url) {
     const hit = await caches.match(req, { ignoreSearch: true });
     if (hit) return hit;
     // 沒打開過的歌曲頁：改開同語言首頁的 #歌曲，網頁會照網址開那首（歌詞都先存好了）
-    const m = url.href.startsWith(SCOPE) && url.href.slice(SCOPE.length).match(/^((?:en|jp)\/)?song\/([^/?#]+)/);
+    const rel = url.href.startsWith(SCOPE) ? url.href.slice(SCOPE.length) : "";
+    const m = rel.match(/^((?:en|jp)\/)?song\/([^/?#]+)/);
     if (m) return Response.redirect(`${SCOPE}${m[1] || ""}#${m[2]}`, 302);
+    const langMatch = rel.match(/^(en|jp)(?:\/|$)/);
+    if (langMatch) {
+      const langHome = await caches.match(`${SCOPE}${langMatch[1]}/`);
+      if (langHome) return langHome;
+    }
     const home = await caches.match(SCOPE);
     if (home) return home;
     throw err;
