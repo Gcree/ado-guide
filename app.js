@@ -1298,10 +1298,10 @@
     lastTrackPct = -1;
     queueMicrotask(() => { trackSig = null; upHtml = ""; fitCueMore(); });
     box.innerHTML = "";
-    if (!lyHave(S) && !lyFailed) { box.innerHTML = `<div class="empty is-loading"><span class="spinner" aria-hidden="true"></span><span>${T("正在載入歌詞…")}</span></div>`; legend.innerHTML = ""; SING = []; singJump.hidden = true; return; }
+    if (!lyHave(S) && !lyFailed) { box.innerHTML = `<div class="empty is-loading"><span class="spinner" aria-hidden="true"></span><span>${T("正在載入歌詞…")}</span></div>`; legend.innerHTML = ""; legend.hidden = true; SING = []; singJump.hidden = true; return; }
     if (!LINES.length) {
       box.innerHTML = `<div class="empty"><b>${T("這首還沒有逐行時間軸")}</b>${S.tips.length ? `<ul class="summary">${S.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul><span>${T("先邊看 MV 邊照上面的重點練。")}</span>` : `<span>${T("應援還在整理，先看 MV 熟悉旋律，副歌跟著現場氣氛就好。")}</span>`}<span>${T('歌詞請看<a href="{0}" target="_blank" rel="noopener">歌ネット的正版歌詞頁</a>。', S.ut)}</span></div>`;
-      legend.innerHTML = ""; SING = []; singJump.hidden = true; sc.scrollTop = 0; padEnd(); return;
+      legend.innerHTML = ""; legend.hidden = true; SING = []; singJump.hidden = true; sc.scrollTop = 0; padEnd(); return;
     }
     LINES.forEach((l, i) => {
       const el = document.createElement("div");
@@ -1328,7 +1328,9 @@
     curLine = -1; box.classList.remove("has-now");
     const used = new Set(LINES.flatMap(l => l.acts));
     focusAct = "";
-    legend.innerHTML = Object.keys(ACT).filter(a => used.has(a)).map(a => `<button class="a-${a}" data-act="${a}" aria-pressed="false" title="${esc(T("只亮出要{0}的句子", ACT[a].name))}"><i></i>${ACT[a].name}</button>`).join("");
+    const legendActs = Object.keys(ACT).filter(a => used.has(a));
+    legend.innerHTML = legendActs.map(a => `<button class="a-${a}" data-act="${a}" aria-pressed="false" title="${esc(T("只亮出要{0}的句子", ACT[a].name))}"><i></i>${ACT[a].name}</button>`).join("");
+    legend.hidden = legendActs.length === 0;
     SING = LINES.filter((l, i) => l.acts.includes("sing") && !(i && LINES[i - 1].acts.includes("sing"))).map(l => l.t);
     singJump.hidden = !SING.length;
     sc.scrollTop = 0; holdUntil = 0; padEnd();
