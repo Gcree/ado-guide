@@ -615,7 +615,13 @@
       "合輯《PALETTE4》收錄曲（獅子志司 feat. Ado）": "Featured on the compilation “PALETTE4” (Shishi Shishi feat. Ado)",
       "jon-YAKITORY feat. Ado 合作曲": "Collaboration track by jon-YAKITORY feat. Ado",
       "くじら feat. Ado 合作曲": "Collaboration track by Kujira feat. Ado",
-      "《LoveLive!》15 週年致敬專輯翻唱曲": "Cover track from the “Love Live!” 15th anniversary tribute album"
+      "《LoveLive!》15 週年致敬專輯翻唱曲": "Cover track from the “Love Live!” 15th anniversary tribute album",
+      "原創曲": "Originals",
+      "Ado 原創歌曲": "Ado's original songs",
+      "合作曲": "Collabs",
+      "跨界合作與合唱歌曲": "Featured & collaborative songs",
+      "合作": "Collab",
+      "現場": "Live"
     },
     ja: {
       "Ado 應援指南": "Ado 応援ガイド",
@@ -1227,7 +1233,13 @@
       "合輯《PALETTE4》收錄曲（獅子志司 feat. Ado）": "コンピレーション『PALETTE4』収録曲（獅子志司 feat. Ado）",
       "jon-YAKITORY feat. Ado 合作曲": "jon-YAKITORY feat. Ado コラボ楽曲",
       "くじら feat. Ado 合作曲": "くじら feat. Ado コラボ楽曲",
-      "《LoveLive!》15 週年致敬專輯翻唱曲": "『ラブライブ！』15周年トリビュートアルバム カバー曲"
+      "《LoveLive!》15 週年致敬專輯翻唱曲": "『ラブライブ！』15周年トリビュートアルバム カバー曲",
+      "原創曲": "オリジナル",
+      "Ado 原創歌曲": "Adoのオリジナル曲",
+      "合作曲": "コラボ",
+      "跨界合作與合唱歌曲": "コラボ・フィーチャリング・合唱曲",
+      "合作": "コラボ",
+      "現場": "ライブ"
     }
   };
 });

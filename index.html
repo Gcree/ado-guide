@@ -231,11 +231,13 @@
           <button type="button" class="text-btn" id="sortBtn" aria-label="排序：推出順序（點一下切換）"><span id="sortLabel">推出順序</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
         </div>
         <div class="chips" role="group" aria-label="篩選">
-          <button type="button" class="chip" data-f="all" aria-pressed="true"><span>全部</span></button>
+          <button type="button" class="chip" data-f="original" aria-pressed="true" title="Ado 原創歌曲"><span>原創曲</span></button>
+          <button type="button" class="chip" data-f="collab" aria-pressed="false" title="跨界合作與合唱歌曲"><span>合作曲</span></button>
+          <button type="button" class="chip" data-f="cover" aria-pressed="false" title="Ado 翻唱曲"><span>翻唱</span></button>
+          <button type="button" class="chip" data-f="live" aria-pressed="false" title="全部有現場版本（影片或音源）的歌"><span>現場</span></button>
           <button type="button" class="chip" data-f="frequent" aria-pressed="false" title="依歷年演出頻率與應援型態整理的三層常唱曲"><span>常唱精選</span></button>
           <button type="button" class="chip" data-f="cheer" aria-pressed="false" title="粉絲整理過固定應援的歌"><span>有應援</span></button>
-          <button type="button" class="chip" data-f="live" aria-pressed="false" title="全部有現場版本（影片或音源）的歌"><span>有現場版</span></button>
-          <button type="button" class="chip" data-f="cover" aria-pressed="false" title="Ado 翻唱曲"><span>翻唱</span></button>
+          <button type="button" class="chip" data-f="all" aria-pressed="false" title="全部歌曲"><span>全部</span></button>
           <button type="button" class="chip" data-f="setlist" aria-pressed="false"><span>待練清單 <b class="cnt" id="cntSetlist">0</b></span></button>
         </div>
         <div class="sub-chips" id="freqSubFilter" hidden role="group" aria-label="常唱分層">

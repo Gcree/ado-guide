@@ -190,16 +190,16 @@
   const LIMIT = 12, STEP = 12;
   // 列到第幾首記在這個分頁裡：重新整理、或從別頁按上一頁回來，清單長度不變，瀏覽器才捲得回原位
   const shownKey = "list-shown", session = { get: k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} } };
-  let filter = "all", sort = store.get("list-sort") === "cheer" ? "cheer" : "date", shown = Math.max(LIMIT, +session.get(shownKey) || 0);
+  let filter = "original", sort = store.get("list-sort") === "cheer" ? "cheer" : "date", shown = Math.max(LIMIT, +session.get(shownKey) || 0);
   // 目前排序下的歌曲順序；切換上一首、下一首也照這個
   const ordered = () => sort === "cheer" ? [...SONGS].sort((a, b) => b.cheer - a.cheer || a.no - b.no) : SONGS;
   const thumb = (s, w, h, lazy) => s.yt
     ? `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`
     : `<span class="thumb thumb-ph" aria-hidden="true"><span>${esc(s.upcoming ? T("預留曲目") : T("尚無 MV"))}</span></span>`;
   // 歌名下面那行：中文名（和日文一樣時用英文名）、是不是翻唱
-  // 歌名下面那行：中文版放官方中文名，英文版放英文名，日文版不放；翻唱曲加註
+  // 歌名下面那行：中文版放官方中文名，英文版放英文名，日文版不放；翻唱／合作曲加註
   const otherName = s => (LANG === "ja" ? "" : LANG === "en" ? (s.en && s.en !== s.ja ? s.en : "") : (s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : "")));
-  const subOf = s => [otherName(s), s.cover ? T("翻唱") : "", s.upcoming ? T("即將發行") : ""].filter(Boolean).join("・");
+  const subOf = s => [otherName(s), s.cover ? T("翻唱") : (s.collab ? T("合作") : ""), s.upcoming ? T("即將發行") : ""].filter(Boolean).join("・");
   const actIcons = s => s.acts.filter(a => a !== "listen").map(icon).join("");
 
   const hasLiveVideo = s => Boolean(s.liveVideo || (s.live && s.yt));
@@ -389,7 +389,7 @@
   function syncListPaging() {
     const items = list.children, total = items.length;
     for (let i = 0; i < total; i++) items[i].hidden = i >= shown;
-    const plain = !q.value.trim() && filter === "all";
+    const plain = !q.value.trim() && (filter === "original" || filter === "all");
     const shownCount = Math.min(shown, total);
     const rest = Math.max(0, total - shownCount);
     if (plain) session.set(shownKey, shown);
@@ -419,6 +419,8 @@
     } else {
       rows = ordered().filter(s => {
         if (!matchesTerm(s)) return false;
+        if (filter === "original") return !s.cover && !s.collab;
+        if (filter === "collab") return !!s.collab;
         if (filter === "frequent") {
           const tier = FREQ_TIER.get(s.id);
           return !!tier && (freqSub === "all" || String(tier) === freqSub);
@@ -436,10 +438,10 @@
     }
     const quizBest = loadQuizBest(store), mySet = new Set(mySetlist);
     list.innerHTML = rows.map(s => rowHtml(s, quizBest, mySet)).join("");
-    const plain = !term && filter === "all", total = rows.length;
+    const plain = !term && (filter === "original" || filter === "all"), total = rows.length;
     list.classList.remove("collapsed");
     syncListPaging();
-    countEl.textContent = plain ? T("{0} 首", SONGS.length) : T("{0} 首符合", total);
+    countEl.textContent = plain ? T("{0} 首", total) : T("{0} 首符合", total);
     emptyEl.hidden = total > 0;
     if (!total) {
       emptyEl.textContent = term
@@ -519,7 +521,7 @@
   if (setlistExitBtn) {
     setlistExitBtn.addEventListener("click", () => {
       sharedList = null;
-      if (!mySetlist.length) filter = "all";
+      if (!mySetlist.length) filter = "original";
       if (parseListHash(location.hash, VALID_SONG_IDS) !== null) history.replaceState(null, "", "#songs");
       syncFilterChips();
       syncSubFilters();
@@ -4147,7 +4149,7 @@
         sharedList = parsedList;
         filter = "setlist";
         shown = LIMIT;
-      } else if (routeFilter && ["all", "frequent", "cheer", "live", "cover", "setlist"].includes(routeFilter)) {
+      } else if (routeFilter && ["original", "collab", "all", "frequent", "cheer", "live", "cover", "setlist"].includes(routeFilter)) {
         sharedList = null;
         filter = routeFilter;
         shown = LIMIT;
@@ -4155,7 +4157,7 @@
         if (filter === "frequent") freqSub = "all";
       } else if (wasSong && sharedList && !h) {
         sharedList = null;
-        if (filter === "setlist" && !mySetlist.length) filter = "all";
+        if (filter === "setlist" && !mySetlist.length) filter = "original";
       }
       ensureHomeReady();
       closeSheets();
