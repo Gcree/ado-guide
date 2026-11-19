@@ -21,10 +21,9 @@
 
   const str = v => JSON.stringify(v);
   const val = v => (Array.isArray(v) ? `[${v.map(str).join(", ")}]` : str(v));
+  const escRe = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   // 一行物件的排版：{ id: "x", ja: "…", acts: ["a", "b"], cover: true  }
   const objLine = (o, close = "  }") => `{ ${Object.entries(o).map(([k, v]) => `${k}: ${val(v)}`).join(", ")}${close}`;
-  // 一行對照表的排版：{ a: "x", b: 1.5 }
-  const mapLine = o => `{ ${Object.entries(o).map(([k, v]) => `${k}: ${val(v)}`).join(", ")} }`;
 
   const splitLines = raw => ({ crlf: raw.includes("\r\n"), lines: raw.replace(/\r\n/g, "\n").split("\n") });
   const joinLines = (p, lines) => (p.crlf ? lines.join("\n").replace(/\n/g, "\r\n") : lines.join("\n"));
@@ -35,6 +34,8 @@
     if (i < 0) throw new Error(`songs.js 裡找不到一行寫完的 const ${name} = {…};`);
     return i;
   }
+
+  const mapLine = o => `{ ${Object.entries(o).map(([k, v]) => `${k}: ${val(v)}`).join(", ")} }`;
 
   // ── 讀取：這首歌目前的資料 ──
   function readMeta(songsSrc, i18nSrc, id) {
@@ -61,19 +62,22 @@
   function validate(meta) {
     const errors = [], warnings = [];
     if (!STATUSES.includes(meta.status)) errors.push(`不認得的狀態「${meta.status}」`);
-    meta.acts.forEach(a => { if (!VALID_ACTS.includes(a)) errors.push(`不認得的應援動作「${a}」`); });
-    const tips = meta.tips.filter(t => t.zh.trim());
+    if (!Array.isArray(meta.acts)) errors.push("應援動作必須是陣列");
+    else meta.acts.forEach(a => { if (!VALID_ACTS.includes(a)) errors.push(`不認得的應援動作「${a}」`); });
+    const tips = (meta.tips || []).filter(t => (t.zh || "").trim());
     if (!meta.status && !tips.length) errors.push("狀態是「正式」時至少要有一條應援重點（或把狀態改成自由、整理中）");
-    [...meta.pen].forEach(c => { if (!PEN_KEYS.includes(c)) errors.push(`手燈色有不認得的顏色「${c}」`); });
-    if (new Set(meta.pen).size !== meta.pen.length) errors.push("手燈色有重複的顏色");
-    const dur = typeof meta.len === "string" ? meta.len.split(":").reduce((a, b) => a * 60 + +b, 0) : NaN;
-    if (meta.climax != null && !(typeof meta.climax === "number" && meta.climax > 0 && !(meta.climax > dur))) errors.push(`副歌高潮 ${meta.climax} 秒無效或超出 MV 長度（${meta.len}）`);
+    [...(meta.pen || "")].forEach(c => { if (!PEN_KEYS.includes(c)) errors.push(`手燈色有不認得的顏色「${c}」`); });
+    if (new Set(meta.pen || "").size !== (meta.pen || "").length) errors.push("手燈色有重複的顏色");
+    const dur = typeof meta.len === "string" && /^\d+:\d+$/.test(meta.len) ? meta.len.split(":").reduce((a, b) => a * 60 + +b, 0) : NaN;
+    if (meta.climax != null && !(typeof meta.climax === "number" && Number.isFinite(meta.climax) && meta.climax > 0 && Number.isFinite(dur) && meta.climax < dur)) {
+      errors.push(`副歌高潮 ${meta.climax} 秒無效或超出 MV 長度（${meta.len}）`);
+    }
     if (meta.liveVideo) {
       if (!/^[\w-]{11}$/.test(meta.liveVideo.yt || "")) errors.push(`LIVE 映像的 YouTube ID 要是 11 碼（${meta.liveVideo.yt}）`);
       if (!(meta.liveVideo.concert || "").trim()) errors.push("LIVE 映像要填演唱會名稱");
     }
     if (meta.status && meta.status !== "free") warnings.push(`狀態是「${STATUS_NAME[meta.status]}」，網站上不會顯示應援重點、動作和手燈色`);
-    tips.forEach(t => { if (!t.en.trim() || !t.ja.trim()) warnings.push(`「${t.zh}」沒有${!t.en.trim() && !t.ja.trim() ? "英、日" : !t.en.trim() ? "英文" : "日文"}翻譯，那個語言的網頁會顯示中文`); });
+    tips.forEach(t => { if (!(t.en || "").trim() || !(t.ja || "").trim()) warnings.push(`「${t.zh}」沒有${!(t.en || "").trim() && !(t.ja || "").trim() ? "英、日" : !(t.en || "").trim() ? "英文" : "日文"}翻譯，那個語言的網頁會顯示中文`); });
     return { errors, warnings };
   }
 
@@ -88,7 +92,7 @@
     if (si < 0) throw new Error(`songs.js 裡找不到 ${id} 那一行`);
     // 只讀這一行本身（songs.js 執行時會替每首歌補上 credit、lives 等欄位，原檔裡沒有）
     const trail = lines[si].endsWith(",") ? "," : "";
-    const song = new Function(`return (${lines[si].trim().replace(/,$/, "")});`)();
+    const song = new Function(`return (${lines[si].trim().replace(/,$/, () => "")});`)();
     const close = /  },?$/.test(lines[si]) ? "  }" : " }";
     if (`    ${objLine(song, close)}${trail}` !== lines[si]) throw new Error(`songs.js 裡 ${id} 那一行的排版跟預期不同，為了不改壞，沒有寫入`);
     const next = {};
@@ -99,8 +103,8 @@
       next[k] = v;
       if (k === "len") {
         // 原本就有的欄位（即使是空陣列）照樣留著
-        if (meta.acts.length || "acts" in song) next.acts = meta.acts.slice();
-        if (tips.length || "tips" in song) next.tips = tips;
+        if (meta.acts.length || Object.hasOwn(song, "acts")) next.acts = meta.acts.slice();
+        if (tips.length || Object.hasOwn(song, "tips")) next.tips = tips;
       }
     }
     // 狀態放在 tips（或 claps）後面、cover 等標記前面，跟原本的寫法一樣
@@ -121,53 +125,51 @@
       lines[si] = newLine;
     }
 
-    // 2. 一行對照表：PEN、CLIMAX
-    // 只換掉這首歌那一項（其他項原樣保留，連 154.0 這種寫法都不動）；沒有就加在最後，清空就拿掉
-    const setMap = (name, value, label) => {
-      const i = findMapLine(lines, name), line = lines[i];
-      const re = new RegExp(`(\\{ |, )${id}: ("[^"]*"|-?[\\d.]+)(?=, | \\})`);
-      const m = line.match(re), has = id in data[name];
-      if (has !== !!m) throw new Error(`songs.js 的 ${name} 裡 ${id} 那一項的寫法跟預期不同，為了不改壞，沒有寫入`);
-      const empty = value == null || value === "";
-      if (m && !empty && JSON.parse(m[2]) === value) return;
-      if (!m && empty) return;
-      let nl;
-      if (m && empty) nl = m[1] === "{ " ? line.replace(new RegExp(`\\{ ${id}: ${m[2].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(, )?`), "{ ") : line.replace(m[0], "");
-      else if (m) nl = line.replace(m[0], `${m[1]}${id}: ${str(value)}`);
-      else nl = line.replace(/ \};$/, `${Object.keys(data[name]).length ? "," : ""} ${id}: ${str(value)} };`);
-      lines[i] = nl;
-      changes.push(label);
-    };
-    setMap("PEN", meta.pen ? (meta.penGuess ? "?" : "") + meta.pen : null, `手燈色：${meta.pen || "（不指定，網站顯示藍）"}`);
-    setMap("CLIMAX", meta.climax, `副歌高潮：${meta.climax == null ? "（不指定）" : meta.climax + " 秒"}`);
-
-    // 3. LIVE_VIDEOS（多行的表）：整段照原本的格式重排
+    // 2. LIVE_VIDEOS（多行的表）：整段照原本的格式重排
     {
       const a = lines.indexOf("  const LIVE_VIDEOS = {");
       const b = a < 0 ? -1 : lines.indexOf("  };", a);
       if (a < 0 || b < 0) throw new Error("songs.js 裡找不到 const LIVE_VIDEOS = { … };");
+      const isEntryLine = l => { const t = l.trim(); return t.length > 0 && !t.startsWith("//"); };
+      let lastIdx = -1;
+      for (let idx = b - 1; idx > a; idx--) if (isEntryLine(lines[idx])) { lastIdx = idx; break; }
       // 每一項一行：    id: { yt: "…", concert: "…" },（最後一項沒有逗號）
       const k = lines.slice(a + 1, b).findIndex(l => l.startsWith(`    ${id}: {`));
-      const has = id in data.LIVE_VIDEOS;
+      const has = Object.hasOwn(data.LIVE_VIDEOS, id);
       if (has !== k >= 0) throw new Error(`songs.js 的 LIVE_VIDEOS 裡 ${id} 那一項的寫法跟預期不同，為了不改壞，沒有寫入`);
       const lv = meta.liveVideo, old = data.LIVE_VIDEOS[id];
       const want = lv ? { ...(old || {}), yt: lv.yt, concert: lv.concert.trim() } : null;
       if (str(want) !== str(old || null)) {
         if (k >= 0) {
-          const j = a + 1 + k, last = j === b - 1;
+          const j = a + 1 + k, last = j === lastIdx;
           if (want) lines[j] = `    ${id}: ${mapLine(want)}${last ? "" : ","}`;
           else {
             lines.splice(j, 1);
-            if (last && j - 1 > a) lines[j - 1] = lines[j - 1].replace(/,$/, "");
+            if (last) {
+              let prev = j - 1;
+              while (prev > a && !isEntryLine(lines[prev])) prev--;
+              if (prev > a) lines[prev] = lines[prev].replace(/,$/, () => "");
+            }
           }
         } else {
-          if (b - 1 > a) lines[b - 1] = lines[b - 1].replace(/,?$/, ",");
-          lines.splice(b, 0, `    ${id}: ${mapLine(want)}`);
+          if (lastIdx > a) lines[lastIdx] = lines[lastIdx].replace(/,?$/, () => ",");
+          lines.splice(lastIdx > a ? lastIdx + 1 : b, 0, `    ${id}: ${mapLine(want)}`);
         }
         changes.push(lv ? `LIVE 映像：${lv.concert.trim()}（${lv.yt}）` : "LIVE 映像：移除");
       }
     }
-    const songsOut = joinLines(p, lines);
+    let songsOut = joinLines(p, lines);
+
+    // 3. 一行對照表：PEN、CLIMAX（共用 setMapEntry）
+    const setMap = (name, value, label) => {
+      const nextSrc = setMapEntry(songsOut, name, id, value);
+      if (nextSrc !== songsOut) {
+        songsOut = nextSrc;
+        changes.push(label);
+      }
+    };
+    setMap("PEN", meta.pen ? (meta.penGuess ? "?" : "") + meta.pen : null, `手燈色：${meta.pen || "（不指定，網站顯示藍）"}`);
+    setMap("CLIMAX", meta.climax, `副歌高潮：${meta.climax == null ? "（不指定）" : meta.climax + " 秒"}`);
 
     // 4. i18n.js：應援重點的英日翻譯（有填才寫；已有的 key 就換掉值）
     let i18nOut = i18nSrc;
@@ -178,7 +180,8 @@
         const start = il.indexOf(`    ${lang}: {`);
         if (start < 0) throw new Error(`i18n.js 裡找不到 ${lang}: {`);
         let end = start + 1;
-        while (end < il.length && !/^    }/.test(il[end])) end++;
+        while (end < il.length && !/^    }/.test(il[end]) && !/^    \w+:\s*\{/.test(il[end])) end++;
+        if (end >= il.length || !/^    }/.test(il[end])) throw new Error(`i18n.js 裡找不到 ${lang} 的結尾 }`);
         for (const t of meta.tips) {
           const zh = t.zh.trim(), tr = (t[lang] || "").trim();
           if (!zh || !tr || (dict[lang] || {})[zh] === tr) continue;
@@ -186,10 +189,12 @@
           const k = il.slice(start + 1, end).findIndex(l => l.startsWith(prefix));
           if (k >= 0) {
             const j = start + 1 + k;
-            il[j] = prefix + str(tr) + (il[j].endsWith(",") ? "," : "");
+            il[j] = prefix + str(tr) + (il[j].trimEnd().endsWith(",") ? "," : "");
           } else {
-            if (!il[end - 1].endsWith(",")) il[end - 1] += ",";
-            il.splice(end, 0, prefix + str(tr));
+            let last = end - 1;
+            while (last > start && (!il[last].trim() || il[last].trim().startsWith("//"))) last--;
+            if (last > start && !il[last].trimEnd().endsWith(",")) il[last] = il[last].replace(/\s*$/, () => ",");
+            il.splice(last + 1, 0, prefix + str(tr));
             end++;
           }
           n++;
@@ -203,7 +208,16 @@
 
     // 寫入前再讀一次確認
     const after = readMeta(songsOut, i18nOut, id);
-    if (after.status !== meta.status || str(after.acts) !== str(meta.acts) || after.pen !== meta.pen || after.climax !== meta.climax) {
+    const wantLv = meta.liveVideo ? { yt: meta.liveVideo.yt, concert: meta.liveVideo.concert.trim() } : null;
+    if (
+      after.status !== meta.status ||
+      str(after.acts) !== str(meta.acts) ||
+      after.pen !== meta.pen ||
+      after.penGuess !== Boolean(meta.pen && meta.penGuess) ||
+      after.climax !== meta.climax ||
+      str(after.tips.map(t => t.zh)) !== str(tips) ||
+      str(after.liveVideo) !== str(wantLv)
+    ) {
       throw new Error("songs.js 寫入後讀回來不一致，沒有寫入");
     }
     return { songs: songsOut, i18n: i18nOut, changes, songsChanged: songsOut !== songsSrc, i18nChanged: i18nOut !== i18nSrc };
@@ -213,19 +227,33 @@
   // 回傳新的 songs.js 內容；其他項一個字都不動
   function setMapEntry(songsSrc, name, id, value) {
     const data = evalUmd(songsSrc);
-    if (!(name in data)) throw new Error(`songs.js 沒有輸出 ${name}`);
+    if (!Object.hasOwn(data, name)) throw new Error(`songs.js 沒有輸出 ${name}`);
     const p = splitLines(songsSrc), lines = p.lines;
     const i = findMapLine(lines, name), line = lines[i];
-    const re = new RegExp(`(\\{ |, )${id}: ("[^"]*"|-?[\\d.]+|\\[[^\\]]*\\])(?=, | \\})`);
-    const m = line.match(re), has = id in data[name];
+    const eid = escRe(id);
+    const re = new RegExp(`(\\{ |, )${eid}: ("(?:[^"\\\\]|\\\\.)*"|-?[\\d.]+|\\[(?:[^\\]"]|"(?:[^"\\\\]|\\\\.)*")*\\])(?=, | \\})`);
+    const m = line.match(re), has = Object.hasOwn(data[name], id);
     if (has !== !!m) throw new Error(`songs.js 的 ${name} 裡 ${id} 那一項的寫法跟預期不同，為了不改壞，沒有寫入`);
     const empty = value == null || value === "";
     if (m && !empty && str(JSON.parse(m[2])) === str(value)) return songsSrc;
     if (!m && empty) return songsSrc;
     let nl;
-    if (m && empty) nl = m[1] === "{ " ? line.replace(`{ ${id}: ${m[2]}${line.includes(`{ ${id}: ${m[2]}, `) ? ", " : ""}`, "{ ") : line.replace(m[0], "");
-    else if (m) nl = line.replace(m[0], `${m[1]}${id}: ${val(value)}`);
-    else nl = line.replace(/ \};$/, `${Object.keys(data[name]).length ? "," : ""} ${id}: ${val(value)} };`);
+    if (m && empty) {
+      if (m[1] === "{ ") {
+        const afterKey = new RegExp(`\\{ ${eid}: ${escRe(m[2])}, `);
+        nl = afterKey.test(line)
+          ? line.replace(afterKey, () => "{ ")
+          : line.replace(new RegExp(`\\{ ${eid}: ${escRe(m[2])} \\}`), () => "{}");
+      } else {
+        nl = line.replace(re, () => "");
+      }
+    } else if (m) {
+      nl = line.replace(re, (_, pfx) => `${pfx}${id}: ${val(value)}`);
+    } else if (Object.keys(data[name]).length === 0) {
+      nl = line.replace(/\{\s*\};$/, () => `{ ${id}: ${val(value)} };`);
+    } else {
+      nl = line.replace(/ \};$/, () => `, ${id}: ${val(value)} };`);
+    }
     lines[i] = nl;
     const out = joinLines(p, lines);
     const after = evalUmd(out)[name];

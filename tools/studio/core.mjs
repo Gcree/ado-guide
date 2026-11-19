@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -11,8 +12,31 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const root = path.resolve(here, "../..");
+const STUDIO_PY = path.join(here, "py");
+export const WORK = path.join(here, "work");
 const LyricsStore = require(path.join(here, "lyrics-store.js"));
 const MetaStore = require(path.join(here, "song-meta-store.js"));
+
+export function assertSongId(id) {
+  if (typeof id !== "string" || !/^[a-z0-9]+$/.test(id)) {
+    throw new Error(`無效的歌曲 id「${id}」（只能用小寫英文和數字）`);
+  }
+  const workBase = path.resolve(WORK);
+  const resolved = path.resolve(workBase, id);
+  if (!resolved.startsWith(workBase + path.sep)) {
+    throw new Error(`無效的歌曲路徑：${id}`);
+  }
+  return id;
+}
+
+const lockCtx = new AsyncLocalStorage();
+let writeChain = Promise.resolve();
+export function withWriteLock(fn) {
+  if (lockCtx.getStore()) return Promise.resolve().then(fn);
+  const run = writeChain.then(() => lockCtx.run(true, fn));
+  writeChain = run.catch(() => {});
+  return run;
+}
 
 export const ACTS = LyricsStore.VALID_ACTS;
 export const PEN_KEYS = MetaStore.PEN_KEYS;
@@ -67,6 +91,7 @@ export function list(db = load(), { status } = {}) {
 }
 
 export function show(id, db = load()) {
+  assertSongId(id);
   const s = songOrThrow(db, id);
   const meta = MetaStore.readMeta(db.src["songs.js"], db.src["i18n.js"], id);
   const l = db.lyrics.find(x => x.id === id);
@@ -90,6 +115,7 @@ export function show(id, db = load()) {
 }
 
 export function lyrics(id, { live = false, from = 1, to } = {}, db = load()) {
+  assertSongId(id);
   songOrThrow(db, id);
   const e = lyricsEntry(db, id, live);
   return e.lyrics.map((l, i) => ({ n: i + 1, ...l })).filter(l => l.n >= from && (to == null || l.n <= to));
@@ -100,7 +126,7 @@ export function lyrics(id, { live = false, from = 1, to } = {}, db = load()) {
 
 function normStatus(v) {
   if (v == null) return v;
-  if (!(v in STATUS_ALIASES)) throw new Error(`狀態只能是 ok／sug／free／hold（收到 ${v}）`);
+  if (!Object.hasOwn(STATUS_ALIASES, v)) throw new Error(`狀態只能是 ok／sug／free／hold（收到 ${v}）`);
   return STATUS_ALIASES[v];
 }
 
@@ -113,6 +139,7 @@ function normActs(v) {
 
 // 歌曲資料：狀態、應援動作、應援重點、手燈、副歌高潮、LIVE 映像、BPM
 export function setMeta(id, opts, db = load()) {
+  assertSongId(id);
   songOrThrow(db, id);
   const cur = MetaStore.readMeta(db.src["songs.js"], db.src["i18n.js"], id);
   const m = { ...cur, tips: cur.tips.map(t => ({ ...t })) };
@@ -154,8 +181,8 @@ export function setMeta(id, opts, db = load()) {
 
 // 新增一首歌（整理中）：songs.js 加一行、song-lyrics.js 加一筆空歌詞
 export function addSong(o, db = load()) {
-  const yt = String(o.yt || "").match(/(?:v=|youtu\.be\/|\/embed\/|\/shorts\/|^)([\w-]{11})(?:[&?#]|$)/)?.[1];
-  if (!/^[a-z0-9]+$/.test(o.id || "")) throw new Error("id 只能用小寫英文和數字，例如 shinka");
+  const yt = youtubeId(o.yt);
+  assertSongId(o.id);
   if (!yt) throw new Error("--yt 要是 YouTube 網址或 11 碼 ID");
   if (!o.ja) throw new Error("要有 --ja（日文歌名）");
   if (!/^\d+:\d\d$/.test(o.len || "")) throw new Error("--len 要寫成 m:ss，例如 3:20");
@@ -176,6 +203,7 @@ export function addSong(o, db = load()) {
 
 // 改一首歌的歌詞：edits 是 [{ n, time?, by?, jp?, tr?, acts?, sing?, call?, how?, duration? }]，n 從 1 開始
 export function editLines(id, edits, { live = false } = {}, db = load()) {
+  assertSongId(id);
   const song = songOrThrow(db, id);
   const e = lyricsEntry(db, id, live);
   const changes = [];
@@ -199,6 +227,7 @@ export function editLines(id, edits, { live = false } = {}, db = load()) {
 
 // 整段平移：第 from 句到第 to 句都加 by 秒
 export function shiftLines(id, { from = 1, to, by, live = false }, db = load()) {
+  assertSongId(id);
   const e = lyricsEntry(db, id, live);
   const last = to ?? e.lyrics.length;
   const edits = [];
@@ -210,6 +239,7 @@ export function shiftLines(id, { from = 1, to, by, live = false }, db = load()) 
 
 // 整首換掉：lines 是 [{ time, jp, tr, acts?, sing?, call? }]，或「時間<Tab>日文<Tab>中文」的文字
 export function importLyrics(id, input, { live = false, keepActs = false } = {}, db = load()) {
+  assertSongId(id);
   const song = songOrThrow(db, id);
   // 現場版要先在工作站建好（選場次後「從 MV 複製歌詞」，需要演唱會名稱、影片），這裡只換歌詞
   const e = live ? lyricsEntry(db, id, true) : (() => { try { return lyricsEntry(db, id, false); } catch { return { id, title: song.ja, youtubeId: song.yt, duration: lenToSec(song.len), lyrics: [] }; } })();
@@ -262,10 +292,12 @@ function parseText(text, duration) {
   const lines = rows.map((row, i) => {
     if (untimed) {
       const [jp, tr = ""] = row.split("\t");
-      return { time: Math.round((1 + (i * (duration - 2)) / rows.length) * 100) / 100, jp: jp.trim(), tr: tr.trim() };
+      const span = Math.max(0, (Number.isFinite(duration) ? duration : 180) - 2);
+      return { time: Math.min(duration || 180, Math.round((1 + (i * span) / rows.length) * 100) / 100), jp: jp.trim(), tr: tr.trim() };
     }
     const [t, jp, tr = ""] = row.split("\t");
-    const time = /^\d+:\d/.test(t) ? t.split(":").reduce((a, b) => a * 60 + +b, 0) : parseFloat(t);
+    const tt = (t || "").trim();
+    const time = /^\d+:\d/.test(tt) ? tt.split(":").reduce((a, b) => a * 60 + +b, 0) : parseFloat(tt);
     if (!Number.isFinite(time) || jp == null) throw new Error(`第 ${i + 1} 行要寫成「時間<Tab>日文<Tab>中文」（或整首都不寫時間：「日文<Tab>中文」）：${row}`);
     return { time, jp: jp.trim(), tr: tr.trim() };
   });
@@ -317,9 +349,12 @@ export function commit(result, { dryRun = false } = {}) {
   const names = Object.keys(result.files || {});
   if (dryRun || !names.length) return { ...result, written: [] };
   for (const name of names) {
-    const file = path.join(root, name), tmp = `${file}.studio-tmp`;
+    const file = path.join(root, name);
+    const tmp = `${file}.${process.pid}.${crypto.randomBytes(6).toString("hex")}.studio-tmp`;
     fs.writeFileSync(tmp, result.files[name]);
-    try { fs.renameSync(tmp, file); } catch { fs.writeFileSync(file, result.files[name]); fs.rmSync(tmp, { force: true }); }
+    try { fs.renameSync(tmp, file); }
+    catch { fs.writeFileSync(file, result.files[name]); }
+    finally { try { fs.rmSync(tmp, { force: true }); } catch {} }
   }
   return { ...result, written: names };
 }
@@ -330,15 +365,23 @@ const BRANCH = PUBLISH_BRANCH;
 // 發布時會一起 commit 的路徑（其他檔案有改也不會被帶進去）
 export const PUBLISH_PATHS = ["songs.js", "i18n.js", "song-lyrics.js", "song-lyrics-live.js", "research", "CHANGELOG.md"];
 
+const activeChildren = new Set();
+export function cleanupChildren() {
+  for (const p of activeChildren) {
+    try { p.kill("SIGTERM"); } catch { try { p.kill(); } catch {} }
+  }
+}
+
 // 跑指令，回傳 { code, out }（stdout、stderr 合在一起，照順序）
 function run(cmd, cmdArgs, opts = {}) {
   return new Promise(resolve => {
     const p = spawn(cmd, cmdArgs, { cwd: root, env: { ...process.env, LANG: "C.UTF-8", GIT_TERMINAL_PROMPT: "0" }, windowsHide: true, ...opts });
+    activeChildren.add(p);
     let out = "";
     p.stdout.on("data", d => (out += d));
     p.stderr.on("data", d => (out += d));
-    p.on("error", e => resolve({ code: -1, out: out + e.message }));
-    p.on("close", code => resolve({ code, out: out.replace(/\s+$/, "") }));
+    p.on("error", e => { activeChildren.delete(p); resolve({ code: -1, out: out + e.message }); });
+    p.on("close", code => { activeChildren.delete(p); resolve({ code, out: out.replace(/\s+$/, "") }); });
   });
 }
 const git = (...a) => run("git", a);
@@ -377,26 +420,38 @@ export async function publish(message, { changelog } = {}) {
   const log = [];
   const step = (name, r) => { log.push({ name, ok: r.code === 0, out: r.out }); return r.code === 0; };
   const fail = error => ({ ok: false, error, log });
-  // 網站看得到的改動寫進更新日誌（同一天併進當天那一版）
-  if (changelog && String(changelog).trim()) {
-    const c = addChangelog(changelog);
-    commit(c);
-    log.push({ name: `更新日誌：${c.changes.join("、")}`, ok: true, out: "" });
-  }
 
   const { branch, changed, ahead } = await gitStatus();
   if (branch !== BRANCH) return fail(`目前在「${branch}」分支，工作站只從 ${BRANCH} 發布。請先切回 ${BRANCH}。`);
   if (!changed.length && !ahead) return fail("歌曲資料沒有變更，不用發布。");
+  if (ahead > 0) {
+    const diffRes = await git("diff", "--name-only", `origin/${BRANCH}..HEAD`);
+    if (diffRes.code === 0) {
+      const touched = diffRes.out.split(/\r?\n/).filter(Boolean);
+      const unrelated = touched.filter(f => !PUBLISH_PATHS.some(p => f === p || f.startsWith(`${p}/`)));
+      if (unrelated.length) {
+        return fail(`本機 ${BRANCH} 有尚未推上的 commit 改到工作站以外的檔案（${unrelated.slice(0, 5).join("、")}${unrelated.length > 5 ? "…" : ""}），為了不誤推，沒有發布。請先手動處理。`);
+      }
+    }
+  }
 
   const checks = await runChecks();
   checks.steps.forEach(s => log.push(s));
   if (!checks.ok) return fail("檢查沒過，沒有發布。請看下面的訊息修正後再試。");
 
+  // 網站看得到的改動寫進更新日誌（所有檢查都過了才寫，避免失敗留下髒檔案）
+  let filesToCommit = changed.map(c => c.file);
+  if (changelog && String(changelog).trim()) {
+    const c = addChangelog(changelog);
+    const w = commit(c);
+    log.push({ name: `更新日誌：${c.changes.join("、")}`, ok: true, out: "" });
+    if (w.written.length && !filesToCommit.includes("CHANGELOG.md")) filesToCommit.push("CHANGELOG.md");
+  }
+
   // 沒有新變更、只是上次沒推上去的話，直接跳到拉最新＋推
-  if (changed.length) {
-    const files = changed.map(c => c.file);
-    if (!step("加入變更", await git("add", "--", ...files))) return fail("git add 失敗");
-    if (!step("commit", await git("commit", "-m", message, "--", ...files))) return fail("commit 失敗");
+  if (filesToCommit.length) {
+    if (!step("加入變更", await git("add", "--", ...filesToCommit))) return fail("git add 失敗");
+    if (!step("commit", await git("commit", "-m", message, "--", ...filesToCommit))) return fail("commit 失敗");
   }
 
   if (!step("拉遠端最新", await git("pull", "--rebase", "--autostash", "origin", BRANCH))) {
@@ -428,8 +483,6 @@ export async function check() {
 
 // ── M1：從 YouTube 匯入新歌 ──
 // 只認頻道「上傳」的字幕（info.subtitles），不收 YouTube 自動產生／自動翻譯的（automatic_captions）
-const STUDIO_PY = path.join(here, "py");
-export const WORK = path.join(here, "work");
 const SUB_LANGS = { ja: ["ja", "ja-JP"], zh: ["zh-Hant", "zh-TW", "zh-HK"], zhHans: ["zh-Hans", "zh-CN", "zh"], en: ["en", "en-US", "en-GB"] };
 
 export function studioConfig() {
@@ -446,12 +499,13 @@ export function ytdlpCommand() {
 
 function runSplit(cmd, args, { onLog } = {}) {
   return new Promise(resolve => {
-    const p = spawn(cmd, args, { cwd: root, env: { ...process.env, PYTHONIOENCODING: "utf-8" }, windowsHide: true });
+    const p = spawn(cmd, args, { cwd: root, env: { ...process.env, PYTHONIOENCODING: "utf-8", PYTORCH_ENABLE_MPS_FALLBACK: "1" }, windowsHide: true });
+    activeChildren.add(p);
     let out = "", err = "";
     p.stdout.on("data", d => (out += d));
     p.stderr.on("data", d => { err += d; onLog?.(String(d)); });
-    p.on("error", e => resolve({ code: -1, out, err: err + e.message }));
-    p.on("close", code => resolve({ code, out, err }));
+    p.on("error", e => { activeChildren.delete(p); resolve({ code: -1, out, err: err + e.message }); });
+    p.on("close", code => { activeChildren.delete(p); resolve({ code, out, err }); });
   });
 }
 
@@ -536,12 +590,14 @@ export function lyricsFromSubs(ja, zh, duration) {
 }
 
 // 貼網址 → 新增一首「整理中」的歌：歌曲資料用影片資訊，歌詞用官方字幕（有的話），音訊存到 work/<id>/
-export async function fetchSong(url, o = {}, { dryRun = false, onLog = () => {} } = {}) {
+export async function fetchSong(url, o = {}, { dryRun = false, autoCommit = false, onLog = () => {} } = {}) {
   const vid = youtubeId(url);
   if (!vid) throw new Error("不是 YouTube 網址");
-  const db = load();
-  const dup = db.songs.SONGS.find(s => s.yt === vid);
+  if (o.id != null && o.id !== "") assertSongId(o.id);
+  const initialDb = load();
+  const dup = initialDb.songs.SONGS.find(s => s.yt === vid);
   if (dup) throw new Error(`這支影片已經在歌單裡了：〈${dup.ja}〉（${dup.id}）`);
+  if (o.id && initialDb.songs.SONGS.some(s => s.id === o.id)) throw new Error(`id「${o.id}」已經有人用了`);
   const link = `https://www.youtube.com/watch?v=${vid}`;
 
   onLog("讀取影片資訊…\n");
@@ -550,7 +606,8 @@ export async function fetchSong(url, o = {}, { dryRun = false, onLog = () => {} 
   const ja = o.ja || t.ja;
   const id = o.id || (/^[\x20-\x7e]+$/.test(ja) ? ja.toLowerCase().replace(/[^a-z0-9]/g, "") : "");
   if (!id) throw new Error(`歌名「${ja}」不是英文，請用 --id 指定網址用的英文 id（小寫英文和數字），例如 --id shinka`);
-  if (db.songs.SONGS.some(s => s.id === id)) throw new Error(`id「${id}」已經有人用了`);
+  assertSongId(id);
+  if (initialDb.songs.SONGS.some(s => s.id === id)) throw new Error(`id「${id}」已經有人用了`);
   const duration = Math.round(info.duration || 0);
   if (!duration) throw new Error("讀不到影片長度");
   const len = `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, "0")}`;
@@ -579,53 +636,69 @@ export async function fetchSong(url, o = {}, { dryRun = false, onLog = () => {} 
   let audio = null;
   if (!dryRun && !o.noAudio) {
     onLog("下載音訊…\n");
-    await ytdlp(["-f", "bestaudio", "-o", path.join(dir, "audio.%(ext)s"), link]);
+    await ytdlp(["-f", "bestaudio", "-o", path.join(dir, "audio.%(ext)s"), link], { onLog });
     audio = fs.readdirSync(dir).find(f => f.startsWith("audio.")) || null;
   }
 
-  // 歌曲＋歌詞（同一次寫入）
-  const add = addSong({ id, yt: vid, ja, zh: o.zh, en: o.en, ro: o.ro, len, date, cover: o.cover ?? t.cover }, db);
-  const changes = [...add.changes], warnings = [];
-  const files = { ...add.files };
-  let trFrom = [], builtLines = [];
-  if (cues.ja?.length) {
-    const built = lyricsFromSubs(cues.ja, cues.zh, duration);
-    builtLines = built.lines;
-    trFrom = built.trFrom;
-    const db2 = loadFrom({ ...db.src, ...files });
-    const imp = importLyrics(id, built.lines, {}, db2);
-    Object.assign(files, imp.files);
-    const nTr = trFrom.filter(Boolean).length, nJp = built.lines.filter(l => !/^（.*）$/.test(l.jp)).length;
-    changes.splice(changes.indexOf("song-lyrics.js 加一筆空歌詞"), 1, `歌詞：官方日文字幕 ${nJp} 句${cues.zh ? `，官方中文對上 ${nTr} 句` : ""}`);
-    if (!cues.zh) warnings.push(`沒有官方繁中字幕${cues.zhHans ? "（有簡中，可以參考）" : ""}：用「翻譯缺的中文」（命令列：translate ${id} --apply）交給 agy 翻，或自己補`);
-    else if (nTr < nJp) warnings.push(`有 ${nJp - nTr} 句沒對到官方中文`);
-  } else {
-    warnings.push(`沒有官方日文字幕：貼上歌詞（可以不寫時間）再自動對時（命令列：lyrics-import ${id} --file 歌詞.tsv --align）`);
-  }
-  if (t.extra.length) warnings.push(`標題裡的其他資訊（可以寫進「合作」）：${t.extra.join("、")}`);
-
-  // 有音訊就順便分析：新歌還沒有 BEAT／CLIMAX，直接填建議值（失敗不影響匯入）
+  // 有音訊就順便在鎖外先跑完慢速分析，再進 writeLock 合併最新歌單
+  let audioAnalysis = null, audioAnalysisErr = null;
   if (audio) {
-    try {
-      const a = await runAnalysis(id, { onLog });
+    try { audioAnalysis = await runAnalysis(id, { onLog }); }
+    catch (e) { audioAnalysisErr = e; }
+  }
+
+  return withWriteLock(async () => {
+    const db = load();
+    const freshDup = db.songs.SONGS.find(s => s.yt === vid);
+    if (freshDup) throw new Error(`這支影片已經在歌單裡了：〈${freshDup.ja}〉（${freshDup.id}）`);
+    if (db.songs.SONGS.some(s => s.id === id)) throw new Error(`id「${id}」已經有人用了`);
+
+    // 歌曲＋歌詞（同一次寫入）
+    const add = addSong({ id, yt: vid, ja, zh: o.zh, en: o.en, ro: o.ro, len, date, cover: o.cover ?? t.cover }, db);
+    const changes = [...add.changes], warnings = [];
+    const files = { ...add.files };
+    let trFrom = [], builtLines = [];
+    if (cues.ja?.length) {
+      const built = lyricsFromSubs(cues.ja, cues.zh, duration);
+      builtLines = built.lines;
+      trFrom = built.trFrom;
+      const db2 = loadFrom({ ...db.src, ...files });
+      const imp = importLyrics(id, built.lines, {}, db2);
+      Object.assign(files, imp.files);
+      const nTr = trFrom.filter(Boolean).length, nJp = built.lines.filter(l => !/^（.*）$/.test(l.jp)).length;
+      changes.splice(changes.indexOf("song-lyrics.js 加一筆空歌詞"), 1, `歌詞：官方日文字幕 ${nJp} 句${cues.zh ? `，官方中文對上 ${nTr} 句` : ""}`);
+      if (!cues.zh) warnings.push(`沒有官方繁中字幕${cues.zhHans ? "（有簡中，可以參考）" : ""}：用「翻譯缺的中文」（命令列：translate ${id} --apply）交給 agy 翻，或自己補`);
+      else if (nTr < nJp) warnings.push(`有 ${nJp - nTr} 句沒對到官方中文`);
+    } else {
+      warnings.push(`沒有官方日文字幕：貼上歌詞（可以不寫時間）再自動對時（命令列：lyrics-import ${id} --file 歌詞.tsv --align）`);
+    }
+    if (t.extra.length) warnings.push(`標題裡的其他資訊（可以寫進「合作」）：${t.extra.join("、")}`);
+
+    if (audioAnalysis) {
+      const a = audioAnalysis;
       const cc = pickClimax(builtLines.length ? lyricClimax(builtLines, duration) : [], a.climaxAudio);
       let src = files["songs.js"];
       src = MetaStore.setMapEntry(src, "BEAT", id, [a.bpm, a.firstBar, a.barKnown ? 1 : 0]);
-      if (cc[0] && cc[0].t > 0 && cc[0].t <= duration) src = MetaStore.setMapEntry(src, "CLIMAX", id, cc[0].t);
+      if (cc[0] && cc[0].t > 0 && cc[0].t < duration) src = MetaStore.setMapEntry(src, "CLIMAX", id, cc[0].t);
       files["songs.js"] = src;
       changes.push(`拍點：${a.bpm} BPM，第一小節 ${a.firstBar} 秒${a.barKnown ? "" : "（第一拍不確定）"}${cc[0] ? `；副歌高潮 ${fmtTime(cc[0].t)}（${cc[0].from}）` : ""}`);
       if (a.beat.octaveUncertain) warnings.push(`速度也可能是 ${a.beat.alternatives.map(x => x.bpm).join(" 或 ")}：到「歌曲資料」→ 分析音訊改選（命令列：analyze ${id} --bpm）`);
       if (!a.beat.reliable) warnings.push("拍點不太穩，BPM 要人確認（「歌曲資料」→ 分析音訊看細節）");
-    } catch (e) {
-      warnings.push(`音訊分析失敗（匯入照常完成）：${e.message.split("\n")[0]}`);
+    } else if (audioAnalysisErr) {
+      warnings.push(`音訊分析失敗（匯入照常完成）：${audioAnalysisErr.message.split("\n")[0]}`);
     }
-  }
 
-  const summary = { url: link, id, ja, title: info.title, channel: info.channel, len, date, subs: pick, audio, at: new Date().toISOString() };
-  fs.writeFileSync(path.join(dir, "fetch.json"), JSON.stringify({ ...summary, trFrom }, null, 2));
-  // 每一句的來源（給介面標「官方字幕」）：用日文對回去，之後改了順序也對得上
-  if (builtLines.length) fs.writeFileSync(path.join(dir, "sources.json"), JSON.stringify({ timing: "official", lines: builtLines.map((l, i) => ({ jp: l.jp, tr: trFrom[i] || null })) }, null, 2));
-  return { files, changes, warnings, summary };
+    const summary = { url: link, id, ja, title: info.title, channel: info.channel, len, date, subs: pick, audio, at: new Date().toISOString() };
+    fs.writeFileSync(path.join(dir, "fetch.json"), JSON.stringify({ ...summary, trFrom }, null, 2));
+    // 每一句的來源（給介面標「官方字幕」）：用日文對回去，之後改了順序也對得上
+    if (builtLines.length) fs.writeFileSync(path.join(dir, "sources.json"), JSON.stringify({ timing: "official", lines: builtLines.map((l, i) => ({ jp: l.jp, tr: trFrom[i] || null })) }, null, 2));
+    const res = { files, changes, warnings, summary };
+    if (autoCommit && !dryRun) {
+      const w = commit(res);
+      res.written = w.written;
+    }
+    return res;
+  });
 }
 
 // ── M2：拍點、BPM、段落、副歌高潮 ──
@@ -640,35 +713,56 @@ export function pythonCommand() {
 }
 
 export function audioFile(id) {
+  assertSongId(id);
   const dir = path.join(WORK, id);
   const f = fs.existsSync(dir) && fs.readdirSync(dir).find(x => /^audio\./.test(x) && !/\.part$/.test(x));
   return f ? path.join(dir, f) : null;
 }
 
+const fetching = new Map(), analyzing = new Map(), separating = new Map(), enveloping = new Map(); // 歌曲 id → 進行中的 Promise
+function track(map, id, run) {
+  const p = run().finally(() => { if (map.get(id) === p) map.delete(id); });
+  map.set(id, p);
+  return p;
+}
+
 // 已經在歌單裡的歌，補下載音訊（分析、bench 用）
 export async function fetchAudio(id, { onLog = () => {} } = {}) {
+  assertSongId(id);
   const s = songOrThrow(load(), id);
-  if (audioFile(id)) return audioFile(id);
-  const dir = path.join(WORK, id);
-  fs.mkdirSync(dir, { recursive: true });
-  onLog(`下載〈${s.ja}〉的音訊…\n`);
-  await ytdlp(["-f", "bestaudio", "-o", path.join(dir, "audio.%(ext)s"), `https://www.youtube.com/watch?v=${s.yt}`]);
-  return audioFile(id);
+  const existing = audioFile(id);
+  if (existing) return existing;
+  const running = fetching.get(id);
+  if (running) return running;
+  return track(fetching, id, async () => {
+    const again = audioFile(id);
+    if (again) return again;
+    const dir = path.join(WORK, id);
+    fs.mkdirSync(dir, { recursive: true });
+    onLog(`下載〈${s.ja}〉的音訊…\n`);
+    await ytdlp(["-f", "bestaudio", "-o", path.join(dir, "audio.%(ext)s"), `https://www.youtube.com/watch?v=${s.yt}`], { onLog });
+    return audioFile(id);
+  });
 }
 
 // 跑音訊分析（有快取：音訊沒變、分析程式版本一樣就直接讀）
 export async function runAnalysis(id, { fresh = false, onLog = () => {} } = {}) {
+  assertSongId(id);
   const audio = audioFile(id);
   if (!audio) throw new Error(`還沒有 ${id} 的音訊：先跑 fetch-audio ${id}（要能連 YouTube）`);
+  const running = analyzing.get(id);
+  if (running) return running;
   const out = path.join(WORK, id, "analysis.json");
   if (!fresh && fs.existsSync(out) && fs.statSync(out).mtimeMs > fs.statSync(audio).mtimeMs) {
     try { const a = JSON.parse(fs.readFileSync(out, "utf8")); if (a.version === ANALYSIS_VERSION) return a; } catch {}
   }
-  onLog("分析音訊（拍點、段落）…\n");
-  const [cmd, ...pre] = pythonCommand();
-  const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "analyze.py"), audio, "--out", out]);
-  if (r.code !== 0) throw new Error(`音訊分析失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
-  return JSON.parse(fs.readFileSync(out, "utf8"));
+  return track(analyzing, id, async () => {
+    onLog("分析音訊（拍點、段落）…\n");
+    const [cmd, ...pre] = pythonCommand();
+    const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "analyze.py"), audio, "--out", out], { onLog });
+    if (r.code !== 0) throw new Error(`音訊分析失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
+    return JSON.parse(fs.readFileSync(out, "utf8"));
+  });
 }
 const ANALYSIS_VERSION = 2;
 
@@ -744,53 +838,72 @@ export function pickClimax(lyricC, audioC) {
 }
 
 // 分析一首歌：回傳建議的 BEAT、CLIMAX、和現有資料的比較；apply 時寫回（現有值要 overwrite 才蓋）
-export async function analyze(id, { apply = false, overwrite = false, only, bpm: chooseBpm, climax: chooseClimax, fresh = false, onLog } = {}, db = load()) {
-  const s = songOrThrow(db, id);
+export async function analyze(id, { apply = false, dryRun = false, overwrite = false, only, bpm: chooseBpm, climax: chooseClimax, fresh = false, autoCommit = false, onLog } = {}, db) {
+  assertSongId(id);
+  const hasExplicitDb = db != null;
+  const initialDb = db || load();
+  const initialSong = songOrThrow(initialDb, id);
   const a = await runAnalysis(id, { fresh, onLog });
-  const l = db.lyrics.find(x => x.id === id);
-  refineAnalysis(a, l);
-  const lyricC = l && l.lyrics.length ? lyricClimax(l.lyrics, l.duration) : [];
-  const climaxC = pickClimax(lyricC, a.climaxAudio);
 
-  // 選用的速度：預設分析結果，也可以指定備選（例如兩倍速）
-  let pick = { bpm: a.bpm, firstBar: a.firstBar, barKnown: a.barKnown };
-  if (chooseBpm != null) {
-    const alt = [pick, ...a.beat.alternatives].find(x => Math.abs(x.bpm - Number(chooseBpm)) < 0.6);
-    if (!alt) throw new Error(`沒有 ${chooseBpm} BPM 這個選項；可以選：${[a.bpm, ...a.beat.alternatives.map(x => x.bpm)].join("、")}`);
-    pick = alt;
-  }
-  const beat = [pick.bpm, pick.firstBar, pick.barKnown ? 1 : 0];
-  const climax = chooseClimax != null ? Math.round(Number(chooseClimax) * 100) / 100 : climaxC[0]?.t ?? null;
-  const cur = { beat: db.songs.BEAT[id] || null, climax: db.songs.CLIMAX[id] ?? null };
+  const buildResult = curDb => {
+    const s = songOrThrow(curDb, id);
+    const l = curDb.lyrics.find(x => x.id === id);
+    const aCopy = structuredClone(a);
+    refineAnalysis(aCopy, l);
+    const lyricC = l && l.lyrics.length ? lyricClimax(l.lyrics, l.duration) : [];
+    const climaxC = pickClimax(lyricC, aCopy.climaxAudio);
 
-  const result = {
-    id, ja: s.ja,
-    suggest: { beat, climax },
-    current: cur,
-    beat: { ...a.beat, bpm: a.bpm, firstBar: a.firstBar, barKnown: a.barKnown },
-    climaxCandidates: climaxC,
-    sections: a.sections,
-    files: {}, changes: [], warnings: []
-  };
-  if (!a.beat.reliable) result.warnings.push(`拍點不太穩（${Math.round(a.beat.inliers * 100)}% 的拍落在格子上，平均差 ${a.beat.rmsMs} 毫秒）：可能有變速、或是抒情歌，BPM 要人確認`);
-  if (a.beat.octaveUncertain) result.warnings.push(`速度可能是 ${[a.bpm, ...a.beat.alternatives.map(x => x.bpm)].join(" 或 ")}（鼓的打法分不太出來）${a.beat.octavePick ? "，依小節第一拍最明顯的那個選了 " + a.bpm : ""}；不對的話改選另一個（命令列：--bpm）`);
-  if (!pick.barKnown) result.warnings.push("小節第一拍不確定：BEAT 第三個值寫 0，網站只打拍、不標第一拍");
+    // 選用的速度：預設分析結果，也可以指定備選（例如兩倍速）
+    let pick = { bpm: aCopy.bpm, firstBar: aCopy.firstBar, barKnown: aCopy.barKnown };
+    if (chooseBpm != null) {
+      const alt = [pick, ...aCopy.beat.alternatives].find(x => Math.abs(x.bpm - Number(chooseBpm)) < 0.6);
+      if (!alt) throw new Error(`沒有 ${chooseBpm} BPM 這個選項；可以選：${[aCopy.bpm, ...aCopy.beat.alternatives.map(x => x.bpm)].join("、")}`);
+      pick = alt;
+    }
+    const beat = [pick.bpm, pick.firstBar, pick.barKnown ? 1 : 0];
+    const climax = chooseClimax != null ? Math.round(Number(chooseClimax) * 100) / 100 : climaxC[0]?.t ?? null;
+    const cur = { beat: curDb.songs.BEAT[id] || null, climax: curDb.songs.CLIMAX[id] ?? null };
 
-  if (apply) {
-    let src = db.src["songs.js"];
-    const setIf = (name, val, label, old) => {
-      if (val == null) return;
-      if (old != null && !overwrite) { if (JSON.stringify(old) !== JSON.stringify(val)) result.warnings.push(`${label} 已經有值（${JSON.stringify(old)}），沒有蓋掉；要蓋掉加 --overwrite`); return; }
-      const next = MetaStore.setMapEntry(src, name, id, val);
-      if (next !== src) { result.changes.push(`${label}：${old != null ? JSON.stringify(old) + " → " : ""}${JSON.stringify(val)}`); src = next; }
+    const result = {
+      id, ja: s.ja,
+      suggest: { beat, climax },
+      current: cur,
+      beat: { ...aCopy.beat, bpm: aCopy.bpm, firstBar: aCopy.firstBar, barKnown: aCopy.barKnown },
+      climaxCandidates: climaxC,
+      sections: aCopy.sections,
+      files: {}, changes: [], warnings: []
     };
-    if (only !== "climax") setIf("BEAT", beat, "BEAT", cur.beat);
-    if (only === "beat") { /* 只寫 BEAT */ }
-    else if (climax != null && !(climax > 0 && climax <= lenToSec(s.len))) result.warnings.push(`副歌高潮 ${climax} 不在 MV 長度內，沒有寫入`);
-    else setIf("CLIMAX", climax, "副歌高潮", cur.climax);
-    if (src !== db.src["songs.js"]) result.files["songs.js"] = src;
-  }
-  return result;
+    if (!aCopy.beat.reliable) result.warnings.push(`拍點不太穩（${Math.round(aCopy.beat.inliers * 100)}% 的拍落在格子上，平均差 ${aCopy.beat.rmsMs} 毫秒）：可能有變速、或是抒情歌，BPM 要人確認`);
+    if (aCopy.beat.octaveUncertain) result.warnings.push(`速度可能是 ${[aCopy.bpm, ...aCopy.beat.alternatives.map(x => x.bpm)].join(" 或 ")}（鼓的打法分不太出來）${aCopy.beat.octavePick ? "，依小節第一拍最明顯的那個選了 " + aCopy.bpm : ""}；不對的話改選另一個（命令列：--bpm）`);
+    if (!pick.barKnown) result.warnings.push("小節第一拍不確定：BEAT 第三個值寫 0，網站只打拍、不標第一拍");
+
+    if (apply) {
+      let src = curDb.src["songs.js"];
+      const setIf = (name, val, label, old) => {
+        if (val == null) return;
+        if (old != null && !overwrite) { if (JSON.stringify(old) !== JSON.stringify(val)) result.warnings.push(`${label} 已經有值（${JSON.stringify(old)}），沒有蓋掉；要蓋掉加 --overwrite`); return; }
+        const next = MetaStore.setMapEntry(src, name, id, val);
+        if (next !== src) { result.changes.push(`${label}：${old != null ? JSON.stringify(old) + " → " : ""}${JSON.stringify(val)}`); src = next; }
+      };
+      if (only !== "climax") setIf("BEAT", beat, "BEAT", cur.beat);
+      if (only === "beat") { /* 只寫 BEAT */ }
+      else if (climax != null && !(Number.isFinite(climax) && climax > 0 && climax < lenToSec(s.len))) result.warnings.push(`副歌高潮 ${climax} 不在 MV 長度內，沒有寫入`);
+      else setIf("CLIMAX", climax, "副歌高潮", cur.climax);
+      if (src !== curDb.src["songs.js"]) result.files["songs.js"] = src;
+    }
+    return result;
+  };
+
+  if (!apply) return buildResult(initialDb);
+  return withWriteLock(() => {
+    const freshDb = hasExplicitDb ? db : load();
+    const res = buildResult(freshDb);
+    if (autoCommit && !dryRun) {
+      const w = commit(res);
+      res.written = w.written;
+    }
+    return res;
+  });
 }
 
 // 拿現有（人工調好的）BEAT／CLIMAX 對答案，量分析準不準
@@ -844,17 +957,9 @@ export async function bench(ids, { download = false, fresh = false, onLog = () =
 const GAP = /^[（(](間奏|尾奏|前奏)[^）)]*[）)]$/;
 const r2t = v => Math.round(v * 100) / 100;
 
-// 同一首歌的分離人聲、算音量曲線同時只跑一次：前端連按、換歌再換回來、/api/align、重新整理、第二個分頁同時要，都共用進行中的那一次（跑完或失敗就清掉）。
-// 只管同一個程序：另外開的命令列、另一台電腦的工作站看不到，彼此還是會各跑各的
-const separating = new Map(), enveloping = new Map(); // 歌曲 id → 進行中的 Promise
-function track(map, id, run) {
-  const p = run().finally(() => { if (map.get(id) === p) map.delete(id); });
-  map.set(id, p);
-  return p;
-}
-
 // 分離人聲（Demucs）：work/<id>/vocals.wav；有快取
 export async function separateVocals(id, { fresh = false, onLog = () => {} } = {}) {
+  assertSongId(id);
   const audio = audioFile(id);
   if (!audio) throw new Error(`還沒有 ${id} 的音訊：先跑 fetch-audio ${id}（要能連 YouTube）`);
   const out = path.join(WORK, id, "vocals.wav");
@@ -865,7 +970,7 @@ export async function separateVocals(id, { fresh = false, onLog = () => {} } = {
   return track(separating, id, async () => {
     onLog("分離人聲（第一次會下載模型；沒有顯卡要幾分鐘）…\n");
     const [cmd, ...pre] = pythonCommand();
-    const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "separate.py"), audio, "--out", out]);
+    const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "separate.py"), audio, "--out", out], { onLog });
     if (r.code !== 0) throw new Error(`分離人聲失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
     return out;
   });
@@ -873,16 +978,26 @@ export async function separateVocals(id, { fresh = false, onLog = () => {} } = {
 
 // 人聲音量曲線（給時間軸「貼齊聲音」用）：work/<id>/vocal-env.json；沒有人聲檔會先分離
 export async function vocalEnvelope(id, { onLog = () => {} } = {}) {
+  assertSongId(id);
   return enveloping.get(id) ?? track(enveloping, id, async () => {
     const vocals = await separateVocals(id, { onLog });
     const out = path.join(WORK, id, "vocal-env.json");
-    if (!(fs.existsSync(out) && fs.statSync(out).mtimeMs > fs.statSync(vocals).mtimeMs)) {
+    const runEnv = async () => {
       onLog("算人聲音量曲線…\n");
       const [cmd, ...pre] = pythonCommand();
-      const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "vocal_env.py"), vocals, "--out", out]);
+      const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "vocal_env.py"), vocals, "--out", out], { onLog });
       if (r.code !== 0) throw new Error(`算人聲音量失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
+    };
+    if (!(fs.existsSync(out) && fs.statSync(out).mtimeMs > fs.statSync(vocals).mtimeMs)) {
+      await runEnv();
     }
-    return JSON.parse(fs.readFileSync(out, "utf8"));
+    try {
+      return JSON.parse(fs.readFileSync(out, "utf8"));
+    } catch {
+      await runEnv();
+      try { return JSON.parse(fs.readFileSync(out, "utf8")); }
+      catch (e) { throw new Error(`人聲音量快取檔案損毀（${e.message}）`); }
+    }
   });
 }
 
@@ -894,7 +1009,9 @@ function withGaps(lines, ends, duration) {
   const out = [];
   lines.forEach((l, i) => {
     out.push(l);
-    const end = ends[i], next = lines[i + 1], until = next ? next.time : duration;
+    const rawEnd = ends[i];
+    const end = rawEnd != null ? Math.min(duration, Math.max(l.time, rawEnd)) : null;
+    const next = lines[i + 1], until = next ? next.time : duration;
     if (end != null && until - end > 6) out.push({ time: r2t(end), jp: next ? "（間奏）" : "（尾奏）", tr: "", duration: r2t(until - end) });
   });
   return out;
@@ -902,12 +1019,15 @@ function withGaps(lines, ends, duration) {
 
 // 自動對時：把目前的歌詞（日文）對到人聲上。apply 時寫回時間；沒對上的句子夾在前後之間平均排
 // rebuildGaps：拿掉舊的（間奏）（尾奏），依對齊結果重新補（給「沒有時間的歌詞」用）
-export async function align(id, { apply = false, model, fresh = false, rebuildGaps = false, onLog = () => {} } = {}, db = load()) {
-  const song = songOrThrow(db, id);
-  const e = lyricsEntry(db, id, false);
-  if (!e.lyrics.length) throw new Error(`${id} 還沒有歌詞：先用 lyrics-import 貼上（可以不寫時間）`);
+export async function align(id, { apply = false, dryRun = false, model, fresh = false, rebuildGaps = false, autoCommit = false, onLog = () => {} } = {}, db) {
+  assertSongId(id);
+  const hasExplicitDb = db != null;
+  const initialDb = db || load();
+  const initialSong = songOrThrow(initialDb, id);
+  const initialEntry = lyricsEntry(initialDb, id, false);
+  if (!initialEntry.lyrics.length) throw new Error(`${id} 還沒有歌詞：先用 lyrics-import 貼上（可以不寫時間）`);
   const vocals = await separateVocals(id, { fresh, onLog });
-  const src = rebuildGaps ? e.lyrics.filter(l => !GAP.test(l.jp)) : e.lyrics;
+  const src = rebuildGaps ? initialEntry.lyrics.filter(l => !GAP.test(l.jp)) : initialEntry.lyrics;
   const todo = src.map((l, i) => ({ n: i + 1, text: l.jp })).filter(x => !GAP.test(x.text));
   const dir = path.join(WORK, id);
   fs.writeFileSync(path.join(dir, "align-lines.json"), JSON.stringify(todo));
@@ -915,7 +1035,7 @@ export async function align(id, { apply = false, model, fresh = false, rebuildGa
   const out = path.join(dir, "align.json");
   const [cmd, ...pre] = pythonCommand();
   const m = model || studioConfig().whisperModel;
-  const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "align.py"), vocals, "--lines", path.join(dir, "align-lines.json"), "--out", out, ...(m ? ["--model", m] : [])]);
+  const r = await runSplit(cmd, [...pre, path.join(STUDIO_PY, "align.py"), vocals, "--lines", path.join(dir, "align-lines.json"), "--out", out, ...(m ? ["--model", m] : [])], { onLog });
   if (r.code !== 0) throw new Error(`自動對時失敗：\n${(r.err || r.out).trim().split("\n").slice(-8).join("\n")}`);
   const res = JSON.parse(fs.readFileSync(out, "utf8"));
   const byN = new Map(res.lines.map(x => [x.n, x]));
@@ -925,46 +1045,85 @@ export async function align(id, { apply = false, model, fresh = false, rebuildGa
   });
   const count = k => rows.filter(x => x.level === k).length;
   const result = {
-    id, ja: song.ja, model: res.model, device: res.device, seconds: res.seconds, rows,
+    id, ja: initialSong.ja, model: res.model, device: res.device, seconds: res.seconds, rows,
     summary: { high: count("high"), mid: count("mid"), low: count("low"), none: count("none"), of: rows.length },
     files: {}, changes: [], warnings: []
   };
   if (result.summary.none) result.warnings.push(`${result.summary.none} 句沒對上：時間夾在前後句之間平均排，要人工打點`);
   if (result.summary.low) result.warnings.push(`${result.summary.low} 句信心低：請試聽確認`);
 
-  if (apply) {
-    // 新時間：對上的用對齊結果；沒對上的在前後已知時間之間平均排
-    const lines = src.map(l => ({ ...l }));
-    const known = lines.map((l, i) => { const row = rows.find(x => x.n === i + 1); return row && row.start != null ? row.start : null; });
-    const ends = lines.map((l, i) => rows.find(x => x.n === i + 1)?.end ?? null);
+  if (!apply) return result;
+  return withWriteLock(() => {
+    const freshDb = hasExplicitDb ? db : load();
+    const song = songOrThrow(freshDb, id);
+    const e = lyricsEntry(freshDb, id, false);
+    const curSrc = rebuildGaps ? e.lyrics.filter(l => !GAP.test(l.jp)) : e.lyrics;
+    const sameLines = curSrc.length === src.length && curSrc.every((l, i) => l.jp === src[i].jp);
+    const lines = curSrc.map(l => ({ ...l }));
+    const rowByIdx = new Map();
+    if (sameLines) {
+      for (const row of rows) rowByIdx.set(row.n - 1, row);
+    } else {
+      let ri = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (GAP.test(lines[i].jp)) continue;
+        while (ri < rows.length && rows[ri].jp !== lines[i].jp) ri++;
+        if (ri < rows.length) { rowByIdx.set(i, rows[ri]); ri++; }
+      }
+    }
+    const clampTime = t => Math.max(0, Math.min(e.duration, r2t(t)));
+    const known = lines.map((_, i) => {
+      const row = rowByIdx.get(i);
+      return row && row.start != null ? clampTime(row.start) : null;
+    });
+    const ends = lines.map((_, i) => rowByIdx.get(i)?.end ?? null);
     for (let i = 0; i < lines.length; i++) {
-      if (GAP.test(lines[i].jp) && !rebuildGaps) continue;
-      if (known[i] != null) { lines[i].time = r2t(known[i]); continue; }
+      if (GAP.test(lines[i].jp) && !rebuildGaps) { lines[i].time = clampTime(lines[i].time); continue; }
+      if (known[i] != null) { lines[i].time = known[i]; continue; }
       let a = i - 1; while (a >= 0 && known[a] == null) a--;
       let b = i + 1; while (b < lines.length && known[b] == null) b++;
       const t0 = a >= 0 ? known[a] : 0, t1 = b < lines.length ? known[b] : e.duration;
-      lines[i].time = r2t(t0 + ((i - a) * (t1 - t0)) / (b - a));
+      lines[i].time = clampTime(t0 + ((i - a) * (t1 - t0)) / (b - a));
     }
-    // 保持由小到大（萬一對齊結果交錯）
-    for (let i = 1; i < lines.length; i++) if (lines[i].time < lines[i - 1].time) lines[i].time = r2t(lines[i - 1].time + 0.05);
+    // 保持由小到大（萬一對齊結果交錯），同時不超過曲長
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].time < lines[i - 1].time) lines[i].time = Math.min(e.duration, r2t(lines[i - 1].time + 0.05));
+    }
     for (const l of lines) if (l.duration != null && GAP.test(l.jp)) delete l.duration;
     const finalLines = rebuildGaps ? withGaps(lines, ends, e.duration) : lines;
     // 原本的（間奏）長度依新時間重算
-    if (!rebuildGaps) finalLines.forEach((l, i) => { if (GAP.test(l.jp)) { const next = finalLines[i + 1]; l.duration = r2t((next ? next.time : e.duration) - l.time); } });
+    if (!rebuildGaps) {
+      finalLines.forEach((l, i) => {
+        if (GAP.test(l.jp)) {
+          const next = finalLines[i + 1];
+          const d = r2t((next ? next.time : e.duration) - l.time);
+          if (d > 0) l.duration = d; else delete l.duration;
+        }
+      });
+    }
     const s = result.summary;
-    const w = writeLyrics({ ...e, lyrics: finalLines }, song, false, db, [`自動對時 ${s.of - s.none} 句（信心高 ${s.high}、中 ${s.mid}、低 ${s.low}）${s.none ? `，沒對上 ${s.none} 句` : ""}${rebuildGaps ? "；重新補間奏" : ""}`]);
+    const w = writeLyrics({ ...e, lyrics: finalLines }, song, false, freshDb, [`自動對時 ${s.of - s.none} 句（信心高 ${s.high}、中 ${s.mid}、低 ${s.low}）${s.none ? `，沒對上 ${s.none} 句` : ""}${rebuildGaps ? "；重新補間奏" : ""}`]);
     Object.assign(result.files, w.files); result.changes.push(...w.changes); result.warnings.push(...w.warnings);
-    // 給介面上色用：每一句的對時來源和信心
-    fs.writeFileSync(path.join(dir, "timing-source.json"), JSON.stringify({ at: new Date().toISOString(), model: res.model, lines: rows.map(x => ({ jp: x.jp, conf: x.conf, level: x.level })) }, null, 2));
-  }
-  return result;
+    if (!dryRun) {
+      // 給介面上色用：每一句的對時來源和信心
+      fs.writeFileSync(path.join(dir, "timing-source.json"), JSON.stringify({ at: new Date().toISOString(), model: res.model, lines: rows.map(x => ({ jp: x.jp, conf: x.conf, level: x.level })) }, null, 2));
+      if (autoCommit) {
+        const wc = commit({ files: result.files });
+        result.written = wc.written;
+      }
+    }
+    return result;
+  });
 }
 
 // 翻譯：沒有中文的句子交給設定好的 AI 命令列（agy 等，見 agent-cli.mjs），apply 時寫進 tr
-export async function translate(id, { apply = false, all = false, onLog = () => {} } = {}, db = load()) {
+export async function translate(id, { apply = false, dryRun = false, all = false, autoCommit = false, onLog = () => {} } = {}, db) {
+  assertSongId(id);
   const { runAgentJob } = await import("./agent-cli.mjs");
-  const song = songOrThrow(db, id);
-  const e = lyricsEntry(db, id, false);
+  const hasExplicitDb = db != null;
+  const initialDb = db || load();
+  const song = songOrThrow(initialDb, id);
+  const e = lyricsEntry(initialDb, id, false);
   const command = studioConfig().translate?.command;
   if (!Array.isArray(command) || !command.length) throw new Error("還沒設定翻譯工具：先在這台電腦跑 node tools/studio/agent-cli.mjs --probe");
   const todo = e.lyrics.map((l, i) => ({ n: i + 1, jp: l.jp, tr: l.tr, time: l.time })).filter(x => !GAP.test(x.jp) && x.jp.trim() && (all || !(x.tr || "").trim()));
@@ -975,15 +1134,17 @@ export async function translate(id, { apply = false, all = false, onLog = () => 
   const en = fs.existsSync(enFile) ? parseVtt(fs.readFileSync(enFile, "utf8")) : [];
   const enAt = t => en.find(c => t >= c.start - 0.3 && t < c.end)?.text || "";
   // 網站現有翻譯的風格範例
-  const examples = ["usseewa", "odo", "shinjidai"].flatMap(sid => (db.lyrics.find(x => x.id === sid)?.lyrics || []).filter(l => l.tr && !GAP.test(l.jp)).slice(2, 5).map(l => `${l.jp}　→　${l.tr}`));
+  const examples = ["usseewa", "odo", "shinjidai"].flatMap(sid => (initialDb.lyrics.find(x => x.id === sid)?.lyrics || []).filter(l => l.tr && !GAP.test(l.jp)).slice(2, 5).map(l => `${l.jp}　→　${l.tr}`));
   const tpl = fs.readFileSync(path.join(here, "prompts", "translate.md"), "utf8");
   const ctx = e.lyrics.filter(l => !GAP.test(l.jp)).map(l => l.jp).join("\n");
-  const instructions = tpl
-    .replace("{{title}}", `${song.ja}${song.zh && song.zh !== song.ja ? `（${song.zh}）` : ""}`)
-    .replace("{{examples}}", examples.join("\n"))
-    .replace("{{context}}", ctx)
-    .replace("{{lines}}", todo.map(x => `${x.n}. ${x.jp}${enAt(x.time) ? `　［英文字幕：${enAt(x.time)}］` : ""}`).join("\n"))
-    .replace("{{count}}", String(todo.length));
+  const vars = {
+    title: `${song.ja}${song.zh && song.zh !== song.ja ? `（${song.zh}）` : ""}`,
+    examples: examples.join("\n"),
+    context: ctx,
+    lines: todo.map(x => `${x.n}. ${x.jp}${enAt(x.time) ? `　［英文字幕：${enAt(x.time)}］` : ""}`).join("\n"),
+    count: String(todo.length)
+  };
+  const instructions = tpl.replace(/\{\{(title|examples|context|lines|count)\}\}/g, (_, k) => vars[k]);
   const want = new Set(todo.map(x => x.n));
   const isWanted = v => v && Array.isArray(v.lines) && v.lines.length >= todo.length && todo.every(x => v.lines.some(y => y.n === x.n && typeof y.tr === "string" && y.tr.trim()));
   onLog(`翻譯 ${todo.length} 句（${command[0]}）…\n`);
@@ -991,16 +1152,45 @@ export async function translate(id, { apply = false, all = false, onLog = () => 
   if (!job.ok) throw new Error(`翻譯工具沒有回傳可用的結果（exit ${job.code}${job.stdoutEmpty ? "，輸出是空的" : ""}）。紀錄：${path.relative(root, job.log)}\n可以打開 ${path.relative(root, path.join(WORK, id, "translate", "request.md"))}，貼進 agy 手動翻，再用 lines 指令寫回。`);
   const rows = job.data.lines.filter(y => want.has(y.n)).map(y => ({ n: y.n, jp: e.lyrics[y.n - 1].jp, old: e.lyrics[y.n - 1].tr || "", tr: y.tr.trim() }));
   const result = { id, ja: song.ja, tool: command[0], via: job.via, seconds: job.secs, rows, files: {}, changes: [], warnings: ["機器翻譯：請看過再發布"] };
-  if (apply) {
-    const w = editLines(id, rows.map(x => ({ n: x.n, tr: x.tr })), {}, db);
-    Object.assign(result.files, w.files);
-    result.changes.push(`翻譯 ${rows.length} 句（${command[0]}，待確認）`);
-    const rec = path.join(WORK, id, "translate.json");
-    const prev = fs.existsSync(rec) ? JSON.parse(fs.readFileSync(rec, "utf8")) : {};
-    for (const x of rows) prev[x.jp] = { tr: x.tr, by: command[0], at: new Date().toISOString() };
-    fs.writeFileSync(rec, JSON.stringify(prev, null, 2));
-  }
-  return result;
+  if (!apply) return result;
+
+  return withWriteLock(() => {
+    const freshDb = hasExplicitDb ? db : load();
+    const freshEntry = lyricsEntry(freshDb, id, false);
+    const used = new Set();
+    const edits = [];
+    for (const x of rows) {
+      if (freshEntry.lyrics[x.n - 1]?.jp === x.jp && !used.has(x.n)) {
+        used.add(x.n);
+        edits.push({ n: x.n, tr: x.tr });
+      } else {
+        const idx = freshEntry.lyrics.findIndex((l, i) => !used.has(i + 1) && l.jp === x.jp && (all || !(l.tr || "").trim()));
+        if (idx >= 0) {
+          used.add(idx + 1);
+          edits.push({ n: idx + 1, tr: x.tr });
+        }
+      }
+    }
+    if (edits.length) {
+      const w = editLines(id, edits, {}, freshDb);
+      Object.assign(result.files, w.files);
+      result.changes.push(`翻譯 ${edits.length} 句（${command[0]}，待確認）`);
+    }
+    if (!dryRun) {
+      const rec = path.join(WORK, id, "translate.json");
+      let prev = {};
+      if (fs.existsSync(rec)) {
+        try { prev = JSON.parse(fs.readFileSync(rec, "utf8")) || {}; } catch { prev = {}; }
+      }
+      for (const x of rows) prev[x.jp] = { tr: x.tr, by: command[0], at: new Date().toISOString() };
+      fs.writeFileSync(rec, JSON.stringify(prev, null, 2));
+      if (autoCommit) {
+        const wc = commit({ files: result.files });
+        result.written = wc.written;
+      }
+    }
+    return result;
+  });
 }
 
 
@@ -1010,14 +1200,25 @@ const readWork = (id, f) => { try { return JSON.parse(fs.readFileSync(path.join(
 
 // 側欄：歌單＋每首在工作站的狀態
 export function songsIndex(db = load()) {
+  const byId = new Map(db.songs.SONGS.map(s => [s.id, s]));
   return list(db).map(r => {
+    const s = byId.get(r.id) || {};
     const t = readWork(r.id, "timing-source.json");
-    return { ...r, studio: fs.existsSync(path.join(WORK, r.id)), low: t ? t.lines.filter(x => x.level === "low" || x.level === "none").length : 0 };
+    return {
+      ...r,
+      zh: s.zh || "",
+      en: s.en || "",
+      ro: s.ro || "",
+      alias: Array.isArray(s.alias) ? s.alias : [],
+      studio: fs.existsSync(path.join(WORK, r.id)),
+      low: t ? t.lines.filter(x => x.level === "low" || x.level === "none").length : 0
+    };
   });
 }
 
 // 一首歌在介面上要的全部資料
 export function songDetail(id, db = load()) {
+  assertSongId(id);
   const song = songOrThrow(db, id);
   const e = db.lyrics.find(x => x.id === id) || null;
   const a = readWork(id, "analysis.json");
@@ -1046,6 +1247,7 @@ export function songDetail(id, db = load()) {
 
 // 介面存檔：整首歌詞換成介面上的版本。base 是讀取時的指紋：之後檔案被改過（命令列、另一個分頁）就擋下來
 export function saveLyrics(id, lines, base, db = load(), live = null) {
+  assertSongId(id);
   const song = songOrThrow(db, id);
   if (live) return saveLiveLyrics(song, lines, base, live, db);
   const e = lyricsEntry(db, id, false);
@@ -1073,15 +1275,21 @@ const sortedJSON = o => JSON.stringify(Object.keys(o).sort().reduce((a, k) => ((
 function tidyLines(lines, before = []) {
   return lines.map((l, i) => {
     const x = { time: Math.round(Number(l.time) * 1000) / 1000, jp: String(l.jp ?? ""), tr: String(l.tr ?? "") };
-    if (l.duration != null && l.duration !== "") x.duration = Math.round(Number(l.duration) * 100) / 100;
+    if (l.duration != null && l.duration !== "") {
+      const dur = Math.round(Number(l.duration) * 100) / 100;
+      if ((typeof l.duration !== "number" && typeof l.duration !== "string") || !Number.isFinite(dur) || dur <= 0) {
+        throw new Error(`第 ${i + 1} 句的 duration 不是有效正數（${l.duration}）`);
+      }
+      x.duration = dur;
+    }
     for (const k of ["acts", "sing"]) if (Array.isArray(l[k]) && l[k].length) x[k] = l[k].slice();
     for (const k of ["call", "how"]) if (l[k]) x[k] = String(l[k]);
     const o = before[i];
     if (!o) return x;
     if (sortedJSON(o) === sortedJSON(x)) return o;
     const out = {};
-    for (const k of Object.keys(o)) if (k in x) out[k] = x[k];
-    for (const k of Object.keys(x)) if (!(k in out)) out[k] = x[k];
+    for (const k of Object.keys(o)) if (Object.hasOwn(x, k)) out[k] = x[k];
+    for (const k of Object.keys(x)) if (!Object.hasOwn(out, k)) out[k] = x[k];
     return out;
   });
 }
@@ -1150,8 +1358,8 @@ function saveLiveLyrics(song, lines, base, live, db) {
   if (same && JSON.stringify(Object.keys(cur)) !== JSON.stringify(Object.keys(entry))) {
     // 舊的現場版欄位順序不一樣（例如 id,title,youtubeId,duration,lyrics,baseId）：照原本的順序
     const o = {};
-    for (const k of Object.keys(cur)) if (k in entry) o[k] = entry[k];
-    for (const k of Object.keys(entry)) if (!(k in o)) o[k] = entry[k];
+    for (const k of Object.keys(cur)) if (Object.hasOwn(entry, k)) o[k] = entry[k];
+    for (const k of Object.keys(entry)) if (!Object.hasOwn(o, k)) o[k] = entry[k];
     Object.keys(entry).forEach(k => delete entry[k]);
     Object.assign(entry, o);
   }

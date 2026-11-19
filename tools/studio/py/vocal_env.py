@@ -12,6 +12,8 @@ import json
 import numpy as np
 import soundfile as sf
 
+from common import write_json_atomic
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -26,8 +28,7 @@ def main():
     fr = np.lib.stride_tricks.sliding_window_view(pad, win)[::hop]
     db = 20 * np.log10(np.sqrt((fr ** 2).mean(axis=1)) + 1e-5)
     vals = np.round(np.clip(db, -100, 0) * 2).astype(int).tolist()
-    with open(a.out, "w", encoding="utf-8") as f:
-        json.dump({"hop": 0.01, "scale": 2, "values": vals}, f)
+    write_json_atomic(a.out, {"hop": 0.01, "scale": 2, "values": vals})
     print(json.dumps({"frames": len(vals)}))
 
 

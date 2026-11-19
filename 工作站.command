@@ -14,4 +14,4 @@ if [ "$need" = 1 ]; then
 fi
 # 專案更新後（git pull）Python 套件可能有變：很快，沒變就什麼都不做
 uv sync --project tools/studio/py --quiet
-node tools/studio/server.mjs --open
+node tools/studio/server.mjs --open || read -r -p "按 Enter 關閉…"

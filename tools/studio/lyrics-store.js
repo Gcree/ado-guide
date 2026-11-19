@@ -17,6 +17,7 @@
   // 讀出檔案裡的歌曲陣列；排版跟預期不同就丟錯，不冒險寫入
   function parse(raw, kind) {
     const target = TARGETS[kind];
+    if (!target) throw new Error(`未知的歌詞格式種類：${kind}`);
     const crlf = raw.includes("\r\n"), src = raw.replace(/\r\n/g, "\n");
     const HEAD = `var ${target.varName} = `, TAIL = `;\n\n  return ${target.varName};`;
     const a = src.indexOf(HEAD), b = src.indexOf(TAIL);
@@ -53,27 +54,35 @@
     }
     const live = kindOf(entry) === "live";
     const dur = entry.duration;
-    if (typeof dur !== "number" || !(dur > 0)) errors.push(`duration 不是有效的秒數（${dur}）`);
+    if (typeof dur !== "number" || !Number.isFinite(dur) || dur <= 0) errors.push(`duration 不是有效的秒數（${dur}）`);
     if (!entry.lyrics.length) errors.push("一句有時間的歌詞都沒有");
     if (!live && song) {
       if (entry.youtubeId !== song.yt) errors.push(`YouTube ID 跟 songs.js 不一致（${entry.youtubeId} / ${song.yt}）`);
       const sDur = lenToSec(song.len);
-      if (typeof dur === "number" && Math.abs(sDur - dur) > 2) errors.push(`曲長跟 songs.js 差超過 2 秒（${dur}s / ${song.len}）`);
+      if (Number.isFinite(dur) && Number.isFinite(sDur) && Math.abs(sDur - dur) > 2) errors.push(`曲長跟 songs.js 差超過 2 秒（${dur}s / ${song.len}）`);
     }
     let prev = -Infinity, missingTr = 0;
     entry.lyrics.forEach((l, idx) => {
       const n = idx + 1;
-      if (typeof l.time !== "number" || isNaN(l.time)) { errors.push(`第 ${n} 句的時間不是有效數字（${l.time}）`); return; }
-      if (l.time < 0 || (typeof dur === "number" && l.time > dur)) errors.push(`第 ${n} 句在 ${l.time}s，超出曲長 0~${dur}s`);
+      if (typeof l.time !== "number" || !Number.isFinite(l.time)) { errors.push(`第 ${n} 句的時間不是有效數字（${l.time}）`); return; }
+      if (l.time < 0 || (Number.isFinite(dur) && dur > 0 && l.time > dur)) errors.push(`第 ${n} 句在 ${l.time}s，超出曲長 0~${dur}s`);
       if (l.time < prev) errors.push(`第 ${n} 句（${l.time}s）比上一句（${prev}s）早`);
       prev = l.time;
+      if (l.duration != null) {
+        if (typeof l.duration !== "number" || !Number.isFinite(l.duration) || l.duration <= 0) {
+          errors.push(`第 ${n} 句的 duration 不是有效正數（${l.duration}）`);
+        }
+      }
       if (l.acts != null) {
         if (!Array.isArray(l.acts)) errors.push(`第 ${n} 句的 acts 不是陣列`);
         else l.acts.forEach(a => { if (!VALID_ACTS.includes(a)) errors.push(`第 ${n} 句有不認得的應援動作「${a}」`); });
       }
       if (l.sing != null) {
         if (!Array.isArray(l.sing)) errors.push(`第 ${n} 句的 sing 不是陣列`);
-        else l.sing.forEach(w => { if (!(l.jp || "").includes(w)) errors.push(`第 ${n} 句的合唱詞「${w}」不在日文歌詞「${l.jp}」裡`); });
+        else l.sing.forEach(w => {
+          if (typeof w !== "string" || !w.trim()) errors.push(`第 ${n} 句的合唱詞不能是空字串`);
+          else if (!(l.jp || "").includes(w)) errors.push(`第 ${n} 句的合唱詞「${w}」不在日文歌詞「${l.jp}」裡`);
+        });
       }
       const jp = (l.jp || "").trim();
       if (!(l.tr || "").trim() && jp && !/^[（(].*[）)]$/.test(jp)) missingTr++;

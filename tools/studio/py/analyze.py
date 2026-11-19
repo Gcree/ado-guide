@@ -15,13 +15,12 @@
 """
 import argparse
 import json
-import os
-import shutil
-import subprocess
 import sys
 
 import numpy as np
 import librosa
+
+from common import decode, write_json_atomic
 
 SR = 22050
 HOP = 512
@@ -31,36 +30,32 @@ VERSION = 2
 ONSET_LATENCY = HOP / SR
 
 
-def decode(path):
-    """用 ffmpeg 解成單聲道 float32；不靠 librosa 的解碼器，任何格式（m4a、webm、opus）都一樣。"""
-    ff = os.environ.get("FFMPEG") or shutil.which("ffmpeg")
-    if not ff:
-        sys.exit("找不到 ffmpeg：請重新執行安裝（工作站.bat／工作站.command 會自動裝）")
-    r = subprocess.run([ff, "-v", "error", "-i", path, "-ac", "1", "-ar", str(SR), "-f", "f32le", "-"], capture_output=True)
-    if r.returncode != 0:
-        sys.exit("ffmpeg 解碼失敗：" + r.stderr.decode("utf-8", "replace")[-500:])
-    y = np.frombuffer(r.stdout, dtype=np.float32).copy()
-    if y.size < SR * 5:
-        sys.exit("音訊太短（不到 5 秒）")
-    return y
-
-
 def fit_grid(beats):
     """用固定速度的格子套拍點：beat_k ≈ phase + k × period。回傳 phase、period、落在格子上的比例、平均誤差。
 
     k（第幾拍）用「相鄰兩拍各自四捨五入」累加，不用「從第一拍算起總共幾拍」：
     起始的 period 有一點點誤差（拍點只準到一格 23 毫秒）時，後者過了上百拍就會差一整拍，整個套歪。
     """
-    period = float(np.median(np.diff(beats)))
+    diffs = np.diff(beats)
+    pos = diffs[diffs > 1e-4]
+    if len(pos) == 0:
+        sys.exit("拍點時間重複或無效，無法計算速度")
+    period = float(np.median(pos))
+    if not np.isfinite(period) or period <= 0:
+        sys.exit("拍點間隔無效，無法計算速度")
     for _ in range(4):
         steps = np.maximum(1, np.round(np.diff(beats) / period))
         k = np.r_[0, np.cumsum(steps)]
         A = np.vstack([np.ones_like(k), k]).T
         coef, *_ = np.linalg.lstsq(A, beats, rcond=None)
+        if not np.isfinite(coef[1]) or coef[1] <= 1e-4:
+            break
         res = beats - A @ coef
         mask = np.abs(res) < 0.1 * coef[1]
         if mask.sum() >= 8:
             coef, *_ = np.linalg.lstsq(A[mask], beats[mask], rcond=None)
+        if not np.isfinite(coef[1]) or coef[1] <= 1e-4:
+            break
         if abs(coef[1] - period) < 1e-6:
             break
         period = float(coef[1])
@@ -124,7 +119,9 @@ def pulse_candidates(env, dur):
 
 
 def analyze(path):
-    y = decode(path)
+    y = decode(path, SR, channels=1)[0]
+    if y.size < SR * 5:
+        sys.exit("音訊太短（不到 5 秒）")
     dur = len(y) / SR
 
     # ── 拍點與 BPM ──
@@ -176,6 +173,8 @@ def analyze(path):
 
     def downbeat(g, per):
         """四種可能的第一拍，各算「大鼓低頻＋和弦變化」平均落在第一拍有多強，回傳第一小節時間和勝出幅度。"""
+        if len(g) < 4:
+            return float(g[0] % (4 * per)) if len(g) else 0.0, 0.0, [0.0, 0.0, 0.0, 0.0]
         low = onset_at(low_env, g + ONSET_LATENCY)
         frames = librosa.time_to_frames(g + ONSET_LATENCY, sr=SR, hop_length=HOP)
         # 第 i 欄＝第 i 拍到第 i+1 拍之間（pad=False：不要在最前面多塞一段，否則全部錯一拍）
@@ -185,7 +184,7 @@ def analyze(path):
         change = np.r_[0, 1 - np.sum(cs[:, 1:] * cs[:, :-1], axis=0)][: len(g)]
         z = lambda v: (v - v.mean()) / (v.std() + 1e-9)
         sb = z(low[: len(change)]) + z(change)
-        sc = [float(sb[o::4].mean()) for o in range(4)]
+        sc = [float(sb[o::4].mean()) if len(sb[o::4]) else 0.0 for o in range(4)]
         order = np.argsort(sc)[::-1]
         best = int(order[0])
         return float((g[0] + best * per) % (4 * per)), float(sc[order[0]] - sc[order[1]]), sc
@@ -200,7 +199,7 @@ def analyze(path):
             ph, _ = comb_phase(env, per, dur)
             ph -= ONSET_LATENCY
             fb, mg, _ = downbeat(make_grid(per, ph), per)
-            alts.append({"bpm": b, "firstBar": round(fb, 3), "barKnown": False, "downbeatMargin": round(mg, 3), "pulse": True})
+            alts.append({"bpm": b, "firstBar": round(fb, 3), "barKnown": False, "downbeatMargin": round(mg, 3), "pulse": True, "ph": float(ph)})
         else:
             fb, mg, _ = downbeat(make_grid(per), per)
             alts.append({"bpm": b, "firstBar": round(fb, 3), "barKnown": bool(reliable and mg > 0.35), "downbeatMargin": round(mg, 3)})
@@ -213,7 +212,7 @@ def analyze(path):
             alts = [x for x in alts if x is not top] + [{"bpm": nice_bpm(bpm), "firstBar": round(first_bar, 3), "barKnown": bar_known, "downbeatMargin": round(margin, 3)}]
             period = 60 / top["bpm"]
             bpm = top["bpm"]
-            grid = make_grid(period)
+            grid = make_grid(period, top.get("ph"))
             first_bar, bar_known = top["firstBar"], top["barKnown"]
             margin = top["downbeatMargin"]
             bar = period * 4
@@ -221,6 +220,8 @@ def analyze(path):
 
     # ── 每小節的特徵、能量 ──
     bar_times = np.arange(first_bar, dur, bar)
+    if len(bar_times) == 0:
+        bar_times = np.array([0.0])
     bar_frames = np.clip(librosa.time_to_frames(bar_times, sr=SR, hop_length=HOP), 0, chroma.shape[1] - 1)
     rms_fr = librosa.feature.rms(y=y, hop_length=HOP)[0]
     loud = librosa.amplitude_to_db(rms_fr, ref=np.max)
@@ -230,62 +231,69 @@ def analyze(path):
     bidx = np.r_[bar_frames, chroma.shape[1]]
     bf = librosa.util.sync(feats, bidx, aggregate=np.mean, pad=False)
     be = librosa.util.sync(loud[np.newaxis, : chroma.shape[1]], bidx, aggregate=np.mean, pad=False)[0]
-    nb = bf.shape[1]
+    nb = min(bf.shape[1], len(bar_times), len(be))
+    bf = bf[:, :nb]
+    be = be[:nb]
+    bar_times = bar_times[:nb]
 
-    # 段落：自相似矩陣＋棋盤格核心找變化點（最短 4 小節）
-    X = (bf - bf.mean(axis=1, keepdims=True)) / (bf.std(axis=1, keepdims=True) + 1e-9)
-    Xn = X / (np.linalg.norm(X, axis=0, keepdims=True) + 1e-9)
-    ssm = Xn.T @ Xn
-    w = 4
-    kern = np.kron(np.array([[1, -1], [-1, 1]]), np.ones((w, w)))
-    nov = np.zeros(nb)
-    for i in range(w, nb - w):
-        nov[i] = np.sum(ssm[i - w:i + w, i - w:i + w] * kern)
-    nov = np.maximum(nov, 0)
-    peaks = []
-    thr = np.percentile(nov, 70) if nb > 8 else np.inf
-    for i in np.argsort(nov)[::-1]:
-        if nov[i] < thr:
-            break
-        if all(abs(i - p) >= 4 for p in peaks):
-            peaks.append(int(i))
-    bounds = sorted(set([0] + peaks + [nb]))
-    segs = [(a, b) for a, b in zip(bounds[:-1], bounds[1:]) if b > a]
+    if nb == 0:
+        sections = [{"start": 0.0, "end": round(dur, 2), "label": "A", "chorus": False, "energy": 0.0}]
+        cands = []
+    else:
+        # 段落：自相似矩陣＋棋盤格核心找變化點（最短 4 小節）
+        X = (bf - bf.mean(axis=1, keepdims=True)) / (bf.std(axis=1, keepdims=True) + 1e-9)
+        Xn = X / (np.linalg.norm(X, axis=0, keepdims=True) + 1e-9)
+        ssm = Xn.T @ Xn
+        w = 4
+        kern = np.kron(np.array([[1, -1], [-1, 1]]), np.ones((w, w)))
+        nov = np.zeros(nb)
+        for i in range(w, nb - w):
+            nov[i] = np.sum(ssm[i - w:i + w, i - w:i + w] * kern)
+        nov = np.maximum(nov, 0)
+        peaks = []
+        thr = np.percentile(nov, 70) if (nb > 8 and np.any(nov > 0)) else np.inf
+        for i in np.argsort(nov)[::-1]:
+            if nov[i] <= 0 or nov[i] < thr:
+                break
+            if all(abs(i - p) >= 4 for p in peaks):
+                peaks.append(int(i))
+        bounds = sorted(set([0] + peaks + [nb]))
+        segs = [(a, b) for a, b in zip(bounds[:-1], bounds[1:]) if b > a]
 
-    # 像的段落歸成同一類
-    labels, cents = [], []
-    for a, b in segs:
-        v = Xn[:, a:b].mean(axis=1)
-        v = v / (np.linalg.norm(v) + 1e-9)
-        sims = [float(v @ c) for c in cents]
-        if sims and max(sims) > 0.8:
-            labels.append(int(np.argmax(sims)))
-        else:
-            cents.append(v)
-            labels.append(len(cents) - 1)
-    seg_energy = [float(be[a:b].mean()) for a, b in segs]
-    counts = {l: labels.count(l) for l in set(labels)}
-    rep = [l for l in counts if counts[l] >= 2]
-    pool = rep or list(counts)
-    chorus = max(pool, key=lambda l: np.mean([e for e, ll in zip(seg_energy, labels) if ll == l]))
-    sections = [
-        {"start": round(float(bar_times[a]), 2), "end": round(float(bar_times[b]) if b < nb else dur, 2),
-         "label": chr(65 + l), "chorus": l == chorus, "energy": round(e, 1)}
-        for (a, b), l, e in zip(segs, labels, seg_energy)
-    ]
+        # 像的段落歸成同一類
+        labels, cents = [], []
+        for a, b in segs:
+            v = Xn[:, a:b].mean(axis=1)
+            v = v / (np.linalg.norm(v) + 1e-9)
+            sims = [float(v @ c) for c in cents]
+            if sims and max(sims) > 0.8:
+                labels.append(int(np.argmax(sims)))
+            else:
+                cents.append(v)
+                labels.append(len(cents) - 1)
+        seg_energy = [float(be[a:b].mean()) for a, b in segs]
+        counts = {l: labels.count(l) for l in set(labels)}
+        rep = [l for l in counts if counts[l] >= 2]
+        pool = rep or list(counts)
+        chorus = max(pool, key=lambda l: np.mean([e for e, ll in zip(seg_energy, labels) if ll == l]))
+        sections = [
+            {"start": round(float(bar_times[a]), 2), "end": round(float(bar_times[b]) if b < len(bar_times) else dur, 2),
+             "label": chr(65 + l), "chorus": l == chorus, "energy": round(e, 1)}
+            for (a, b), l, e in zip(segs, labels, seg_energy)
+        ]
 
-    # 副歌高潮候選（後半段）：能量跳上去的小節線、副歌段落的開頭
-    cands = []
-    for i in range(4, nb - 4):
-        t = float(bar_times[i])
-        if t < 0.5 * dur:
-            continue
-        jump = float(be[i:i + 8].mean() - be[max(0, i - 4):i].mean())
-        if jump > 1.5:
-            cands.append({"t": round(t, 2), "score": round(jump, 2), "why": "能量跳升"})
-    for s in sections:
-        if s["chorus"] and s["start"] >= 0.5 * dur:
-            cands.append({"t": s["start"], "score": 3.0, "why": "副歌段落開頭"})
+        # 副歌高潮候選（後半段）：能量跳上去的小節線、副歌段落的開頭
+        cands = []
+        for i in range(4, nb - 4):
+            t = float(bar_times[i])
+            if t < 0.5 * dur:
+                continue
+            jump = float(be[i:i + 8].mean() - be[max(0, i - 4):i].mean())
+            if jump > 1.5:
+                cands.append({"t": round(t, 2), "score": round(jump, 2), "why": "能量跳升"})
+        for s in sections:
+            if s["chorus"] and s["start"] >= 0.5 * dur:
+                cands.append({"t": s["start"], "score": 3.0, "why": "副歌段落開頭"})
     cands.sort(key=lambda c: -c["score"])
     merged = []
     for c in cands:
@@ -317,13 +325,11 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
     res = analyze(a.audio)
-    text = json.dumps(res, ensure_ascii=False)
     if a.out:
-        with open(a.out, "w", encoding="utf-8") as f:
-            f.write(text)
-        print(json.dumps({k: res[k] for k in ("bpm", "firstBar", "barKnown", "beat")}, ensure_ascii=False))
+        write_json_atomic(a.out, res)
+        print(json.dumps({k: res[k] for k in ("bpm", "firstBar", "barKnown", "beat")}, ensure_ascii=False, allow_nan=False))
     else:
-        print(text)
+        print(json.dumps(res, ensure_ascii=False, allow_nan=False))
 
 
 if __name__ == "__main__":

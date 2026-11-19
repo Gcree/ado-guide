@@ -12,6 +12,7 @@ import { tokensToRomaji, applyRuby } from "./kana.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const require = createRequire(import.meta.url);
 const LYRICS = require(path.join(root, "song-lyrics.js"));
+const LIVE_LYRICS = require(path.join(root, "song-lyrics-live.js"));
 const outFile = path.join(root, "song-romaji.json");
 const overFile = path.join(root, "tools/romaji/overrides.json");
 const over = fs.existsSync(overFile) ? JSON.parse(fs.readFileSync(overFile, "utf8")) : {};
@@ -24,18 +25,20 @@ try { kuromoji = require("kuromoji"); } catch {
 const dicPath = path.join(path.dirname(require.resolve("kuromoji/package.json")), "dict");
 const tk = await new Promise((ok, ng) => kuromoji.builder({ dicPath }).build((e, t) => (e ? ng(e) : ok(t))));
 
-// 只轉有假名或漢字的行；（間奏）這種全形括號的說明、韓文、英文歌詞不用轉
-const isJa = s => /[\u3040-\u30ff\u4e00-\u9fff]/.test(s) && !/^（[^）]+）$/.test(s.trim());
+// 只轉有假名或漢字的行；（間奏）這種段落提示、韓文、英文歌詞不用轉
+const STAGE_DIR = /^[（(](?:間奏|尾奏|前奏|鼓聲進來|觀眾接唱)(?:[・\s][^）)]*)?[）)]$/;
+const isJa = s => /[\u3040-\u30ff\u4e00-\u9fff]/.test(s) && !STAGE_DIR.test(s.trim());
 const out = {};
 let n = 0;
-for (const b of LYRICS) {
-  const m = {};
+for (const b of [...LYRICS, ...LIVE_LYRICS]) {
+  const key = b.baseId || b.id.replace(/-live$/, "");
+  const m = out[key] || {};
   for (const l of b.lyrics || []) {
     if (!l.jp || !isJa(l.jp) || m[l.jp] !== undefined) continue;
-    m[l.jp] = (over[b.id] && over[b.id][l.jp]) || tokensToRomaji(tk.tokenize(applyRuby(l.jp)));
+    m[l.jp] = over[b.id]?.[l.jp] ?? over[key]?.[l.jp] ?? tokensToRomaji(tk.tokenize(applyRuby(l.jp)));
     n++;
   }
-  if (Object.keys(m).length) out[b.id] = m;
+  if (Object.keys(m).length) out[key] = m;
 }
 fs.writeFileSync(outFile, JSON.stringify(out) + "\n");
 console.log(`羅馬拼音：${Object.keys(out).length} 首、${n} 行 → ${path.relative(root, outFile)}`);

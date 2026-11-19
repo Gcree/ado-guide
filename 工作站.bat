@@ -16,5 +16,6 @@ if defined NEED (
 )
 rem 專案更新後（git pull）Python 套件可能有變：很快，沒變就什麼都不做
 uv sync --project tools\studio\py --quiet
+if errorlevel 1 echo 警告：Python 套件同步失敗（可能沒有網路或環境異常），音訊分析與自動對時功能可能無法使用。
 node tools\studio\server.mjs --open
 pause

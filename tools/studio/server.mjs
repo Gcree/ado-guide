@@ -1,39 +1,46 @@
 #!/usr/bin/env node
 // 新歌工作站（Ado Studio）的本機伺服器：只聽 127.0.0.1，給自己的瀏覽器用
 // - 開網站和工作站介面（專案資料夾當靜態網站），任何瀏覽器都能存檔，不用再選資料夾
-// - 讀寫歌曲資料檔（只限下面 WRITABLE 這幾個），寫入前確認檔案還讀得出來、而且沒被別人先改過
+// - 讀寫歌曲資料檔都透過 core.mjs（以 writeLock 序列化、寫入前檢查並原子替換）
 // - 檢查（check-data、test-karaoke）、同步（git pull）、發布（commit＋push 到 main）
 // 用法：node tools/studio/server.mjs [--open] [--port 5178]；Windows 點兩下「工作站.bat」，Mac 點兩下「工作站.command」
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import vm from "node:vm";
-import crypto from "node:crypto";
 import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, align, vocalEnvelope, translate, audioFile, commit, songsIndex, songDetail, saveLyrics, setMeta, importLyrics, PUBLISH_BRANCH as BRANCH } from "./core.mjs";
+import {
+  check, gitStatus, publish, sync, fetchSong, fetchAudio, analyze, align,
+  vocalEnvelope, translate, audioFile, commit, songsIndex, songDetail,
+  saveLyrics, setMeta, importLyrics, withWriteLock, cleanupChildren,
+  PUBLISH_BRANCH as BRANCH
+} from "./core.mjs";
 
-const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
-const LyricsStore = require(path.join(here, "lyrics-store.js"));
 
 const args = process.argv.slice(2);
-const argVal = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
-const PORT = Number(argVal("--port") || process.env.STUDIO_PORT || 5178);
+const portIdx = args.indexOf("--port");
+const rawPort = portIdx >= 0 ? (args[portIdx + 1] ?? "") : (process.env.STUDIO_PORT || "5178");
+const PORT = Number(rawPort);
 const HOST = "127.0.0.1";
 const START_PAGE = "/tools/studio/ui/";
 
-// 可以寫入的檔案，和寫入前怎麼確認內容還是好的
-const WRITABLE = {
-  "songs.js": src => { const m = runUmd(src); if (!Array.isArray(m.SONGS) || !m.SONGS.length) throw new Error("songs.js 讀不出 SONGS"); },
-  "i18n.js": src => { const m = runUmd(src); if (!m || typeof m.en !== "object" || typeof m.ja !== "object") throw new Error("i18n.js 讀不出 en／ja"); },
-  "song-lyrics.js": src => { LyricsStore.parse(src, "mv"); },
-  "song-lyrics-live.js": src => { LyricsStore.parse(src, "live"); }
-};
 // 不給瀏覽器讀的地方
-const HIDDEN = [/^\.git(\/|$)/, /^node_modules(\/|$)/, /^tools\/studio\/work(\/|$)/, /^tools\/studio\/config\.json$/, /(^|\/)\.env/];
+const HIDDEN = [
+  /^\.git(\/|$)/i,
+  /^\.claude(\/|$)/i,
+  /^node_modules(\/|$)/i,
+  /^tools\/studio\/work(\/|$)/i,
+  /^tools\/studio\/py\/\.venv(\/|$)/i,
+  /^tools\/studio\/config\.json$/i,
+  /(^|\/)\.env/i
+];
+
+export function isHiddenPath(relPosix) {
+  const norm = String(relPosix || "").replace(/^\/+/, "");
+  return HIDDEN.some(r => r.test(norm));
+}
 
 const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
@@ -43,247 +50,323 @@ const MIME = {
   ".woff2": "font/woff2", ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav"
 };
 
-// 跑 UMD 檔（songs.js、i18n.js）拿到輸出，限時避免卡死
-function runUmd(src) {
-  const module = { exports: {} };
-  vm.runInNewContext(src, { module, exports: module.exports, define: undefined, self: undefined, globalThis: {} }, { timeout: 2000 });
-  return module.exports;
+function securityHeaders(pathname = "") {
+  const h = {
+    "X-Content-Type-Options": "nosniff",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Referrer-Policy": "no-referrer"
+  };
+  if (pathname === "/tools/studio" || pathname.startsWith("/tools/studio/") || pathname.startsWith("/api/")) {
+    h["X-Frame-Options"] = "DENY";
+  }
+  return h;
 }
 
-const hash = text => crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
-
 // ── HTTP ──
-const send = (res, code, body, headers = {}) => {
+const send = (res, code, body, headers = {}, pathname = "") => {
   const json = typeof body !== "string";
-  res.writeHead(code, { "Content-Type": json ? "application/json; charset=utf-8" : "text/plain; charset=utf-8", "Cache-Control": "no-store", ...headers });
+  res.writeHead(code, {
+    "Content-Type": json ? "application/json; charset=utf-8" : "text/plain; charset=utf-8",
+    "Cache-Control": "no-store",
+    ...securityHeaders(pathname),
+    ...headers
+  });
   res.end(json ? JSON.stringify(body) : body);
 };
 
 function readBody(req, limit = 20 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
-    req.on("data", c => { size += c.length; if (size > limit) { reject(new Error("內容太大")); req.destroy(); } else chunks.push(c); });
+    req.on("data", c => {
+      size += c.length;
+      if (size > limit) {
+        reject(Object.assign(new Error("內容太大"), { status: 413 }));
+        req.destroy();
+      } else {
+        chunks.push(c);
+      }
+    });
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
     req.on("error", reject);
   });
 }
 
-// 只接受自己這台電腦、自己這個網址來的請求：擋掉其他網站偷偷呼叫本機 API（含 DNS rebinding）
-const OK_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`]);
-function trusted(req) {
-  if (!OK_HOSTS.has(req.headers.host)) return false;
+async function readJson(req, { allowEmpty = false } = {}) {
+  const raw = await readBody(req);
+  if (allowEmpty && !raw.trim()) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw Object.assign(new Error("JSON 格式錯誤"), { status: 400 });
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw Object.assign(new Error("JSON 內容必須是物件"), { status: 400 });
+  }
+  return parsed;
+}
+
+// 只接受自己這台電腦、自己這個網址來的請求：擋掉其他網站偷偷呼叫本機 API（含 DNS rebinding 與 CSRF）
+export function trusted(req, port = PORT) {
+  const okHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
+  const okOrigins = new Set([`http://127.0.0.1:${port}`, `http://localhost:${port}`]);
+  if (!okHosts.has(req.headers.host)) return false;
+
+  const rawUrl = String(req.url || "/");
+  let pathname = "";
+  try { pathname = new URL(rawUrl, `http://${req.headers.host}`).pathname; }
+  catch { pathname = rawUrl.split("?")[0]; }
+
+  const secFetchSite = String(req.headers["sec-fetch-site"] || "").toLowerCase();
+  if (pathname.startsWith("/api/") && secFetchSite === "cross-site") return false;
+
   const origin = req.headers.origin;
+  if (origin !== undefined && !okOrigins.has(origin)) return false;
+
   if (req.method !== "GET" && req.method !== "HEAD") {
-    if (origin && !OK_HOSTS.has(origin.replace(/^http:\/\//, ""))) return false;
-    if (!(req.headers["content-type"] || "").startsWith("application/json")) return false;
+    if (!origin && secFetchSite !== "same-origin") return false;
+    const ct = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+    if (ct !== "application/json") return false;
   }
   return true;
 }
 
-// 寫檔：先寫暫存檔再換名字，寫到一半當掉也不會留下半個檔案
-function writeAtomic(file, text) {
-  const tmp = `${file}.studio-tmp`;
-  fs.writeFileSync(tmp, text);
-  try { fs.renameSync(tmp, file); } catch (e) { fs.writeFileSync(file, text); fs.rmSync(tmp, { force: true }); }
-}
-
 async function api(req, res, url) {
   const p = url.pathname;
-  if (p === "/api/health") return send(res, 200, { ok: true, app: "ado-studio", version: 1, root: path.basename(root) });
-
-  if (p === "/api/file") {
-    const name = url.searchParams.get("name");
-    if (!Object.hasOwn(WRITABLE, name)) return send(res, 403, { error: `不能讀寫 ${name}` });
-    const file = path.join(root, name);
-    if (req.method === "GET") {
-      const text = fs.readFileSync(file, "utf8");
-      return send(res, 200, text, { "Content-Type": "text/plain; charset=utf-8", "X-Hash": hash(text) });
-    }
-    if (req.method === "PUT") {
-      const { content, base } = JSON.parse(await readBody(req));
-      if (typeof content !== "string") return send(res, 400, { error: "沒有內容" });
-      const now = fs.readFileSync(file, "utf8");
-      if (base && base !== hash(now)) return send(res, 409, { error: `${name} 在你讀取之後被改過了（可能是別的分頁或 git pull）。請重新整理再存一次。` });
-      try { WRITABLE[name](content); } catch (e) { return send(res, 422, { error: `寫入後的 ${name} 會壞掉，沒有寫入：${e.message}` }); }
-      writeAtomic(file, content);
-      console.log(`  寫入 ${name}`);
-      return send(res, 200, { ok: true, hash: hash(content) });
-    }
-    return send(res, 405, { error: "不支援" });
-  }
-
-  if (p === "/api/status" && req.method === "GET") return send(res, 200, await gitStatus());
+  if (p === "/api/health") return send(res, 200, { ok: true, app: "ado-studio", version: 1, root: path.basename(root) }, {}, p);
+  if (p === "/api/status" && req.method === "GET") return send(res, 200, await gitStatus(), {}, p);
   // 新介面：歌單、一首歌的全部資料、存歌詞、存歌曲資料
-  if (p === "/api/songs" && req.method === "GET") return send(res, 200, songsIndex());
+  if (p === "/api/songs" && req.method === "GET") return send(res, 200, songsIndex(), {}, p);
   if (p === "/api/song" && req.method === "GET") {
-    try { return send(res, 200, songDetail(url.searchParams.get("id"))); } catch (e) { return send(res, 404, { error: e.message }); }
+    try { return send(res, 200, songDetail(url.searchParams.get("id")), {}, p); }
+    catch (e) { return send(res, 404, { error: e.message }, {}, p); }
   }
   if (p === "/api/lyrics" && req.method === "POST") {
-    const { id, lyrics, base, live } = JSON.parse(await readBody(req));
+    const { id, lyrics, base, live } = await readJson(req);
     try {
-      const r = saveLyrics(id, lyrics, base, undefined, live || null);
-      const w = commit(r);
-      if (w.written.length) console.log(`  寫入 ${id} 的歌詞：${r.changes.join("、")}`);
-      return send(res, 200, { ok: true, changes: r.changes, warnings: r.warnings, written: w.written, base: r.base });
+      return await withWriteLock(() => {
+        const r = saveLyrics(id, lyrics, base, undefined, live || null);
+        const w = commit(r);
+        if (w.written.length) console.log(`  寫入 ${id} 的歌詞：${r.changes.join("、")}`);
+        return send(res, 200, { ok: true, changes: r.changes, warnings: r.warnings, written: w.written, base: r.base }, {}, p);
+      });
     } catch (e) {
-      return send(res, e.conflict ? 409 : 200, { ok: false, error: e.message, conflict: !!e.conflict });
+      return send(res, e.conflict ? 409 : 200, { ok: false, error: e.message, conflict: !!e.conflict }, {}, p);
     }
   }
   // 貼上整首歌詞（可以不寫時間）；align：匯入後馬上自動對時（沒有時間時順便重補間奏）
   if (p === "/api/lyrics-import" && req.method === "POST") {
-    const { id, text, lines, align: doAlign, keepActs } = JSON.parse(await readBody(req));
+    const { id, text, lines, align: doAlign, keepActs } = await readJson(req);
     try {
-      const r = importLyrics(id, Array.isArray(lines) ? lines : String(text || ""), { keepActs: !!keepActs });
-      commit(r);
+      const r = await withWriteLock(() => {
+        const resImport = importLyrics(id, Array.isArray(lines) ? lines : String(text || ""), { keepActs: !!keepActs });
+        commit(resImport);
+        return resImport;
+      });
       const out = { ok: true, changes: [...r.changes], warnings: [...r.warnings] };
       if (doAlign) {
         if (!audioFile(id)) await fetchAudio(id, { onLog: m => process.stdout.write(`    ${m}`) });
-        const a = await align(id, { apply: true, rebuildGaps: !!r.untimed, onLog: m => process.stdout.write(`    ${m}`) });
-        commit(a);
+        const a = await align(id, { apply: true, rebuildGaps: !!r.untimed, autoCommit: true, onLog: m => process.stdout.write(`    ${m}`) });
         out.changes.push(...a.changes);
         out.warnings = a.warnings;
       }
       console.log(`  ✓ ${id}：${out.changes.join("、")}`);
-      return send(res, 200, out);
+      return send(res, 200, out, {}, p);
     } catch (e) {
-      return send(res, 200, { ok: false, error: e.message });
+      return send(res, 200, { ok: false, error: e.message }, {}, p);
     }
   }
   if (p === "/api/meta" && req.method === "POST") {
-    const { id, ...opts } = JSON.parse(await readBody(req));
+    const { id, ...opts } = await readJson(req);
     try {
-      const r = setMeta(id, opts);
-      const w = commit(r);
-      if (w.written.length) console.log(`  寫入 ${id} 的歌曲資料：${r.changes.join("、")}`);
-      return send(res, 200, { ok: true, changes: r.changes, warnings: r.warnings, written: w.written });
+      return await withWriteLock(() => {
+        const r = setMeta(id, opts);
+        const w = commit(r);
+        if (w.written.length) console.log(`  寫入 ${id} 的歌曲資料：${r.changes.join("、")}`);
+        return send(res, 200, { ok: true, changes: r.changes, warnings: r.warnings, written: w.written }, {}, p);
+      });
     } catch (e) {
-      return send(res, 200, { ok: false, error: e.message });
+      return send(res, 200, { ok: false, error: e.message }, {}, p);
     }
   }
-  if (p === "/api/check" && req.method === "POST") return send(res, 200, await check());
-  if (p === "/api/sync" && req.method === "POST") return send(res, 200, await sync());
+  if (p === "/api/check" && req.method === "POST") {
+    await readJson(req, { allowEmpty: true });
+    return send(res, 200, await check(), {}, p);
+  }
+  if (p === "/api/sync" && req.method === "POST") {
+    await readJson(req, { allowEmpty: true });
+    return send(res, 200, await withWriteLock(() => sync()), {}, p);
+  }
   if (p === "/api/fetch" && req.method === "POST") {
-    const { url, id, ja, cover, noAudio } = JSON.parse(await readBody(req));
-    console.log(`  匯入：${url}`);
+    const { url: videoUrl, id, ja, cover, noAudio } = await readJson(req);
+    console.log(`  匯入：${videoUrl}`);
     try {
-      const r = await fetchSong(url, { id: id || undefined, ja: ja || undefined, cover, noAudio }, { onLog: m => process.stdout.write(`    ${m}`) });
-      const w = commit(r);
-      console.log(`  ✓ 新增 ${r.summary.id}：${w.written.join("、")}`);
-      return send(res, 200, { ok: true, ...r.summary, changes: r.changes, warnings: r.warnings, written: w.written });
+      const r = await fetchSong(videoUrl, { id: id || undefined, ja: ja || undefined, cover, noAudio }, { autoCommit: true, onLog: m => process.stdout.write(`    ${m}`) });
+      console.log(`  ✓ 新增 ${r.summary.id}：${(r.written || []).join("、")}`);
+      return send(res, 200, { ok: true, ...r.summary, changes: r.changes, warnings: r.warnings, written: r.written || [] }, {}, p);
     } catch (e) {
       console.log(`  ✗ ${e.message.split("\n")[0]}`);
-      return send(res, 200, { ok: false, error: e.message });
+      return send(res, 200, { ok: false, error: e.message }, {}, p);
     }
   }
   // 音訊分析：沒有音訊會先下載；apply 時寫進 BEAT（only: "beat"）或 BEAT＋CLIMAX
   if (p === "/api/analyze" && req.method === "POST") {
-    const { id, apply, overwrite, only, bpm, climax } = JSON.parse(await readBody(req));
+    const { id, apply, overwrite, only, bpm, climax } = await readJson(req);
     try {
       if (!audioFile(id)) await fetchAudio(id, { onLog: m => process.stdout.write(`    ${m}`) });
-      const r = await analyze(id, { apply, overwrite, only, bpm, climax, onLog: m => process.stdout.write(`    ${m}`) });
-      const w = commit(r);
-      if (w.written.length) console.log(`  ✓ 寫入 ${id} 的 ${r.changes.join("、")}`);
+      const r = await analyze(id, { apply, overwrite, only, bpm, climax, autoCommit: !!apply, onLog: m => process.stdout.write(`    ${m}`) });
+      const written = r.written || [];
+      if (written.length) console.log(`  ✓ 寫入 ${id} 的 ${r.changes.join("、")}`);
       const { files, ...rest } = r;
-      return send(res, 200, { ok: true, ...rest, written: w.written });
+      return send(res, 200, { ok: true, ...rest, written }, {}, p);
     } catch (e) {
-      return send(res, 200, { ok: false, error: e.message });
+      return send(res, 200, { ok: false, error: e.message }, {}, p);
     }
   }
   // 人聲音量曲線（貼齊聲音用）：沒有音訊會先下載，沒有人聲會先分離
   if (p === "/api/vocal-env" && req.method === "POST") {
-    const { id } = JSON.parse(await readBody(req));
+    const { id } = await readJson(req);
     try {
       if (!audioFile(id)) await fetchAudio(id, { onLog: m => process.stdout.write(`    ${m}`) });
       const env = await vocalEnvelope(id, { onLog: m => process.stdout.write(`    ${m}`) });
-      return send(res, 200, { ok: true, ...env });
+      return send(res, 200, { ok: true, ...env }, {}, p);
     } catch (e) {
-      return send(res, 200, { ok: false, error: e.message });
+      return send(res, 200, { ok: false, error: e.message }, {}, p);
     }
   }
   // 自動對時、翻譯（沒有音訊會先下載）；apply 時寫回歌詞檔
   if ((p === "/api/align" || p === "/api/translate") && req.method === "POST") {
-    const body = JSON.parse(await readBody(req));
+    const body = await readJson(req);
     const log = m => process.stdout.write(`    ${m}`);
     try {
       if (p === "/api/align" && !audioFile(body.id)) await fetchAudio(body.id, { onLog: log });
       const r = p === "/api/align"
-        ? await align(body.id, { apply: !!body.apply, rebuildGaps: !!body.rebuildGaps, onLog: log })
-        : await translate(body.id, { apply: !!body.apply, all: !!body.all, onLog: log });
-      const w = commit(r);
-      if (w.written.length) console.log(`  ✓ ${body.id}：${r.changes.join("、")}`);
+        ? await align(body.id, { apply: !!body.apply, rebuildGaps: !!body.rebuildGaps, autoCommit: !!body.apply, onLog: log })
+        : await translate(body.id, { apply: !!body.apply, all: !!body.all, autoCommit: !!body.apply, onLog: log });
+      const written = r.written || [];
+      if (written.length) console.log(`  ✓ ${body.id}：${r.changes.join("、")}`);
       const { files, ...rest } = r;
-      return send(res, 200, { ok: true, ...rest, written: w.written });
+      return send(res, 200, { ok: true, ...rest, written }, {}, p);
     } catch (e) {
-      return send(res, 200, { ok: false, error: e.message });
+      return send(res, 200, { ok: false, error: e.message }, {}, p);
     }
   }
   if (p === "/api/publish" && req.method === "POST") {
-    const { message, changelog } = JSON.parse(await readBody(req));
+    const { message, changelog } = await readJson(req);
     const msg = String(message || "").trim();
-    if (!msg) return send(res, 400, { error: "要寫 commit 訊息" });
+    if (!msg) return send(res, 400, { error: "要寫 commit 訊息" }, {}, p);
     console.log(`  發布：${msg.split("\n")[0]}`);
-    const r = await publish(msg, { changelog });
+    const r = await withWriteLock(() => publish(msg, { changelog }));
     console.log(r.ok ? `  ✓ 已推上 ${BRANCH}：${r.head}` : `  ✗ ${r.error}`);
-    return send(res, 200, r);
+    return send(res, 200, r, {}, p);
   }
-  return send(res, 404, { error: "沒有這個 API" });
+  return send(res, 404, { error: "沒有這個 API" }, {}, p);
 }
 
-function serveStatic(req, res, url) {
+function serveStatic(req, res, url, rootDir = root) {
+  if (req.method !== "GET" && req.method !== "HEAD") return send(res, 405, "不支援", {}, url.pathname);
   let rel;
-  try { rel = decodeURIComponent(url.pathname).replace(/^\/+/, ""); } catch { return send(res, 400, "網址錯誤"); }
-  if (url.pathname === "/studio" || url.pathname === "/studio/") return send(res, 302, "", { Location: START_PAGE });
-  const file = path.resolve(root, rel);
-  if (file !== root && !file.startsWith(root + path.sep)) return send(res, 403, "不行");
-  const relPosix = path.relative(root, file).split(path.sep).join("/");
-  if (HIDDEN.some(r => r.test(relPosix))) return send(res, 404, "找不到");
-  let target = file;
+  try { rel = decodeURIComponent(url.pathname).replace(/^\/+/, ""); } catch { return send(res, 400, "網址錯誤", {}, url.pathname); }
+  if (rel.includes("\0")) return send(res, 400, "網址錯誤", {}, url.pathname);
+  if (url.pathname === "/studio" || url.pathname === "/studio/") return send(res, 302, "", { Location: START_PAGE }, url.pathname);
+
+  const rootReal = fs.realpathSync(rootDir);
+  const file = path.resolve(rootReal, rel);
+  if (file !== rootReal && !file.startsWith(rootReal + path.sep)) return send(res, 403, "不行", {}, url.pathname);
+  const relLex = path.relative(rootReal, file).split(path.sep).join("/");
+  if (isHiddenPath(relLex)) return send(res, 404, "找不到", {}, url.pathname);
+
   try {
-    if (fs.statSync(target).isDirectory()) {
-      if (!url.pathname.endsWith("/")) return send(res, 301, "", { Location: url.pathname + "/" + url.search });
-      target = path.join(target, "index.html");
+    let targetReal = fs.realpathSync(file);
+    if (targetReal !== rootReal && !targetReal.startsWith(rootReal + path.sep)) return send(res, 403, "不行", {}, url.pathname);
+    if (isHiddenPath(path.relative(rootReal, targetReal).split(path.sep).join("/"))) return send(res, 404, "找不到", {}, url.pathname);
+
+    if (fs.statSync(targetReal).isDirectory()) {
+      if (!url.pathname.endsWith("/")) return send(res, 301, "", { Location: url.pathname + "/" + url.search }, url.pathname);
+      const idxPath = path.join(targetReal, "index.html");
+      targetReal = fs.realpathSync(idxPath);
+      if (targetReal !== rootReal && !targetReal.startsWith(rootReal + path.sep)) return send(res, 403, "不行", {}, url.pathname);
+      if (isHiddenPath(path.relative(rootReal, targetReal).split(path.sep).join("/"))) return send(res, 404, "找不到", {}, url.pathname);
     }
-    const data = fs.readFileSync(target);
-    res.writeHead(200, { "Content-Type": MIME[path.extname(target).toLowerCase()] || "application/octet-stream", "Cache-Control": "no-store" });
+
+    const data = fs.readFileSync(targetReal);
+    res.writeHead(200, {
+      "Content-Type": MIME[path.extname(targetReal).toLowerCase()] || "application/octet-stream",
+      "Cache-Control": "no-store",
+      ...securityHeaders(url.pathname)
+    });
     res.end(req.method === "HEAD" ? undefined : data);
   } catch {
-    send(res, 404, "找不到");
+    send(res, 404, "找不到", {}, url.pathname);
   }
 }
 
-const server = http.createServer(async (req, res) => {
-  if (!trusted(req)) return send(res, 403, "只接受本機工作站的請求");
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  try {
-    if (url.pathname.startsWith("/api/")) return await api(req, res, url);
-    return serveStatic(req, res, url);
-  } catch (e) {
-    console.error(e);
-    send(res, 500, { error: e.message });
+export function createStudioServer({ port = PORT, rootDir = root } = {}) {
+  if (port !== 0 && (!Number.isInteger(port) || port < 1 || port > 65535)) {
+    throw new Error(`無效的連接埠：${port}`);
   }
-});
+  const server = http.createServer(async (req, res) => {
+    const activePort = port > 0 ? port : (server.address()?.port || req.socket?.localPort || PORT);
+    const rawPathname = String(req.url || "/").split("?")[0];
+    if (!trusted(req, activePort)) return send(res, 403, "只接受本機工作站的請求", {}, rawPathname);
+    let url;
+    try {
+      url = new URL(req.url, `http://${req.headers.host}`);
+    } catch {
+      return send(res, 400, { error: "網址格式錯誤" }, {}, rawPathname);
+    }
+    try {
+      if (url.pathname.startsWith("/api/")) return await api(req, res, url);
+      return serveStatic(req, res, url, rootDir);
+    } catch (e) {
+      const code = e.status || 500;
+      if (code >= 500) console.error(e);
+      if (!res.headersSent) send(res, code, { error: e.message }, {}, url.pathname);
+    }
+  });
+  server.requestTimeout = 0;
+  return server;
+}
 
 function openBrowser(u) {
   const [cmd, a] = process.platform === "win32" ? ["cmd", ["/c", "start", "", u]] : process.platform === "darwin" ? ["open", [u]] : ["xdg-open", [u]];
   spawn(cmd, a, { stdio: "ignore", detached: true, windowsHide: true }).on("error", () => {}).unref();
 }
 
-const startUrl = `http://localhost:${PORT}${START_PAGE}`;
-server.on("error", async e => {
-  if (e.code !== "EADDRINUSE") throw e;
-  // 已經開著一個工作站：直接打開瀏覽器就好
-  const r = await fetch(`http://localhost:${PORT}/api/health`).then(r => r.json()).catch(() => null);
-  if (r && r.app === "ado-studio") {
-    console.log(`工作站已經在跑了：${startUrl}`);
-    if (args.includes("--open")) openBrowser(startUrl);
-    process.exit(0);
+const isMain = Boolean(process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url));
+if (isMain) {
+  if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+    console.error(`無效的連接埠：${rawPort}（必須是 1–65535 的整數）`);
+    process.exit(1);
   }
-  console.error(`連接埠 ${PORT} 被別的程式占用了，可以用 --port 換一個，例如：node tools/studio/server.mjs --port 5179`);
-  process.exit(1);
-});
-server.listen(PORT, HOST, () => {
-  console.log(`Ado 新歌工作站：${startUrl}`);
-  console.log(`網站預覽：http://localhost:${PORT}/`);
-  console.log("關掉這個視窗就會停止。\n");
-  if (args.includes("--open")) openBrowser(startUrl);
-});
+  const server = createStudioServer({ port: PORT, rootDir: root });
+  const startUrl = `http://localhost:${PORT}${START_PAGE}`;
+  server.on("error", async e => {
+    if (e.code !== "EADDRINUSE") throw e;
+    // 已經開著一個工作站：直接打開瀏覽器就好
+    const r = await fetch(`http://127.0.0.1:${PORT}/api/health`).then(res => res.json()).catch(() => null);
+    if (r && r.app === "ado-studio") {
+      console.log(`工作站已經在跑了：${startUrl}`);
+      if (args.includes("--open")) openBrowser(startUrl);
+      process.exit(0);
+    }
+    console.error(`連接埠 ${PORT} 被別的程式占用了，可以用 --port 換一個，例如：node tools/studio/server.mjs --port 5179`);
+    process.exit(1);
+  });
+
+  const shutdown = () => {
+    cleanupChildren();
+    server.closeAllConnections?.();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 500).unref();
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+
+  server.listen(PORT, HOST, () => {
+    console.log(`Ado 新歌工作站：${startUrl}`);
+    console.log(`網站預覽：http://localhost:${PORT}/`);
+    console.log("關掉這個視窗就會停止。\n");
+    if (args.includes("--open")) openBrowser(startUrl);
+  });
+}

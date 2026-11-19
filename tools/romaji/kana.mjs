@@ -18,7 +18,8 @@ const BASE = {
   ば: "ba", び: "bi", ぶ: "bu", べ: "be", ぼ: "bo",
   ぱ: "pa", ぴ: "pi", ぷ: "pu", ぺ: "pe", ぽ: "po",
   ゔ: "vu",
-  ぁ: "a", ぃ: "i", ぅ: "u", ぇ: "e", ぉ: "o", ゃ: "ya", ゅ: "yu", ょ: "yo", ゎ: "wa"
+  ぁ: "a", ぃ: "i", ぅ: "u", ぇ: "e", ぉ: "o", ゃ: "ya", ゅ: "yu", ょ: "yo", ゎ: "wa",
+  ヵ: "ka", ヶ: "ka", ゕ: "ka", ゖ: "ka"
 };
 // 兩個假名一組的音（拗音、外來語音）
 const PAIR = {};
@@ -34,7 +35,7 @@ Object.assign(PAIR, {
   ゔぁ: "va", ゔぃ: "vi", ゔぇ: "ve", ゔぉ: "vo", くぁ: "kwa", ぐぁ: "gwa"
 });
 
-const toHira = s => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+const toHira = s => s.replace(/[ァ-ヴ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
 
 export function kanaToRomaji(kana) {
   const s = toHira(kana);
@@ -50,7 +51,15 @@ export function kanaToRomaji(kana) {
       if (sokuon) sokuon = false;
       out += one; i++; continue;
     }
-    if (sokuon) { out += r.startsWith("ch") ? "t" : r[0]; sokuon = false; }
+    if (one === "ん") {
+      const nextTwo = s.slice(i + 1, i + 3), nextOne = s[i + 1];
+      const nextR = PAIR[nextTwo] || (nextOne ? BASE[nextOne] : null);
+      if (nextR && /^[aiueoy]/.test(nextR)) r = "n'";
+    }
+    if (sokuon) {
+      if (!/^[aeiou]/.test(r)) out += r.startsWith("ch") ? "t" : r[0];
+      sokuon = false;
+    }
     out += r; i += step;
   }
   return out;
@@ -58,14 +67,13 @@ export function kanaToRomaji(kana) {
 
 const PUNCT = { "、": ",", "。": ".", "！": "!", "？": "?", "，": ",", "．": ".", "～": "~", "〜": "~", "…": "...", "・": " ", "　": " ", "「": "", "」": "", "『": "", "』": "", "（": "(", "）": ")", "：": ":", "；": ";", "♪": "♪" };
 
-// 詞要不要黏在前一個詞後面（助動詞、接續助詞「て／で／ば」、接尾、補助動詞），其餘用空格隔開
+// 詞要不要黏在前一個詞後面（助動詞、接續助詞「て／で／ば」、接尾），其餘用空格隔開
 function glue(t, prev) {
   if (!prev) return false;
   if (t.pos === "記号") return true;
   if (t.pos === "助動詞") return true;
   if (t.pos === "助詞" && t.pos_detail_1 === "接続助詞" && ["て", "で", "ば"].includes(t.surface_form)) return true;
   if (t.pos_detail_1 === "接尾") return true;
-  if (t.pos === "動詞" && t.pos_detail_1 === "非自立" && prev.surface_form && /[てで]$/.test(prev.surface_form)) return false;
   return false;
 }
 

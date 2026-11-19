@@ -23,6 +23,10 @@ foreach ($p in $need) {
   if (Has $p.cmd) { Write-Host "OK  $($p.name)"; continue }
   Write-Host "安裝 $($p.name)…"
   winget install --id $p.id -e --silent --accept-source-agreements --accept-package-agreements
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "安裝 $($p.name) 失敗（winget 結束碼：$LASTEXITCODE）。請檢查網路或權限後再試一次。"
+    exit 1
+  }
   RefreshPath
   if (-not (Has $p.cmd)) {
     Write-Host "裝好了但這個視窗還找不到 $($p.cmd)。請關掉視窗，再點一次「工作站.bat」。"
@@ -35,7 +39,7 @@ uv sync --project tools/studio/py
 if ($LASTEXITCODE -ne 0) { Write-Host "Python 環境建立失敗，請把上面的訊息貼給 Claude 看。"; exit 1 }
 
 # 人聲分離、自動對時會用顯卡：確認 PyTorch 真的用得到
-$cuda = uv run --project tools/studio/py python -c "import torch; print('yes' if torch.cuda.is_available() else 'no')"
+$cuda = uv run --project tools/studio/py python -c "import torch; print('yes' if torch.cuda.is_available() else 'no')" 2>$null
 if ($cuda -match "yes") { Write-Host "OK  PyTorch 可以用 NVIDIA 顯卡（人聲分離、自動對時會加速）" }
 elseif (Has "nvidia-smi") { Write-Host "--  有 NVIDIA 顯卡，但 PyTorch 用不到：請到 NVIDIA 官網更新顯示卡驅動程式（需要 570 版以上），更新前會用 CPU，比較慢" }
 else { Write-Host "--  沒偵測到 NVIDIA 顯卡：人聲分離、自動對時會用 CPU，比較慢" }

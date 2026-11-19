@@ -38,10 +38,11 @@ function writeConfig(patch) {
 
 // 找到指令實際的位置；Windows 的 npm 全域指令多半是 .cmd，要經過 cmd.exe 才跑得動
 export function which(cmd) {
+  if (!cmd || typeof cmd !== "string") return null;
   const r = process.platform === "win32"
     ? spawnSync("where", [cmd], { encoding: "utf8", windowsHide: true })
-    : spawnSync("sh", ["-c", `command -v "${cmd}"`], { encoding: "utf8" });
-  if (r.status !== 0) return null;
+    : spawnSync("sh", ["-c", 'command -v -- "$1"', "_", cmd], { encoding: "utf8" });
+  if (r.status !== 0 || !r.stdout) return null;
   const all = r.stdout.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
   if (process.platform !== "win32") return all[0] || null;
   return all.find(p => /\.(exe|cmd|bat)$/i.test(p)) || all[0] || null;
@@ -55,6 +56,7 @@ function spawnCli(argv, { cwd, timeoutSec }) {
   if (!exe) return Promise.resolve({ code: -1, out: "", err: `找不到指令 ${argv[0]}` });
   let cmd = exe, args = argv.slice(1), opts = { cwd, windowsHide: true };
   if (process.platform === "win32" && /\.(cmd|bat)$/i.test(exe)) {
+    if (!SAFE_ARG.test(exe)) return Promise.resolve({ code: -1, out: "", err: `執行檔路徑含有 cmd.exe 會誤解的字元：${exe}` });
     const bad = args.find(a => !SAFE_ARG.test(a));
     if (bad) return Promise.resolve({ code: -1, out: "", err: `參數含有 cmd.exe 會誤解的字元：${bad}` });
     cmd = process.env.ComSpec || "cmd.exe";
@@ -103,15 +105,14 @@ export function extractJson(text, isWanted) {
 // 跑一次：說明寫進 jobDir/request.md，要求結果寫到 jobDir/result.json，也印在標準輸出
 export async function runAgentJob({ command, jobDir, instructions, isWanted, timeoutSec = 180 }) {
   fs.mkdirSync(jobDir, { recursive: true });
-  const relDir = path.relative(root, jobDir).split(path.sep).join("/");
   const resultFile = path.join(jobDir, "result.json");
   fs.rmSync(resultFile, { force: true });
   fs.writeFileSync(path.join(jobDir, "request.md"),
-    `${instructions.trim()}\n\n## 交付方式\n\n- 把結果（只有 JSON）寫進檔案 \`${relDir}/result.json\`。\n- 回覆內容也只放同一份 JSON，不要其他文字。\n`);
-  const prompt = `Read the file ${relDir}/request.md and do exactly what it says. Reply with the JSON only.`;
+    `${instructions.trim()}\n\n## 交付方式\n\n- 把結果（只有 JSON）寫進檔案 \`result.json\`。\n- 回覆內容也只放同一份 JSON，不要其他文字。\n`);
+  const prompt = "Read the file request.md and do exactly what it says. Reply with the JSON only.";
   const argv = command.map(a => a.replace("{prompt}", prompt));
   const t0 = Date.now();
-  const r = await spawnCli(argv, { cwd: root, timeoutSec });
+  const r = await spawnCli(argv, { cwd: jobDir, timeoutSec });
   const secs = Math.round((Date.now() - t0) / 100) / 10;
   fs.writeFileSync(path.join(jobDir, "cli.log"), `$ ${argv.join(" ")}\nexit ${r.code}，${secs} 秒\n\n--- stdout ---\n${r.out}\n\n--- stderr ---\n${r.err}\n`);
   let data = extractJson(r.out, isWanted), via = "stdout";
@@ -139,10 +140,14 @@ ${lines.map((l, i) => `${i + 1}. ${l.jp}`).join("\n")}
   const results = [];
   for (const name of names) {
     const command = PRESETS[name] || readConfig().translate?.command;
+    if (!Array.isArray(command) || !command.length) {
+      console.log(`– ${name}：不認得的工具名稱（可用：${Object.keys(PRESETS).join("、")}）\n`);
+      continue;
+    }
     const exe = which(command[0]);
     if (!exe) { console.log(`– ${name}：沒裝（找不到 ${command[0]}）\n`); continue; }
-    const ver = spawnSync(/\s/.test(exe) && process.platform === "win32" ? `"${exe}"` : exe, ["--version"], { encoding: "utf8", shell: process.platform === "win32" && /\.(cmd|bat)$/i.test(exe), windowsHide: true, timeout: 20000 });
-    console.log(`▶ ${name}（${exe}${ver.stdout ? `，${ver.stdout.trim().split("\n")[0]}` : ""}）`);
+    const ver = await spawnCli([command[0], "--version"], { cwd: root, timeoutSec: 20 });
+    console.log(`▶ ${name}（${exe}${ver.out ? `，${ver.out.trim().split("\n")[0]}` : ""}）`);
     const r = await runAgentJob({ command, jobDir: path.join(here, "work", "_probe", name), instructions, isWanted });
     if (r.ok) {
       console.log(`  ✓ 可以用：${r.secs} 秒，結果從 ${r.via} 拿到${r.via === "result.json" ? "（標準輸出是空的，靠檔案救回來）" : ""}`);

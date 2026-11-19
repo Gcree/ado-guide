@@ -65,18 +65,39 @@ const HELP = `新歌工作站命令列：node tools/studio/cli.mjs <指令> [參
 `;
 
 // ── 參數 ──
+const BOOL_FLAGS = new Set([
+  "dryRun", "json", "help", "live", "cover", "noAudio", "apply",
+  "overwrite", "fresh", "download", "rebuildGaps", "all", "keepActs",
+  "align", "penGuess"
+]);
+
 function parse(argv) {
   const pos = [], opt = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "-m") { opt.m = argv[++i]; continue; }
-    if (!a.startsWith("--")) { pos.push(a); continue; }
-    const key = a.slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    if (a === "-h") { opt.help = true; continue; }
+    if (!a.startsWith("--") || a === "--") { pos.push(a); continue; }
+    const eq = a.indexOf("=");
+    const rawKey = eq >= 0 ? a.slice(2, eq) : a.slice(2);
+    const key = rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    if (eq >= 0) { opt[key] = a.slice(eq + 1); continue; }
+    if (BOOL_FLAGS.has(key)) { opt[key] = true; continue; }
     const next = argv[i + 1];
     if (next === undefined || (next.startsWith("--") && !/^--?\d/.test(next))) opt[key] = true;
     else { opt[key] = next; i++; }
   }
   return { pos, opt };
+}
+
+function printHelp(cmd) {
+  if (!cmd) { console.log(HELP); return; }
+  const lines = HELP.split("\n");
+  const idx = lines.findIndex(l => l.startsWith(`  ${cmd} `) || l === `  ${cmd}`);
+  if (idx < 0) { console.log(HELP); return; }
+  const block = [lines[0], lines[2], "", lines[idx]];
+  for (let j = idx + 1; j < lines.length && /^\s{20,}/.test(lines[j]); j++) block.push(lines[j]);
+  console.log(block.join("\n"));
 }
 
 // 讀檔（- ＝標準輸入）：去掉開頭的 BOM，UTF-16 的檔案（PowerShell 的 > 存出來是這樣）也讀得懂；不然 JSON.parse 會讀不懂
@@ -108,8 +129,10 @@ async function main() {
   const [cmd, id, arg2] = pos;
   const write = r => report(opt, core.commit(r, { dryRun: !!opt.dryRun }));
 
+  if (cmd === "help") { printHelp(id); return; }
+  if (opt.help || cmd === undefined) { printHelp(cmd); return; }
+
   switch (cmd) {
-    case undefined: case "help": case "-h": console.log(HELP); return;
 
     case "list": {
       const rows = core.list(undefined, { status: opt.status === true ? undefined : opt.status });
@@ -157,7 +180,7 @@ async function main() {
     case "analyze": {
       need(id, "要給 id，例如 analyze shinka");
       const r = await core.analyze(id, {
-        apply: !!opt.apply, overwrite: !!opt.overwrite, fresh: !!opt.fresh,
+        apply: !!opt.apply, dryRun: !!opt.dryRun, overwrite: !!opt.overwrite, fresh: !!opt.fresh,
         bpm: opt.bpm === true ? undefined : opt.bpm, climax: opt.climax === true ? undefined : opt.climax,
         onLog: opt.json ? undefined : m => process.stderr.write(`  ${m}`)
       });
@@ -246,15 +269,18 @@ async function main() {
       }));
 
     case "lyrics-import": {
+      if (opt.live && opt.align) throw new Error("--live 和 --align 不能一起用（現場版不支援自動對時）");
+      need(id, "要給 id");
       const f = need(opt.file, "要給 --file");
       const text = readInput(f);
       const looksJson = /^\s*(\{|\[\s*[{\]])/.test(text);   // LRC 也是 [ 開頭（[00:12.34]、[ti:…]），要看 [ 後面是不是 {
       const input = /\.json$/i.test(f) || looksJson ? JSON.parse(text) : text;
-      const r = core.importLyrics(need(id, "要給 id"), input, { live: !!opt.live, keepActs: !!opt.keepActs });
+      const r = core.importLyrics(id, input, { live: !!opt.live, keepActs: !!opt.keepActs });
       if (!opt.align) return write(r);
       if (opt.dryRun) return write(r);
       core.commit(r);
-      const a = await core.align(id, { apply: true, rebuildGaps: !!r.untimed, onLog: m => process.stderr.write(`  ${m}`) });
+      if (!core.audioFile(id)) await core.fetchAudio(id, { onLog: m => process.stderr.write(`  ${m}`) });
+      const a = await core.align(id, { apply: true, dryRun: !!opt.dryRun, rebuildGaps: !!r.untimed, onLog: m => process.stderr.write(`  ${m}`) });
       return write({ files: a.files, changes: [...r.changes, ...a.changes], warnings: a.warnings });
     }
 
@@ -265,7 +291,7 @@ async function main() {
 
     case "align": {
       need(id, "要給 id，例如 align shinka");
-      const r = await core.align(id, { apply: !!opt.apply, model: opt.model === true ? undefined : opt.model, fresh: !!opt.fresh, rebuildGaps: !!opt.rebuildGaps, onLog: opt.json ? undefined : m => process.stderr.write(`  ${m}`) });
+      const r = await core.align(id, { apply: !!opt.apply, dryRun: !!opt.dryRun, model: opt.model === true ? undefined : opt.model, fresh: !!opt.fresh, rebuildGaps: !!opt.rebuildGaps, onLog: opt.json ? undefined : m => process.stderr.write(`  ${m}`) });
       const res = core.commit(r, { dryRun: !!opt.dryRun });
       if (opt.json) { const { files, ...rest } = r; return out(opt, { ok: true, ...rest, written: res.written }, ""); }
       const NAME = { high: "高", mid: "中", low: "低", none: "—" };
@@ -278,7 +304,7 @@ async function main() {
 
     case "translate": {
       need(id, "要給 id");
-      const r = await core.translate(id, { apply: !!opt.apply, all: !!opt.all, onLog: opt.json ? undefined : m => process.stderr.write(`  ${m}`) });
+      const r = await core.translate(id, { apply: !!opt.apply, dryRun: !!opt.dryRun, all: !!opt.all, onLog: opt.json ? undefined : m => process.stderr.write(`  ${m}`) });
       const res = core.commit(r, { dryRun: !!opt.dryRun });
       if (opt.json) { const { files, ...rest } = r; return out(opt, { ok: true, ...rest, written: res.written }, ""); }
       if (r.rows.length) console.log(r.rows.map(x => `${String(x.n).padStart(3)}  ${x.jp}\n     → ${x.tr}${x.old ? `（原本：${x.old}）` : ""}`).join("\n"));

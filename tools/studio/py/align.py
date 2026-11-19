@@ -33,10 +33,11 @@ def main():
     ap.add_argument("--language", default="ja")
     a = ap.parse_args()
 
+    from common import pick_device, write_json_atomic
     import stable_whisper
-    from common import pick_device
 
-    lines = json.load(open(a.lines, encoding="utf-8"))
+    with open(a.lines, encoding="utf-8") as f:
+        lines = json.load(f)
     lines = [dict(l, clean=clean(l["text"])) for l in lines]
     lines = [l for l in lines if l["clean"]]
     if not lines:
@@ -44,8 +45,9 @@ def main():
 
     t0 = time.time()
     device = pick_device(a.device)
-    name = a.model if a.model != "auto" else ("large-v3" if device == "cuda" else "medium")
-    model = stable_whisper.load_model(name, device=device if device != "mps" else "cpu")
+    run_device = "cpu" if device == "mps" else device
+    name = a.model if a.model != "auto" else ("large-v3" if run_device == "cuda" else "medium")
+    model = stable_whisper.load_model(name, device=run_device)
     # 一行一句：original_split 讓每一行各自成一段，對回來時一句一段
     text = "\n".join(l["clean"] for l in lines)
     result = model.align(a.audio, text, language=a.language, original_split=True)
@@ -71,11 +73,10 @@ def main():
         conf = sum(probs) / len(probs) if probs else 0.0
         out.append({"n": l["n"], "start": round(seg.start, 3), "end": round(seg.end, 3), "conf": round(conf, 3), "text": seg.text.strip()})
 
-    res = {"model": name, "device": device, "seconds": round(time.time() - t0, 1), "lines": out}
-    with open(a.out, "w", encoding="utf-8") as f:
-        json.dump(res, f, ensure_ascii=False)
+    res = {"model": name, "device": run_device, "seconds": round(time.time() - t0, 1), "lines": out}
+    write_json_atomic(a.out, res)
     found = sum(1 for o in out if o["start"] is not None)
-    print(json.dumps({"model": name, "device": device, "seconds": res["seconds"], "aligned": found, "of": len(out)}, ensure_ascii=False))
+    print(json.dumps({"model": name, "device": run_device, "seconds": res["seconds"], "aligned": found, "of": len(out)}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
