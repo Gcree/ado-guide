@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant-TW">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -34,18 +35,22 @@
 <link rel="preconnect" href="https://font.emtech.cc" crossorigin>
 <!-- 只載入實際用到的字重；整包網址會再用 @import 串 4 個檔，包含用不到的 100。
      不載 800：它的字型片段約 260 KiB，font-weight: 800 的地方會自動改用 700 -->
-<link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/400">
-<link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/700">
+<link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/400" crossorigin media="print" onload="this.media='all'">
+<link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/700" crossorigin media="print" onload="this.media='all'">
+<noscript>
+  <link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/400" crossorigin>
+  <link rel="stylesheet" href="https://font.emtech.cc/css/LINESeedTW/700" crossorigin>
+</noscript>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Google Fonts 的 CSS 很大（約 217 KiB）：改成先不擋畫面，載完再套用（media=print 換成 all）；沒開 JS 時由 noscript 照常載入 -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&family=Noto+Sans+TC:wght@400;600&family=Noto+Sans+JP:wght@400;600&display=swap"></noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&display=swap"></noscript>
 <link rel="stylesheet" href="style.css?v=dev1">
 </head>
 <body>
 
-<svg width="0" height="0" style="position:absolute;display:none" aria-hidden="true">
+<svg class="svg-sprite" width="0" height="0" aria-hidden="true">
   <defs>
     <symbol id="i-sing" viewBox="0 0 24 24"><g class="ico"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.6 2.5-6 5.5-6s5.5 2.4 5.5 6"/><path d="M16 6.5c1.2 1 1.2 3 0 4M18.5 4.5c2.4 2.2 2.4 6.3 0 8.5"/></g></symbol>
     <symbol id="i-clap" viewBox="0 0 24 24"><g class="ico"><path d="M8 20l-3-6.5a1.4 1.4 0 0 1 2.5-1.2L9 15V6.5a1.4 1.4 0 0 1 2.8 0V12"/><path d="M11.8 11V5a1.4 1.4 0 0 1 2.8 0v6.5M14.6 8a1.4 1.4 0 0 1 2.8 0v6c0 3.3-2.2 6-5.4 6H8"/><path d="M18 3.5l1.5-1.5M20 6h2"/></g></symbol>
@@ -66,7 +71,7 @@
 <div class="cueframe" id="cueFrame" aria-hidden="true"></div>
 <div class="alert" id="alert" aria-hidden="true">
   <div class="card">
-    <div class="ahead"><svg id="alIcon"><use href="#i-clap"/></svg><span id="alName"></span></div>
+    <div class="ahead"><svg id="alIcon" aria-hidden="true"><use href="#i-clap"/></svg><span id="alName"></span></div>
     <div class="abody" id="alBody"></div>
     <div class="how" id="alHow"></div>
   </div>
@@ -74,6 +79,7 @@
 
 <div class="shell">
   <!-- 頂欄：一往下捲就變半透明；首頁大搜尋框捲出畫面後，小搜尋框才出現 -->
+  <a class="skip-link" href="#main">跳至主要內容</a>
   <header class="bar" id="bar">
     <div class="col">
       <a class="mark" href="./" aria-label="Ado 應援指南 首頁">
@@ -81,21 +87,23 @@
         <span class="mark-name">Ado 應援指南</span>
       </a>
       <div class="bar-search">
-        <label class="field sm">
+        <div class="field sm">
           <svg class="field-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
           <input id="barQ" type="search" placeholder="搜尋歌名" aria-label="搜尋歌曲" autocomplete="off" enterkeyhint="search">
-        </label>
+        </div>
       </div>
       <div class="menu">
         <button type="button" class="bar-btn" id="lampBtn" aria-label="手燈連動" aria-expanded="false" aria-haspopup="menu" aria-controls="lampPop">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/></svg>
           <span class="bar-btn-label">手燈連動程式</span>
         </button>
-        <div class="pop" id="lampPop" role="menu" aria-label="下載手燈連動程式" hidden>
+        <div class="pop" id="lampPop" hidden>
           <p class="pop-note">裝上 PenlightSync，官方手燈會跟著歌變色，只有電腦版。</p>
-          <a class="pop-item" role="menuitem" id="lampDlWinLink" href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-Windows-x64.zip">Windows 版<span class="pop-meta" id="lampDlWinDesc">.zip</span></a>
-          <a class="pop-item" role="menuitem" id="lampDlMacLink" href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-macOS.zip">macOS 版<span class="pop-meta" id="lampDlMacDesc">.zip</span></a>
-          <a class="pop-item tint" role="menuitem" href="https://github.com/Gcree/penlight-sync" target="_blank" rel="noopener">GitHub 專案 ↗</a>
+          <div role="menu" aria-label="下載手燈連動程式">
+            <a class="pop-item" role="menuitem" id="lampDlWinLink" href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-Windows-x64.zip">Windows 版<span class="pop-meta" id="lampDlWinDesc">.zip</span></a>
+            <a class="pop-item" role="menuitem" id="lampDlMacLink" href="https://github.com/Gcree/penlight-sync/releases/latest/download/PenlightSync-macOS.zip">macOS 版<span class="pop-meta" id="lampDlMacDesc">.zip</span></a>
+            <a class="pop-item tint" role="menuitem" href="https://github.com/Gcree/penlight-sync" target="_blank" rel="noopener">GitHub 專案 ↗</a>
+          </div>
         </div>
       </div>
       <div class="menu">
@@ -131,10 +139,10 @@
           <h1 id="heroH">Ado<br> 應援指南</h1>
           <p class="hero-sub">看 MV，跟著同步歌詞先把應援練熟</p>
           <p class="lead">歌詞一亮起就知道該做什麼——拍手、喊聲、大合唱，<span id="factSongs"></span> 首都標好了。</p>
-          <label class="field lg" id="heroSearch">
+          <div class="field lg" id="heroSearch">
             <svg class="field-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
             <input id="q" type="search" placeholder="搜尋歌名，日中英文都可以" aria-label="搜尋歌曲" autocomplete="off" enterkeyhint="search">
-          </label>
+          </div>
           <div class="hero-links">
             <a class="tint-link" href="song/show/" data-id="show">從<span lang="ja">〈唱〉</span>開始練<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
             <a class="tint-link" id="randomLink" href="song/show/" data-id="show">隨機練一首<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
@@ -285,14 +293,14 @@
     <!-- 歌曲頁 -->
     <div class="view" id="song" hidden>
       <nav class="songbar" aria-label="切換歌曲">
-        <a class="ib" href="./" aria-label="回首頁歌曲清單"><svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>
+        <a class="ib" href="./" aria-label="回首頁歌曲清單"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>
         <div class="pick">
-          <a class="ib" id="prevSong" aria-label="上一首"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></a>
+          <a class="ib" id="prevSong" aria-label="上一首"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg></a>
           <h1 id="sTitle" lang="ja"></h1>
-          <a class="ib" id="nextSong" aria-label="下一首"><svg class="ico-next" viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></svg><svg class="ico-shuf" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4h4v4M4 20 20 4M20 16v4h-4M14 14l6 6M4 4l5 5"/></svg><svg class="ico-rel" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg></a>
+          <a class="ib" id="nextSong" aria-label="下一首"><svg class="ico-next" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6l6 6-6 6"/></svg><svg class="ico-shuf" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4h4v4M4 20 20 4M20 16v4h-4M14 14l6 6M4 4l5 5"/></svg><svg class="ico-rel" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg></a>
         </div>
         <!-- 獨立手燈連動按鈕（桌面版獨立顯示） -->
-        <button class="lamp-btn" data-tool="lamp" id="tool-lamp" aria-pressed="false" title="點擊切換與 PenlightSync 桌面 App 的手燈連動">
+        <button type="button" class="lamp-btn" data-tool="lamp" id="tool-lamp" aria-pressed="false" title="點擊切換與 PenlightSync 桌面 App 的手燈連動">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
           <span class="lamp-lbl">連動手燈</span>
           <small class="tool-sub" id="tool-lamp-status"></small>
@@ -324,9 +332,9 @@
             </div>
           </section>
 
-          <section class="cue" aria-live="polite">
+          <section class="cue">
             <div class="top"><h2>現在要做的事</h2></div>
-            <div class="now"><svg id="cueIcon"><use href="#i-clap"/></svg><strong id="cueName">按播放開始</strong></div>
+            <div class="now"><svg id="cueIcon" aria-hidden="true"><use href="#i-clap"/></svg><strong id="cueName" aria-live="polite">按播放開始</strong></div>
             <div class="next" id="cueNext"></div>
             <div class="how" id="cueHow"></div>
             <ul class="summary" id="cueSummary"></ul>
@@ -344,7 +352,7 @@
                 <h3>接下來</h3>
                 <ol id="cueUp"></ol>
               </div>
-              <div class="cue-track" id="cueTrack" role="group" aria-label="整首應援時間軸（點一下跳到那裡）" title="整首應援時間軸：點一下跳到那裡"></div>
+              <div class="cue-track" id="cueTrack" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="整首應援時間軸（點一下跳到那裡）" title="整首應援時間軸：點一下跳到那裡"></div>
             </div>
           </section>
         </div>
@@ -353,7 +361,7 @@
           <div class="lyrics-top">
             <h2>歌詞與應援</h2>
             <div class="jump" id="singJump" role="group" aria-label="跳到大合唱段落">
-              <button id="singPrev" aria-label="上一段大合唱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg></button><button class="mid" id="singOnly" aria-pressed="false" title="只看大合唱的句子">大合唱</button><button id="singNext" aria-label="下一段大合唱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></button>
+              <button type="button" id="singPrev" aria-label="上一段大合唱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg></button><button type="button" class="mid" id="singOnly" aria-pressed="false" title="只看大合唱的句子">大合唱</button><button type="button" id="singNext" aria-label="下一段大合唱"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></button>
             </div>
             <!-- 應援速覽：手燈色、應援重點、出處、現場音源…，不用捲到歌詞最後才看得到 -->
             <button type="button" class="ly-btn" id="guideBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="guideDlg">速覽</button>
@@ -369,7 +377,7 @@
       <section class="song-guide-inline" id="songGuideInline" aria-label="歌曲應援詳情"></section>
 
       <!-- 練習工具列：常用的一直看得到。電腦是浮在畫面下方正中間的膠囊（捲到最底會停在頁尾上面），手機固定在畫面底部（大拇指按得到）；顯示、更多打開選單（手機是從下面拉出的抽屜） -->
-      <div class="dock" id="dock" role="toolbar" aria-label="練習工具">
+      <div class="dock" id="dock" role="group" aria-label="練習工具">
         <button type="button" class="dock-btn wide-only" id="rateBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="rateDlg" aria-label="播放速度" title="播放速度"><b id="rateBtnVal">1×</b><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
         <button type="button" class="dock-btn compact-only" id="rateCycle" aria-label="播放速度：1×（點一下切換）"><b id="rateNow">1×</b><span>速度</span></button>
         <button type="button" class="dock-btn wide-only" data-tool="click" id="tool-click" aria-pressed="false" title="節拍器：跟著歌曲節奏打出拍點聲"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21 10 3h4l3 18zM12 15l5-7"/></svg><span>拍點聲</span></button>
@@ -453,7 +461,7 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div class="toast pwa-toast" id="pwaToast" hidden role="alert">
+<div class="toast pwa-toast" id="pwaToast" hidden role="status" aria-live="polite">
   <span class="pwa-toast-text" id="pwaToastText">將網站加到主畫面練習？</span>
   <button type="button" class="pwa-toast-btn" id="pwaActionBtn">加入主畫面</button>
   <button type="button" class="pwa-toast-x" id="pwaXBtn" aria-label="關閉">✕</button>
@@ -500,6 +508,8 @@
 <dialog class="sheet sheet-guide" id="guideDlg" aria-label="應援速覽">
   <div class="sheet-panel">
     <div class="sheet-grip" aria-hidden="true"></div>
+    <button type="button" class="sheet-close" aria-label="關閉"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 class="sr-only">應援速覽</h2>
   <section class="song-guide-card" id="songGuideCard" aria-label="歌曲應援速覽">
     <h3 class="card-title">〈<span id="cardJa"></span>〉應援速覽</h3>
     <dl class="card-dl">
@@ -521,6 +531,7 @@
 <dialog class="sheet" id="dispDlg" aria-labelledby="dispH">
   <div class="sheet-panel">
     <div class="sheet-grip" aria-hidden="true"></div>
+    <button type="button" class="sheet-close" aria-label="關閉"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <h2 class="sheet-title" id="dispH">歌詞顯示</h2>
     <div class="sheet-group">
       <button type="button" class="pop-item" data-opt="ja" aria-pressed="true"><span>日文</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
@@ -537,6 +548,7 @@
 
 <dialog class="sheet sheet-sm" id="rateDlg" aria-labelledby="rateH">
   <div class="sheet-panel">
+    <button type="button" class="sheet-close" aria-label="關閉"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <h2 class="sheet-title" id="rateH">播放速度</h2>
     <div class="sheet-group">
       <button type="button" class="pop-item" data-rate="0.5" aria-pressed="false"><span>0.5×</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
@@ -549,6 +561,7 @@
 <dialog class="sheet" id="moreDlg" aria-labelledby="moreH">
   <div class="sheet-panel">
     <div class="sheet-grip" aria-hidden="true"></div>
+    <button type="button" class="sheet-close" aria-label="關閉"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <h2 class="sheet-title" id="moreH">更多</h2>
     <div class="sheet-group compact-only">
       <p class="sheet-h">練習</p>
@@ -581,7 +594,8 @@
 </dialog>
 
 <!-- build:i18n -->
-<script src="songs.js?v=dev"></script>
-<script src="karaoke-sources.js?v=dev"></script>
-<script src="app.js?v=dev"></script>
+<script defer src="songs.js?v=dev"></script>
+<script defer src="karaoke-sources.js?v=dev"></script>
+<script defer src="app.js?v=dev"></script>
 </body>
+</html>

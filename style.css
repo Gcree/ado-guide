@@ -131,6 +131,49 @@
   display: none !important;
 }
 
+.svg-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: max(12px, env(safe-area-inset-left, 0px));
+  z-index: 200;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--on-paper);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--menu-shadow);
+  transition: top var(--dur-quick) var(--ease-out);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: max(12px, env(safe-area-inset-top, 0px));
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
 html,
 body {
   background: var(--ground);
@@ -309,43 +352,6 @@ main.col {
   fill: currentColor;
 }
 
-.seg {
-  display: inline-flex;
-  background: var(--ground);
-  border-radius: 999px;
-  padding: 3px;
-  flex-wrap: wrap;
-}
-
-.seg button {
-  border: 0;
-  background: transparent;
-  color: var(--faint);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.seg button[class^="a-"]::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--act);
-}
-
-.seg button[aria-pressed="true"] {
-  background: var(--raised);
-  color: var(--text);
-}
-
-/* 首頁：動作說明 */
-
 /* 歌曲頁 */
 .grid {
   display: grid;
@@ -414,6 +420,7 @@ main.col {
   text-align: center;
   padding: 20px;
   background: rgba(4, 6, 12, .78);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   pointer-events: none;
 }
@@ -476,43 +483,6 @@ main.col {
 .screen {
   border-radius: var(--radius-card) var(--radius-card) 0 0;
   overflow: hidden;
-}
-
-#tools .view-opts {
-  min-width: 200px;
-}
-
-.view-opts .sep {
-  height: 1px;
-  margin: 4px 6px;
-  background: var(--line);
-}
-
-.view-opts button.do::after {
-  display: none;
-}
-
-.view-opts button:disabled {
-  opacity: .45;
-  cursor: default;
-}
-
-.view-opts .row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 4px 4px 10px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.view-opts .row .seg button {
-  padding: 4px 10px;
-}
-
-.view-opts .row .seg button::after {
-  display: none;
 }
 
 /* 提示訊息：複製連結之類的結果，從下方浮出幾秒 */
@@ -599,18 +569,18 @@ main.col {
 }
 
 .pwa-toast-x {
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 0;
   background: transparent;
   color: var(--on-paper);
-  opacity: .5;
+  opacity: .65;
   display: grid;
   place-items: center;
   cursor: pointer;
   padding: 0;
-  font-size: 13px;
+  font-size: 14px;
   flex: none;
   transition: var(--tr-color);
 }
@@ -693,39 +663,16 @@ main.col {
   gap: 8px;
 }
 
-.cc {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--faint);
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.cc select {
-  background: var(--ground);
-  color: var(--text);
-  border: 0;
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 13px;
-}
-
 .mvbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 16px;
-  padding: 10px 18px;
+  padding: 8px 18px;
   font-size: 13px;
   position: relative;
   z-index: 6;
   border-radius: 0 0 var(--radius-card) var(--radius-card);
-}
-
-.mvhint {
-  color: var(--faint);
-  margin-right: auto;
 }
 
 /* 這首的螢光棒顏色 */
@@ -759,7 +706,7 @@ main.col {
 .video-source-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px;
+  padding: 3px;
   border-radius: 999px;
   background: var(--fill);
   gap: 2px;
@@ -771,19 +718,20 @@ main.col {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 22px;
-  padding: 1px 9px;
+  min-width: 44px;
+  min-height: 36px;
+  padding: 4px 12px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   letter-spacing: .02em;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: var(--tr-color), transform var(--tr-press);
+  transition: var(--tr-color), var(--tr-press);
 }
 
 .video-source-pill button:hover:not([aria-pressed="true"]) {
@@ -812,6 +760,7 @@ main.col {
 }
 
 .on-song .lyrics {
+  max-height: calc(100vh - env(safe-area-inset-top, 0px) - 32px);
   max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 32px);
 }
 
@@ -824,34 +773,6 @@ main.col {
   z-index: 25;
 }
 
-/* 練習工具：右上角的圓鈕，寬螢幕多顯示文字；選單往下蓋在影片和歌詞上 */
-.songbar .vopt summary {
-  height: 40px;
-  padding: 0 16px 0 12px;
-  gap: 8px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 14px;
-}
-
-.songbar .vopt summary svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.songbar .vopt summary::after {
-  display: none;
-}
-
-.songbar .vopt[open] summary {
-  background: var(--raised);
-}
-
 /* 獨立手燈連動按鈕：頂部導覽列獨立顯示 */
 .lamp-btn,
 .songbar .lamp-btn {
@@ -862,7 +783,7 @@ main.col {
   max-height: 40px;
   padding: 0 14px 0 12px;
   border-radius: 999px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   background: var(--surface);
   color: var(--muted);
   font-size: 14px;
@@ -907,30 +828,6 @@ main.col {
 
 .lamp-btn[aria-pressed="true"] svg,
 .songbar .lamp-btn[aria-pressed="true"] svg {
-  stroke: var(--accent);
-}
-
-/* 沉浸模式按鈕切換 */
-.immersive-btn .ico-compress {
-  display: none;
-}
-
-.immersive-btn[aria-pressed="true"] .ico-expand {
-  display: none;
-}
-
-.immersive-btn[aria-pressed="true"] .ico-compress {
-  display: block;
-}
-
-.immersive-btn[aria-pressed="true"] {
-  background: var(--raised);
-  color: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(93, 157, 254, 0.35);
-}
-
-.immersive-btn[aria-pressed="true"] svg {
   stroke: var(--accent);
 }
 
@@ -1143,49 +1040,6 @@ main.col {
   visibility: hidden;
 }
 
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  font-size: 13px;
-  color: var(--muted);
-  background: none;
-  border: 0;
-  cursor: pointer;
-  padding: 0;
-}
-
-.switch i {
-  width: 30px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--raised);
-  position: relative;
-  transition: background-color var(--dur-quick) var(--ease);
-}
-
-.switch i::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--faint);
-  transition: transform var(--dur-base) var(--ease-spring), width var(--dur-press) var(--ease), background-color var(--dur-quick) var(--ease);
-}
-
-.switch[aria-pressed="true"] i {
-  background: var(--accent-deep);
-}
-
-.switch[aria-pressed="true"] i::after {
-  transform: translateX(12px);
-  background: var(--text);
-}
-
 .lyrics {
   background: var(--surface);
   border-radius: var(--radius-card);
@@ -1194,6 +1048,7 @@ main.col {
   top: calc(env(safe-area-inset-top, 0px) + 68px);
   display: flex;
   flex-direction: column;
+  max-height: calc(100vh - env(safe-area-inset-top, 0px) - 76px);
   max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 76px);
   width: 100%;
   max-width: 100%;
@@ -1249,7 +1104,6 @@ main.col {
 .depth-focus .ln {
   transition: transform var(--dur-slow) var(--ease-out), filter var(--dur-slow) var(--ease), opacity var(--dur-slow) var(--ease), background-color var(--dur-base) var(--ease), box-shadow var(--dur-base) var(--ease);
   transform-origin: left center;
-  will-change: transform, filter, opacity;
 }
 
 .depth-focus.has-now .ln:not(.now) {
@@ -1305,7 +1159,6 @@ main.col {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: normal;
-  will-change: transform, opacity, filter;
   animation: folia-glyph-spring .5s cubic-bezier(.16, 1.08, .38, 1.15) both;
   animation-delay: min(calc(var(--i, 0) * 24ms), 320ms);
 }
@@ -1671,12 +1524,13 @@ main.col {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 36px;
   border: 0;
   background: none;
   color: inherit;
   font-size: 13px;
-  padding: 2px 8px;
-  margin: -2px -8px;
+  padding: 4px 10px;
+  margin: 0;
   border-radius: 999px;
   cursor: pointer;
 }
@@ -1737,170 +1591,6 @@ main.col {
   cursor: default;
 }
 
-/* 顯示選項收進一個按鈕 */
-.vopt {
-  position: relative;
-}
-
-.vopt summary {
-  list-style: none;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: var(--ground);
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.vopt summary::-webkit-details-marker {
-  display: none;
-}
-
-.vopt summary::after {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border: solid currentColor;
-  border-width: 0 1.5px 1.5px 0;
-  transform: translateY(-2px) rotate(45deg);
-  transition: transform var(--dur-quick) var(--ease);
-}
-
-.vopt[open] summary {
-  color: var(--text);
-  background: var(--raised);
-}
-
-.vopt[open] summary::after {
-  transform: translateY(1px) rotate(-135deg);
-}
-
-.view-opts {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 10;
-  display: grid;
-  gap: 2px;
-  width: 196px;
-  max-width: calc(100vw - 24px);
-  box-sizing: border-box;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 6px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--raised) 92%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--line, rgba(255, 255, 255, .1));
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .2);
-  transform-origin: top right;
-  animation: vopt-pop-in var(--dur-quick) var(--ease-out);
-}
-
-.view-opts.to-right {
-  right: auto;
-  left: 0;
-  transform-origin: top left;
-}
-
-.view-opts.to-up {
-  top: auto;
-  bottom: calc(100% + 6px);
-  transform-origin: bottom right;
-}
-
-@keyframes vopt-pop-in {
-  from {
-    opacity: 0;
-    transform: scale(.95) translateY(-3px);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.view-opts button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 13.5px;
-  text-align: left;
-  cursor: pointer;
-  transition: var(--tr-color);
-}
-
-.view-opts button:hover,
-.view-opts a:hover {
-  background: var(--hover);
-  color: var(--text);
-}
-
-.view-opts a {
-  display: block;
-  border-radius: 8px;
-  padding: 7px 10px;
-  color: var(--muted);
-  font-size: 13.5px;
-  text-decoration: none;
-}
-
-.view-opts .m-only {
-  display: none;
-}
-
-.view-opts button::after {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--faint);
-  transition: background-color var(--dur-quick) var(--ease), box-shadow var(--dur-quick) var(--ease), transform var(--dur-base) var(--ease-spring);
-}
-
-.view-opts button[aria-pressed="true"] {
-  color: var(--text);
-  font-weight: 500;
-}
-
-.view-opts button[aria-pressed="true"]::after {
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-}
-
-#tool-lamp.lamp-linked::after {
-  background: #10b981 !important;
-  box-shadow: 0 0 8px #10b981, 0 0 14px rgba(16, 185, 129, 0.6) !important;
-  animation: lamp-pulse 2s var(--ease-sine) infinite;
-}
-
-@keyframes lamp-pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.7;
-    transform: scale(0.9);
-  }
-}
-
 /* 手燈連動開關：只在電腦版支援，手機／平板隱藏 */
 @media (pointer: coarse) {
 
@@ -1908,18 +1598,6 @@ main.col {
   #lampLiveBadge {
     display: none !important;
   }
-}
-
-.view-opts .tool-sub {
-  display: block;
-  font-size: 11px;
-  color: var(--faint);
-  font-weight: normal;
-  margin-top: 1px;
-}
-
-.view-opts button[aria-pressed="true"] .tool-sub {
-  color: var(--muted);
 }
 
 .lamp-live-badge {
@@ -1947,89 +1625,6 @@ main.col {
   box-shadow: 0 0 6px #10b981;
 }
 
-.tips-opt {
-  display: none;
-}
-
-.tips-opt .view-opts {
-  min-width: 220px;
-  max-width: min(320px, calc(100vw - 32px));
-  padding: 10px 14px;
-  z-index: 30;
-}
-
-.tips-opt .summary {
-  margin: 0;
-  padding-left: 1.2em;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--text);
-  white-space: normal;
-}
-
-.tips-opt .summary li {
-  margin: 6px 0;
-}
-
-.live-opt {
-  display: inline-block;
-}
-
-.live-opt .view-opts {
-  min-width: 220px;
-  max-width: min(320px, calc(100vw - 32px));
-  padding: 8px 10px;
-  z-index: 30;
-}
-
-.live-menu-title {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--faint);
-  letter-spacing: .04em;
-  padding: 4px 8px 6px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 4px;
-}
-
-.live-menu-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.live-menu-list a {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 13px;
-  text-decoration: none;
-  transition: var(--tr-color);
-}
-
-.live-menu-list a:hover {
-  background: var(--surface);
-  color: var(--accent);
-}
-
-.live-menu-list a svg.ext {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: .7;
-  flex-shrink: 0;
-  margin-left: 8px;
-}
-
 /* 圖例：這首用到的動作 */
 #homeLegend {
   padding: 4px 0 16px;
@@ -2044,8 +1639,8 @@ main.col {
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
-  padding: 0 14px 10px;
+  gap: 4px 6px;
+  padding: 0 14px 8px;
   font-size: 13px;
   color: var(--muted);
 }
@@ -2098,6 +1693,7 @@ main.col {
   background: var(--raised);
   color: var(--text);
   width: min(560px, calc(100% - 32px));
+  max-height: min(80vh, 720px);
   max-height: min(80dvh, 720px);
   box-shadow: 0 24px 64px rgba(0, 0, 0, .6);
 }
@@ -2371,29 +1967,6 @@ main.col {
     display: none;
   }
 
-  .tips-opt:not([hidden]) {
-    display: inline-block;
-  }
-
-  .view-opts .m-only {
-    display: flex;
-  }
-
-  .lyrics-top .vopt {
-    margin-left: auto;
-  }
-
-  .songbar .vopt summary {
-    width: 40px;
-    padding: 0;
-    justify-content: center;
-    border-radius: 50%;
-  }
-
-  .songbar .vopt summary .lbl {
-    display: none;
-  }
-
   .songbar .lamp-btn {
     width: 40px;
     padding: 0;
@@ -2416,17 +1989,14 @@ main.col {
 
   .lyrics {
     position: static;
+    height: 70vh;
     height: 70dvh;
     max-height: none;
   }
 
-  .mvhint {
-    display: none;
-  }
-
-  /* 提示縮成一列：現在的動作、下一個、大字提醒開關 */
+  /* 提示縮成一列：現在的動作、下一個 */
   .cue {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     padding: 10px 14px;
     gap: 4px 12px;
   }
@@ -2448,10 +2018,6 @@ main.col {
 
   .cue .next {
     order: 2;
-  }
-
-  .cue .switch {
-    order: 3;
   }
 
   .cue .now svg {
@@ -2492,7 +2058,7 @@ main.col {
   }
 }
 
-@media (max-width: 900px) and (min-height: 560px) {
+@media (max-width: 900px) and (min-height: 501px) {
   .on-song main.col {
     padding-block: 0;
   }
@@ -2502,6 +2068,7 @@ main.col {
   }
 
   .on-song #song {
+    height: 100vh;
     height: 100dvh;
     padding: env(safe-area-inset-top, 0px) 0 max(8px, env(safe-area-inset-bottom, 0px));
     display: flex;
@@ -2538,10 +2105,6 @@ main.col {
     padding-top: 4px;
   }
 
-  .seg button {
-    flex: none;
-  }
-
   .mvbar {
     gap: 6px 12px;
     padding-inline: 14px;
@@ -2558,6 +2121,7 @@ main.col {
   }
 
   .on-song #song {
+    height: 100vh;
     height: 100dvh;
     padding: 4px 0 max(4px, env(safe-area-inset-bottom, 0px));
     display: flex;
@@ -2579,26 +2143,6 @@ main.col {
     display: none;
   }
 
-  .view-opts .m-only {
-    display: flex;
-  }
-
-  .lyrics-top .vopt {
-    margin-left: auto;
-  }
-
-  .songbar .vopt summary {
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    justify-content: center;
-    border-radius: 50%;
-  }
-
-  .songbar .vopt summary .lbl {
-    display: none;
-  }
-
   .songbar .lamp-btn {
     width: 34px;
     height: 34px;
@@ -2616,6 +2160,7 @@ main.col {
     flex: 1;
     min-height: 0;
     display: grid;
+    grid-template-columns: min(52vw, calc((100vh - 200px) * 16 / 9)) minmax(0, 1fr);
     grid-template-columns: min(52vw, calc((100dvh - 200px) * 16 / 9)) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     gap: 8px;
@@ -2637,7 +2182,6 @@ main.col {
     align-self: stretch;
   }
 
-  .mvhint,
   .cue h2,
   .cue .how,
   .cue .summary {
@@ -2649,7 +2193,7 @@ main.col {
   }
 
   .cue {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     padding: 8px 12px;
     gap: 4px 12px;
   }
@@ -2665,10 +2209,6 @@ main.col {
 
   .cue .next {
     order: 2;
-  }
-
-  .cue .switch {
-    order: 3;
   }
 
   .cue .now svg {
@@ -2842,6 +2382,7 @@ body.immersive-mode #song {
   inset: 0;
   z-index: 10;
   width: 100vw;
+  height: 100vh;
   height: 100dvh;
   background: transparent;
   padding: 0;
@@ -2896,6 +2437,7 @@ body.immersive-mode .left {
   align-items: center;
   gap: clamp(10px, 1.6vh, 18px);
   /* 螢幕高度＝畫面高度扣掉頂欄、提示、工具列（約 230px），再留至少 3 句字幕的空間；矮的筆電螢幕也不會把字幕擠掉 */
+  width: min(100%, 1500px, calc((100vh - 230px - max(180px, 26vh)) * 16 / 9));
   width: min(100%, 1500px, calc((100dvh - 230px - max(180px, 26dvh)) * 16 / 9));
   max-width: none;
 }
@@ -2963,8 +2505,7 @@ body.immersive-mode .cue {
 
 body.immersive-mode .cue .top,
 body.immersive-mode .cue .how,
-body.immersive-mode .cue .summary,
-body.immersive-mode .cue .switch {
+body.immersive-mode .cue .summary {
   display: none;
 }
 
@@ -3175,6 +2716,7 @@ body.immersive-mode .depth-focus.has-now .ln.now {
   position: fixed;
   inset: 0;
   width: 100vw;
+  height: 100vh;
   height: 100dvh;
   z-index: 1;
   display: none;
@@ -3219,8 +2761,8 @@ body.immersive-mode.has-venue .cue {
 /* 5. 手機直拿：螢幕滿版貼在頂欄下，字幕佔下半 */
 @media (max-width: 900px) {
   body.immersive-mode .songbar {
-    left: 10px;
-    right: 10px;
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
     padding: 4px 10px;
   }
 
@@ -3290,6 +2832,7 @@ body.immersive-mode.has-venue .cue {
   }
 
   body.immersive-mode .left {
+    width: min(48vw, calc((100vh - 120px) * 16 / 9));
     width: min(48vw, calc((100dvh - 120px) * 16 / 9));
   }
 
@@ -3359,6 +2902,8 @@ body.immersive-mode.has-venue .cue {
 
 .song-index-sec {
   padding: 4px 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
 }
 
 .reel-now {
@@ -3891,6 +3436,7 @@ body.no-lights .climax-surge {
 /* 淺色：首頁和歌曲頁都跟著切換；沉浸模式是熄燈的舞台，一律深色（見檔案最後） */
 :root[data-theme="light"] {
   color-scheme: light;
+  --primary: var(--color-bahama-blue-700);
   --ground: #ffffff;
   --surface: #f2f4f7;
   --raised: #ffffff;
@@ -3899,7 +3445,7 @@ body.no-lights .climax-surge {
   --text: var(--color-slate-950);
   --muted: var(--color-slate-700);
   --faint: #5b6779;
-  --ph: #7a8597;
+  --ph: #5f6b7d;
   --paper: var(--color-slate-950);
   --on-paper: #ffffff;
   --accent: var(--color-bahama-blue-700);
@@ -3926,6 +3472,47 @@ body.no-lights .climax-surge {
   --call: #be185d;
   --gesture: #6d28d9;
   --listen: #5b6779;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --primary: var(--color-bahama-blue-700);
+    --ground: #ffffff;
+    --surface: #f2f4f7;
+    --raised: #ffffff;
+    --hover: #eef1f5;
+    --line: #d6dbe3;
+    --text: var(--color-slate-950);
+    --muted: var(--color-slate-700);
+    --faint: #5b6779;
+    --ph: #5f6b7d;
+    --paper: var(--color-slate-950);
+    --on-paper: #ffffff;
+    --accent: var(--color-bahama-blue-700);
+    --card: #f2f4f7;
+    --menu: #ffffff;
+    --fill: rgba(100, 116, 139, .12);
+    --fill-hover: rgba(100, 116, 139, .18);
+    --fill-press: rgba(100, 116, 139, .27);
+    --row-hover: rgba(100, 116, 139, .07);
+    --row-press: rgba(100, 116, 139, .14);
+    --tint: var(--color-bahama-blue-700);
+    --bar-bg: rgba(255, 255, 255, .78);
+    --menu-shadow: 0 12px 32px rgba(2, 6, 23, .16);
+    --dot-ring: inset 0 0 0 1px rgba(2, 6, 23, .25);
+    --chip-on-bg: var(--color-slate-950);
+    --chip-on-fg: #ffffff;
+    --chip-on-hover: var(--color-slate-800);
+    --foot-bg: #f2f4f7;
+    --sing: var(--color-bahama-blue-700);
+    --clap: var(--color-bahama-blue-700);
+    --wave: #8a5d00;
+    --jump: #15803d;
+    --call: #be185d;
+    --gesture: #6d28d9;
+    --listen: #5b6779;
+  }
 }
 
 /* overflow-x: hidden 會讓外框變成捲動容器，頂欄與工具列的 sticky 就黏不住；改用 clip（只裁切、不捲動） */
@@ -3956,7 +3543,7 @@ html:not(.on-song) #fx {
 .bar .col {
   max-width: 1080px;
   min-height: 52px;
-  padding: 4px var(--home-pad);
+  padding: 4px max(var(--home-pad), env(safe-area-inset-right, 0px)) 4px max(var(--home-pad), env(safe-area-inset-left, 0px));
   display: flex;
   align-items: center;
   gap: 8px;
@@ -4105,6 +3692,11 @@ html:not(.on-song) #fx {
 
 .pop.narrow {
   width: 200px;
+}
+
+.pop [role="menu"] {
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes pop-in {
@@ -5165,6 +4757,11 @@ html:not(.on-song) #fx {
   min-width: 0;
 }
 
+.faq {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
+}
+
 #songs,
 #faq {
   scroll-margin-top: 64px;
@@ -5961,11 +5558,13 @@ html:not(.on-song) #fx {
   color: var(--text);
   font-size: 13px;
   line-height: 1.5;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
 }
 
 .site-foot .col {
   max-width: 1080px;
-  padding: 48px var(--home-pad) max(24px, env(safe-area-inset-bottom, 0px));
+  padding: 48px max(var(--home-pad), env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(var(--home-pad), env(safe-area-inset-left, 0px));
   display: flex;
   flex-direction: column;
   gap: 40px;
@@ -6245,11 +5844,10 @@ html:not(.on-song) #fx {
   box-shadow: inset 3.5px 0 0 var(--act, var(--text)), var(--menu-shadow);
 }
 
-/* 頂部：返回、上下首、手燈、沉浸、小窗、工具 */
+/* 頂部：返回、上下首、手燈 */
 .ib,
 .pick,
-.songbar .lamp-btn,
-.songbar .vopt summary {
+.songbar .lamp-btn {
   background: var(--card);
   color: var(--text);
   border: 0;
@@ -6261,8 +5859,7 @@ html:not(.on-song) #fx {
 }
 
 .ib,
-.songbar .lamp-btn,
-.songbar .vopt summary {
+.songbar .lamp-btn {
   transition: var(--tr-color), var(--tr-press);
   -webkit-tap-highlight-color: transparent;
 }
@@ -6270,8 +5867,7 @@ html:not(.on-song) #fx {
 @media (hover: hover) {
 
   .ib:hover,
-  .songbar .lamp-btn:hover:not(:disabled),
-  .songbar .vopt summary:hover {
+  .songbar .lamp-btn:hover:not(:disabled) {
     background: var(--card-hover);
     color: var(--text);
     border-color: transparent;
@@ -6282,20 +5878,13 @@ html:not(.on-song) #fx {
   }
 }
 
-.songbar .vopt[open] summary {
-  background: var(--card-press);
-  color: var(--text);
-}
-
-.songbar .lamp-btn[aria-pressed="true"],
-.immersive-btn[aria-pressed="true"] {
+.songbar .lamp-btn[aria-pressed="true"] {
   background: var(--chip-on-bg);
   color: var(--chip-on-fg);
   box-shadow: none;
 }
 
-.songbar .lamp-btn[aria-pressed="true"] svg,
-.immersive-btn[aria-pressed="true"] svg {
+.songbar .lamp-btn[aria-pressed="true"] svg {
   stroke: currentColor;
 }
 
@@ -6310,8 +5899,7 @@ html:not(.on-song) #fx {
 }
 
 .ib:active,
-.songbar .lamp-btn:active:not(:disabled),
-.songbar .vopt summary:active {
+.songbar .lamp-btn:active:not(:disabled) {
   background: var(--card-press);
   transform: scale(.95);
 }
@@ -6326,11 +5914,8 @@ html:not(.on-song) #fx {
 
 .ib:focus-visible,
 .lamp-btn:focus-visible,
-.vopt summary:focus-visible,
-.cc select:focus-visible,
 .jump button:focus-visible,
-.legend button:focus-visible,
-.switch:focus-visible {
+.legend button:focus-visible {
   outline: 2px solid var(--tint);
   outline-offset: 2px;
 }
@@ -6338,161 +5923,6 @@ html:not(.on-song) #fx {
 .lamp-btn:disabled {
   opacity: .4;
   cursor: not-allowed;
-}
-
-/* 小顆的下拉鈕（顯示、這首重點、現場音源）和速度選單 */
-.vopt summary {
-  background: var(--fill);
-  color: var(--text);
-  -webkit-tap-highlight-color: transparent;
-  transition: var(--tr-color), var(--tr-press);
-}
-
-@media (hover: hover) {
-  .vopt summary:hover {
-    background: var(--fill-hover);
-  }
-}
-
-.vopt[open] summary {
-  background: var(--fill-press);
-  color: var(--text);
-}
-
-.vopt summary:active {
-  transform: scale(.96);
-}
-
-.cc select {
-  background: var(--fill);
-  color: var(--text);
-  cursor: pointer;
-  transition: background-color var(--dur-hover) var(--ease);
-}
-
-@media (hover: hover) {
-  .cc select:hover:not(:disabled) {
-    background: var(--fill-hover);
-  }
-}
-
-.cc select:disabled {
-  opacity: .4;
-  cursor: not-allowed;
-}
-
-/* 下拉選單：實心、沒有框線，項目高度加大好點 */
-.view-opts {
-  width: 220px;
-  padding: 6px;
-  background: var(--menu);
-  border: 0;
-  box-shadow: var(--menu-shadow);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-.view-opts button,
-.view-opts a {
-  min-height: 40px;
-  padding: 0 12px;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 15px;
-}
-
-.view-opts a {
-  display: flex;
-  align-items: center;
-}
-
-@media (hover: hover) {
-
-  .view-opts button:hover:not(:disabled),
-  .view-opts a:hover {
-    background: var(--fill);
-    color: var(--text);
-  }
-}
-
-.view-opts button:active:not(:disabled),
-.view-opts a:active {
-  background: var(--fill-press);
-}
-
-.view-opts button:focus-visible,
-.view-opts a:focus-visible {
-  outline: 2px solid var(--tint);
-  outline-offset: -2px;
-}
-
-.view-opts button[aria-pressed="true"] {
-  font-weight: 700;
-}
-
-.view-opts button[aria-pressed="true"]::after {
-  background: var(--tint);
-  box-shadow: none;
-}
-
-.view-opts .sep {
-  margin: 4px 12px;
-  background: var(--fill);
-}
-
-.view-opts .row {
-  padding: 4px 4px 4px 12px;
-  color: var(--text);
-  font-size: 15px;
-}
-
-.live-menu-title {
-  padding: 6px 12px;
-  border-bottom: 0;
-  margin-bottom: 0;
-}
-
-.live-menu-list a {
-  min-height: 40px;
-  padding: 0 12px;
-  font-size: 14px;
-}
-
-@media (hover: hover) {
-  .live-menu-list a:hover {
-    background: var(--fill);
-    color: var(--tint);
-  }
-}
-
-.live-menu-list a:active {
-  background: var(--fill-press);
-}
-
-/* 分段按鈕（歌詞字體大小）：選中的反白，和首頁篩選膠囊一樣 */
-.seg {
-  background: var(--fill);
-}
-
-.seg button {
-  color: var(--text);
-  transition: var(--tr-color);
-}
-
-@media (hover: hover) {
-  .seg button:hover:not([aria-pressed="true"]) {
-    background: var(--fill-hover);
-  }
-}
-
-.seg button[aria-pressed="true"] {
-  background: var(--chip-on-bg);
-  color: var(--chip-on-fg);
-}
-
-.seg button:focus-visible {
-  outline: 2px solid var(--tint);
-  outline-offset: 1px;
 }
 
 /* 歌詞列、圖例、跳到大合唱 */
@@ -6545,33 +5975,6 @@ html:not(.on-song) #fx {
 
 .jump .mid {
   width: auto;
-}
-
-/* 大字提醒開關 */
-.switch i {
-  background: var(--fill-hover);
-}
-
-.switch i::after {
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(2, 6, 23, .3);
-}
-
-.switch[aria-pressed="true"] i {
-  background: var(--tint);
-}
-
-.switch[aria-pressed="true"] i::after {
-  background: #ffffff;
-}
-
-.switch:active i::after {
-  width: 14px;
-}
-
-.switch:disabled {
-  opacity: .4;
-  cursor: not-allowed;
 }
 
 /* 動作字卡、應援速覽、反拍提示：拿掉框線，靠底色分層 */
@@ -6703,6 +6106,10 @@ html:not(.on-song) #fx {
   animation-name: folia-glyph-spring, chorus-glow-pulse-light;
 }
 
+:root[data-theme="light"] body:not(.immersive-mode) .karaoke .ln.now .ja rt {
+  color: var(--ph);
+}
+
 :root[data-theme="light"] body:not(.immersive-mode) .karaoke .ln.now .k.lit,
 :root[data-theme="light"] body:not(.immersive-mode) .karaoke .ln.now .k.lit rt {
   color: var(--text);
@@ -6727,14 +6134,59 @@ html:not(.on-song) #fx {
   box-shadow: var(--dot-ring);
 }
 
+:root[data-theme="light"] body:not(.immersive-mode) .alert .words {
+  color: var(--faint);
+}
+
 :root[data-theme="light"] body:not(.immersive-mode) .alert .words .k.lit {
   color: var(--sing);
 }
 
 :root[data-theme="light"] body:not(.immersive-mode) .karaoke .ln.now .ja,
-:root[data-theme="light"] body:not(.immersive-mode) .karaoke .ln.now .ja rt,
 :root[data-theme="light"] body:not(.immersive-mode) .karaoke .ln.now .k.sung {
   color: var(--ph) !important;
+}
+
+:root[data-theme="light"] body:not(.immersive-mode) .j-perfect {
+  color: var(--color-bahama-blue-800);
+}
+
+:root[data-theme="light"] body:not(.immersive-mode) .j-good {
+  color: #137333;
+}
+
+:root[data-theme="light"] body:not(.immersive-mode) .j-miss {
+  color: #c92a2a;
+}
+
+:root[data-theme="light"] body:not(.immersive-mode) .lamp-btn.lamp-linked,
+:root[data-theme="light"] body:not(.immersive-mode) .songbar .lamp-btn.lamp-linked {
+  background: rgba(4, 120, 87, 0.12) !important;
+  border-color: rgba(4, 120, 87, 0.45) !important;
+  color: #065f46 !important;
+  box-shadow: 0 0 12px rgba(4, 120, 87, 0.18) !important;
+}
+
+:root[data-theme="light"] body:not(.immersive-mode) .lamp-btn.lamp-linked svg,
+:root[data-theme="light"] body:not(.immersive-mode) .songbar .lamp-btn.lamp-linked svg {
+  stroke: #065f46 !important;
+  filter: none;
+}
+
+:root[data-theme="light"] body:not(.immersive-mode) .lamp-btn.lamp-linked .tool-sub,
+:root[data-theme="light"] body:not(.immersive-mode) .songbar .lamp-btn.lamp-linked .tool-sub {
+  color: #065f46 !important;
+}
+
+:root[data-theme="light"] body:not(.immersive-mode) .lamp-live-badge {
+  color: #065f46;
+  background: rgba(4, 120, 87, 0.12);
+  border-color: rgba(4, 120, 87, 0.4);
+}
+
+:root[data-theme="light"] body:not(.immersive-mode) .lamp-live-badge::before {
+  background: #047857;
+  box-shadow: none;
 }
 
 @keyframes chorus-glow-pulse-light {
@@ -6770,6 +6222,7 @@ html:has(body.immersive-mode) {
 
 body.immersive-mode {
   color-scheme: dark;
+  --primary: var(--color-bahama-blue-500);
   --ground: #070a12;
   --surface: rgba(14, 19, 34, .9);
   --raised: #1c2439;
@@ -6790,11 +6243,13 @@ body.immersive-mode {
   --row-hover: rgba(148, 163, 184, .08);
   --row-press: rgba(148, 163, 184, .15);
   --tint: var(--color-bahama-blue-500);
+  --bar-bg: rgba(7, 10, 18, .72);
   --menu-shadow: 0 12px 32px rgba(0, 0, 0, .55);
   --dot-ring: none;
   --chip-on-bg: var(--color-slate-100);
   --chip-on-fg: var(--color-slate-950);
   --chip-on-hover: #ffffff;
+  --foot-bg: #05060a;
   --card-hover: color-mix(in srgb, #111827, #f8fafc 7%);
   --card-press: color-mix(in srgb, #111827, #f8fafc 13%);
   --sing: var(--color-bahama-blue-500);
@@ -6817,24 +6272,17 @@ body.immersive-mode {
 .pill-btn:active,
 .ib:active,
 .songbar .lamp-btn:active,
-.vopt summary:active,
 .jump button:active,
 .song-guide-card dd a.live-chip:active,
 .log .x:active,
 .shelf .card:active .thumb,
-.song:active .thumb,
-.switch:active i::after {
+.song:active .thumb {
   transition-duration: var(--dur-press);
   transition-timing-function: var(--ease);
 }
 
 .song:active .thumb {
   transform: scale(.94);
-}
-
-/* 開關按住時圓鈕拉長；打開的狀態往左長，才不會超出軌道 */
-.switch[aria-pressed="true"]:active i::after {
-  transform: translateX(10px);
 }
 
 /* 對話框（回報錯誤、更新日誌）：從下方浮起並放大落定，背景淡入；關掉時快速沉下 */
@@ -7005,8 +6453,7 @@ html.vt-theme::view-transition-new(root) {
 
   .alert *,
   .ambient-mesh::before,
-  .ambient-mesh::after,
-  #tool-lamp.lamp-linked::after {
+  .ambient-mesh::after {
     animation: none !important;
   }
 
@@ -7017,7 +6464,8 @@ html.vt-theme::view-transition-new(root) {
   }
 
   .crate .float,
-  .cd-spin {
+  .cd-spin,
+  .song-index:not(.js-reel) .reel-track {
     animation: none !important;
   }
 
@@ -7042,8 +6490,7 @@ html.vt-theme::view-transition-new(root) {
 .quiz-on .cue .now,
 .quiz-on .cue .next,
 .quiz-on .cue .how,
-.quiz-on .cue .summary,
-.quiz-on .cue .switch {
+.quiz-on .cue .summary {
   display: none !important;
 }
 
@@ -7432,7 +6879,6 @@ html[lang="ja"] body {
 }
 
 .dock-btn:focus-visible,
-.dock-rate button:focus-visible,
 .ly-btn:focus-visible,
 .sheet-seg button:focus-visible {
   outline: 2px solid var(--tint);
@@ -7444,7 +6890,6 @@ html[lang="ja"] body {
   cursor: not-allowed;
 }
 
-.dock-rate,
 .sheet-seg {
   display: inline-flex;
   flex: none;
@@ -7453,11 +6898,6 @@ html[lang="ja"] body {
   background: var(--fill);
 }
 
-.dock-rate {
-  margin-right: 4px;
-}
-
-.dock-rate button,
 .sheet-seg button {
   min-width: 44px;
   min-height: 36px;
@@ -7474,7 +6914,6 @@ html[lang="ja"] body {
   transition: var(--tr-color);
 }
 
-.dock-rate button[aria-pressed="true"],
 .sheet-seg button[aria-pressed="true"] {
   background: var(--chip-on-bg);
   color: var(--chip-on-fg);
@@ -7542,6 +6981,7 @@ html[lang="ja"] body {
 }
 
 .sheet-panel {
+  position: relative;
   width: 280px;
   max-height: min(72vh, 560px);
   overflow-y: auto;
@@ -7554,13 +6994,58 @@ html[lang="ja"] body {
   animation: pop-in var(--dur-quick) var(--ease-out);
 }
 
+.sheet-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--faint);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: var(--tr-color), var(--tr-press);
+}
+
+.sheet-close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+@media (hover: hover) {
+  .sheet-close:hover {
+    background: var(--fill);
+    color: var(--text);
+  }
+}
+
+.sheet-close:active {
+  background: var(--fill-press);
+  transform: scale(.92);
+}
+
+.sheet-close:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
 .sheet-grip {
   display: none;
 }
 
 .sheet-title {
   margin: 0;
-  padding: 8px 12px 4px;
+  padding: 8px 44px 4px 12px;
   color: var(--faint);
   font-size: 13px;
   font-weight: 500;
@@ -7603,36 +7088,9 @@ html[lang="ja"] body {
 }
 
 @media (hover: hover) {
-
-  .sheet .pop-item:hover,
-  .sheet .live-menu-list a:hover {
+  .sheet .pop-item:hover {
     background: var(--fill);
   }
-}
-
-.sheet .live-menu-list a {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 44px;
-  padding: 0 12px;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 15px;
-  text-decoration: none;
-  transition: var(--tr-color);
-}
-
-.sheet .live-menu-list .ext {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: var(--faint);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .sheet-row {
@@ -7656,12 +7114,18 @@ html[lang="ja"] body {
 .sheet.as-sheet .sheet-panel {
   width: auto;
   max-width: 560px;
+  max-height: 78vh;
   max-height: 78dvh;
   margin: 0 auto;
   padding: 0 8px max(12px, env(safe-area-inset-bottom, 0px));
   border-radius: 20px 20px 0 0;
   animation: sheet-up var(--dur-slow) var(--ease-out);
   touch-action: pan-y;
+}
+
+.sheet.as-sheet .sheet-close {
+  top: 10px;
+  right: 10px;
 }
 
 .sheet.as-sheet .sheet-grip {
@@ -7674,14 +7138,13 @@ html[lang="ja"] body {
 }
 
 .sheet.as-sheet .sheet-title {
-  padding: 8px 12px;
+  padding: 8px 44px 8px 12px;
   color: var(--text);
   font-size: 16px;
   font-weight: 700;
 }
 
-.sheet.as-sheet .pop-item,
-.sheet.as-sheet .live-menu-list a {
+.sheet.as-sheet .pop-item {
   min-height: 48px;
   font-size: 16px;
 }
@@ -7840,10 +7303,6 @@ html[lang="ja"] body {
   html:not([lang^="zh"]) .dock-btn:not(.icon) {
     padding: 0 10px;
   }
-
-  html:not([lang^="zh"]) .dock-rate button {
-    padding: 0 9px;
-  }
 }
 
 /* 電腦：工具列浮在畫面下方正中間，離底部 24px（sticky：捲到最底時停在頁尾上面，不會蓋住頁尾）；
@@ -7861,6 +7320,7 @@ html[lang="ja"] body {
 
   /* 內容不夠一整個畫面高時：頁尾推到畫面最下面，工具列貼在頁尾上面，中間不留一截空白 */
   body.on-song .shell {
+    min-height: 100vh;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -7872,6 +7332,7 @@ html[lang="ja"] body {
   }
 
   body.on-song #song {
+    min-height: 100vh;
     min-height: 100dvh;
     grid-template-rows: auto auto auto 1fr;
   }
@@ -7879,6 +7340,7 @@ html[lang="ja"] body {
   /* 多出來的高度給 MV 和歌詞那一列：至少撐到「畫面高度扣掉上方留白、頂欄、工具列和間距」，左欄的提示框和右邊的歌詞一起往下撐滿 */
   body.on-song:not(.immersive-mode) .grid {
     align-items: stretch;
+    min-height: calc(100vh - 8px - 48px - 48px - 24px - 2 * var(--gap));
     min-height: calc(100dvh - 8px - 48px - 48px - 24px - 2 * var(--gap));
   }
 
@@ -7894,6 +7356,7 @@ html[lang="ja"] body {
 
   /* 螢幕越高版面越寬，MV 跟著放大：寬度約是「畫面高度扣掉頂欄、資訊列、提示框、工具列」換算成 16:9 影片的寬 */
   body.on-song:not(.immersive-mode) main.col {
+    max-width: clamp(1180px, (100vh - 420px) * 3, 2400px);
     max-width: clamp(1180px, (100dvh - 420px) * 3, 2400px);
   }
 
@@ -7971,6 +7434,10 @@ body.immersive-mode .dock.autohide {
   border-radius: 0;
 }
 
+.sheet-guide .song-guide-card .card-title {
+  padding-right: 40px;
+}
+
 /* 手機：「速覽」靠右，放在原本「這首重點」的位置 */
 @media (max-width: 900px) {
   #guideBtn {
@@ -8014,37 +7481,6 @@ body.immersive-mode .dock.autohide {
   color: var(--tint);
 }
 
-.rel-opt summary svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.rel-opt summary b {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  box-sizing: border-box;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--tint) 22%, transparent);
-  color: var(--text);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 18px;
-  text-align: center;
-}
-
-.rel-pop.view-opts {
-  width: 300px;
-  max-height: min(60vh, 440px);
-  padding: 8px;
-  gap: 8px;
-  z-index: 30;
-}
-
 .rel-g {
   display: grid;
   gap: 2px;
@@ -8083,7 +7519,6 @@ body.immersive-mode .dock.autohide {
   list-style: none;
 }
 
-.view-opts a.rel-link,
 .rel-link {
   display: flex;
   align-items: center;
@@ -8176,13 +7611,6 @@ body.immersive-mode .dock.autohide {
 
 .rel-block .rel-link:hover {
   border-color: color-mix(in srgb, var(--tint) 50%, var(--line));
-}
-
-@media (max-width: 900px) {
-  .rel-opt summary {
-    width: auto;
-    padding: 0 10px;
-  }
 }
 
 .song-guide-card dd a.live-chip {
@@ -8319,4 +7747,82 @@ body.immersive-mode .dock.autohide {
 /* 測驗中會洩題，藏起來 */
 .quiz-on .cue-more {
   display: none !important;
+}
+
+/* Windows 高對比 / Forced Colors 模式：補上外框與聚焦外框 */
+@media (forced-colors: active) {
+  .btn,
+  .pill-btn,
+  .round-btn > span,
+  .chip > span,
+  .sub-chip > span,
+  .dock-btn,
+  .ly-btn,
+  .ib,
+  .lamp-btn,
+  .shuffle-ico,
+  .jump,
+  .sheet-seg button,
+  .sheet-close,
+  .video-source-pill,
+  .video-source-pill button,
+  .legend button,
+  .pwa-toast-btn,
+  .pwa-toast-x,
+  .quiz-pad,
+  .log .x {
+    border: 1px solid ButtonBorder;
+  }
+
+  [aria-pressed="true"],
+  [aria-checked="true"],
+  .chip[aria-pressed="true"] > span,
+  .sub-chip[aria-pressed="true"] > span,
+  .dock-btn[aria-pressed="true"],
+  .sheet-seg button[aria-pressed="true"],
+  .video-source-pill button[aria-pressed="true"],
+  .jump .mid[aria-pressed="true"] {
+    border: 2px solid Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  .mv,
+  .cue,
+  .lyrics,
+  .guide-pill,
+  .song-guide-inline,
+  .song-guide-card,
+  .faq-item,
+  .reel-card,
+  .alert .card,
+  .beat-step,
+  .toast,
+  .rel-block .rel-link,
+  .cue-track,
+  .shelf-track {
+    border: 1px solid CanvasText;
+  }
+
+  dialog,
+  .report,
+  .log,
+  .sheet-panel,
+  .pop,
+  .dock {
+    border: 1px solid CanvasText;
+  }
+
+  .pen i,
+  .home .dots i,
+  .legend i,
+  .cue-track .head,
+  .shelf-thumb {
+    border: 1px solid CanvasText;
+  }
+
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px;
+  }
 }
