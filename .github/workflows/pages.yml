@@ -20,6 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 要完整歷史：建置用 git blame 算每首歌頁的 lastmod（scripts/song-lastmod.mjs）
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -8,6 +8,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
+import { songLastmod } from "./song-lastmod.mjs";
 
 const SITE = "https://ado.kuti.cc/";
 // 站長的 Threads：結構化資料的 sameAs 和頁尾連結都用這個，讓 Google 知道網站和帳號是同一個來源
@@ -217,6 +218,10 @@ const VERSION = (read("CHANGELOG.md").match(/^## (v\d+\.\d+\.\d+)/m) || [])[1];
 if (!VERSION) throw new Error("CHANGELOG.md 找不到版本標題（## vX.Y.Z）");
 // 最後更新日：CHANGELOG 最新一版的日期。頁尾看得到、結構化資料的 dateModified 和網站地圖的 lastmod 都用它，三邊一致
 const UPDATED = (read("CHANGELOG.md").match(/^## v\d+\.\d+\.\d+ — (\d{4}-\d{2}-\d{2})/m) || [])[1] || new Date().toISOString().slice(0, 10);
+// 每首歌頁的更新日：那首歌的資料或歌詞最後一次改動的日期（scripts/song-lastmod.mjs）；拿不到 git 歷史就全部用網站更新日
+const SONG_DATES = songLastmod(root, SONGS.map(s => s.id));
+if (!SONG_DATES) console.warn("拿不到 git 歷史（淺層 clone？），歌曲頁的 lastmod 改用網站更新日 " + UPDATED);
+const songUpdated = id => (SONG_DATES && SONG_DATES[id]) || UPDATED;
 // Ado 本人：維基百科與 Wikidata 讓搜尋引擎、AI 確定是哪一位 Ado（同名的人很多）
 const ADO = {
   "@type": "MusicGroup",
@@ -568,7 +573,7 @@ function renderLang(L) {
           "inLanguage": L.html,
           "isPartOf": { "@type": "WebSite", "@id": `${home}#website` },
           "about": { "@id": `${url}#song` },
-          "dateModified": UPDATED,
+          "dateModified": songUpdated(s.id),
           "primaryImageOfPage": { "@type": "ImageObject", "url": s.yt ? `https://i.ytimg.com/vi/${s.yt}/hqdefault.jpg` : OG_IMG },
           "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS, INSTAGRAM] },
           "breadcrumb": { "@id": `${url}#breadcrumb` }
@@ -722,13 +727,13 @@ for (const [code, text] of Object.entries(i18nFiles)) write(`i18n/${code}.js`, t
 write("404.html", `<!doctype html><html lang="zh-Hant-TW"><meta charset="utf-8"><meta name="robots" content="noindex"><title>找不到這一頁｜Ado 應援指南</title><meta http-equiv="refresh" content="0;url=${SITE}"><p>找不到這一頁，<a href="${SITE}">回 Ado 應援指南首頁</a>。 Page not found — <a href="${SITE}en/">Ado Fan Chant Guide</a>｜<a href="${SITE}jp/">Ado 応援ガイド</a></p></html>\n`);
 
 // 網站地圖：每個網址列出三種語言版本（xhtml:link），Google 才知道它們是同一頁的不同語言
-// lastmod 用 CHANGELOG 最新一版的日期：只有真的改版才變，Google 才會相信這個日期
-const today = UPDATED;
+// lastmod：首頁用 CHANGELOG 最新一版的日期；歌曲頁用那首歌自己最後改動的日期。只有內容真的變了日期才動，Google 才會相信
+const lastmodOf = rest => { const m = /^song\/([^/]+)\/$/.exec(rest); return m ? songUpdated(m[1]) : UPDATED; };
 const alts = rest => LANGS.map(x => `    <xhtml:link rel="alternate" hreflang="${x.hreflang}" href="${SITE}${x.dir}${rest}"/>`).concat(`    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${rest}"/>`).join("\n");
 write(
   "sitemap.xml",
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${LANGS.flatMap(L => urls.map(
-    rest => `  <url>\n    <loc>${SITE}${L.dir}${rest}</loc>\n    <lastmod>${today}</lastmod>\n${alts(rest)}\n  </url>`
+    rest => `  <url>\n    <loc>${SITE}${L.dir}${rest}</loc>\n    <lastmod>${lastmodOf(rest)}</lastmod>\n${alts(rest)}\n  </url>`
   )).join("\n")}\n</urlset>\n`
 );
 
