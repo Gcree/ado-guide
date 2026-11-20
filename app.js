@@ -182,7 +182,9 @@
   // ── 首頁 ──
   const homeEl = document.getElementById("home");
   const homeV = homeEl, songV = document.getElementById("song");
-  const list = document.getElementById("songList"), q = document.getElementById("q"), barQ = document.getElementById("barQ"), countEl = document.getElementById("songCount");
+  const list = document.getElementById("songList"), q = document.getElementById("q"), barSearchBtn = document.getElementById("barSearchBtn"), countEl = document.getElementById("songCount");
+  const listQ = document.getElementById("listQ"), listSearch = document.getElementById("listSearch"), listQClear = document.getElementById("listQClear"), listSearchHint = document.getElementById("listSearchHint");
+  const heroSearchWrap = document.getElementById("heroSearchWrap"), qClear = document.getElementById("qClear"), heroSuggest = document.getElementById("heroSuggest"), heroSuggestList = document.getElementById("heroSuggestList"), heroSuggestFoot = document.getElementById("heroSuggestFoot");
   const moreBtn = document.getElementById("moreBtn"), emptyEl = document.getElementById("songEmpty"), listMore = document.getElementById("listMore");
   const sortBtn = document.getElementById("sortBtn"), sortLabel = document.getElementById("sortLabel");
   const listProgress = document.getElementById("listProgress");
@@ -386,10 +388,64 @@
     return `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumb(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${tierTagOf(s)}${liveTagOf(s)}${penDots(s)}</span></span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}${sort === "cheer" && s.cheer ? `<span class="cnt">${T("{0} 句", s.cheer)}</span>` : ""}${gradeBadge}</span></span></a>${setlistBtn}</li>`;
   };
   let searchTimer = 0;
+  const FILTER_LABEL = { original: "原創曲", collab: "合作曲", cover: "翻唱", live: "現場", frequent: "常唱精選", cheer: "有應援", setlist: "待練清單", all: "全部" };
+  const cleanSearchStr = s => String(s || "").toLowerCase().replace(/[\s\-_'’"!?！？()（）/]/g, "");
+  function matchScore(s, term, cleanTerm) {
+    if (!term) return 0;
+    const pool = [s.ja, s.zh, s.en || "", s.ro || "", s.id, ...(s.alias || [])];
+    let best = 3;
+    for (const raw of pool) {
+      if (!raw) continue;
+      const lower = raw.toLowerCase();
+      if (lower === term) return 0;
+      const cleaned = cleanSearchStr(lower);
+      if (cleanTerm && cleaned === cleanTerm) return 0;
+      if (lower.startsWith(term) || (cleanTerm && cleaned.startsWith(cleanTerm))) {
+        if (best > 1) best = 1;
+      } else if (lower.includes(term) || (cleanTerm && cleaned.includes(cleanTerm))) {
+        if (best > 2) best = 2;
+      }
+    }
+    return best < 3 ? best : -1;
+  }
+  function syncFieldClear(inp, btn) {
+    if (!inp) return;
+    const has = Boolean(inp.value);
+    if (btn) btn.hidden = !has;
+    const field = inp.closest(".field");
+    if (field) field.classList.toggle("has-val", has);
+  }
+  function matchesCategory(s) {
+    if (filter === "original") return !s.cover && !s.collab;
+    if (filter === "collab") return !!s.collab;
+    if (filter === "frequent") {
+      const tier = FREQ_TIER.get(s.id);
+      return !!tier && (freqSub === "all" || String(tier) === freqSub);
+    }
+    if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
+    if (filter === "live") {
+      if (liveSub === "video") return hasLiveVideo(s);
+      if (liveSub === "audio") return hasLiveAudio(s);
+      return hasLive(s);
+    }
+    if (filter === "cover") return !!s.cover;
+    return true;
+  }
+  function switchToAllFilter(refocus) {
+    sharedList = null;
+    filter = "all";
+    shown = LIMIT;
+    syncFilterChips();
+    syncSubFilters();
+    syncSetlistUi();
+    renderList();
+    replay(list, "swap");
+    if (refocus && listQ) listQ.focus({ preventScroll: true });
+  }
   function syncListPaging() {
     const items = list.children, total = items.length;
     for (let i = 0; i < total; i++) items[i].hidden = i >= shown;
-    const plain = !q.value.trim() && (filter === "original" || filter === "all");
+    const plain = !(listQ ? listQ.value : "").trim() && (filter === "original" || filter === "all");
     const shownCount = Math.min(shown, total);
     const rest = Math.max(0, total - shownCount);
     if (plain) session.set(shownKey, shown);
@@ -402,53 +458,49 @@
   function renderList() {
     clearTimeout(searchTimer);
     searchTimer = 0;
-    const term = q.value.trim().toLowerCase();
-    const cleanTerm = term.replace(/[\s\-_'’"!?！？()（）/]/g, "");
-    const matchesTerm = s => {
-      if (!term) return true;
-      const pool = [s.ja, s.zh, s.en || "", s.ro || "", s.id, ...(s.alias || [])];
-      const matchPlain = pool.some(x => x.toLowerCase().includes(term));
-      const matchClean = cleanTerm ? pool.some(x => x.toLowerCase().replace(/[\s\-_'’"!?！？()（）/]/g, "").includes(cleanTerm)) : false;
-      return matchPlain || matchClean;
-    };
+    const rawTerm = (listQ ? listQ.value : "").trim();
+    const term = rawTerm.toLowerCase();
+    const cleanTerm = cleanSearchStr(term);
+    const matchesTerm = s => !term || matchScore(s, term, cleanTerm) >= 0;
     let rows;
     if (filter === "setlist") {
       const sourceIds = sharedList || mySetlist;
       rows = sourceIds.map(id => BY[id]).filter(Boolean).filter(matchesTerm);
       if (sort === "cheer") rows.sort((a, b) => b.cheer - a.cheer || a.no - b.no);
     } else {
-      rows = ordered().filter(s => {
-        if (!matchesTerm(s)) return false;
-        if (filter === "original") return !s.cover && !s.collab;
-        if (filter === "collab") return !!s.collab;
-        if (filter === "frequent") {
-          const tier = FREQ_TIER.get(s.id);
-          return !!tier && (freqSub === "all" || String(tier) === freqSub);
-        }
-        if (filter === "cheer") return s.tips.length > 0 && !s.free && !s.hold;
-        if (filter === "live") {
-          if (liveSub === "video") return hasLiveVideo(s);
-          if (liveSub === "audio") return hasLiveAudio(s);
-          return hasLive(s);
-        }
-        if (filter === "cover") return !!s.cover;
-        return true;
-      });
+      rows = ordered().filter(s => matchesTerm(s) && matchesCategory(s));
       if (filter === "frequent" && sort !== "cheer") rows.sort((a, b) => FREQ_ORDER.get(a.id) - FREQ_ORDER.get(b.id));
     }
     const quizBest = loadQuizBest(store), mySet = new Set(mySetlist);
     list.innerHTML = rows.map(s => rowHtml(s, quizBest, mySet)).join("");
     const plain = !term && (filter === "original" || filter === "all"), total = rows.length;
+    const allMatchCount = term && filter !== "all" ? SONGS.filter(matchesTerm).length : 0;
     list.classList.remove("collapsed");
     syncListPaging();
     countEl.textContent = plain ? T("{0} 首", total) : T("{0} 首符合", total);
+    if (listSearchHint) {
+      if (total > 0 && term && filter !== "all" && allMatchCount > total) {
+        listSearchHint.hidden = false;
+        listSearchHint.innerHTML = `<span>${esc(T("其他分類另有 {0} 首符合「{1}」", allMatchCount - total, rawTerm))}</span><button type="button" class="text-link-btn" data-switch-all>${esc(T("查看全部 {0} 首", allMatchCount))}</button>`;
+      } else {
+        listSearchHint.hidden = true;
+        listSearchHint.innerHTML = "";
+      }
+    }
     emptyEl.hidden = total > 0;
     if (!total) {
-      emptyEl.textContent = term
-        ? T("找不到「{0}」，試試日文、中文或英文歌名。", q.value.trim())
-        : filter === "setlist"
-          ? T("待練清單是空的，點歌曲右側的書籤圖示即可加入。")
-          : T("這個分類目前沒有歌。");
+      if (term && filter !== "all" && allMatchCount > 0) {
+        const catName = T(FILTER_LABEL[filter] || filter);
+        emptyEl.innerHTML = `<p>${esc(T("目前「{0}」分類找不到「{1}」，但在全部歌曲找到 {2} 首。", catName, rawTerm, allMatchCount))}</p><button type="button" class="pill-btn empty-action" id="emptyShowAllBtn" data-switch-all>${esc(T("改在全部歌曲中顯示（{0} 首）", allMatchCount))}</button>`;
+      } else if (term) {
+        emptyEl.innerHTML = `<p>${esc(T("找不到「{0}」，試試日文、中文或英文歌名。", rawTerm))}</p>`;
+      } else if (filter === "setlist") {
+        emptyEl.innerHTML = `<p>${esc(T("待練清單是空的，點歌曲右側的書籤圖示即可加入。"))}</p>`;
+      } else {
+        emptyEl.innerHTML = `<p>${esc(T("這個分類目前沒有歌。"))}</p>`;
+      }
+    } else {
+      emptyEl.innerHTML = "";
     }
   }
   // 首頁上所有歌曲連結（清單、書架、主視覺）：普通左鍵點擊用 SPA 即時切換；帶修飾鍵就讓瀏覽器開新分頁
@@ -529,25 +581,216 @@
       renderList();
     });
   }
-  // 兩個搜尋框（主視覺、頂欄）內容同步；在頂欄打字時，清單不在眼前就捲過去
+  // ── 職責分離搜尋：主視覺即時快搜全站（#q）＋歌單區就近篩選（#listQ） ──
   const songsSec = document.getElementById("songs");
-  function onSearch(src, ev) {
-    const other = src === q ? barQ : q;
-    if (other.value !== src.value) other.value = src.value;
-    shown = LIMIT;
-    clearTimeout(searchTimer);
-    if (!navigator.webdriver && ev && ev.isTrusted && ev.inputType === "insertText" && (!ev.data || ev.data.length === 1) && src.value) {
-      searchTimer = setTimeout(() => { searchTimer = 0; renderList(); }, 80);
-    } else {
+  songsSec.addEventListener("click", ev => {
+    if (ev.target.closest("[data-switch-all]")) switchToAllFilter(ev.detail === 0);
+  });
+
+  if (listQ) {
+    syncFieldClear(listQ, listQClear);
+    listQ.addEventListener("input", ev => {
+      syncFieldClear(listQ, listQClear);
+      shown = LIMIT;
+      clearTimeout(searchTimer);
+      if (!navigator.webdriver && ev && ev.isTrusted && ev.inputType === "insertText" && (!ev.data || ev.data.length === 1) && listQ.value) {
+        searchTimer = setTimeout(() => { searchTimer = 0; renderList(); }, 80);
+      } else {
+        renderList();
+      }
+    });
+    listQ.addEventListener("keydown", ev => {
+      if (ev.key !== "Escape") return;
+      ev.preventDefault();
+      if (listQ.value) {
+        listQ.value = "";
+        syncFieldClear(listQ, listQClear);
+        shown = LIMIT;
+        renderList();
+      } else {
+        listQ.blur();
+      }
+    });
+  }
+  if (listQClear && listQ) {
+    listQClear.addEventListener("click", () => {
+      listQ.value = "";
+      syncFieldClear(listQ, listQClear);
+      shown = LIMIT;
       renderList();
+      listQ.focus();
+    });
+  }
+
+  let qsItems = [], qsActive = -1, lastQsMouse = "";
+  function closeHeroSuggest() {
+    if (!heroSuggest || heroSuggest.hidden && qsActive === -1) return;
+    heroSuggest.hidden = true;
+    q.setAttribute("aria-expanded", "false");
+    q.removeAttribute("aria-activedescendant");
+    qsActive = -1;
+  }
+  function setQsActive(idx) {
+    if (!heroSuggestList || !qsItems.length) {
+      qsActive = -1;
+      q.removeAttribute("aria-activedescendant");
+      return;
+    }
+    qsActive = idx >= 0 && idx < qsItems.length ? idx : -1;
+    const els = heroSuggestList.querySelectorAll(".qs-item");
+    els.forEach((el, i) => {
+      const on = i === qsActive;
+      el.classList.toggle("is-active", on);
+      el.setAttribute("aria-selected", String(on));
+    });
+    if (qsActive >= 0 && els[qsActive]) {
+      q.setAttribute("aria-activedescendant", els[qsActive].id);
+      els[qsActive].scrollIntoView({ block: "nearest" });
+    } else {
+      q.removeAttribute("aria-activedescendant");
     }
   }
-  q.addEventListener("input", ev => onSearch(q, ev));
-  barQ.addEventListener("input", ev => {
-    onSearch(barQ, ev);
-    const r = songsSec.getBoundingClientRect();
-    if (r.top > innerHeight * .6 || r.bottom < 120) songsSec.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  const qsCatTag = s => s.cover
+    ? `<span class="qs-cat is-cover">${esc(T("翻唱"))}</span>`
+    : (s.collab ? `<span class="qs-cat is-collab">${esc(T("合作曲"))}</span>` : `<span class="qs-cat is-orig">${esc(T("原創曲"))}</span>`);
+  function renderHeroSuggest() {
+    if (!heroSuggest || !heroSuggestList || !heroSuggestFoot) return;
+    const rawTerm = q.value.trim();
+    const term = rawTerm.toLowerCase();
+    const cleanTerm = cleanSearchStr(term);
+    if (!term) {
+      qsItems = [];
+      closeHeroSuggest();
+      return;
+    }
+    const matched = ordered()
+      .map(s => ({ s, score: matchScore(s, term, cleanTerm) }))
+      .filter(x => x.score >= 0)
+      .sort((a, b) => a.score - b.score)
+      .map(x => x.s);
+    qsItems = matched.slice(0, 6);
+    qsActive = -1;
+    lastQsMouse = "";
+    if (qsItems.length) {
+      heroSuggestList.innerHTML = qsItems.map((s, i) => {
+        const subLine = [otherName(s), s.upcoming ? T("即將發行") : ""].filter(Boolean).join("・");
+        return `<a class="qs-item" role="option" id="qs-opt-${i}" href="song/${s.id}/" data-id="${s.id}" aria-selected="false" tabindex="-1">${thumb(s, 64, 36, false)}<span class="qs-main"><span class="qs-ja" lang="ja">${esc(s.ja)}</span>${subLine ? `<span class="qs-sub">${esc(subLine)}</span>` : ""}</span><span class="qs-meta">${qsCatTag(s)}${penDots(s)}</span></a>`;
+      }).join("");
+      heroSuggestList.hidden = false;
+      heroSuggestFoot.hidden = false;
+      heroSuggestFoot.innerHTML = `<button type="button" class="qs-more" id="qsMoreBtn">${esc(T("在下方清單查看全部 {0} 首結果 ↓", matched.length))}</button>`;
+    } else {
+      heroSuggestList.innerHTML = "";
+      heroSuggestList.hidden = true;
+      heroSuggestFoot.hidden = false;
+      heroSuggestFoot.innerHTML = `<p class="qs-empty">${esc(T("找不到「{0}」，試試日文、中文或英文歌名。", rawTerm))}</p>`;
+    }
+    heroSuggest.hidden = false;
+    q.setAttribute("aria-expanded", "true");
+    q.removeAttribute("aria-activedescendant");
+  }
+  function jumpToListSearch(rawTerm) {
+    if (!listQ) return;
+    listQ.value = rawTerm;
+    syncFieldClear(listQ, listQClear);
+    closeHeroSuggest();
+    const term = rawTerm.toLowerCase();
+    const cleanTerm = cleanSearchStr(term);
+    const matchesTerm = s => !term || matchScore(s, term, cleanTerm) >= 0;
+    const basePool = filter === "setlist" ? (sharedList || mySetlist).map(id => BY[id]).filter(Boolean) : SONGS.filter(matchesCategory);
+    if (filter !== "all" && !basePool.some(matchesTerm) && SONGS.some(matchesTerm)) {
+      sharedList = null;
+      filter = "all";
+      syncFilterChips();
+      syncSubFilters();
+      syncSetlistUi();
+    }
+    shown = LIMIT;
+    renderList();
+    songsSec.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+    listQ.focus({ preventScroll: true });
+  }
+  syncFieldClear(q, qClear);
+  q.addEventListener("input", () => {
+    syncFieldClear(q, qClear);
+    renderHeroSuggest();
   });
+  q.addEventListener("focus", () => {
+    if (q.value.trim()) renderHeroSuggest();
+  });
+  q.addEventListener("keydown", ev => {
+    if (ev.key === "ArrowDown") {
+      if (heroSuggest.hidden && q.value.trim()) {
+        ev.preventDefault();
+        renderHeroSuggest();
+      } else if (!heroSuggest.hidden && qsItems.length) {
+        ev.preventDefault();
+        setQsActive((qsActive + 1) % qsItems.length);
+      }
+    } else if (ev.key === "ArrowUp") {
+      if (!heroSuggest.hidden && qsItems.length) {
+        ev.preventDefault();
+        setQsActive(qsActive <= 0 ? qsItems.length - 1 : qsActive - 1);
+      }
+    } else if (ev.key === "Enter") {
+      if (!heroSuggest.hidden || q.value.trim()) {
+        ev.preventDefault();
+        if (!heroSuggest.hidden && qsActive >= 0 && qsItems[qsActive]) {
+          const id = qsItems[qsActive].id;
+          closeHeroSuggest();
+          location.hash = id;
+        } else if (q.value.trim()) {
+          jumpToListSearch(q.value.trim());
+        }
+      }
+    } else if (ev.key === "Escape") {
+      ev.preventDefault();
+      if (!heroSuggest.hidden) {
+        closeHeroSuggest();
+      } else if (q.value) {
+        q.value = "";
+        syncFieldClear(q, qClear);
+      } else {
+        q.blur();
+      }
+    }
+  });
+  if (heroSuggestList) {
+    heroSuggestList.addEventListener("mousemove", ev => {
+      const pos = `${ev.clientX},${ev.clientY}`;
+      if (pos === lastQsMouse) return;
+      lastQsMouse = pos;
+      const item = ev.target.closest(".qs-item");
+      if (!item) return;
+      const idx = [...heroSuggestList.children].indexOf(item);
+      if (idx >= 0 && idx !== qsActive) setQsActive(idx);
+    });
+  }
+  if (heroSuggest) {
+    heroSuggest.addEventListener("click", ev => {
+      if (ev.target.closest(".qs-item")) {
+        closeHeroSuggest();
+      } else if (ev.target.closest("#qsMoreBtn")) {
+        jumpToListSearch(q.value.trim());
+      }
+    });
+  }
+  if (qClear) {
+    qClear.addEventListener("click", () => {
+      q.value = "";
+      syncFieldClear(q, qClear);
+      closeHeroSuggest();
+      q.focus();
+    });
+  }
+  if (heroSearchWrap) {
+    document.addEventListener("pointerdown", ev => {
+      if (!heroSuggest.hidden && !heroSearchWrap.contains(ev.target)) closeHeroSuggest();
+    });
+    heroSearchWrap.addEventListener("focusout", ev => {
+      if (ev.relatedTarget && !heroSearchWrap.contains(ev.relatedTarget)) closeHeroSuggest();
+    });
+  }
   let liveSub = "all"; // "all" | "video" | "audio"
   let freqSub = "all"; // "all" | "1" | "2" | "3"
   const SUB_FILTERS = [
@@ -896,15 +1139,28 @@
     .map(a => `<span class="a-${a}">${icon(a)}${ACT[a].name}</span>`).join("");
   document.getElementById("factSongs").textContent = SONGS.length;
 
-  // ── 頂欄：一往下捲就變半透明；首頁大搜尋框捲到頂欄後面，小搜尋框才出現 ──
+  // ── 頂欄：一往下捲就變半透明；主視覺與歌單搜尋框都離開視野後才顯示頂欄搜尋鈕 ──
   const bar = document.getElementById("bar"), heroSearch = document.getElementById("heroSearch");
+  const isElInView = el => {
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    return r.bottom > bar.offsetHeight + 8 && r.top < innerHeight - 8;
+  };
   let barTick = 0;
   function syncBar() {
     barTick = 0;
     bar.classList.toggle("is-stuck", scrollY > 4);
-    bar.classList.toggle("has-search", !homeEl.hidden && heroSearch.getBoundingClientRect().bottom < bar.offsetHeight);
+    if (barSearchBtn) barSearchBtn.hidden = !(!homeEl.hidden && !isElInView(heroSearch) && !isElInView(listSearch));
   }
-  addEventListener("scroll", () => { if (!barTick) barTick = requestAnimationFrame(syncBar); }, { passive: true });
+  const onBarScrollOrResize = () => { if (!barTick) barTick = requestAnimationFrame(syncBar); };
+  addEventListener("scroll", onBarScrollOrResize, { passive: true });
+  addEventListener("resize", onBarScrollOrResize, { passive: true });
+  if (barSearchBtn) {
+    barSearchBtn.addEventListener("click", () => {
+      songsSec.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+      if (listQ) listQ.focus({ preventScroll: true });
+    });
+  }
   syncBar();
 
   // ── 頂欄選單（手燈 App、外觀）：點外面、按 Esc 或打開另一個就關；方向鍵在項目間移動 ──
@@ -4032,10 +4288,22 @@
     } catch (e) { logBody.innerHTML = `<p>${T('讀不到更新日誌，可以到 <a href="{0}" target="_blank" rel="noopener">GitHub</a> 看。', LOG_URL)}</p>`; }
   });
 
-  // 鍵盤：空白鍵播放／暫停，← → 上一句、下一句（在輸入框裡不搶按鍵）
+  // 鍵盤：首頁按 / 聚焦搜尋；歌曲頁空白鍵播放／暫停，← → 上一句、下一句（在輸入框裡不搶按鍵）
   addEventListener("keydown", e => {
-    if (!S || songV.hidden || e.metaKey || e.ctrlKey || e.altKey || dlg.open || logDlg.open || quizDlg.open || SHEETS.some(sh => sh.dlg.open) || barMenus.some(m => !m.pop.hidden)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || dlg.open || logDlg.open || quizDlg.open || SHEETS.some(sh => sh.dlg.open) || barMenus.some(m => !m.pop.hidden)) return;
     if (e.target.closest("input, textarea, select, [contenteditable]")) return;
+    if (!homeEl.hidden && e.key === "/") {
+      e.preventDefault();
+      if (isElInView(heroSearch)) {
+        q.focus();
+        if (q.value.trim()) renderHeroSuggest();
+      } else if (listQ) {
+        if (!isElInView(listSearch)) songsSec.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+        listQ.focus({ preventScroll: !isElInView(listSearch) });
+      }
+      return;
+    }
+    if (!S || songV.hidden) return;
     if (e.key === "Escape" && isImmersive) {
       e.preventDefault();
       setImmersive(false);
@@ -4130,6 +4398,7 @@
     }
     syncLangLinks(s);
     if (s) {
+      closeHeroSuggest();
       if (!homeV.hidden) listY = scrollY;
       document.documentElement.classList.add("seen");
       document.body.classList.add("on-song"); document.documentElement.classList.add("on-song"); syncThemeColor();
@@ -4184,6 +4453,7 @@
       const targetId = parsedList !== null ? "songs" : h;
       const target = targetId && document.getElementById(targetId);
       if (target) target.scrollIntoView({ block: "start" }); else scrollTo(0, listY);
+      requestAnimationFrame(syncBar);
       if (hasRouted && wasSong && (!document.activeElement || document.activeElement === document.body || songV.contains(document.activeElement))) {
         const focusEl = target || document.getElementById("heroH");
         if (focusEl) { focusEl.tabIndex = -1; focusEl.focus({ preventScroll: true }); }

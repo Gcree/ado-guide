@@ -89,6 +89,7 @@ await test("首頁：歌單、搜尋、篩選", async page => {
   const origCount = await page.evaluate(() => window.ADO_SONGS.SONGS.filter(s => !s.cover && !s.collab).length);
   assert.equal(await page.textContent("#songCount"), `${origCount} 首`);
   assert.equal(await page.isVisible('#songList li:not([hidden]) a[data-id="usseewa"]'), true);
+  assert.equal(await page.locator('#songList a[data-id="binks"]').count(), 1, "binks 應出現在原創曲列表");
   const nonOrigInInit = await page.evaluate(() =>
     [...document.querySelectorAll('#songList a[data-id]')].map(a => a.dataset.id).filter(id => {
       const s = window.ADO_SONGS.SONGS.find(x => x.id === id);
@@ -110,9 +111,10 @@ await test("首頁：歌單、搜尋、篩選", async page => {
   const coverCount = await page.evaluate(() => window.ADO_SONGS.SONGS.filter(s => s.cover).length);
   assert.equal(await page.textContent("#songCount"), `${coverCount} 首符合`);
   assert.equal(await page.locator("#songList li").count(), coverCount);
-  for (const id of ["soldiergame", "fairytale", "binks"]) {
+  for (const id of ["soldiergame", "fairytale", "unravel"]) {
     assert.equal(await page.locator(`#songList a[data-id="${id}"]`).count(), 1, `翻唱篩選應包含 ${id}`);
   }
+  assert.equal(await page.locator('#songList a[data-id="binks"]').count(), 0, "binks 不應出現在翻唱列表");
 
   await page.click('[data-f="live"]');
   assert.equal(await page.isVisible("#liveSubFilter"), true);
@@ -123,16 +125,33 @@ await test("首頁：歌單、搜尋、篩選", async page => {
   await page.click('[data-freq-sub="2"]');
   assert.equal(await page.textContent("#songCount"), "4 首符合");
 
+  await page.click('[data-f="original"]');
+  await page.fill("#listQ", "unravel");
+  assert.equal(await page.isVisible("#emptyShowAllBtn"), true, "原創曲搜翻唱曲應出現跨分類顯示按鈕");
+  await page.click("#emptyShowAllBtn");
+  assert.equal(await page.getAttribute('[data-f="all"]', "aria-pressed"), "true");
+  assert.equal(await page.isVisible('#songList li:not([hidden]) a[data-id="unravel"]'), true);
+
+  await page.click('[data-f="original"]');
+  await page.fill("#listQ", "a");
+  assert.equal(await page.isVisible("#listSearchHint"), true, "有結果但其他分類也有符合時應顯示提醒");
+  await page.click("#listSearchHint [data-switch-all]");
+  assert.equal(await page.getAttribute('[data-f="all"]', "aria-pressed"), "true");
+  await page.click("#listQClear");
+  assert.equal(await page.inputValue("#listQ"), "");
+  assert.equal(await page.isVisible("#listQClear"), false);
+  assert.equal(await page.isVisible("#listSearchHint"), false);
+
   await page.click('[data-f="all"]');
   const allCount = await page.evaluate(() => window.ADO_SONGS.SONGS.length);
   assert.equal(await page.textContent("#songCount"), `${allCount} 首`);
   assert.equal(await page.locator("#songList li").count(), allCount);
-  await page.fill("#q", "usseewa");
+  await page.fill("#listQ", "usseewa");
   assert.equal(await page.locator("#songList li:not([hidden])").count(), 1);
   assert.match(await page.textContent("#songList li:not([hidden]) .ja"), /うっせぇわ/);
-  await page.fill("#q", "完全找不到的字");
+  await page.fill("#listQ", "完全找不到的字");
   assert.equal(await page.isVisible("#songEmpty"), true);
-  await page.fill("#q", "");
+  await page.fill("#listQ", "");
 
   const titleCheck = await page.evaluate(() => {
     const byId = id => window.ADO_SONGS.SONGS.find(s => s.id === id);
@@ -149,6 +168,66 @@ await test("首頁：歌單、搜尋、篩選", async page => {
   }
   assert.notEqual(titleCheck.binks.zh, titleCheck.binks.ja, "binks 應保留官方中文譯名");
   assert.notEqual(titleCheck.binks.en, titleCheck.binks.ja, "binks 應保留官方英文譯名");
+});
+
+await test("主視覺快速搜尋（#q）、頂欄搜尋鈕與快捷鍵 /", async page => {
+  await page.goto(BASE);
+  await page.waitForFunction(() => document.querySelectorAll("#songList li").length > 0);
+  assert.equal(await page.isVisible("#barSearchBtn"), false, "首頁頂端有大搜尋框時不應顯示頂欄搜尋鈕");
+
+  // 停在預設「原創曲」，在主視覺 #q 仍可即時搜尋全部歌曲（含翻唱曲）
+  await page.fill("#q", "unravel");
+  await page.waitForFunction(() => !document.getElementById("heroSuggest").hidden);
+  assert.equal(await page.locator('#heroSuggestList a[data-id="unravel"]').count(), 1);
+  assert.equal(await page.locator('#heroSuggestList a[data-id="unravel"] .qs-cat.is-cover').count(), 1);
+  assert.equal(await page.isVisible("#qClear"), true);
+
+  // 鍵盤 ArrowDown + Enter 直接開啟該歌曲頁並關閉建議選單
+  await page.focus("#q");
+  await page.keyboard.press("ArrowDown");
+  assert.equal(await page.getAttribute('#heroSuggestList .qs-item:first-child', "aria-selected"), "true");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => !document.getElementById("song").hidden && location.hash === "#unravel");
+  assert.equal(await page.isVisible("#heroSuggest"), false);
+
+  // 回首頁，重新搜尋並直接按 Enter（未選項目）→ 捲到歌單、填入 #listQ 並自動切換「全部」
+  await page.evaluate(() => { location.hash = ""; });
+  await page.waitForFunction(() => !document.getElementById("home").hidden && document.getElementById("song").hidden);
+  assert.equal(await page.getAttribute('[data-f="original"]', "aria-pressed"), "true");
+  await page.fill("#q", "unravel");
+  await page.waitForFunction(() => !document.getElementById("heroSuggest").hidden);
+  await page.focus("#q");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() =>
+    document.getElementById("heroSuggest").hidden &&
+    document.getElementById("listQ").value === "unravel" &&
+    document.querySelector('[data-f="all"]')?.getAttribute("aria-pressed") === "true"
+  );
+  assert.equal(await page.isVisible('#songList li:not([hidden]) a[data-id="unravel"]'), true);
+
+  await page.click("#qClear");
+  assert.equal(await page.inputValue("#q"), "");
+  assert.equal(await page.isVisible("#qClear"), false);
+  await page.click("#listQClear");
+
+  // `/` 快捷鍵：在頂端聚焦 #q；在歌單區聚焦 #listQ
+  await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); window.dispatchEvent(new Event("scroll")); });
+  await page.waitForFunction(() => document.getElementById("barSearchBtn").hidden);
+  await page.keyboard.press("/");
+  assert.equal(await page.evaluate(() => document.activeElement?.id), "q");
+  await page.evaluate(() => document.activeElement?.blur());
+
+  await page.evaluate(() => { document.getElementById("songs").scrollIntoView({ block: "start" }); });
+  await page.waitForFunction(() => document.getElementById("heroSearch").getBoundingClientRect().bottom <= document.getElementById("bar").offsetHeight + 8);
+  await page.keyboard.press("/");
+  assert.equal(await page.evaluate(() => document.activeElement?.id), "listQ");
+  await page.evaluate(() => document.activeElement?.blur());
+
+  // 滑到下方 #faq（兩個搜尋框都離開視野）→ 顯示 #barSearchBtn，點擊回到歌單並聚焦 #listQ
+  await page.evaluate(() => { document.getElementById("faq").scrollIntoView({ block: "start" }); });
+  await page.waitForFunction(() => !document.getElementById("barSearchBtn").hidden);
+  await page.click("#barSearchBtn");
+  assert.equal(await page.evaluate(() => document.activeElement?.id), "listQ");
 });
 
 await test("點歌進歌曲頁，返回首頁", async page => {
@@ -360,6 +439,11 @@ await test("手機版面：首頁和歌曲頁沒有橫向捲動", async page => 
     const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
     assert.ok(sw <= cw, `${url || "首頁"}：scrollWidth ${sw} > ${cw}`);
   }
+  await page.goto(BASE);
+  await page.evaluate(() => document.getElementById("faq").scrollIntoView({ block: "start" }));
+  await page.waitForFunction(() => !document.getElementById("barSearchBtn").hidden);
+  const [sw2, cw2] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
+  assert.ok(sw2 <= cw2, `手機顯示頂欄搜尋鈕時 scrollWidth ${sw2} > ${cw2}`);
 }, { viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
 
 await test("離線：沒打開過的歌曲頁改開首頁的 #歌曲，歌詞照樣出來", async (page, ctx) => {
@@ -375,7 +459,7 @@ await test("離線：沒打開過的歌曲頁改開首頁的 #歌曲，歌詞照
 
 await test("SPA 換歌：首頁 → #usseewa → #show 更新 #songGuideInline", async page => {
   await page.goto(BASE);
-  await page.fill("#q", "usseewa");
+  await page.fill("#listQ", "usseewa");
   await page.click('#songList a[data-id="usseewa"]');
   await page.waitForFunction(() => location.hash === "#usseewa" && document.getElementById("songGuideInline")?.dataset.song === "usseewa");
   assert.match(await page.textContent("#songGuideInline .guide-inline-h"), /うっせぇわ/);
@@ -492,7 +576,7 @@ await test("自訂待練清單與常唱熟練度：書籤按鈕、篩選、#list
   assert.ok((await page.textContent("#masteryLabel")).trim().length > 0);
   const fillWidth = await page.evaluate(() => document.getElementById("masteryFill").style.width);
   assert.ok(parseFloat(fillWidth) > 0, `#masteryFill 寬度應大於 0，實際：${fillWidth}`);
-  await page.fill("#q", "usseewa");
+  await page.fill("#listQ", "usseewa");
   assert.equal((await page.textContent('#songList li:not([hidden]):has(a[data-id="usseewa"]) .quiz-grade')).trim(), "S");
 
   await page.click('.setlist-btn[data-setlist-id="usseewa"]');
@@ -500,7 +584,7 @@ await test("自訂待練清單與常唱熟練度：書籤按鈕、篩選、#list
   assert.equal((await page.textContent("#cntSetlist")).trim(), "1");
   assert.equal(await page.evaluate(() => !document.getElementById("home").hidden), true);
 
-  await page.fill("#q", "");
+  await page.fill("#listQ", "");
   await page.click('[data-f="setlist"]');
   await page.waitForFunction(() => !document.getElementById("setlistBar").hidden);
   assert.equal(await page.locator("#songList li:not([hidden])").count(), 1);
@@ -660,6 +744,18 @@ await test("無障礙（A11y）稽核：圖片 alt、按鈕名稱、表單標籤
   await page.goto(BASE);
   await page.waitForFunction(() => document.querySelectorAll("#songList li").length > 0);
   await auditPage("首頁");
+
+  await page.fill("#q", "a");
+  await page.waitForFunction(() => !document.getElementById("heroSuggest").hidden && document.querySelectorAll("#heroSuggestList .qs-item").length > 0);
+  await auditPage("首頁（深色快速搜尋展開）");
+
+  await page.click("#themeBtn");
+  await page.click('#themePop [data-theme-pick="light"]');
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "light" && !document.documentElement.classList.contains("vt-theme"));
+  await page.focus("#q");
+  await page.fill("#q", "u");
+  await page.waitForFunction(() => !document.getElementById("heroSuggest").hidden && document.querySelectorAll("#heroSuggestList .qs-item").length > 0);
+  await auditPage("首頁（淺色快速搜尋展開）");
 
   await openSong(page, "#usseewa");
   await auditPage("歌曲頁 #usseewa");
