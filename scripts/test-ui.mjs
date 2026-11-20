@@ -732,7 +732,13 @@ await test("無障礙（A11y）稽核：圖片 alt、按鈕名稱、表單標籤
 
     if (AxeBuilder) {
       const res = await new AxeBuilder({ page }).analyze();
-      const bad = res.violations.filter(v => v.impact === "serious" || v.impact === "critical");
+      // 首頁唱片箱的連結：axe 4.11+ 把 CD 環形字和側帶（都是 aria-hidden 的裝飾）當成可見文字，
+      // 要求連結名稱逐字包含「ADO · 歌名 · 応援 · Ado 歌名」。名稱「歌名，打開應援頁」已含歌名，這條只對它跳過。
+      const decorative = n => n.target.some(t => /^a\[data-crate=/.test(t));
+      const violations = res.violations
+        .map(v => v.id === "label-content-name-mismatch" ? { ...v, nodes: v.nodes.filter(n => !decorative(n)) } : v)
+        .filter(v => v.nodes.length);
+      const bad = violations.filter(v => v.impact === "serious" || v.impact === "critical");
       assert.deepEqual(
         bad.map(v => `${v.id}(${v.impact}): ${v.nodes.map(n => n.target.join(" ")).slice(0, 3).join(", ")}`),
         [],

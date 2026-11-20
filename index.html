@@ -92,7 +92,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
       </button>
       <div class="menu">
-        <button type="button" class="bar-btn" id="lampBtn" aria-label="手燈連動" aria-expanded="false" aria-haspopup="menu" aria-controls="lampPop">
+        <button type="button" class="bar-btn" id="lampBtn" aria-label="手燈連動程式" aria-expanded="false" aria-haspopup="menu" aria-controls="lampPop">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/></svg>
           <span class="bar-btn-label">手燈連動程式</span>
         </button>
@@ -399,7 +399,7 @@
 
       <!-- 練習工具列：常用的一直看得到。電腦是浮在畫面下方正中間的膠囊（捲到最底會停在頁尾上面），手機固定在畫面底部（大拇指按得到）；顯示、更多打開選單（手機是從下面拉出的抽屜） -->
       <div class="dock" id="dock" role="group" aria-label="練習工具">
-        <button type="button" class="dock-btn wide-only" id="rateBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="rateDlg" aria-label="播放速度" title="播放速度"><b id="rateBtnVal">1×</b><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
+        <button type="button" class="dock-btn wide-only" id="rateBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="rateDlg" title="播放速度"><span class="sr-only">播放速度</span> <b id="rateBtnVal">1×</b><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
         <button type="button" class="dock-btn compact-only" id="rateCycle" aria-label="播放速度：1×（點一下切換）"><b id="rateNow">1×</b><span>速度</span></button>
         <button type="button" class="dock-btn wide-only" data-tool="click" id="tool-click" aria-pressed="false" title="節拍器：跟著歌曲節奏打出拍點聲"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21 10 3h4l3 18zM12 15l5-7"/></svg><span>拍點聲</span></button>
         <button type="button" class="dock-btn" id="alertTool" aria-pressed="true" aria-label="大字提醒" title="大字提醒：該應援時跳出大字卡"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span>提醒</span></button>
