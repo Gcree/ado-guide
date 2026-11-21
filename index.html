@@ -48,7 +48,7 @@
 <!-- Google Fonts 的 CSS 很大（約 217 KiB）：改成先不擋畫面，載完再套用（media=print 換成 all）；沒開 JS 時由 noscript 照常載入 -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=LINE+Seed+JP:wght@400;700;800&display=swap"></noscript>
-<link rel="stylesheet" href="style.css?v=dev1">
+<link rel="stylesheet" href="style.css?v=dev2">
 </head>
 <body>
 
@@ -284,9 +284,13 @@
         <div class="sec-head">
           <div>
             <h2 id="songIndexH">歷年曲目一覽</h2>
-            <p class="sec-sub">滑過預覽手燈色，可左右拖曳或點選曲目開始練習</p>
+            <p class="sec-sub" id="reelNow" aria-live="polite">滑過預覽手燈色，可左右拖曳或點選曲目開始練習</p>
           </div>
-          <p class="reel-now" id="reelNow" aria-live="polite"></p>
+          <!-- 年份：只看某一年的歌，選項由建置填入（app.js 沒看到選項時自己補） -->
+          <div class="menu reel-year-menu">
+            <button type="button" class="pill-btn reel-year-btn" id="reelYearBtn" aria-expanded="false" aria-haspopup="menu" aria-controls="reelYearPop"><span class="sr-only">年份：</span><span id="reelYearLbl">全部年份</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
+            <div class="pop narrow reel-year-pop" id="reelYearPop" role="menu" aria-label="選擇年份" hidden></div>
+          </div>
         </div>
         <nav class="song-index" id="songIndex" aria-label="全部歌曲連結"></nav>
       </section>
@@ -619,11 +623,11 @@
 <script defer src="songs.js?v=dev"></script>
 <script defer src="karaoke-sources.js?v=dev"></script>
 <!-- build:app-scripts:start -->
-<script defer src="shared/render.js?v=dev"></script>
-<script defer src="js/setlist.js?v=dev"></script>
-<script defer src="js/penlight.js?v=dev"></script>
-<script defer src="js/quiz-engine.js?v=dev"></script>
-<script defer src="app.js?v=dev"></script>
+<script defer src="shared/render.js?v=dev2"></script>
+<script defer src="js/setlist.js?v=dev2"></script>
+<script defer src="js/penlight.js?v=dev2"></script>
+<script defer src="js/quiz-engine.js?v=dev2"></script>
+<script defer src="app.js?v=dev2"></script>
 <!-- build:app-scripts:end -->
 </body>
 </html>

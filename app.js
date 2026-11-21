@@ -900,67 +900,101 @@
     setupShelf(LATEST, "latestShelf");
     const idxNav = document.getElementById("songIndex");
     const reelNowEl = document.getElementById("reelNow");
-    const years = SONGS.map(s => Number((s.date || "").slice(0, 4))).filter(y => y >= 2000 && y <= 2100);
-    const minYear = years.length ? Math.min(...years) : 2020;
-    const maxYear = years.length ? Math.max(...years) : 2026;
-    const defaultReelNow = T("{0} – {1} · 全 {2} 首", minYear, maxYear, SONGS.length);
-    if (reelNowEl && !reelNowEl.textContent) reelNowEl.textContent = defaultReelNow;
+    const yearBtn = document.getElementById("reelYearBtn");
+    const yearPop = document.getElementById("reelYearPop");
+    const yearLbl = document.getElementById("reelYearLbl");
+    // 平常顯示操作提示；滑過或聚焦某首時換成那首的年份與手燈色
+    const defaultReelNow = reelNowEl ? reelNowEl.textContent : "";
+    const yearOf = s => (s.date || "").slice(0, 4);
+    const sortedForReel = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.no - a.no);
+    if (yearPop && !yearPop.children.length) {
+      const counts = {};
+      sortedForReel.forEach(s => { const y = yearOf(s); if (/^\d{4}$/.test(y)) counts[y] = (counts[y] || 0) + 1; });
+      const item = (y, label, n) => `<button type="button" class="pop-item" role="menuitemradio" data-year="${y}" aria-checked="${y ? "false" : "true"}"><span>${esc(label)}</span><span class="pop-meta">${esc(T("{0} 首", n))}</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>`;
+      yearPop.innerHTML = item("", T("全部年份"), SONGS.length) + Object.keys(counts).sort((a, b) => b - a).map(y => item(y, y, counts[y])).join("");
+    }
     if (idxNav) {
-      if (!idxNav.children.length) {
-        const sortedForReel = [...SONGS].sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.no - a.no);
-        const reelRows = [0, 1, 2].map(i => {
-          const start = Math.round((i * sortedForReel.length) / 3);
-          const end = Math.round(((i + 1) * sortedForReel.length) / 3);
-          return sortedForReel.slice(start, end);
-        });
-        const reelCardHtml = s => {
-          const sub = subOf(s);
-          const year = (s.date || "").slice(0, 4);
-          return `<a class="reel-card" href="song/${s.id}/" data-id="${s.id}" draggable="false">${thumb(s, 116, 65, true)}<span class="reel-info"><span class="reel-ja" lang="ja">${esc(s.ja)}</span><span class="reel-meta">${penDots(s)}<span class="reel-year">${esc(year)}</span>${sub ? `<span class="reel-sub">${esc(sub)}</span>` : ""}</span></span></a>`;
-        };
-        idxNav.innerHTML = reelRows.map((row, idx) =>
-          `<div class="reel-row" data-dir="${idx % 2 === 1 ? "1" : "-1"}"><div class="reel-track">${row.map(reelCardHtml).join("")}</div></div>`
-        ).join("");
-      }
+      const reelCardHtml = s => {
+        const sub = subOf(s);
+        return `<a class="reel-card" href="song/${s.id}/" data-id="${s.id}" draggable="false">${thumb(s, 116, 65, true)}<span class="reel-info"><span class="reel-ja" lang="ja">${esc(s.ja)}</span><span class="reel-meta">${penDots(s)}<span class="reel-year">${esc(yearOf(s))}</span>${sub ? `<span class="reel-sub">${esc(sub)}</span>` : ""}</span></span></a>`;
+      };
+      // 全部歌曲分三排；單一年份歌少，改成一到兩排，每排才不會只有兩三張一直重複
+      const reelRowsHtml = list => {
+        const n = list.length > 16 ? 3 : list.length > 8 ? 2 : 1;
+        return Array.from({ length: n }, (_, i) => list.slice(Math.round((i * list.length) / n), Math.round(((i + 1) * list.length) / n)))
+          .map((row, idx) => `<div class="reel-row" data-dir="${idx % 2 === 1 ? "1" : "-1"}"><div class="reel-track">${row.map(reelCardHtml).join("")}</div></div>`)
+          .join("");
+      };
+      const songsOfYear = y => y ? sortedForReel.filter(s => yearOf(s) === y) : sortedForReel;
+      if (!idxNav.children.length) idxNav.innerHTML = reelRowsHtml(sortedForReel);
       idxNav.classList.add("js-reel");
       idxNav.addEventListener("dragstart", e => e.preventDefault());
-      let reelVis = false, rafId = 0, lastT = 0;
-      const wrapAndApply = st => {
-        if (!st.half) st.half = st.track.scrollWidth / 2;
-        if (!st.half) return;
-        while (st.x <= -st.half) st.x += st.half;
-        while (st.x > 0) st.x -= st.half;
-        st.track.style.transform = `translate3d(${st.x.toFixed(2)}px,0,0)`;
-      };
-      const states = [...idxNav.querySelectorAll(".reel-row")].map((row, i) => {
-        const track = row.querySelector(".reel-track");
-        const orig = [...track.children];
-        orig.forEach(node => {
-          node.setAttribute("draggable", "false");
+      let reelVis = false, rafId = 0, lastT = 0, states = [];
+      // 複製整排接在後面做無縫循環；一個循環的長度直接量第一張複本的位置，視窗變寬時再補複本
+      const addCopy = st => {
+        st.orig.forEach(node => {
           const clone = node.cloneNode(true);
           clone.setAttribute("aria-hidden", "true");
           clone.setAttribute("draggable", "false");
           clone.tabIndex = -1;
           clone.removeAttribute("id");
-          track.appendChild(clone);
+          st.track.appendChild(clone);
         });
-        const dir = Number(row.dataset.dir) || (i % 2 === 1 ? 1 : -1);
-        const baseSpeed = (i === 0 ? 28 : i === 1 ? 24 : 32) * dir;
-        const st = { row, track, dir, baseSpeed, curSpeed: reduce ? 0 : baseSpeed, vel: 0, x: dir > 0 ? -600 : 0, half: 0, hover: false, drag: false, startX: 0, lastMoveT: 0, moved: 0 };
-        row.addEventListener("pointerenter", () => { st.hover = true; });
-        row.addEventListener("pointerleave", () => { st.hover = false; });
-        row.addEventListener("focusin", () => { st.hover = true; });
-        row.addEventListener("focusout", () => { st.hover = false; });
-        row.addEventListener("pointerdown", e => {
-          if (e.button !== 0 && e.pointerType === "mouse") return;
-          st.drag = true;
-          st.startX = e.clientX;
-          st.lastMoveT = performance.now();
-          st.vel = 0;
-          st.moved = 0;
-          row.classList.add("is-dragging");
+        st.copies++;
+      };
+      const measureRow = st => {
+        const viewW = idxNav.clientWidth, kids = st.track.children;
+        if (!viewW || !kids[st.orig.length]) return;
+        st.period = kids[st.orig.length].offsetLeft - kids[0].offsetLeft;
+        while (st.period > 0 && st.period * (st.copies - 1) < viewW) addCopy(st);
+      };
+      const wrapAndApply = st => {
+        if (!st.period) measureRow(st);
+        if (!st.period) return;
+        while (st.x <= -st.period) st.x += st.period;
+        while (st.x > 0) st.x -= st.period;
+        st.track.style.transform = `translate3d(${st.x.toFixed(2)}px,0,0)`;
+      };
+      const setupRows = () => {
+        states = [...idxNav.querySelectorAll(".reel-row")].map((row, i) => {
+          const track = row.querySelector(".reel-track");
+          const orig = [...track.children];
+          orig.forEach(node => node.setAttribute("draggable", "false"));
+          const dir = Number(row.dataset.dir) || (i % 2 === 1 ? 1 : -1);
+          const baseSpeed = (i === 0 ? 28 : i === 1 ? 24 : 32) * dir;
+          const st = { row, track, orig, copies: 1, dir, baseSpeed, curSpeed: reduce ? 0 : baseSpeed, vel: 0, x: dir > 0 ? -600 : 0, period: 0, hover: false, drag: false, startX: 0, lastMoveT: 0, moved: 0 };
+          addCopy(st);
+          row.addEventListener("pointerenter", () => { st.hover = true; });
+          row.addEventListener("pointerleave", () => { st.hover = false; });
+          row.addEventListener("focusin", () => { st.hover = true; });
+          row.addEventListener("focusout", () => { st.hover = false; });
+          row.addEventListener("pointerdown", e => {
+            if (e.button !== 0 && e.pointerType === "mouse") return;
+            st.drag = true;
+            st.startX = e.clientX;
+            st.lastMoveT = performance.now();
+            st.vel = 0;
+            st.moved = 0;
+            row.classList.add("is-dragging");
+          });
+          row.addEventListener("wheel", e => {
+            if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+            e.preventDefault();
+            st.x -= e.deltaX;
+            wrapAndApply(st);
+          }, { passive: false });
+          row.addEventListener("click", e => {
+            if (st.moved > 5) {
+              e.preventDefault();
+              e.stopPropagation();
+              st.moved = 0;
+            }
+          }, true);
+          return st;
         });
-        window.addEventListener("pointermove", e => {
+      };
+      window.addEventListener("pointermove", e => {
+        states.forEach(st => {
           if (!st.drag) return;
           const now = performance.now();
           const dtMove = Math.max(0.008, (now - st.lastMoveT) / 1000);
@@ -971,38 +1005,28 @@
           st.vel = Math.max(-1400, Math.min(1400, dx / dtMove));
           st.x += dx;
           wrapAndApply(st);
-        }, { passive: true });
-        const endDrag = () => {
+        });
+      }, { passive: true });
+      const endDrag = () => {
+        let ended = false;
+        states.forEach(st => {
           if (!st.drag) return;
           st.drag = false;
           st.curSpeed = st.vel;
-          row.classList.remove("is-dragging");
-          if (!rafId && reelVis && !homeV.hidden) { lastT = 0; rafId = requestAnimationFrame(stepReel); }
-        };
-        window.addEventListener("pointerup", endDrag, { passive: true });
-        window.addEventListener("pointercancel", endDrag, { passive: true });
-        row.addEventListener("wheel", e => {
-          if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
-          e.preventDefault();
-          st.x -= e.deltaX;
-          wrapAndApply(st);
-        }, { passive: false });
-        row.addEventListener("click", e => {
-          if (st.moved > 5) {
-            e.preventDefault();
-            e.stopPropagation();
-            st.moved = 0;
-          }
-        }, true);
-        return st;
-      });
+          st.row.classList.remove("is-dragging");
+          ended = true;
+        });
+        if (ended && !rafId && reelVis && !homeV.hidden) { lastT = 0; rafId = requestAnimationFrame(stepReel); }
+      };
+      window.addEventListener("pointerup", endDrag, { passive: true });
+      window.addEventListener("pointercancel", endDrag, { passive: true });
+      setupRows();
       const showCardMeta = card => {
         if (!card || !reelNowEl) return;
         const s = BY[card.dataset.id];
         if (!s) return;
-        const year = (s.date || "").slice(0, 4);
         const penTxt = penOf(s).keys.map(penName).join(T("、"));
-        reelNowEl.textContent = `${year} · 〈${s.ja}〉 · ${T("螢光棒：")}${penTxt}`;
+        reelNowEl.textContent = `${yearOf(s)} · 〈${s.ja}〉 · ${T("螢光棒：")}${penTxt}`;
       };
       idxNav.addEventListener("pointerover", e => {
         const card = e.target.closest(".reel-card");
@@ -1022,7 +1046,7 @@
       });
       const measureReel = () => {
         if (homeV.hidden || !idxNav.offsetParent) return;
-        states.forEach(st => { st.half = st.track.scrollWidth / 2; wrapAndApply(st); });
+        states.forEach(st => { st.period = 0; measureRow(st); wrapAndApply(st); });
       };
       measureHomeReel = measureReel;
       measureReel();
@@ -1051,6 +1075,24 @@
         }
       };
       resumeReel = startReel;
+      // 選單的開關、方向鍵、Esc 跟頂欄選單共用（見 barMenus）；這裡只管選了哪一年
+      if (yearPop) yearPop.addEventListener("click", e => {
+        const item = e.target.closest("[data-year]");
+        if (!item || item.getAttribute("aria-checked") === "true") return;
+        const year = item.dataset.year;
+        yearPop.querySelectorAll("[data-year]").forEach(b => b.setAttribute("aria-checked", String(b === item)));
+        if (yearLbl) yearLbl.textContent = item.firstElementChild.textContent;
+        idxNav.innerHTML = reelRowsHtml(songsOfYear(year));
+        setupRows();
+        measureReel();
+        if (reelNowEl) reelNowEl.textContent = defaultReelNow;
+        if (!reduce) {
+          idxNav.classList.remove("reel-swap");
+          void idxNav.offsetWidth;
+          idxNav.classList.add("reel-swap");
+        }
+        startReel();
+      });
       if ("IntersectionObserver" in window) {
         const io = new IntersectionObserver(entries => {
           reelVis = entries.some(en => en.isIntersecting);
@@ -1163,8 +1205,8 @@
   }
   syncBar();
 
-  // ── 頂欄選單（手燈 App、外觀）：點外面、按 Esc 或打開另一個就關；方向鍵在項目間移動 ──
-  const barMenus = [["lampBtn", "lampPop"], ["langBtn", "langPop"], ["themeBtn", "themePop"]].map(([b, p]) => ({ btn: document.getElementById(b), pop: document.getElementById(p) }));
+  // ── 下拉選單（頂欄的手燈 App、語言、外觀，首頁的曲目年份）：點外面、按 Esc 或打開另一個就關；方向鍵在項目間移動 ──
+  const barMenus = [["lampBtn", "lampPop"], ["langBtn", "langPop"], ["themeBtn", "themePop"], ["reelYearBtn", "reelYearPop"]].map(([b, p]) => ({ btn: document.getElementById(b), pop: document.getElementById(p) })).filter(m => m.btn && m.pop);
   const menuItems = m => [...m.pop.querySelectorAll('[role^="menuitem"]')];
   function closeMenus(except) {
     barMenus.forEach(m => {
@@ -2171,6 +2213,11 @@
   }
   // 離線用的 Service Worker：只有建置過的網站才有 sw.js；ROOT 讓英文、日文版也註冊到網站根目錄
   if (LYV && "serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register(ROOT + "sw.js").catch(() => {}));
+  // 本機直接開原始檔時：同網址以前跑過建置版留下的 Service Worker 會一直給舊的 style.css／app.js，清掉
+  else if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+    if (window.caches) caches.keys().then(ks => ks.filter(k => k.startsWith("ado-")).forEach(k => caches.delete(k))).catch(() => {});
+  }
 
   function openSong(s, t = 0) {
     quizStop(); closeSheets(); playerRetries = 0;

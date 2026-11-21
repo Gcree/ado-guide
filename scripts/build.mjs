@@ -265,7 +265,7 @@ const runtimeKeySet = new Set([
   ...Object.values(PENC).map(([name]) => name),
   "彩色",
   ...Object.values(ACT_MAP).flatMap(a => [a.name, a.how]),
-  "{0} – {1} · 全 {2} 首", "；", "、"
+  "全部年份", "{0} 首", "年份：", "；", "、"
 ]);
 for (const s of SONGS) {
   for (const t of (s.tips || [])) runtimeKeySet.add(t);
@@ -397,9 +397,6 @@ const FREQ_3 = (PRACTICE[3] || []).map(id => SONGS.find(s => s.id === id)).filte
 const STARTERS = FREQ_1;
 const FREQ_ALL_CNT = FREQ_1.length + FREQ_2.length + FREQ_3.length;
 const LATEST = SONGS.filter(s => !s.upcoming).sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.no - b.no).slice(0, 6);
-const songYears = SONGS.map(s => Number((s.date || "").slice(0, 4))).filter(Number.isFinite);
-const minYear = songYears.length ? Math.min(...songYears) : 2020;
-const maxYear = songYears.length ? Math.max(...songYears) : new Date().getFullYear();
 const urls = [""];
 
 const rootManifest = JSON.parse(read("manifest.webmanifest"));
@@ -445,6 +442,11 @@ function renderLang(L) {
     const year = (s.date || "").slice(0, 4);
     return `<a class="reel-card" href="song/${s.id}/" data-id="${s.id}" draggable="false">${thumbHtml(s, 116, 65, true)}<span class="reel-info"><span class="reel-ja" lang="ja">${esc(s.ja)}</span><span class="reel-meta">${penDots(s)}<span class="reel-year">${esc(year)}</span>${sub ? `<span class="reel-sub">${esc(sub)}</span>` : ""}</span></span></a>`;
   };
+  const reelYearCounts = {};
+  for (const s of sortedForReel) { const y = (s.date || "").slice(0, 4); if (/^\d{4}$/.test(y)) reelYearCounts[y] = (reelYearCounts[y] || 0) + 1; }
+  const yearItemHtml = (y, label, n) => `<button type="button" class="pop-item" role="menuitemradio" data-year="${y}" aria-checked="${y ? "false" : "true"}"><span>${esc(label)}</span><span class="pop-meta">${esc(T("{0} 首", n))}</span><svg class="pop-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>`;
+  const homeYearItemsHtml = yearItemHtml("", T("全部年份"), SONGS.length)
+    + Object.keys(reelYearCounts).sort((a, b) => b - a).map(y => yearItemHtml(y, y, reelYearCounts[y])).join("");
   const homeSongIndexHtml = reelRows.map((row, idx) =>
     `<div class="reel-row" data-dir="${idx % 2 === 1 ? "1" : "-1"}"><div class="reel-track">${row.map(reelCardHtml).join("")}</div></div>`
   ).join("");
@@ -528,7 +530,7 @@ function renderLang(L) {
   });
   homeHtml = mustReplace(homeHtml, '<h1 id="sTitle" lang="ja"></h1>', '<p id="sTitle" lang="ja"></p>', "home #sTitle");
   homeHtml = mustReplace(homeHtml, '<nav class="song-index" id="songIndex" aria-label="' + esc(T("全部歌曲連結")) + '"></nav>', `<nav class="song-index" id="songIndex" aria-label="${esc(T("全部歌曲連結"))}">${homeSongIndexHtml}</nav>`, "home #songIndex");
-  homeHtml = mustReplace(homeHtml, '<p class="reel-now" id="reelNow" aria-live="polite"></p>', `<p class="reel-now" id="reelNow" aria-live="polite">${esc(T("{0} – {1} · 全 {2} 首", minYear, maxYear, SONGS.length))}</p>`, "home #reelNow");
+  homeHtml = mustReplace(homeHtml, '<div class="pop narrow reel-year-pop" id="reelYearPop" role="menu" aria-label="' + esc(T("選擇年份")) + '" hidden></div>', `<div class="pop narrow reel-year-pop" id="reelYearPop" role="menu" aria-label="${esc(T("選擇年份"))}" hidden>${homeYearItemsHtml}</div>`, "home #reelYearPop");
   homeHtml = mustReplace(homeHtml, '<ul class="songs collapsed" id="songList"></ul>', `<ul class="songs collapsed" id="songList">${homeSongListHtml}</ul>`, "home #songList");
   homeHtml = mustReplace(homeHtml, '<ul class="shelf" id="shelf"></ul>', `<ul class="shelf" id="shelf">${homeShelfHtml}</ul>`, "home #shelf");
   homeHtml = mustReplace(homeHtml, '<ul class="shelf" id="latestShelf"></ul>', `<ul class="shelf" id="latestShelf">${homeLatestShelfHtml}</ul>`, "home #latestShelf");

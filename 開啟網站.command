@@ -16,7 +16,16 @@ if curl -sf "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then
   open "http://localhost:$PORT/"
   exit 0
 fi
-python3 -m http.server "$PORT" --bind 127.0.0.1 &
+# 本機的 index.html 固定載 style.css?v=dev2、app.js?v=dev2，瀏覽器會沿用舊檔；一律回 no-store，改完重新整理就看得到
+python3 -c '
+import sys
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+class NoStore(SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), NoStore).serve_forever()
+' "$PORT" &
 PID=$!
 trap 'kill "$PID" 2>/dev/null' EXIT INT TERM
 ready=0

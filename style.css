@@ -2927,19 +2927,65 @@ body.immersive-mode.has-venue .cue {
   contain-intrinsic-size: auto 500px;
 }
 
-.reel-now {
-  margin: 0;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: var(--fill);
-  color: var(--muted);
-  font-size: 13.5px;
-  font-weight: 500;
+/* 年份選單：沿用頂欄的 .menu／.pop 下拉選單，按鈕用 .pill-btn；固定靠右，選單往左下展開 */
+.reel-year-menu {
+  margin-left: auto;
+}
+
+.reel-year-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px 0 18px;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.reel-year-btn .chev {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.reel-year-btn[aria-expanded="true"] {
+  background: var(--fill-hover);
+}
+
+.reel-year-btn[aria-expanded="true"] .chev {
+  transform: rotate(180deg);
+}
+
+.reel-year-pop {
+  max-height: min(60vh, 470px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.reel-year-pop .pop-item {
+  font-variant-numeric: tabular-nums;
+}
+
+.pop-item[role="menuitemradio"]>.pop-meta {
+  flex: none;
+}
+
+/* 區塊平常用 content-visibility 省繪製，但那會把超出區塊的下拉選單裁掉；選單打開時先關掉 */
+.song-index-sec:has(.pop:not([hidden])) {
+  content-visibility: visible;
+}
+
+.song-index.reel-swap {
+  animation: reel-swap var(--dur-base) var(--ease-out);
+}
+
+@keyframes reel-swap {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
 .song-index {
