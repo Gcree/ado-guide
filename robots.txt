@@ -1,49 +1,64 @@
 # Robots.txt for Ado Fan Chant Guide (https://ado.kuti.cc/)
 User-agent: *
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 
 # Google Search (also powers AI Overviews & AI Mode)
 User-agent: Googlebot
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 # Google-Extended: Gemini apps & Vertex AI grounding (not Search ranking)
 User-agent: Google-Extended
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 
 # OpenAI / ChatGPT Search & Agent
 User-agent: GPTBot
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 User-agent: ChatGPT-User
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 User-agent: OAI-SearchBot
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 
 # Perplexity AI
 User-agent: PerplexityBot
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 User-agent: Perplexity-User
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 
 # Anthropic / Claude
 User-agent: ClaudeBot
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 User-agent: Claude-SearchBot
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 User-agent: Claude-User
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 
 # Applebot & Apple Intelligence
 User-agent: Applebot
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 User-agent: Applebot-Extended
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 
 # Microsoft Bing & Copilot
 User-agent: Bingbot
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 
 # DuckDuckGo AI answers
 User-agent: DuckAssistBot
 Allow: /
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
 
 # Site Structure & Knowledge Graph for Crawlers & LLMs
 Sitemap: https://ado.kuti.cc/sitemap.xml
