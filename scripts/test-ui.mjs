@@ -652,6 +652,46 @@ checkSync("建置產物檢查：多語 manifest、字型剝離、karaoke JSON、
     assert.equal(/ytimg\.com\/vi\/\//.test(html), false, `${path.relative(dir, f)} 不應含 ytimg.com/vi//`);
     assert.equal(/watch\?v=(?:["'&<\s]|$)/.test(html), false, `${path.relative(dir, f)} 不應含空的 watch?v= 連結`);
   }
+
+  // SEO 檢查：hold / upcoming 頁標 noindex 並移出 sitemap；歌曲頁不輸出不可見 FAQPage、不夾帶首頁文案、含 MV 專屬 og:image、英文 CJK 歌名退回羅馬拼音
+  const sitemap = fs.readFileSync(path.join(dir, "sitemap.xml"), "utf8");
+  assert.equal(sitemap.includes("https://ado.kuti.cc/song/show/"), true, "sitemap 應包含已確認應援的歌曲頁");
+  assert.equal(sitemap.includes("https://ado.kuti.cc/song/renaesaiban/"), false, "sitemap 不應包含無應援資料的 hold 頁");
+  assert.equal(sitemap.includes("https://ado.kuti.cc/song/unknownmothergoose/"), false, "sitemap 不應包含尚未發行的預留曲");
+
+  const showSongHtml = fs.readFileSync(path.join(dir, "song/show/index.html"), "utf8");
+  assert.equal(showSongHtml.includes('<meta name="robots" content="index, follow'), true, "已確認歌曲頁應為 index, follow");
+  assert.equal(showSongHtml.includes('"@type":"FAQPage"'), false, "歌曲頁不應輸出畫面上不可見的 FAQPage JSON-LD");
+  assert.equal(showSongHtml.includes('id="homeGuide"'), false, "歌曲頁不應夾帶隱藏的首頁練習原則區塊");
+  assert.equal(showSongHtml.includes('id="faq"'), false, "歌曲頁不應夾帶隱藏的首頁 FAQ 區塊");
+  assert.equal(showSongHtml.includes('property="og:image" content="https://i.ytimg.com/vi/pgXpM4l_MwI/hqdefault.jpg"'), true, "有 MV 的歌曲頁應使用該曲縮圖作為 og:image");
+
+  const homeZhHtml = fs.readFileSync(path.join(dir, "index.html"), "utf8");
+  assert.equal(homeZhHtml.includes('"@type":"FAQPage"'), true, "首頁有可見 FAQ，應保留 FAQPage JSON-LD");
+
+  for (const rel of ["song/renaesaiban/index.html", "en/song/renaesaiban/index.html", "jp/song/renaesaiban/index.html", "song/unknownmothergoose/index.html"]) {
+    const h = fs.readFileSync(path.join(dir, rel), "utf8");
+    assert.equal(h.includes('<meta name="robots" content="noindex, follow">'), true, `${rel} 應標記 noindex, follow`);
+  }
+  const enRenaiHtml = fs.readFileSync(path.join(dir, "en/song/renaesaiban/index.html"), "utf8");
+  assert.match(enRenaiHtml, /<title>[^<]*Renai Saiban[^<]*<\/title>/, "英文版無官方英文名的日文歌標題應帶入羅馬拼音");
+
+  // 巡演專頁（tour/utattemita-2027/）三語輸出、sitemap 與結構化資料檢查
+  for (const [rel, langUrl] of [
+    ["tour/utattemita-2027/index.html", "https://ado.kuti.cc/tour/utattemita-2027/"],
+    ["en/tour/utattemita-2027/index.html", "https://ado.kuti.cc/en/tour/utattemita-2027/"],
+    ["jp/tour/utattemita-2027/index.html", "https://ado.kuti.cc/jp/tour/utattemita-2027/"]
+  ]) {
+    assert.equal(sitemap.includes(langUrl), true, `sitemap 應包含巡演專頁 ${langUrl}`);
+    const th = fs.readFileSync(path.join(dir, rel), "utf8");
+    assert.equal(th.includes('<meta name="robots" content="index, follow'), true, `${rel} 應為 index, follow`);
+    assert.equal(th.includes('"@type":"MusicEvent"'), true, `${rel} 應含 MusicEvent 結構化資料`);
+    assert.equal(th.includes('"@type":"FAQPage"'), true, `${rel} 應含 FAQPage 結構化資料`);
+    assert.equal(th.includes('"@type":"ItemList"'), true, `${rel} 應含 ItemList 結構化資料`);
+    assert.equal(th.includes('class="faq-item tour-spoiler"'), true, `${rel} 應含預設收合的防雷歌單區`);
+    assert.equal(/class="faq-item tour-spoiler"\s+open/.test(th), false, `${rel} 防雷歌單區預設必須收合`);
+  }
+  assert.equal(showSongHtml.includes('id="tourBanner"'), false, "歌曲頁不應夾帶隱藏的首頁巡演橫幅");
 });
 
 await test("預留曲目（#unknownmothergoose）：顯示 #vstatus、#cardYt 不含 watch?v=、無空 ytimg 網址", async page => {
@@ -687,6 +727,40 @@ await test("新收錄歌曲（#binks、#fairytale）：正常開啟且無 JS 錯
     assert.equal(await page.isVisible("#song"), true);
   }
 });
+
+await test("巡演專頁（tour/utattemita-2027/）：首頁橫幅導流、外觀切換、防雷摺疊、待練清單與手機無橫向捲動", async page => {
+  await page.goto(BASE);
+  assert.equal(await page.isVisible("#tourBanner a.tour-banner"), true, "首頁應顯示巡演預習橫幅");
+  await page.click("#tourBanner a.tour-banner");
+  await page.waitForURL("**/tour/utattemita-2027/");
+  assert.match(await page.textContent("#tourH"), /歌ってみたツアー2027/);
+  assert.equal(await page.locator(".tour-show").count(), 6, "應顯示 6 場公演日程");
+  assert.equal(await page.locator(".tour-group").count(), 4, "應顯示 4 組預習歌單");
+  assert.equal(await page.evaluate(() => document.querySelector(".tour-spoiler").open), false, "防雷區預設應收合");
+
+  // 頂欄外觀與語言切換在巡演獨立頁正常運作
+  await page.click("#themeBtn");
+  await page.waitForFunction(() => !document.getElementById("themePop").hidden);
+  await page.click('#themePop [data-theme-pick="light"]');
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light");
+  assert.equal(await page.getAttribute('#langPop [data-lang-link="ja"]', "href"), "jp/tour/utattemita-2027/");
+
+  // 點選「整組載入待練清單」可順利進主站分享清單模式
+  await page.click('#group-live-verified .tour-list-btn');
+  await page.waitForFunction(() =>
+    location.hash.startsWith("#list=") &&
+    !document.getElementById("setlistBar").hidden &&
+    document.querySelectorAll("#songList li:not([hidden])").length === 3
+  );
+});
+
+await test("巡演專頁（手機版面）：無橫向捲動", async page => {
+  for (const url of ["tour/utattemita-2027/", "en/tour/utattemita-2027/", "jp/tour/utattemita-2027/"]) {
+    await page.goto(BASE + url);
+    const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
+    assert.ok(sw <= cw, `${url}：scrollWidth ${sw} > ${cw}`);
+  }
+}, { viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
 
 await test("無障礙（A11y）稽核：圖片 alt、按鈕名稱、表單標籤、跳轉連結與 axe-core", async page => {
   const axeMod = await import("@axe-core/playwright").catch(() => null);

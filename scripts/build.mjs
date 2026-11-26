@@ -76,6 +76,7 @@ const {
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 const LYRICS_LIVE = require(path.join(root, "song-lyrics-live.js"));
 const { SONGS, UT, PEN, SERIES, PRACTICE = {} } = require(path.join(root, "songs.js"));
+const { TOURS = [] } = fs.existsSync(path.join(root, "tours.js")) ? require(path.join(root, "tours.js")) : {};
 
 const relatedOf = (s, T) => sharedRelatedOf(s, SONGS, SERIES, T);
 const songInlineSummary = (s, code, pen, tips, lines, T) => sharedSongInlineSummary(s, code, pen, tips, lines, T, namePart);
@@ -106,6 +107,13 @@ SONGS.forEach(s => {
   s.dur = s.len ? s.len.split(":").reduce((a, b) => a * 60 + +b, 0) : 0;
 });
 SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => (s.no = i + 1));
+// 只有已確認應援資料（有應援重點或確認為自由搖）且非未發行預留曲才納入索引與 sitemap；
+// 尚在整理中（hold／sug）或未發行的預留頁（upcoming）仍保留站內可看，但標 noindex, follow，避免薄頁拉低整站品質
+const isIndexableSong = s => !s.hold && !s.upcoming;
+const INDEXABLE_SONGS = SONGS.filter(isIndexableSong);
+const SONG_BY_ID = new Map(SONGS.map(s => [s.id, s]));
+const COVER_CNT = SONGS.filter(s => s.cover).length;
+const TOUR_BY_ID = new Map(TOURS.map(t => [t.id, t]));
 const hasLiveVideo = s => Boolean(s.liveVideo || (s.live && s.yt));
 const hasLiveAudio = s => Boolean((s.lives && s.lives.length > 0) && !s.liveVideo && !s.live);
 const hasLive = s => Boolean((s.lives && s.lives.length > 0) || s.liveVideo || s.live);
@@ -119,13 +127,17 @@ const json = o => JSON.stringify(o).replace(/</g, "\\u003c");
 // ── 搜尋結果上看到的文字：標題和描述直接寫出答案（手燈什麼色、哪裡要唱），像 Threads 貼文一樣「內容就是標題」 ──
 // 中文：歌名以外大家會拿來搜的名字（中文譯名＋別名，例如〈うっせぇわ〉新聞多寫「煩死了」）
 const otherNames = s => [...new Set([s.zh !== s.ja ? s.zh : "", ...(s.alias || [])].filter(Boolean))];
-// 標題、描述用的第二個歌名：中文用台灣環球的官方中文曲名（沒有就用讀音或英文）；英文用英文名；日文只放日文原名
-const namePart = (s, code) => (code === "ja" ? "" : code === "en" ? (s.en && s.en !== s.ja ? s.en : "") : (s.zh && s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : "")));
+// 標題、描述用的第二個歌名：中文用台灣環球的官方中文曲名（沒有就用英文）；英文用英文名（沒有且原名非英數時改用羅馬拼音）；日文只放日文原名
+const namePart = (s, code) => (
+  code === "ja" ? ""
+    : code === "en" ? (s.en && s.en !== s.ja ? s.en : (s.ro && s.ro !== s.ja ? s.ro : ""))
+    : (s.zh && s.zh !== s.ja ? s.zh : (s.en && s.en !== s.ja ? s.en : ""))
+);
 // 歌曲頁標題：中文超過 32 字、英文超過 60 字（Google 大約顯示的長度）就只放日文歌名
 function songTitle(s, code) {
   const n = namePart(s, code);
-  if (code === "en") { const full = `Ado "${n || s.ja}"${n ? ` (${s.ja})` : ""} Fan Chant Guide`; return full.length <= 60 ? full : `Ado "${s.ja}" Fan Chant Guide`; }
-  if (code === "ja") return `Ado「${s.ja}」ライブ応援ガイド`;
+  if (code === "en") { const full = `Ado "${n || s.ja}"${n ? ` (${s.ja})` : ""} Fan Chant Guide`; return full.length <= 60 ? full : `Ado "${n || s.ja}" Fan Chant Guide`; }
+  if (code === "ja") return `Ado「${s.ja}」ライブコール・応援ガイド`;
   const full = `Ado〈${s.ja}〉${n ? n + " " : ""}應援教學`;
   return full.length <= 32 ? full : `Ado〈${s.ja}〉應援教學`;
 }
@@ -134,15 +146,15 @@ function songTitle(s, code) {
 function songPageTitle(s, code) {
   const has = a => (s.acts || []).includes(a);
   const hook = {
-    zh: has("sing") ? "手燈顏色與大合唱" : has("clap") ? "手燈顏色與拍手" : "手燈顏色",
-    en: has("sing") ? "Penlight Colors & Sing-Along" : has("clap") ? "Penlight Colors & Claps" : "Penlight Colors",
-    ja: has("sing") ? "ペンライト色・合唱" : has("clap") ? "ペンライト色・手拍子" : "ペンライト色"
+    zh: has("sing") ? "手燈顏色與大合唱" : has("call") ? "手燈顏色與喊聲" : has("clap") ? "手燈顏色與拍手" : "手燈顏色",
+    en: has("sing") ? "Lightstick Colors & Sing-Along" : has("call") ? "Lightstick Colors & Calls" : has("clap") ? "Lightstick Colors & Claps" : "Lightstick Colors",
+    ja: has("sing") && has("call") ? "ペンライト色・コール・合唱" : has("sing") ? "ペンライト色・合唱" : has("call") ? "ペンライト色・コール" : has("clap") ? "ペンライト色・手拍子" : "ペンライト色"
   }[code];
   const n = namePart(s, code);
   const tries = {
     zh: [`Ado〈${s.ja}〉${n ? n + " " : ""}應援教學｜${hook}`, `Ado〈${s.ja}〉應援教學｜${hook}`],
-    en: [`Ado "${n || s.ja}"${n ? ` (${s.ja})` : ""} Fan Chant Guide | ${hook}`, `Ado "${s.ja}" Fan Chant Guide | ${hook}`],
-    ja: [`Ado「${s.ja}」ライブ応援ガイド｜${hook}`]
+    en: [`Ado "${n || s.ja}"${n ? ` (${s.ja})` : ""} Fan Chant Guide | ${hook}`, `Ado "${n || s.ja}" Fan Chant Guide | ${hook}`],
+    ja: [`Ado「${s.ja}」ライブコール・応援ガイド｜${hook}`, `Ado「${s.ja}」ライブ応援ガイド｜${hook}`]
   }[code];
   const max = code === "en" ? 65 : 34;
   return tries.find(t => t.length <= max) || songTitle(s, code);
@@ -150,7 +162,7 @@ function songPageTitle(s, code) {
 function songDesc(s, code, p, tips, T) {
   const n = namePart(s, code), tie = s.tie ? T(s.tie) : "";
   if (code === "en") {
-    const pen = p.none ? "Penlight: no official color, so go with Ado's signature blue." : `Penlight: ${p.words.join(", ")}.`;
+    const pen = p.none ? "Penlight / lightstick: no official color, so go with Ado's signature blue." : `Penlight / lightstick: ${p.words.join(", ")}.`;
     const how = tips.length ? tips.slice(0, 2).join("; ") + "." : (s.free ? "No set chant, just sway along to the beat." : "Chants are still being confirmed; get to know the melody first.");
     return cut(`How to cheer for Ado's "${n || s.ja}"${tie ? ` (${tie})` : ""} at a concert. ${pen} ${how} Practice with the official MV and synced romaji lyrics.`, 160);
   }
@@ -351,8 +363,12 @@ function langLinks(html, L, rest) {
   });
 }
 
-function page(tpl, L, T, { rest, title, desc, ld, base, song, extra = "" }) {
+function page(tpl, L, T, { rest, title, desc, ld, base, song, robots, extra = "" }) {
   const url = SITE + L.dir + rest;
+  const ogImg = song && song.yt ? `https://i.ytimg.com/vi/${song.yt}/hqdefault.jpg` : OG_IMG;
+  const ogW = song && song.yt ? 480 : 1200;
+  const ogH = song && song.yt ? 360 : 630;
+  const ogAlt = song ? title : T("Ado 應援指南：看 MV，跟著同步歌詞先把應援練熟");
   const seoBlock = [
     `<link rel="canonical" href="${url}">`,
     altLinks(rest),
@@ -360,14 +376,14 @@ function page(tpl, L, T, { rest, title, desc, ld, base, song, extra = "" }) {
     `<meta property="og:site_name" content="${L.name}">`,
     `<meta property="og:locale" content="${L.og}">`,
     ...LANGS.filter(x => x !== L).map(x => `<meta property="og:locale:alternate" content="${x.og}">`),
-    `<meta property="og:image" content="${OG_IMG}">`,
-    `<meta property="og:image:alt" content="${esc(T("Ado 應援指南：看 MV，跟著同步歌詞先把應援練熟"))}">`,
-    `<meta property="og:image:width" content="1200">`,
-    `<meta property="og:image:height" content="630">`,
+    `<meta property="og:image" content="${ogImg}">`,
+    `<meta property="og:image:alt" content="${esc(ogAlt)}">`,
+    `<meta property="og:image:width" content="${ogW}">`,
+    `<meta property="og:image:height" content="${ogH}">`,
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta name="twitter:title" content="${esc(title)}">`,
     `<meta name="twitter:description" content="${esc(desc)}">`,
-    `<meta name="twitter:image" content="${OG_IMG}">`,
+    `<meta name="twitter:image" content="${ogImg}">`,
     `<script type="application/ld+json">${json(ld)}</script>`,
     gaScript,
     extra
@@ -375,6 +391,7 @@ function page(tpl, L, T, { rest, title, desc, ld, base, song, extra = "" }) {
   let html = tpl;
   html = mustReplace(html, /<title>[^<]*<\/title>/, () => `<title>${esc(title)}</title>`, "page <title>");
   html = mustReplace(html, /<meta name="description" content="[^"]*">/, () => `<meta name="description" content="${esc(desc)}">`, "page meta description");
+  if (robots) html = mustReplace(html, /<meta name="robots" content="[^"]*">/, () => `<meta name="robots" content="${robots}">`, "page meta robots");
   html = mustReplace(html, /<meta property="og:title" content="[^"]*">/, () => `<meta property="og:title" content="${esc(title)}">`, "page og:title");
   html = mustReplace(html, /<meta property="og:description" content="[^"]*">/, () => `<meta property="og:description" content="${esc(desc)}">`, "page og:description");
   html = mustReplace(html, /<meta property="og:type" content="[^"]*">/, () => `<meta property="og:type" content="${song ? "music.song" : "website"}">`, "page og:type");
@@ -464,19 +481,19 @@ function renderLang(L) {
       title: `Ado 應援指南｜演唱會手燈顏色、大合唱與拍手教學（${SONGS.length} 首）`,
       desc: `第一次去 Ado 演唱會也不慌：${SONGS.length} 首歌各有一頁，跟著官方 MV 和日中同步歌詞，哪裡拍手、哪裡大合唱、哪裡喊「Hey!」、手燈切什麼顏色都標好了。非官方粉絲製作，不照任何場次歌單，不暴雷。`,
       site: `非官方粉絲製作的 Ado 演唱會應援指南：收錄 ${SONGS.length} 首歌曲教學，看著 MV 跟同步歌詞，練哪裡拍手、哪裡大合唱、哪裡喊聲，還有每首手燈推薦顏色與藍牙手燈連動。`,
-      list: "Ado 演唱會歌曲應援清單", listDesc: `Ado ${SONGS.length} 首歌曲的演唱會應援教學與同步歌詞`
+      list: "Ado 演唱會歌曲應援清單", listDesc: `Ado ${INDEXABLE_SONGS.length} 首歌曲的演唱會應援教學與同步歌詞`
     },
     en: {
-      title: `Ado Fan Chant Guide | Concert Penlight Colors & Sing-Alongs (${SONGS.length} Songs)`,
-      desc: `Going to an Ado concert? Each of ${SONGS.length} songs has its own page: play the official MV with synced lyrics and romaji, and see exactly where to clap, sing along, shout "Hey!", and which penlight color to use. Unofficial, made by fans, spoiler-free.`,
-      site: `An unofficial fan-made guide to Ado concert chants: ${SONGS.length} songs with synced lyrics, romaji, sing-along parts, clap and call cues, and penlight colors.`,
-      list: "Ado concert chant guide by song", listDesc: `Chant guides and synced lyrics for ${SONGS.length} Ado songs`
+      title: `Ado Fan Chant Guide | Lightstick Colors & Sing-Alongs (${SONGS.length} Songs)`,
+      desc: `Going to an Ado concert? Each of ${SONGS.length} songs has its own page: play the official MV with synced lyrics and romaji, and see exactly where to clap, sing along, shout "Hey!", and which penlight / lightstick color to use. Unofficial, made by fans, spoiler-free.`,
+      site: `An unofficial fan-made guide to Ado concert chants: ${SONGS.length} songs with synced lyrics, romaji, sing-along parts, clap and call cues, and penlight / lightstick colors.`,
+      list: "Ado concert chant guide by song", listDesc: `Chant guides and synced lyrics for ${INDEXABLE_SONGS.length} Ado songs`
     },
     ja: {
       title: `Ado 応援ガイド｜ライブのペンライト色・コール・合唱（全${SONGS.length}曲）`,
       desc: `初めてのAdoライブでも大丈夫。${SONGS.length}曲それぞれに専用ページ、公式MVと同期歌詞で、手拍子・合唱・「Hey!」コールの場所とペンライトの色をチェックできます。ファンによる非公式サイト、セトリのネタバレなし。`,
       site: `ファンが作った非公式のAdoライブ応援ガイド。${SONGS.length}曲の同期歌詞、合唱パート、手拍子・コールのタイミング、ペンライト色をまとめています。`,
-      list: "Ado ライブ応援ガイド 曲一覧", listDesc: `Adoの${SONGS.length}曲の応援ガイドと同期歌詞`
+      list: "Ado ライブ応援ガイド 曲一覧", listDesc: `Adoの${INDEXABLE_SONGS.length}曲の応援ガイドと同期歌詞`
     }
   }[L.code];
   const homeLd = {
@@ -506,8 +523,8 @@ function renderLang(L) {
         "@id": `${home}#songlist`,
         "name": COPY.list,
         "description": COPY.listDesc,
-        "numberOfItems": SONGS.length,
-        "itemListElement": SONGS.map((s, idx) => ({
+        "numberOfItems": INDEXABLE_SONGS.length,
+        "itemListElement": INDEXABLE_SONGS.map((s, idx) => ({
           "@type": "ListItem",
           "position": idx + 1,
           "name": songTitle(s, L.code),
@@ -558,7 +575,8 @@ function renderLang(L) {
     const tips = tipsOf(s);
     const rest = `song/${s.id}/`;
     const url = home + rest;
-    if (L.code === "zh") urls.push(rest);
+    const indexable = isIndexableSong(s);
+    if (L.code === "zh" && indexable) urls.push(rest);
     const pageTitle = songPageTitle(s, L.code);
     const desc = songDesc(s, L.code, pen, tips, T);
     const dn = namePart(s, L.code);
@@ -609,32 +627,19 @@ function renderLang(L) {
               "uploadDate": `${s.date}T00:00:00+09:00`
             }
           } : {})
-        },
-        {
-          "@type": "FAQPage",
-          "@id": `${url}#faq`,
-          "mainEntity": [
-            {
-              "@type": "Question",
-              "name": T("Ado〈{0}〉演唱會手燈推薦什麼顏色？", s.ja),
-              "acceptedAnswer": { "@type": "Answer", "text": T("Ado〈{0}〉演唱會推薦手燈顏色為：{1}。若搭配 PenlightSync 桌面 App，可透過藍牙自動切換官方手燈顏色。", s.ja, pen.text) }
-            },
-            {
-              "@type": "Question",
-              "name": T("Ado〈{0}〉演唱會有什麼應援動作或大合唱？", s.ja),
-              "acceptedAnswer": { "@type": "Answer", "text": tips.length ? tips.join(T("；")) : (s.free ? T("這首歌沒有固定應援，現場自由跟著節奏搖手燈即可。") : T("這首歌應援資料整理中，先熟悉旋律並跟隨現場氣氛。")) }
-            },
-            ...(s.lives.length ? [{
-              "@type": "Question",
-              "name": T("Ado〈{0}〉有演唱會現場音源可以聽嗎？", s.ja),
-              "acceptedAnswer": { "@type": "Answer", "text": T("有，Ado 官方已釋出〈{0}〉在歷年演唱會（{1}）的官方現場音源。", s.ja, s.lives.map(l => l.concert).join(T("、"))) }
-            }] : [])
-          ]
         }
       ]
     };
 
-    let songHtml = page(tpl, L, T, { rest, base: "../../", song: s, title: pageTitle, desc, ld: songLd });
+    let songHtml = page(tpl, L, T, {
+      rest,
+      base: "../../",
+      song: s,
+      title: pageTitle,
+      desc,
+      ld: songLd,
+      robots: indexable ? undefined : "noindex, follow"
+    });
 
     // 靜態預渲染歌詞行與應援標記；第二行：中文版放中譯、英文版放羅馬拼音、日文版不放
     const subLine = l => (L.code === "en" ? l.ro || "" : L.code === "ja" ? "" : l.tr || "");
@@ -675,7 +680,6 @@ function renderLang(L) {
     const tie = s.tie ? T(s.tie) : "";
     const album = s.album ? T(s.album) : "";
     const cardInnerDl = `<dl class="card-dl"><dt id="cardAkaDt"${akaText ? "" : " hidden"}>${T("也叫")}</dt><dd id="cardAkaDd"${akaText ? "" : " hidden"}>${esc(akaText)}</dd><dt id="cardTieDt"${tie ? "" : " hidden"}>${T("出處")}</dt><dd id="cardTieDd"${tie ? "" : " hidden"}>${esc(tie)}</dd><dt id="cardAlbumDt"${album ? "" : " hidden"}>${T("收錄專輯")}</dt><dd id="cardAlbumDd"${album ? "" : " hidden"}>${esc(album)}</dd><dt id="cardDateDt">${T("發布日期")}</dt><dd id="cardDateDd">${esc(s.date.replace(/-/g, "/"))}</dd><dt>${T("推薦手燈")}</dt><dd id="cardPen">${esc(pen.text)}</dd><dt>${T("應援重點")}</dt><dd id="cardTips">${esc(tips.length ? tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。")))}</dd><dt>${T("官方 MV")}</dt><dd>${s.yt ? `<a id="cardYt" href="https://www.youtube.com/watch?v=${s.yt}" target="_blank" rel="noopener">${T("在 YouTube 開啟 ↗")}</a>` : `<a id="cardYt">${T("尚未公開")}</a>`}</dd><dt>${T("正版歌詞")}</dt><dd><a id="cardLyrics" href="${s.ut}" target="_blank" rel="noopener">${T("歌ネット ↗")}</a></dd><dt>${T("串流平台")}</dt><dd id="cardStream">${s.stream.map(x => `<a href="${x.url}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ")}</dd>${liveRows}</dl>`;
-    const cardHtml = `<section class="song-guide-card" id="songGuideCard" aria-label="${esc(T("歌曲應援速覽"))}"><h3 class="card-title">${T("〈{0}〉應援速覽", `<span id="cardJa">${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}</span>`)}</h3>${cardInnerDl}</section>`;
 
     const c = s.credit;
     const who = list => list.map(n => `<span lang="ja">${esc(n)}</span>`).join("、");
@@ -687,9 +691,13 @@ function renderLang(L) {
     const inlineDl = cardInnerDl.replace(/ id="[^"]+"/g, "");
     const inlineHtml = `<h2 class="guide-inline-h">${T("〈{0}〉應援速覽", `${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}`)}</h2><p class="guide-inline-lead">${esc(inlineLead)}</p><div class="song-guide-card">${inlineDl}${creditRows.length ? `<dl class="card-dl card-credit">${creditRows.join("")}</dl>` : ""}${relBlock}</div>`;
 
-    // 轉換歌曲頁面的 HTML：預設展示歌曲 view，隱藏 home view，並將標題、螢光棒、歌詞、可見應援詳情填入靜態標籤
+    // 轉換歌曲頁面的 HTML：預設展示歌曲 view，隱藏 home view 並移除首頁專屬的靜態文案（練習原則與常見問題）以減少跨頁重複內容；
+    // 速覽彈窗（#guideDlg 裡的 #songGuideCard）由 app.js 載入時填值，不重複靜態輸出，避免與 #songGuideInline 疊字
     songHtml = mustReplace(songHtml, '<body>', '<body class="on-song">', "song <body>");
     songHtml = mustReplace(songHtml, '<div class="view home" id="home">', '<div class="view home" id="home" hidden>', "song #home");
+    songHtml = mustReplace(songHtml, /<!-- 巡演專頁橫幅[\s\S]*?<section class="tour-banner-sec" id="tourBanner"[\s\S]*?<\/section>\s*/, "", "song strip #tourBanner");
+    songHtml = mustReplace(songHtml, /<!-- 應援練習說明 -->[\s\S]*?<section class="home-guide" id="homeGuide"[\s\S]*?<\/section>\s*/, "", "song strip #homeGuide");
+    songHtml = mustReplace(songHtml, /<!-- 常見問題 -->[\s\S]*?<section class="faq" id="faq"[\s\S]*?<\/section>\s*/, "", "song strip #faq");
     songHtml = mustReplace(songHtml, /<h1 id="heroH">([\s\S]*?)<\/h1>/, (m, inner) => `<p id="heroH">${inner}</p>`, "song #heroH");
     songHtml = mustReplace(songHtml, '<div class="view" id="song" hidden>', '<div class="view" id="song">', "song #song");
     songHtml = mustReplace(songHtml, '<h1 id="sTitle" lang="ja"></h1>', `<h1 id="sTitle" lang="ja">${esc(s.ja)}${subTitleHtml}</h1>`, "song #sTitle");
@@ -698,13 +706,286 @@ function renderLang(L) {
     songHtml = mustReplace(songHtml, '<ul class="summary" id="cueSummary"></ul>', `<ul class="summary" id="cueSummary">${tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`, "song #cueSummary");
     songHtml = mustReplace(songHtml, '<div id="lines"></div>', `<div id="lines">${prerenderedLines}</div>`, "song #lines");
     songHtml = mustReplace(songHtml, `<section class="song-guide-inline" id="songGuideInline" aria-label="${esc(T("歌曲應援詳情"))}"></section>`, `<section class="song-guide-inline" id="songGuideInline" data-song="${s.id}" aria-label="${esc(T("歌曲應援詳情"))}">${inlineHtml}</section>`, "song #songGuideInline");
-    songHtml = mustReplace(songHtml, /<section class="song-guide-card" id="songGuideCard"[^>]*>[\s\S]*?<\/section>/, () => cardHtml, "song #songGuideCard");
 
     // 上一首／下一首連結預渲染
     if (prevSong) songHtml = mustReplace(songHtml, /<a class="ib" id="prevSong" aria-label="[^"]*">/, () => `<a class="ib" id="prevSong" href="song/${prevSong.id}/" data-id="${prevSong.id}" aria-label="${esc(T("上一首：{0}", prevSong.ja))}">`, "song #prevSong");
     if (nextSong) songHtml = mustReplace(songHtml, /<a class="ib" id="nextSong" aria-label="[^"]*">/, () => `<a class="ib" id="nextSong" href="song/${nextSong.id}/" data-id="${nextSong.id}" aria-label="${esc(T("下一首：{0}", nextSong.ja))}">`, "song #nextSong");
 
     write(`${L.dir}song/${s.id}/index.html`, songHtml);
+  }
+
+  // ── 巡演預習專頁（tour/<id>/）：獨立靜態頁，不載入主站大型腳本，只掛輕量選單／外觀互動 ──
+  const tourInlineScript = `<script>
+(function(){
+  var menus=[["lampBtn","lampPop"],["langBtn","langPop"],["themeBtn","themePop"]].map(function(p){return[document.getElementById(p[0]),document.getElementById(p[1])];}).filter(function(p){return p[0]&&p[1];});
+  function closeAll(){menus.forEach(function(p){p[1].hidden=true;p[0].setAttribute("aria-expanded","false");});}
+  menus.forEach(function(p){
+    p[0].addEventListener("click",function(e){
+      e.stopPropagation();
+      var open=!p[1].hidden;
+      closeAll();
+      if(!open){p[1].hidden=false;p[0].setAttribute("aria-expanded","true");}
+    });
+  });
+  document.addEventListener("click",function(e){if(!e.target.closest(".menu"))closeAll();});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")closeAll();});
+  var mq=matchMedia("(prefers-color-scheme: light)");
+  function applyTheme(mode){
+    var light=mode==="light"||(mode!=="dark"&&mq.matches);
+    document.documentElement.dataset.theme=light?"light":"dark";
+    var mc=document.querySelector('meta[name="theme-color"]');
+    if(mc)mc.content=light?"#ffffff":"#070a12";
+    document.querySelectorAll("[data-theme-pick]").forEach(function(b){b.setAttribute("aria-checked",String(b.dataset.themePick===mode));});
+  }
+  var saved="system";
+  try{saved=localStorage.getItem("theme")||"system";}catch(e){}
+  applyTheme(saved);
+  mq.addEventListener("change",function(){var cur="system";try{cur=localStorage.getItem("theme")||"system";}catch(e){}if(cur==="system")applyTheme("system");});
+  document.querySelectorAll("[data-theme-pick]").forEach(function(b){
+    b.addEventListener("click",function(){
+      var m=b.dataset.themePick;
+      try{if(m==="system")localStorage.removeItem("theme");else localStorage.setItem("theme",m);}catch(e){}
+      applyTheme(m);closeAll();
+    });
+  });
+  var bar=document.getElementById("bar");
+  function syncBar(){if(bar)bar.classList.toggle("scrolled",scrollY>8);}
+  addEventListener("scroll",syncBar,{passive:true});syncBar();
+})();
+</script>`;
+
+  for (const tour of TOURS) {
+    const tc = tour.copy[L.code];
+    if (!tc) continue;
+    const rest = `tour/${tour.id}/`;
+    const url = home + rest;
+    if (L.code === "zh") urls.push(rest);
+
+    const uniqueTourSongs = [];
+    const seenIds = new Set();
+    for (const g of (tour.groups || [])) {
+      for (const sid of (g.songs || [])) {
+        if (seenIds.has(sid)) continue;
+        const s = SONG_BY_ID.get(sid);
+        if (s) { seenIds.add(sid); uniqueTourSongs.push(s); }
+      }
+    }
+
+    const tourLd = {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": `${url}#webpage`,
+          "url": url,
+          "name": tc.title,
+          "description": tc.desc,
+          "inLanguage": L.html,
+          "isPartOf": { "@type": "WebSite", "@id": `${home}#website` },
+          "about": ADO,
+          "dateModified": tour.updated || UPDATED,
+          "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS, INSTAGRAM] },
+          "breadcrumb": { "@id": `${url}#breadcrumb` }
+        },
+        {
+          "@type": "BreadcrumbList",
+          "@id": `${url}#breadcrumb`,
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": L.name, "item": home },
+            { "@type": "ListItem", "position": 2, "name": tc.shortName, "item": url }
+          ]
+        },
+        {
+          "@type": "MusicEvent",
+          "@id": `${url}#event`,
+          "name": tc.name,
+          "description": tc.desc,
+          "startDate": tour.startDate,
+          "endDate": tour.endDate,
+          "eventStatus": "https://schema.org/EventScheduled",
+          "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+          "performer": ADO,
+          "url": tour.officialUrl || url,
+          "subEvent": (tour.shows || []).map(sh => ({
+            "@type": "MusicEvent",
+            "name": `${tc.name} (${sh.city[L.code]} ${sh.date})`,
+            "startDate": `${sh.date}T${sh.start}:00+09:00`,
+            "doorTime": `${sh.date}T${sh.open}:00+09:00`,
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "performer": ADO,
+            "location": {
+              "@type": "Place",
+              "name": sh.venue[L.code],
+              "address": {
+                "@type": "PostalAddress",
+                "addressLocality": sh.addressLocality,
+                "addressCountry": sh.addressCountry
+              }
+            }
+          }))
+        },
+        {
+          "@type": "ItemList",
+          "@id": `${url}#preplist`,
+          "name": tc.prepTitle,
+          "numberOfItems": uniqueTourSongs.length,
+          "itemListElement": uniqueTourSongs.map((s, idx) => ({
+            "@type": "ListItem",
+            "position": idx + 1,
+            "name": songTitle(s, L.code),
+            "url": `${home}song/${s.id}/`
+          }))
+        },
+        {
+          "@type": "FAQPage",
+          "@id": `${url}#faq`,
+          "mainEntity": (tc.faqs || []).map(f => ({
+            "@type": "Question",
+            "name": f.q,
+            "acceptedAnswer": { "@type": "Answer", "text": f.a }
+          }))
+        }
+      ]
+    };
+
+    const scheduleItemsHtml = (tour.shows || []).map(sh => {
+      const dateDisp = L.code === "en" ? `${sh.date} (${sh.day.en})` : `${sh.date.replace(/-/g, "/")}（${sh.day[L.code]}）`;
+      const noteBadge = sh.note && sh.note[L.code] ? `<span class="tour-show-note">${esc(sh.note[L.code])}</span>` : "";
+      return `<li class="tour-show"><div class="tour-show-date"><strong>${esc(dateDisp)}</strong>${noteBadge}</div><div class="tour-show-place"><span class="tour-show-city">${esc(sh.city[L.code])}</span><span>${esc(sh.venue[L.code])}</span></div><div class="tour-show-time">OPEN ${esc(sh.open)} / START ${esc(sh.start)}</div></li>`;
+    }).join("");
+
+    const rulesHtml = (tc.rules || []).map(r =>
+      `<article class="guide-pill"><h3>${esc(r.title)}</h3><p>${esc(r.body)}</p></article>`
+    ).join("");
+
+    const groupsHtml = (tour.groups || []).map(g => {
+      const gSongs = (g.songs || []).map(id => SONG_BY_ID.get(id)).filter(Boolean);
+      const listIds = gSongs.map(s => s.id).join(",");
+      const rowsHtml = gSongs.map(s => {
+        const customBadge = g.badges && g.badges[s.id] && g.badges[s.id][L.code]
+          ? `<span class="tour-song-badge">${esc(g.badges[s.id][L.code])}</span>`
+          : (s.upcoming ? `<span class="tour-song-badge is-upcoming">${esc(T("即將發行"))}</span>` : "");
+        const tipHint = !s.hold && s.tips && s.tips.length ? `<span class="tour-song-tip">${esc(T(s.tips[0]))}</span>` : "";
+        return `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}${customBadge}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span>${tipHint}</span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`;
+      }).join("");
+      return `<section class="tour-group" id="group-${esc(g.id)}" aria-labelledby="groupH-${esc(g.id)}">
+        <div class="tour-group-head">
+          <div class="tour-group-copy">
+            <span class="tour-tier">0${esc(g.tier)}</span>
+            <div>
+              <h3 id="groupH-${esc(g.id)}">${esc(g.title[L.code])}<span class="count">${esc(T("{0} 首", gSongs.length))}</span></h3>
+              <p class="sec-sub">${esc(g.sub[L.code])}</p>
+            </div>
+          </div>
+          ${listIds ? `<a class="pill-btn tour-list-btn" href="./#list=${esc(listIds)}">${esc(tc.loadListBtn)}</a>` : ""}
+        </div>
+        <ul class="songs tour-songs">${rowsHtml}</ul>
+      </section>`;
+    }).join("");
+
+    const showsWithSetlist = (tour.shows || []).filter(sh => sh.songs && sh.songs.length > 0);
+    const spoilerBodyHtml = showsWithSetlist.length
+      ? showsWithSetlist.map(sh => {
+          const sObjs = sh.songs.map(id => SONG_BY_ID.get(id)).filter(Boolean);
+          const listIds = sObjs.map(s => s.id).join(",");
+          const ol = sObjs.map((s, idx) => `<li><a href="song/${s.id}/"><span class="tour-set-no">${String(idx + 1).padStart(2, "0")}</span><span lang="ja">${esc(s.ja)}</span>${penDots(s)}</a></li>`).join("");
+          return `<div class="tour-setlist-show"><div class="tour-setlist-head"><h4>${esc(sh.date)} ${esc(sh.city[L.code])}・${esc(sh.venue[L.code])}</h4>${listIds ? `<a class="pill-btn sm" href="./#list=${esc(listIds)}">${esc(tc.loadListBtn)}</a>` : ""}</div><ol class="tour-setlist-ol">${ol}</ol></div>`;
+        }).join("")
+      : `<p class="tour-spoiler-empty">${esc(tc.spoilerPending)}</p>`;
+
+    const faqHtml = (tc.faqs || []).map((f, idx) =>
+      `<details class="faq-item"${idx < 2 ? " open" : ""}><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`
+    ).join("");
+
+    const jumpLabels = {
+      zh: { schedule: "日程與場館", prep: "預習歌單", setlist: "防雷實際歌單", faq: "常見問題" },
+      en: { schedule: "Schedule", prep: "Prep Playlist", setlist: "Spoiler Setlists", faq: "FAQ" },
+      ja: { schedule: "日程・会場", prep: "予習リスト", setlist: "実セトリ（ネタバレ防止）", faq: "よくある質問" }
+    }[L.code];
+
+    const tourMainHtml = `<main class="col tour-main" id="main">
+      <nav class="tour-crumb" aria-label="Breadcrumb">
+        <a href="./">${esc(L.name)}</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">${esc(tc.shortName)}</span>
+      </nav>
+
+      <section class="tour-hero" aria-labelledby="tourH">
+        <span class="tour-badge">${esc(tc.badge)}</span>
+        <h1 id="tourH">${esc(tc.name)}</h1>
+        <p class="tour-lead">${esc(tc.heroLead)}</p>
+        <p class="tour-status">${esc(tc.statusNote)}</p>
+        <nav class="tour-jumps" aria-label="${esc(tc.shortName)}">
+          <a class="tint-link" href="${rest}#prep">${esc(jumpLabels.prep)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
+          <a class="tint-link" href="${rest}#schedule">${esc(jumpLabels.schedule)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
+          <a class="tint-link" href="${rest}#setlist">${esc(jumpLabels.setlist)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
+          <a class="tint-link" href="${rest}#faq">${esc(jumpLabels.faq)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
+        </nav>
+      </section>
+
+      <section class="tour-sec" id="schedule" aria-labelledby="scheduleH">
+        <div class="sec-head">
+          <div>
+            <h2 id="scheduleH">${esc(tc.scheduleTitle)}</h2>
+            <p class="sec-sub">${esc(tc.scheduleSub)}</p>
+          </div>
+        </div>
+        <ul class="tour-shows">${scheduleItemsHtml}</ul>
+      </section>
+
+      <section class="tour-sec" id="rules" aria-labelledby="rulesH">
+        <div class="sec-head">
+          <div>
+            <h2 id="rulesH">${esc(tc.rulesTitle)}</h2>
+            <p class="sec-sub">${esc(tc.rulesSub)}</p>
+          </div>
+        </div>
+        <div class="home-guide-grid">${rulesHtml}</div>
+      </section>
+
+      <section class="tour-sec" id="prep" aria-labelledby="prepH">
+        <div class="sec-head">
+          <div>
+            <h2 id="prepH">${esc(tc.prepTitle)}</h2>
+            <p class="sec-sub">${esc(tc.prepSub)}</p>
+          </div>
+        </div>
+        <div class="tour-groups">${groupsHtml}</div>
+      </section>
+
+      <section class="tour-sec" id="setlist" aria-labelledby="setlistH">
+        <div class="sec-head">
+          <div>
+            <h2 id="setlistH">${esc(tc.spoilerTitle)}</h2>
+            <p class="sec-sub">${esc(tc.spoilerSub)}</p>
+          </div>
+        </div>
+        <details class="faq-item tour-spoiler">
+          <summary>${esc(tc.spoilerSummary)}</summary>
+          <div class="tour-spoiler-body">${spoilerBodyHtml}</div>
+        </details>
+      </section>
+
+      <section class="faq tour-sec" id="faq" aria-labelledby="faqH">
+        <h2 id="faqH">${esc(tc.faqTitle)}</h2>
+        <div class="faq-list">${faqHtml}</div>
+      </section>
+
+      <div class="tour-foot-cta">
+        <a class="pill-btn" href="./#songs?f=cover">${esc(tc.allCoversBtn.replace("{0}", String(COVER_CNT)))}</a>
+        <a class="tint-link" href="./">${esc(tc.backHomeBtn)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
+      </div>
+    </main>`;
+
+    let tourHtml = page(tpl, L, T, { rest, base: "../../", title: tc.title, desc: tc.desc, ld: tourLd });
+    tourHtml = mustReplace(tourHtml, '<body>', '<body class="on-tour">', "tour <body>");
+    tourHtml = mustReplace(tourHtml, /<canvas id="fx"[\s\S]*?<div class="shell">/, '<div class="shell">', "tour strip canvases");
+    tourHtml = mustReplace(tourHtml, /<main class="col" id="main">[\s\S]*?<\/main>/, () => tourMainHtml, "tour <main>");
+    tourHtml = tourHtml.replace('<a href="#songs">', '<a href="./#songs">');
+    tourHtml = tourHtml.replace(/<button type="button" id="(?:logBtn|feedbackBtn|pwaInstallBtn)"[^>]*>[^<]*<\/button>\s*/g, "");
+    tourHtml = mustReplace(tourHtml, /<div class="toast" id="toast"[\s\S]*?<\/body>/, () => `${tourInlineScript}\n</body>`, "tour strip dialogs & app scripts");
+    write(`${L.dir}${rest}index.html`, tourHtml);
   }
   if (L.code !== "zh") {
     const copy = MANIFEST_COPY[L.code];
@@ -730,7 +1011,13 @@ write("404.html", `<!doctype html><html lang="zh-Hant-TW"><meta charset="utf-8">
 
 // 網站地圖：每個網址列出三種語言版本（xhtml:link），Google 才知道它們是同一頁的不同語言
 // lastmod：首頁用 CHANGELOG 最新一版的日期；歌曲頁用那首歌自己最後改動的日期。只有內容真的變了日期才動，Google 才會相信
-const lastmodOf = rest => { const m = /^song\/([^/]+)\/$/.exec(rest); return m ? songUpdated(m[1]) : UPDATED; };
+const lastmodOf = rest => {
+  const m = /^song\/([^/]+)\/$/.exec(rest);
+  if (m) return songUpdated(m[1]);
+  const tm = /^tour\/([^/]+)\/$/.exec(rest);
+  if (tm) return TOUR_BY_ID.get(tm[1])?.updated || UPDATED;
+  return UPDATED;
+};
 const alts = rest => LANGS.map(x => `    <xhtml:link rel="alternate" hreflang="${x.hreflang}" href="${SITE}${x.dir}${rest}"/>`).concat(`    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${rest}"/>`).join("\n");
 write(
   "sitemap.xml",
@@ -748,6 +1035,7 @@ function generateLlmsTxt() {
     `> English: ${SITE}en/ ・ 日本語: ${SITE}jp/`,
     ``,
     `網站首頁：${SITE}`,
+    ...(TOURS.length ? TOURS.map(t => `巡演專頁（${t.copy.zh.shortName}）：${SITE}tour/${t.id}/`) : []),
     `完整歌詞與應援全文檔：${SITE}llms-full.txt`,
     ``,
     `## 全場演唱會通用原則`,
@@ -900,7 +1188,7 @@ write("CNAME", "ado.kuti.cc\n");
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
 const kCount = Object.keys(karaokeHashes).length;
-console.log(`輸出到 ${out}：中文、英文（en/）、日文（ja/）各首頁＋${SONGS.length} 首歌頁、${Object.keys(lyIndex).length} 首歌詞檔${kCount ? `、${kCount} 首卡拉OK快取` : ""}${Object.keys(ROMAJI).length ? `（${Object.keys(ROMAJI).length} 首有羅馬拼音）` : "（沒有 song-romaji.json，英文版不放羅馬拼音）"}${esbuild ? "（已啟用 esbuild 壓縮）" : ""}、sitemap.xml、robots.txt、llms.txt、llms-full.txt、404.html`);
+console.log(`輸出到 ${out}：中文、英文（en/）、日文（ja/）各首頁＋${SONGS.length} 首歌頁（${INDEXABLE_SONGS.length} 首納入索引與 sitemap，${SONGS.length - INDEXABLE_SONGS.length} 首標記 noindex）＋${TOURS.length} 個巡演專頁、${Object.keys(lyIndex).length} 首歌詞檔${kCount ? `、${kCount} 首卡拉OK快取` : ""}${Object.keys(ROMAJI).length ? `（${Object.keys(ROMAJI).length} 首有羅馬拼音）` : "（沒有 song-romaji.json，英文版不放羅馬拼音）"}${esbuild ? "（已啟用 esbuild 壓縮）" : ""}、sitemap.xml、robots.txt、llms.txt、llms-full.txt、404.html`);
 for (const code of ["en", "ja"]) {
   if (missing[code].size) console.log(`⚠ ${code} 還沒翻譯 ${missing[code].size} 句（畫面先顯示中文）：${[...missing[code]].slice(0, 8).join("｜")}${missing[code].size > 8 ? "…" : ""}`);
 }

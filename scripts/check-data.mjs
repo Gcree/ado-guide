@@ -17,6 +17,7 @@ const {
 const LYRICS = require(path.join(root, "song-lyrics.js"));
 const LYRICS_LIVE = require(path.join(root, "song-lyrics-live.js"));
 const I18N = require(path.join(root, "i18n.js"));
+const { TOURS = [] } = fs.existsSync(path.join(root, "tours.js")) ? require(path.join(root, "tours.js")) : {};
 
 const parseLen = str => str.split(":").reduce((a, b) => a * 60 + +b, 0);
 const ALLOWED_ACTS = new Set(["sing", "clap", "wave", "jump", "call", "gesture", "listen"]);
@@ -70,6 +71,22 @@ for (const s of SONGS) {
 }
 for (const b of LYRICS) {
   if (!songsMap.has(b.id)) error(`[${b.id}] 在 song-lyrics.js 存在，但在 songs.js 找不到對應項目`);
+}
+const tourIds = new Set();
+for (const tour of TOURS) {
+  if (!tour.id || tourIds.has(tour.id)) error(`[tour:${tour.id}] tours.js 巡演 ID 缺少或重複`);
+  else tourIds.add(tour.id);
+  for (const g of (tour.groups || [])) {
+    for (const sid of (g.songs || [])) {
+      if (!songsMap.has(sid)) error(`[tour:${tour.id}/${g.id}] 找不到歌曲 ID "${sid}"`);
+    }
+  }
+  for (const sh of (tour.shows || [])) {
+    if (!isValidDate(sh.date)) error(`[tour:${tour.id}/${sh.id}] 日期格式錯誤: ${sh.date}`);
+    for (const sid of (sh.songs || [])) {
+      if (!songsMap.has(sid)) error(`[tour:${tour.id}/${sh.id}] 實際歌單找不到歌曲 ID "${sid}"`);
+    }
+  }
 }
 
 for (const s of SONGS) {

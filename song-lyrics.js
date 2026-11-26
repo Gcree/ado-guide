@@ -21731,8 +21731,8 @@
   {
     "id": "shinka",
     "title": "シンカ (Shinka)",
-    "youtubeId": "q0OGymI3LMs",
-    "duration": 200,
+    "youtubeId": "Kd8gn8lqXqk",
+    "duration": 206,
     "lyrics": [
       {
         "time": 0.685,
