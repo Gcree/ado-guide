@@ -2235,6 +2235,11 @@ main.col {
     min-height: 0;
     height: auto;
   }
+
+  /* 手機的歌曲頁是固定一個畫面高、歌詞在裡面捲；SEO 用的應援速覽留在 HTML 但不佔版面（同樣內容按「速覽」看得到），不然會把歌詞擠到 0 高 */
+  .on-song .song-guide-inline {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -2257,7 +2262,8 @@ main.col {
     padding-block: 0;
   }
 
-  .on-song footer {
+  .on-song footer,
+  .on-song .song-guide-inline {
     display: none;
   }
 
