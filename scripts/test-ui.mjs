@@ -809,6 +809,8 @@ await test("巡演專頁（tour/utattemita-2027/）：首頁橫幅導流、外�
   assert.match(await page.textContent("#tourH"), /歌ってみたツアー2027/);
   assert.equal(await page.locator(".tour-day").count(), 6, "各場歌單應列出 6 場");
   assert.equal(await page.locator(".tour-city").count(), 3, "6 場應依場館分成 3 組");
+  assert.equal(await page.getAttribute(".tour-venue-3d", "href"), "https://twconcertview.com/3d/ariake-arena-tokyo", "東京有明場次應提供外部 3D 視野參考連結");
+  assert.equal(await page.getAttribute(".tour-venue-3d", "target"), "_blank");
   assert.equal(await page.locator("#show-tokyo-2 .tour-day-label").textContent(), "Day 2", "同場館第二天應標 Day 2");
   assert.equal(await page.locator("#warmup .tour-shelf").count(), 4, "預熱應有 4 排分組書架");
   // 預熱＋更多翻唱＝本站全部翻唱，每首只出現一次

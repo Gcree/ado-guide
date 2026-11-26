@@ -9902,3 +9902,36 @@ main.col.tour-main {
 .tour-older>summary {
   font-size: 15px;
 }
+
+/* 場館外部 3D 視野參考連結 */
+.tour-venue-3d {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tint) 14%, transparent);
+  color: var(--tint);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--dur-hover) var(--ease), transform var(--dur-press) var(--ease);
+}
+
+@media (hover: hover) {
+  .tour-venue-3d:hover {
+    background: color-mix(in srgb, var(--tint) 24%, transparent);
+  }
+}
+
+.tour-venue-3d:active {
+  transform: scale(.97);
+}
+
+.tour-venue-3d:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
