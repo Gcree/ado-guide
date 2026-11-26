@@ -7,7 +7,7 @@
   const TOURS = [
     {
       id: "utattemita-2027",
-      updated: "2026-11-26",
+      updated: "2026-11-27",
       startDate: "2027-01-10",
       endDate: "2027-02-28",
       // 首頁入口橫幅顯示用（只顯示第一個 active: true 的巡演）
@@ -33,7 +33,7 @@
           tips: [
             {
               title: "有開中控，手燈就不用自己切",
-              body: "現場有開中控時，手燈顏色由會場統一控制，不用自己切。沒開中控時才需要自己切：〈unravel〉〈ヒバナ〉〈あのバンド〉照本站標的顏色；其他翻唱本站還沒有現場手燈色資料，可以跟著舞台燈光或周圍觀眾。"
+              body: "現場有開中控時，手燈顏色由會場統一控制，不用自己切。沒開中控時才需要自己切：有標示顏色的翻唱照本站顏色切即可；未標示顏色的曲目代表還沒有現場資料，跟著舞台燈光或周圍觀眾就好。"
             },
             {
               title: "沒有固定 Call 就別硬喊",
@@ -88,7 +88,7 @@
           tips: [
             {
               title: "Central control on? Leave your lightstick alone",
-              body: "When the venue runs central (wireless) control, lightstick colors change automatically, so there's nothing to switch. Only without it do you switch yourself: use the colors listed here for unravel, HIBANA and That Band; for other covers we have no live color data yet, so follow the stage lighting or the crowd."
+              body: "When the venue runs central (wireless) control, lightstick colors change automatically, so there's nothing to switch. Only without it do you switch yourself: use the colors listed on this site where available, and follow the stage lighting or the crowd for covers without live color data yet."
             },
             {
               title: "No set call? Don't force one",
@@ -143,7 +143,7 @@
           tips: [
             {
               title: "無線制御があればペンライト操作は不要",
-              body: "会場で無線制御（一斉制御）が入っているときは、ペンライトの色は自動で変わるので自分で切り替える必要はありません。制御がないときだけ自分で：〈unravel〉〈ヒバナ〉〈あのバンド〉は当サイト記載の色、その他のカバーはまだライブでの色の情報がないので、ステージの照明や周りに合わせましょう。"
+              body: "会場で無線制御（一斉制御）が入っているときは、ペンライトの色は自動で変わるので自分で切り替える必要はありません。制御がないときだけ自分で：当サイトに色が記載されている曲はその色に、未記載の曲はステージの照明や周りに合わせましょう。"
             },
             {
               title: "決まったコールがない曲は無理に入れない",
@@ -283,7 +283,18 @@
             en: "Covers whose lightstick colors and chants we've confirmed from live sources — start here.",
             ja: "ライブの情報でペンライト色と応援を確認済みのカバー。まずはここから。"
           },
-          songs: ["unravel", "hibana", "anobando"]
+          songs: [
+            "unravel",
+            "hibana",
+            "anobando",
+            "senbonzakura",
+            "darlingdance",
+            "readysteady",
+            "rabuka",
+            "jama",
+            "basketworm",
+            "zaneri"
+          ]
         },
         {
           id: "album-2",
@@ -317,16 +328,27 @@
           songs: [
             "brain",
             "andjuly",
+            "staywithme",
             "eaasou",
             "soldiergame",
             "ponpokorin",
             "catseye",
+            "suiseiressha",
+            "yuukinoreason",
+            "natsuyo",
+            "egorock",
             "kitaro",
             "jikkai",
             "charles",
+            "vivahappy",
             "overdose",
-            "darlingdance",
-            "kiminotaion"
+            "precure5",
+            "koihasensou",
+            "kiminotaion",
+            "blackrockshooter",
+            "bocca",
+            "otomekaibou",
+            "renaesaiban"
           ]
         }
       ]

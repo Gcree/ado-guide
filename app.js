@@ -1467,6 +1467,31 @@
   const sTitleEl = document.getElementById("sTitle"), mvEl = document.querySelector("#song .mv");
   const PAGE_SONG = document.documentElement.dataset.song || "", PAGE_TITLE = document.title;
   // 在歌曲獨立頁（song/<id>/）上切歌：網址換成那首的獨立頁，不重新載入整頁；從首頁進來的（#id）照舊用 #
+  const backBtn = document.querySelector(".songbar a.ib");
+  const getEntryReturnUrl = () => {
+    if (!document.referrer) return "";
+    try {
+      const ref = new URL(document.referrer);
+      if (ref.origin !== location.origin) return "";
+      const here = new URL(location.href);
+      if (ref.pathname === here.pathname && ref.search === here.search && ref.hash === here.hash) return "";
+      return ref.href;
+    } catch (e) { return ""; }
+  };
+  const entryReturnUrl = getEntryReturnUrl();
+  let enteredSongFromHome = false;
+  let songNavDepth = 0;
+  function syncBackBtn() {
+    if (!backBtn) return;
+    if (!enteredSongFromHome && entryReturnUrl) {
+      backBtn.href = entryReturnUrl;
+      backBtn.setAttribute("aria-label", T("返回上一頁"));
+    } else {
+      backBtn.href = "./";
+      backBtn.setAttribute("aria-label", T("回首頁歌曲清單"));
+    }
+  }
+  syncBackBtn();
   const pathSong = () => { const m = location.pathname.match(/\/song\/([^/]+)\/?$/); return m && BY[m[1]] ? m[1] : ""; };
   const songHref = id => (PAGE_SONG ? `song/${id}/` : "#" + id);
   let lastPath = location.pathname;
@@ -4695,6 +4720,13 @@
     if (s) {
       closeHeroSuggest();
       if (!homeV.hidden) listY = scrollY;
+      if (hasRouted && !homeV.hidden) {
+        enteredSongFromHome = true;
+        songNavDepth = 0;
+      } else if (hasRouted && S && S !== s) {
+        songNavDepth++;
+      }
+      syncBackBtn();
       document.documentElement.classList.add("seen");
       document.body.classList.add("on-song"); document.documentElement.classList.add("on-song"); syncThemeColor();
       hidePwaToast(false);
@@ -5075,10 +5107,26 @@
   }
   route();
 
-  // 返回按鈕與 Logo 導航優化：在 SPA 模式下點擊清除 hash 平滑回首頁
-  const backBtn = document.querySelector(".songbar a.ib");
+  // 返回按鈕：從站內其他頁（如巡演專頁）進來就準確回上一頁；從本頁首頁點進來就平滑清 hash；外部點進來則導回首頁
   if (backBtn) {
     backBtn.addEventListener("click", ev => {
+      if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
+      if (enteredSongFromHome) {
+        if (!PAGE_SONG && location.hash) {
+          ev.preventDefault();
+          location.hash = "";
+        }
+        return;
+      }
+      if (entryReturnUrl) {
+        ev.preventDefault();
+        if (songNavDepth === 0 && history.length > 1) {
+          history.back();
+        } else {
+          location.href = entryReturnUrl;
+        }
+        return;
+      }
       if (!PAGE_SONG && location.hash) {
         ev.preventDefault();
         location.hash = "";

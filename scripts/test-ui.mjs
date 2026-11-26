@@ -816,10 +816,12 @@ await test("巡演專頁（tour/utattemita-2027/）：首頁橫幅導流、外�
   assert.equal(coverIds.length >= 80, true, "預熱＋更多翻唱應涵蓋所有翻唱曲");
   assert.equal(new Set(coverIds).size, coverIds.length, "同一首翻唱在頁面上不應重複出現");
 
-  // 書架：歌多的那排按下一組會往右捲、上一組解除停用；放得下的那排不顯示箭頭
+  // 書架：歌多的那排按下一組會往右捲、上一組解除停用
   await page.click('#group-origin-and-hot [data-dir="1"]');
   await page.waitForFunction(() => document.querySelector("#shelf-origin-and-hot").scrollLeft > 0 && !document.querySelector('#group-origin-and-hot [data-dir="-1"]').disabled);
-  assert.equal(await page.locator("#group-live-verified .shelf-btns").isVisible(), false, "3 首放得下的書架不應顯示箭頭");
+  // 04 書架最前面應為最新的翻唱曲（brain、andjuly、staywithme）
+  const firstThree04 = await page.evaluate(() => [...document.querySelectorAll("#shelf-origin-and-hot .card")].slice(0, 3).map(a => a.dataset.id));
+  assert.deepEqual(firstThree04, ["brain", "andjuly", "staywithme"], "04 應依日期由新到舊排在前面");
 
   // 本頁導覽：點「全部翻唱」會捲到那段並亮起
   await page.click('#tourRail a[data-sec="covers"]');
@@ -833,10 +835,30 @@ await test("巡演專頁（tour/utattemita-2027/）：首頁橫幅導流、外�
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light");
   assert.equal(await page.getAttribute('#langPop [data-lang-link="ja"]', "href"), "jp/tour/utattemita-2027/");
 
-  // 「練這組」一按就從清單第一首開始練，下一首照清單走
+  // 從巡演頁點歌卡片進歌曲獨立頁 → 點上一步應回到巡演頁（不是強制回首頁）
+  await page.click('#shelf-live-verified a[data-id="hibana"]');
+  await page.waitForURL("**/song/hibana/");
+  await page.waitForFunction(() => document.querySelectorAll("#lines .ln").length > 0);
+  await page.click(".songbar a.ib");
+  await page.waitForFunction(() => location.pathname.endsWith("/tour/utattemita-2027/"));
+
+  // 「練這組」一按就從清單第一首開始練，下一首照清單走；切下一首後按上一步也應回到巡演頁
   await page.click("#group-live-verified .tour-play");
   await page.waitForFunction(() => location.hash === "#unravel" && !document.getElementById("song").hidden);
   assert.match(await page.getAttribute("#nextSong", "href") || "", /hibana/, "下一首應照清單接〈ヒバナ〉");
+  await page.click("#nextSong");
+  await page.waitForFunction(() => location.hash === "#hibana");
+  await page.click(".songbar a.ib");
+  await page.waitForFunction(() => location.pathname.endsWith("/tour/utattemita-2027/"));
+
+  // 外部直接開歌曲頁（無站內 referrer）→ 按上一步應導回首頁
+  const extPage = await page.context().newPage();
+  await extPage.goto(BASE + "song/hibana/");
+  await extPage.waitForFunction(() => document.querySelectorAll("#lines .ln").length > 0);
+  assert.equal(await extPage.getAttribute(".songbar a.ib", "href"), "./");
+  await extPage.click(".songbar a.ib");
+  await extPage.waitForFunction(() => location.pathname === "/" && !document.getElementById("home").hidden);
+  await extPage.close();
 });
 
 await test("巡演專頁（手機版面）：無橫向捲動、浮動導覽按鈕", async page => {
