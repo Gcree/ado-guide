@@ -158,7 +158,7 @@ test("shared/render: penName, penOf, penDots against real SONGS, PEN, and i18n",
   assert.deepEqual(charlesPen.keys, ["青"]);
   assert.deepEqual(charlesPen.cols, ["#5d9dfe"]);
   assert.equal(charlesPen.shortText, "藍（未指定）");
-  assert.equal(charlesPen.text, "藍色（官方未指定，建議切換為代表色藍色）");
+  assert.equal(charlesPen.text, "藍色（未指定）");
 
   // Unlisted free song -> also defaults to blue
   const unlistedPen = ADO_SHARED.penOf({ id: "unlisted", hold: false }, PEN);
@@ -236,7 +236,7 @@ test("shared/render: credKey, credHas, credRole, relatedOf, mainAct, lineAct, so
 
   const unlistedFree = { id: "unlisted", ja: "テスト", date: "2025-01-01", len: "3:00", free: true, acts: [] };
   const sumEn = ADO_SHARED.songInlineSummary(unlistedFree, "en", ADO_SHARED.penOf(unlistedFree, PEN, Ten), [], [], Ten);
-  assert.match(sumEn, /No official song-specific penlight color/);
+  assert.match(sumEn, /No live penlight color on record yet/);
   assert.match(sumEn, /no fixed chant or clap routine/);
 
   const sumTotEn = ADO_SHARED.songInlineSummary(byId.totmusica, "en", ADO_SHARED.penOf(byId.totmusica, PEN, Ten), [], [], Ten);

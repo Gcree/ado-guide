@@ -171,7 +171,7 @@
           <span class="tour-banner-body">
             <span class="tour-banner-tag">2027 巡迴預習</span>
             <strong class="tour-banner-title">Ado 歌ってみた翻唱巡迴 2027 歌單預習</strong>
-            <span class="tour-banner-sub">2027/01/10 東京開唱・翻唱專輯《その２》與熱門翻唱分層整理，不暴雷</span>
+            <span class="tour-banner-sub">2027/01/10 東京開唱・兩張翻唱專輯與 YouTube 翻唱分組整理，不暴雷</span>
           </span>
           <span class="tour-banner-cta">看預習歌單<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></span>
         </a>
@@ -192,7 +192,7 @@
           </article>
           <article class="guide-pill">
             <h3>手燈顏色切換通則</h3>
-            <p>每首歌旁的小圓點是推薦手燈顏色；沒有固定指定的曲目，統一切換成藍色，或依現場場控與舞台燈光自由揮動。</p>
+            <p>每首歌旁的小圓點是推薦手燈顏色。現場有開中控時，手燈由會場統一控制，不用自己切；沒開中控時再照小圓點切色，沒標顏色的歌就跟著舞台燈光或周圍觀眾。</p>
           </article>
           <article class="guide-pill">
             <h3>不暴雷、支援藍牙連動</h3>
@@ -358,6 +358,17 @@
                 <p id="vmsg">正在載入影片…</p>
                 <a class="btn ghost" id="ytLink2" target="_blank" rel="noopener">在 YouTube 開啟</a>
               </div>
+            </div>
+            <div class="clipbar" id="clipBar" hidden role="region" aria-label="本曲片段播放控制">
+              <button type="button" class="clip-btn" id="clipPlay" aria-label="播放" title="播放">
+                <svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none"/></svg>
+                <svg class="ico-pause" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="none"/></svg>
+              </button>
+              <button type="button" class="clip-btn" id="clipReplay" aria-label="從頭重播本曲" title="從頭重播本曲">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+              </button>
+              <input type="range" class="clip-range" id="clipRange" min="0" max="100" step="0.1" value="0" aria-label="本曲片段進度">
+              <span class="clip-time" id="clipTime" aria-live="off">0:00 / 0:00</span>
             </div>
             <div class="mvbar">
               <span class="pen" id="pen"></span>

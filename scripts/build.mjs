@@ -112,7 +112,6 @@ SONGS.sort((a, b) => a.date.localeCompare(b.date)).forEach((s, i) => (s.no = i +
 const isIndexableSong = s => !s.hold && !s.upcoming;
 const INDEXABLE_SONGS = SONGS.filter(isIndexableSong);
 const SONG_BY_ID = new Map(SONGS.map(s => [s.id, s]));
-const COVER_CNT = SONGS.filter(s => s.cover).length;
 const TOUR_BY_ID = new Map(TOURS.map(t => [t.id, t]));
 const hasLiveVideo = s => Boolean(s.liveVideo || (s.live && s.yt));
 const hasLiveAudio = s => Boolean((s.lives && s.lives.length > 0) && !s.liveVideo && !s.live);
@@ -162,16 +161,16 @@ function songPageTitle(s, code) {
 function songDesc(s, code, p, tips, T) {
   const n = namePart(s, code), tie = s.tie ? T(s.tie) : "";
   if (code === "en") {
-    const pen = p.none ? "Penlight / lightstick: no official color, so go with Ado's signature blue." : `Penlight / lightstick: ${p.words.join(", ")}.`;
+    const pen = p.none ? "Penlight / lightstick: no color on record yet; follow central control or the stage lighting." : `Penlight / lightstick: ${p.words.join(", ")}.`;
     const how = tips.length ? tips.slice(0, 2).join("; ") + "." : (s.free ? "No set chant, just sway along to the beat." : "Chants are still being confirmed; get to know the melody first.");
     return cut(`How to cheer for Ado's "${n || s.ja}"${tie ? ` (${tie})` : ""} at a concert. ${pen} ${how} Practice with the official MV and synced romaji lyrics.`, 160);
   }
   if (code === "ja") {
-    const pen = p.none ? "ペンライトは指定なし、迷ったらAdoのイメージカラーの青。" : `ペンライトは${p.words.join("・")}。`;
+    const pen = p.none ? "ペンライト色は情報なし、無線制御か照明に合わせて。" : `ペンライトは${p.words.join("・")}。`;
     const how = tips.length ? tips.slice(0, 2).join("、") + "。" : (s.free ? "決まったコールはなく、リズムに合わせて自由に。" : "応援はまだ確認中、まずはメロディーを覚えよう。");
     return cut(`Adoのライブで「${s.ja}」${tie ? `（${tie}）` : ""}はどう応援する？${pen}${how}公式MVと同期歌詞で予習できます。`, 120);
   }
-  const pen = p.none ? "手燈沒有指定，切 Ado 的代表色藍色；" : `手燈切${p.words.join("、")}；`;
+  const pen = p.none ? "手燈顏色還沒有資料，跟著中控或舞台燈光；" : `手燈切${p.words.join("、")}；`;
   const how = tips.length ? tips.slice(0, 2).join("，") + "。" : (s.free ? "沒有固定應援，跟著節奏搖手燈就好。" : "應援還在整理，先熟悉旋律。");
   return cut(`〈${s.ja}〉${n ? `（${n}）` : ""}${s.tie ? `是${s.tie}。` : ""}演唱會怎麼應援？${pen}${how}跟著官方 MV 和日中同步歌詞，先在家練一遍。`, 130);
 }
@@ -749,8 +748,64 @@ function renderLang(L) {
     });
   });
   var bar=document.getElementById("bar");
-  function syncBar(){if(bar)bar.classList.toggle("scrolled",scrollY>8);}
+  function syncBar(){if(bar)bar.classList.toggle("is-stuck",scrollY>4);}
   addEventListener("scroll",syncBar,{passive:true});syncBar();
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // 預熱書架：跟首頁「推薦練習」一樣，進度條跟著捲動走，箭頭一次捲 80%，到底就停用；放得下就不顯示
+  document.querySelectorAll("[data-shelf]").forEach(function(shelf){
+    var nav=shelf.nextElementSibling,thumb=nav.querySelector(".shelf-thumb"),track=nav.querySelector(".shelf-track");
+    var prev=nav.querySelector('[data-dir="-1"]'),next=nav.querySelector('[data-dir="1"]'),btns=nav.querySelector(".shelf-btns"),tick=0;
+    function measure(){
+      tick=0;if(!shelf.clientWidth)return;
+      var max=shelf.scrollWidth-shelf.clientWidth,frac=Math.min(1,shelf.clientWidth/shelf.scrollWidth),pos=max>0?shelf.scrollLeft/max:0,still=max<=1;
+      track.hidden=still;btns.hidden=still;nav.classList.toggle("is-static",still);
+      thumb.style.width=frac*100+"%";thumb.style.left=pos*(1-frac)*100+"%";
+      var had=document.activeElement;prev.disabled=pos<=.01;next.disabled=pos>=.99;
+      if(had===prev&&prev.disabled)next.focus();else if(had===next&&next.disabled)prev.focus();
+    }
+    shelf.addEventListener("scroll",function(){if(!tick)tick=requestAnimationFrame(measure);},{passive:true});
+    if(window.ResizeObserver)new ResizeObserver(function(){measure();}).observe(shelf);
+    [prev,next].forEach(function(b){b.addEventListener("click",function(){shelf.scrollBy({left:+b.getAttribute("data-dir")*shelf.clientWidth*.8,behavior:reduce?"auto":"smooth"});});});
+    measure();
+  });
+  // 本頁導覽（浮動進度側欄）：寬螢幕是黏在左邊的側欄，手機是底部浮動按鈕＋展開清單；捲到哪一段就亮哪一段，進度線跟著填滿
+  var rail=document.getElementById("tourRail"),fab=document.getElementById("tourFab");
+  if(rail){
+    var links=[].slice.call(rail.querySelectorAll("a[data-sec]"));
+    var items=links.map(function(a){return{a:a,el:document.getElementById(a.getAttribute("data-sec")),top:!a.closest(".tour-rail-sub"),li:a.closest(".tour-rail-item")};}).filter(function(x){return x.el;});
+    var tops=items.filter(function(x){return x.top;}),list=rail.querySelector(".tour-rail-list");
+    var pct=document.getElementById("tourRailPct"),hero=document.querySelector(".tour-hero"),fabLabel=document.getElementById("tourFabLabel"),ring=document.getElementById("tourFabRing"),C=2*Math.PI*9,tick2=0;
+    function dotY(it){var d=it.a.querySelector(".tour-rail-dot")||it.a,r=d.getBoundingClientRect();return r.top-list.getBoundingClientRect().top+r.height/2;}
+    function update(){
+      tick2=0;if(!tops.length)return;
+      var y=scrollY,vh=innerHeight,line=vh*.32,act=-1,sub=null;
+      tops.forEach(function(it,i){if(it.el.getBoundingClientRect().top<=line)act=i;});
+      var at=tops[act]||null;
+      items.forEach(function(it){if(!it.top&&at&&it.li===at.li&&it.el.getBoundingClientRect().top<=line)sub=it;});
+      items.forEach(function(it){var on=it===at||it===sub;it.a.classList.toggle("is-active",on);if(on)it.a.setAttribute("aria-current","location");else it.a.removeAttribute("aria-current");});
+      tops.forEach(function(it,i){it.a.classList.toggle("is-passed",i<=act);});
+      var ys=tops.map(dotY),h=ys[0];
+      if(at){var r=at.el.getBoundingClientRect(),nx=tops[act+1],span=nx?nx.el.getBoundingClientRect().top-r.top:r.height,f=Math.max(0,Math.min(1,(line-r.top)/Math.max(1,span)));h=ys[act]+(nx?f*(ys[act+1]-ys[act]):0);}
+      list.style.setProperty("--rail-top",ys[0]+"px");list.style.setProperty("--rail-len",(ys[ys.length-1]-ys[0])+"px");list.style.setProperty("--rail-fill",Math.max(0,h-ys[0])+"px");
+      var start=tops[0].el.getBoundingClientRect().top+y-line,end=document.documentElement.scrollHeight-vh,p=Math.max(0,Math.min(1,(y-start)/Math.max(1,end-start)));
+      if(pct)pct.textContent=Math.round(p*100)+"%";
+      if(ring)ring.style.strokeDashoffset=String(C*(1-p));
+      if(fabLabel)fabLabel.textContent=(at||tops[0]).a.getAttribute("data-label");
+      if(fab)fab.classList.toggle("is-shown",!hero||hero.getBoundingClientRect().bottom<0);
+    }
+    function setOpen(o){rail.classList.toggle("is-open",o);if(fab)fab.setAttribute("aria-expanded",String(o));if(o)update();}
+    addEventListener("scroll",function(){if(!tick2)tick2=requestAnimationFrame(update);},{passive:true});
+    addEventListener("resize",function(){update();});
+    if(window.ResizeObserver)new ResizeObserver(function(){update();}).observe(document.body);
+    if(fab)fab.addEventListener("click",function(e){e.stopPropagation();setOpen(!rail.classList.contains("is-open"));});
+    document.addEventListener("click",function(e){if(rail.classList.contains("is-open")&&!e.target.closest("#tourRail")&&!e.target.closest("#tourFab"))setOpen(false);});
+    document.addEventListener("keydown",function(e){if(e.key==="Escape"&&rail.classList.contains("is-open")){setOpen(false);if(fab)fab.focus();}});
+    links.forEach(function(a){a.addEventListener("click",function(e){
+      var el=document.getElementById(a.getAttribute("data-sec"));if(!el)return;
+      e.preventDefault();setOpen(false);el.scrollIntoView({behavior:reduce?"auto":"smooth",block:"start"});history.replaceState(null,"",location.pathname+location.search+"#"+el.id);
+    });});
+    update();
+  }
 })();
 </script>`;
 
@@ -828,7 +883,7 @@ function renderLang(L) {
         {
           "@type": "ItemList",
           "@id": `${url}#preplist`,
-          "name": tc.prepTitle,
+          "name": tc.warmTitle,
           "numberOfItems": uniqueTourSongs.length,
           "itemListElement": uniqueTourSongs.map((s, idx) => ({
             "@type": "ListItem",
@@ -849,60 +904,196 @@ function renderLang(L) {
       ]
     };
 
-    const scheduleItemsHtml = (tour.shows || []).map(sh => {
-      const dateDisp = L.code === "en" ? `${sh.date} (${sh.day.en})` : `${sh.date.replace(/-/g, "/")}（${sh.day[L.code]}）`;
-      const noteBadge = sh.note && sh.note[L.code] ? `<span class="tour-show-note">${esc(sh.note[L.code])}</span>` : "";
-      return `<li class="tour-show"><div class="tour-show-date"><strong>${esc(dateDisp)}</strong>${noteBadge}</div><div class="tour-show-place"><span class="tour-show-city">${esc(sh.city[L.code])}</span><span>${esc(sh.venue[L.code])}</span></div><div class="tour-show-time">OPEN ${esc(sh.open)} / START ${esc(sh.start)}</div></li>`;
-    }).join("");
+    // ── 版面：主標（直接開練）→ ① 預熱（開演前）→ ② 各場歌單（開演後，每天各自點開）→ 現場小提醒 → 常見問題 ──
+    const UI = {
+      zh: { covers: "更多翻唱", coversSub: "預熱沒列到的 {0} 首；加上預熱的 {1} 首，就是本站全部 {2} 首翻唱。", alsoIn: "{0}已列在 {1}", sep: "；", sep2: "", t1: "現場有固定應援", t1s: "過去演唱會已經有固定手燈色、拍手或喊聲，最值得先練", t2: "演唱會唱過", t2s: "Ado 在演唱會唱過，應援還在整理，先把旋律聽熟", t3: "翻唱專輯收錄", t3s: "兩張《歌ってみたアルバム》裡的其他歌", t4: "其他歌ってみた", t4s: "YouTube 上的歌ってみた，依投稿年份由新到舊", playTier: "練這層", older: "顯示更早的翻唱（{0} 首）", olderHide: "收合更早的翻唱", year: "{0} 年", nav: "本頁導覽", prev: "上一組", next: "下一組", play: "練這組", playAll: "開始練預熱歌單", toShows: "看各場歌單", step: "第 {0} 步", songs: "{0} 首", playable: "{0} 首可連播", day: "Day {0}", pending: "尚未開演", tba: "歌單整理中", published: "{0} 首・點開看歌單（含劇透）", playShow: "照這場練", source: "來源", encore: "安可", rotating: "替換曲", notOnSite: "本站尚未收錄", core: "每場都唱的歌", coreSub: "已公開 {0} 場都有唱，還沒公開的場次先練這些", coreSum: "{0} 首・點開看（含劇透）", status0: "還沒開演，先練預熱歌單", statusN: "已公開 {0}／{1} 場歌單", dates: "{0} – {1}・{2} 都市 {3} 場", jst: "時間皆為日本時間，以官方公告為準" },
+      en: { covers: "More Covers", coversSub: "The {0} covers not in the warm-up. Together with the {1} warm-up songs, that makes all {2} covers on this site.", alsoIn: "{0} is already in group {1}", sep: "; ", sep2: " ", t1: "Confirmed live chants", t1s: "Established lightstick colors, claps or calls from past concerts — practice these first", t2: "Sung live before", t2s: "Ado has sung these in concert; chants are still being confirmed, so learn the melody first", t3: "On the cover albums", t3s: "The rest of both Utattemita Albums", t4: "Other Utattemita covers", t4s: "Utattemita uploads on YouTube, newest first", playTier: "Practice this tier", older: "Show older covers ({0})", olderHide: "Hide older covers", year: "{0}", nav: "On this page", prev: "Previous group", next: "Next group", play: "Practice this set", playAll: "Start warm-up practice", toShows: "Setlists by show", step: "Step {0}", songs: "{0} songs", playable: "{0} playable", day: "Day {0}", pending: "Not yet", tba: "Setlist coming soon", published: "{0} songs · tap to reveal (spoilers)", playShow: "Practice this show", source: "Source", encore: "Encore", rotating: "Rotating", notOnSite: "Not on this site yet", core: "Played at every show", coreSub: "Sung at all {0} published shows — practice these for shows still to come", coreSum: "{0} songs · tap to reveal (spoilers)", status0: "Tour hasn't started — warm up first", statusN: "{0} of {1} setlists published", dates: "{0} – {1} · {2} cities, {3} shows", jst: "Times are JST; check official announcements" },
+      ja: { covers: "その他のカバー", coversSub: "予習リストにない{0}曲。予習の{1}曲と合わせて、収録しているカバー全{2}曲です。", alsoIn: "{0}は{1}に掲載", sep: "／", sep2: "", t1: "ライブ応援が定着", t1s: "過去のライブでペンライト色・手拍子・コールが定着している曲。まずはここから", t2: "ライブで披露済み", t2s: "ライブで歌われたことがある曲。応援は確認中なので、まずメロディを覚えよう", t3: "カバーアルバム収録", t3s: "『歌ってみたアルバム』2作品のその他の収録曲", t4: "その他の歌ってみた", t4s: "YouTube の歌ってみた。新しい順", playTier: "この段を練習", older: "それ以前のカバーを表示（{0}曲）", olderHide: "以前のカバーを閉じる", year: "{0}年", nav: "このページの目次", prev: "前のグループ", next: "次のグループ", play: "このリストで練習", playAll: "予習リストで練習を始める", toShows: "公演ごとのセトリへ", step: "STEP {0}", songs: "{0}曲", playable: "{0}曲を連続再生", day: "DAY{0}", pending: "開催前", tba: "セトリ準備中", published: "{0}曲・タップで表示（ネタバレ注意）", playShow: "このセトリで練習", source: "出典", encore: "アンコール", rotating: "日替わり", notOnSite: "未収録", core: "全公演で披露", coreSub: "公開済み{0}公演すべてで披露。これからの公演はまずこの曲から", coreSum: "{0}曲・タップで表示（ネタバレ注意）", status0: "開幕前。まずは予習リストから", statusN: "{0}／{1}公演のセトリを公開中", dates: "{0} – {1}・{2}都市 {3}公演", jst: "時間はすべて日本時間。最新情報は公式でご確認ください" }
+    }[L.code];
+    const fmt = (str, ...a) => str.replace(/\{(\d)\}/g, (m, i) => a[+i]);
+    const arrow = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg>`;
+    const playIco = `<svg class="tour-play-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>`;
+    // 連播只排有 MV 的歌（預留曲沒有影片可以練）
+    const canPlay = s => Boolean(s && s.yt);
+    const playHref = ids => `./#list=${ids.join(",")}?play=1`;
+    const fmtDate = (d, withYear = true) => {
+      const [y, m, dd] = d.split("-");
+      return L.code === "en" ? `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m - 1]} ${+dd}${withYear ? `, ${y}` : ""}` : `${withYear ? y + "/" : ""}${m}/${dd}`;
+    };
+    // 歌曲列跟首頁「全部歌曲」同一個樣子；no 有值時（實際歌單）在縮圖前加曲順
+    const songRow = (s, tag = "", no = 0) => {
+      const noHtml = no ? `<span class="tour-set-no">${String(no).padStart(2, "0")}</span>` : "";
+      const tipHint = !s.hold && s.tips && s.tips.length ? `<span class="tour-song-tip">${esc(T(s.tips[0]))}</span>` : "";
+      return `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${noHtml}${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${tag}${penDots(s)}</span>${tipHint}</span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`;
+    };
+    const playBtn = (ids, label, showCount = true) => ids.length
+      ? `<a class="pill-btn tour-play" href="${esc(playHref(ids))}">${playIco}<span>${esc(label)}</span>${showCount ? `<span class="tour-play-n">${esc(fmt(UI.songs, ids.length))}</span>` : ""}</a>`
+      : "";
 
-    const rulesHtml = (tc.rules || []).map(r =>
-      `<article class="guide-pill"><h3>${esc(r.title)}</h3><p>${esc(r.body)}</p></article>`
-    ).join("");
-
-    const groupsHtml = (tour.groups || []).map(g => {
+    // ① 預熱：每一組一排首頁書架（標題＋一句說明＋「練這組」，下面橫向滑動的歌曲卡片，再下面進度條和箭頭）
+    //    還沒有 MV 的預留曲排在最後，用首頁同款的「預留曲目」佔位圖
+    const warmPlayIds = uniqueTourSongs.filter(canPlay).map(s => s.id);
+    // 同一首歌只在第一個出現的分組列出，後面的分組在進度條旁註明「已列在 01」
+    const placedIn = new Map();
+    (tour.groups || []).forEach((g, gi) => (g.songs || []).forEach(id => { if (SONG_BY_ID.has(id) && !placedIn.has(id)) placedIn.set(id, gi); }));
+    const groupNo = gi => String(gi + 1).padStart(2, "0");
+    const groupCount = (tour.groups || []).length;
+    const shelfCard = (s, badge) => `<li><a class="card" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 320, 180, true)}${badge ? `<span class="tour-thumb-tag">${esc(badge)}</span>` : ""}<span class="card-text"><span class="card-ja" lang="ja">${esc(s.ja)}</span><span class="card-sub"><span>${esc(subOf(s))}</span><span class="acts">${actIcons(s)}</span></span></span></a></li>`;
+    const shelvesHtml = (tour.groups || []).map((g, gi) => {
       const gSongs = (g.songs || []).map(id => SONG_BY_ID.get(id)).filter(Boolean);
-      const listIds = gSongs.map(s => s.id).join(",");
-      const rowsHtml = gSongs.map(s => {
-        const customBadge = g.badges && g.badges[s.id] && g.badges[s.id][L.code]
-          ? `<span class="tour-song-badge">${esc(g.badges[s.id][L.code])}</span>`
-          : (s.upcoming ? `<span class="tour-song-badge is-upcoming">${esc(T("即將發行"))}</span>` : "");
-        const tipHint = !s.hold && s.tips && s.tips.length ? `<span class="tour-song-tip">${esc(T(s.tips[0]))}</span>` : "";
-        return `<li><a class="song" href="song/${s.id}/" data-id="${s.id}">${thumbHtml(s, 80, 45, true)}<span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(s.ja)}${customBadge}</span><span class="sub"><span class="zh">${esc(subOf(s))}</span>${penDots(s)}</span>${tipHint}</span><span class="acts">${actIcons(s)}${s.free ? `<span class="free">${T("自由搖")}</span>` : ""}</span></span></a></li>`;
-      }).join("");
-      return `<section class="tour-group" id="group-${esc(g.id)}" aria-labelledby="groupH-${esc(g.id)}">
-        <div class="tour-group-head">
-          <div class="tour-group-copy">
-            <span class="tour-tier">0${esc(g.tier)}</span>
-            <div>
-              <h3 id="groupH-${esc(g.id)}">${esc(g.title[L.code])}<span class="count">${esc(T("{0} 首", gSongs.length))}</span></h3>
+      const own = gSongs.filter(s => placedIn.get(s.id) === gi);
+      const ordered = [...own.filter(s => !s.upcoming), ...own.filter(s => s.upcoming)];
+      const elsewhere = gSongs.filter(s => placedIn.get(s.id) !== gi);
+      const note = [...new Set(elsewhere.map(s => placedIn.get(s.id)))].map(k => fmt(UI.alsoIn, elsewhere.filter(s => placedIn.get(s.id) === k).map(s => `〈${s.ja}〉`).join(""), groupNo(k))).join(UI.sep);
+      const sid = `shelf-${g.id}`;
+      return `<section class="tour-shelf" id="group-${esc(g.id)}" aria-labelledby="groupH-${esc(g.id)}">
+          <div class="tour-shelf-head">
+            <div class="tour-shelf-copy">
+              <h3 id="groupH-${esc(g.id)}"><span class="tour-tier">${groupNo(gi)}</span>${esc(g.short[L.code])}<span class="count">${esc(fmt(UI.songs, own.length))}</span></h3>
               <p class="sec-sub">${esc(g.sub[L.code])}</p>
             </div>
+            ${playBtn(gSongs.filter(canPlay).map(s => s.id), UI.play, false)}
           </div>
-          ${listIds ? `<a class="pill-btn tour-list-btn" href="./#list=${esc(listIds)}">${esc(tc.loadListBtn)}</a>` : ""}
-        </div>
-        <ul class="songs tour-songs">${rowsHtml}</ul>
-      </section>`;
+          <ul class="shelf" id="${sid}" data-shelf>${ordered.map(s => shelfCard(s, g.badges && g.badges[s.id] && g.badges[s.id][L.code])).join("")}</ul>
+          <div class="shelf-nav">
+            <div class="shelf-hint">
+              <span class="shelf-track" aria-hidden="true"><span class="shelf-thumb"></span></span>
+              ${note ? `<span class="tour-shelf-note">${esc(note)}</span>` : ""}
+            </div>
+            <div class="shelf-btns">
+              <button type="button" class="round-btn" data-dir="-1" aria-label="${esc(UI.prev)}" aria-controls="${sid}" disabled><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg></span></button>
+              <button type="button" class="round-btn" data-dir="1" aria-label="${esc(UI.next)}" aria-controls="${sid}"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></span></button>
+            </div>
+          </div>
+        </section>`;
     }).join("");
 
-    const showsWithSetlist = (tour.shows || []).filter(sh => sh.songs && sh.songs.length > 0);
-    const spoilerBodyHtml = showsWithSetlist.length
-      ? showsWithSetlist.map(sh => {
-          const sObjs = sh.songs.map(id => SONG_BY_ID.get(id)).filter(Boolean);
-          const listIds = sObjs.map(s => s.id).join(",");
-          const ol = sObjs.map((s, idx) => `<li><a href="song/${s.id}/"><span class="tour-set-no">${String(idx + 1).padStart(2, "0")}</span><span lang="ja">${esc(s.ja)}</span>${penDots(s)}</a></li>`).join("");
-          return `<div class="tour-setlist-show"><div class="tour-setlist-head"><h4>${esc(sh.date)} ${esc(sh.city[L.code])}・${esc(sh.venue[L.code])}</h4>${listIds ? `<a class="pill-btn sm" href="./#list=${esc(listIds)}">${esc(tc.loadListBtn)}</a>` : ""}</div><ol class="tour-setlist-ol">${ol}</ol></div>`;
-        }).join("")
-      : `<p class="tour-spoiler-empty">${esc(tc.spoilerPending)}</p>`;
+    // ③ 更多翻唱：預熱沒列到的翻唱，接著預熱的編號往下分層（有固定應援 → 唱過現場 → 翻唱專輯 → 其他，依年份新到舊）
+    // 每首翻唱在整頁只出現一次：預熱＋這裡＝本站全部翻唱
+    const ALL_COVERS = SONGS.filter(s => s.cover);
+    const restCovers = ALL_COVERS.filter(s => !placedIn.has(s.id));
+    const warmCoverCnt = ALL_COVERS.length - restCovers.length;
+    const coverTier = s => (!s.hold ? 1 : hasLive(s) ? 2 : s.album ? 3 : 4);
+    const tierDefs = [1, 2, 3, 4].map(n => ({
+      n,
+      id: `covers-t${n}`,
+      title: UI[`t${n}`],
+      sub: UI[`t${n}s`],
+      songs: restCovers.filter(s => coverTier(s) === n).sort((x, y) => (n === 4 ? y.date.localeCompare(x.date) : x.date.localeCompare(y.date)))
+    })).filter(t => t.songs.length);
+    tierDefs.forEach((t, i) => { t.no = String(groupCount + i + 1).padStart(2, "0"); });
+    // 只剩一層時不再多一個重複的小標題，說明和連播按鈕直接放在段落標題
+    const singleTier = tierDefs.length === 1 ? tierDefs[0] : null;
+    const tierRows = list => list.map(s => songRow(s)).join("");
+    const tierBody = t => {
+      if (t.n !== 4) return `<ul class="songs tour-songs">${tierRows(t.songs)}</ul>`;
+      const years = [...new Set(t.songs.map(s => s.date.slice(0, 4)))];
+      const yearBlock = y => `<h4 class="tour-year">${esc(fmt(UI.year, y))}</h4><ul class="songs tour-songs">${tierRows(t.songs.filter(s => s.date.startsWith(y)))}</ul>`;
+      const recent = years.slice(0, 2), older = years.slice(2);
+      const olderCnt = t.songs.filter(s => older.includes(s.date.slice(0, 4))).length;
+      return recent.map(yearBlock).join("") + (older.length
+        ? `<details class="tour-more tour-older"><summary><span class="tour-more-show">${esc(fmt(UI.older, olderCnt))}</span><span class="tour-more-hide">${esc(UI.olderHide)}</span></summary>${older.map(yearBlock).join("")}</details>`
+        : "");
+    };
+    const coversHtml = tierDefs.map(t => `<section class="tour-cover-tier" id="${t.id}" aria-labelledby="${t.id}H">
+        <div class="tour-group-head">
+          <div class="tour-group-copy">
+            <span class="tour-tier" aria-hidden="true">${t.no}</span>
+            <div>
+              <h3 id="${t.id}H">${esc(t.title)}<span class="count">${esc(fmt(UI.songs, t.songs.length))}</span></h3>
+              <p class="sec-sub">${esc(t.sub)}</p>
+            </div>
+          </div>
+          ${playBtn(t.songs.filter(canPlay).map(s => s.id), UI.playTier)}
+        </div>
+        ${tierBody(t)}
+      </section>`).join("");
 
-    const faqHtml = (tc.faqs || []).map((f, idx) =>
-      `<details class="faq-item"${idx < 2 ? " open" : ""}><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`
-    ).join("");
+    // ② 各場歌單：歌單項目可以是歌曲 ID，或本站還沒收錄的 { ja: "曲名" }
+    const entryOf = x => typeof x === "string" ? { song: SONG_BY_ID.get(x), key: x } : { song: x.id ? SONG_BY_ID.get(x.id) : null, text: x.ja, key: x.id || `t:${x.ja}` };
+    const showEntries = sh => [...(sh.songs || []), ...(sh.encore || [])].map(entryOf);
+    const shows = tour.shows || [];
+    const publishedShows = shows.filter(sh => (sh.songs || []).length > 0);
+    // 已公開場次都有唱的歌＝每場都唱；只在部分場次出現的標「替換曲」（至少兩場公開後才比較）
+    const coreKeys = publishedShows.length >= 2
+      ? [...new Set(showEntries(publishedShows[0]).map(e => e.key))].filter(k => publishedShows.every(sh => showEntries(sh).some(e => e.key === k)))
+      : [];
+    const isRotating = key => publishedShows.length >= 2 && !coreKeys.includes(key);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const setlistItem = (e, no) => {
+      const tag = isRotating(e.key) ? `<span class="tier-tag is-t2">${esc(UI.rotating)}</span>` : "";
+      if (e.song) return songRow(e.song, tag, no);
+      return `<li><span class="song is-plain"><span class="tour-set-no">${String(no).padStart(2, "0")}</span><span class="thumb tour-thumb-empty" aria-hidden="true"></span><span class="song-main"><span class="name"><span class="ja" lang="ja">${esc(e.text)}</span><span class="sub"><span class="zh">${esc(UI.notOnSite)}</span>${tag}</span></span></span></span></li>`;
+    };
+    // 同一個場館連續的場次歸成一組，依序標 Day 1、Day 2…
+    const cityGroups = [];
+    for (const sh of shows) {
+      const last = cityGroups[cityGroups.length - 1];
+      if (last && last.venue === sh.venue.ja) last.shows.push(sh);
+      else cityGroups.push({ venue: sh.venue.ja, city: sh.city[L.code], venueName: sh.venue[L.code], shows: [sh] });
+    }
+    const dayHtml = (sh, di, multi) => {
+      const dateDisp = `${fmtDate(sh.date)}${L.code === "en" ? ` (${sh.day.en})` : `（${sh.day[L.code]}）`}`;
+      const label = multi ? `<span class="tour-day-label">${esc(fmt(UI.day, di + 1))}</span>` : "";
+      const note = sh.note && sh.note[L.code] ? `<span class="tour-show-note">${esc(sh.note[L.code])}</span>` : "";
+      const head = `<span class="tour-day-top">${label}<strong class="tour-day-date">${esc(dateDisp)}</strong>${note}</span><span class="tour-day-time">OPEN ${esc(sh.open)} / START ${esc(sh.start)}</span>`;
+      const main = (sh.songs || []).map(entryOf), enc = (sh.encore || []).map(entryOf);
+      if (!main.length) {
+        const state = sh.date >= todayIso ? UI.pending : UI.tba;
+        return `<div class="tour-day is-pending" id="show-${esc(sh.id)}">${head}<span class="tour-day-state">${esc(state)}</span></div>`;
+      }
+      const ids = [...main, ...enc].filter(e => canPlay(e.song)).map(e => e.song.id);
+      const src = sh.source && sh.source.url ? `<a class="tour-source" href="${esc(sh.source.url)}" target="_blank" rel="noopener">${esc(UI.source)}：${esc(sh.source.name || sh.source.url)} ↗</a>` : "";
+      const encHtml = enc.length ? `<li class="tour-encore">${esc(UI.encore)}</li>${enc.map((e, i) => setlistItem(e, main.length + i + 1)).join("")}` : "";
+      return `<details class="tour-day" id="show-${esc(sh.id)}">
+        <summary>${head}<span class="tour-day-state is-ready">${esc(fmt(UI.published, main.length + enc.length))}</span></summary>
+        <div class="tour-day-body">
+          <div class="tour-day-actions">${playBtn(ids, UI.playShow)}${src}</div>
+          <ol class="songs tour-setlist">${main.map((e, i) => setlistItem(e, i + 1)).join("")}${encHtml}</ol>
+        </div>
+      </details>`;
+    };
+    const coreSongs = coreKeys.map(k => SONG_BY_ID.get(k)).filter(Boolean);
+    const coreHtml = coreSongs.length ? `<details class="tour-day tour-core" id="show-core">
+        <summary><span class="tour-day-top"><strong class="tour-day-date">${esc(UI.core)}</strong></span><span class="tour-day-time">${esc(fmt(UI.coreSub, publishedShows.length))}</span><span class="tour-day-state is-ready">${esc(fmt(UI.coreSum, coreSongs.length))}</span></summary>
+        <div class="tour-day-body">
+          <div class="tour-day-actions">${playBtn(coreSongs.filter(canPlay).map(s => s.id), UI.play)}</div>
+          <ul class="songs tour-songs">${coreSongs.map(s => songRow(s)).join("")}</ul>
+        </div>
+      </details>` : "";
+    const citiesHtml = cityGroups.map(cg => `<section class="tour-city" id="city-${esc(cg.shows[0].id)}" aria-label="${esc(cg.city)}">
+        <h3 class="tour-city-h"><span class="tour-city-name">${esc(cg.city)}</span><span class="tour-city-venue" lang="ja">${esc(cg.venueName)}</span></h3>
+        <div class="tour-days">${cg.shows.map((sh, di) => dayHtml(sh, di, cg.shows.length > 1)).join("")}</div>
+      </section>`).join("");
 
-    const jumpLabels = {
-      zh: { schedule: "日程與場館", prep: "預習歌單", setlist: "防雷實際歌單", faq: "常見問題" },
-      en: { schedule: "Schedule", prep: "Prep Playlist", setlist: "Spoiler Setlists", faq: "FAQ" },
-      ja: { schedule: "日程・会場", prep: "予習リスト", setlist: "実セトリ（ネタバレ防止）", faq: "よくある質問" }
-    }[L.code];
+    const tipsHtml = (tc.tips || []).map(r => `<article class="guide-pill"><h3>${esc(r.title)}</h3><p>${esc(r.body)}</p></article>`).join("");
+    const faqHtml = (tc.faqs || []).map(f => `<details class="faq-item"><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("");
+    const cityCount = new Set(shows.map(sh => sh.city.ja)).size;
+    const metaLine = shows.length ? fmt(UI.dates, fmtDate(shows[0].date), fmtDate(shows[shows.length - 1].date, L.code === "en"), cityCount, shows.length) : "";
+    const statusLine = publishedShows.length ? fmt(UI.statusN, publishedShows.length, shows.length) : UI.status0;
+    const stepHead = (n, id, title, sub, side = "") => `<div class="tour-step-head">
+          <span class="tour-step" aria-hidden="true">${n}</span>
+          <div class="tour-step-copy">
+            <h2 id="${id}"><span class="sr-only">${esc(fmt(UI.step, n))}：</span>${esc(title)}</h2>
+            <p class="sec-sub">${esc(sub)}</p>
+          </div>
+          ${side}
+        </div>`;
+
+    // 本頁導覽：大段落（預熱、各場歌單、全部翻唱…）＋小段落（城市、翻唱分層）；data-label 給手機浮動按鈕顯示目前在哪一段
+    const railLink = (id, label, top) => `<a href="${rest}#${id}" data-sec="${id}" data-label="${esc(label)}">${top ? `<span class="tour-rail-dot" aria-hidden="true"></span>` : ""}<span>${esc(label)}</span></a>`;
+    const railSub = subs => subs.length ? `<ol class="tour-rail-sub">${subs.map(([id, label]) => `<li>${railLink(id, label, false)}</li>`).join("")}</ol>` : "";
+    const railTop = (id, label, subs = []) => `<li class="tour-rail-item">${railLink(id, label, true)}${railSub(subs)}</li>`;
+    const railHtml = `<nav class="tour-rail" id="tourRail" aria-label="${esc(UI.nav)}">
+          <div class="tour-rail-head"><span>${esc(UI.nav)}</span><span class="tour-rail-pct" id="tourRailPct" aria-hidden="true">0%</span></div>
+          <ol class="tour-rail-list">
+            ${railTop("warmup", tc.warmTitle)}
+            ${railTop("shows", tc.showsTitle, cityGroups.map(cg => [`city-${cg.shows[0].id}`, cg.city]))}
+            ${railTop("covers", UI.covers)}
+            ${railTop("tips", tc.tipsTitle)}
+            ${railTop("faq", tc.faqTitle)}
+          </ol>
+        </nav>`;
 
     const tourMainHtml = `<main class="col tour-main" id="main">
       <nav class="tour-crumb" aria-label="Breadcrumb">
@@ -914,68 +1105,55 @@ function renderLang(L) {
       <section class="tour-hero" aria-labelledby="tourH">
         <span class="tour-badge">${esc(tc.badge)}</span>
         <h1 id="tourH">${esc(tc.name)}</h1>
+        <p class="tour-meta">${esc(metaLine)}<span class="tour-meta-status">${esc(statusLine)}</span></p>
         <p class="tour-lead">${esc(tc.heroLead)}</p>
-        <p class="tour-status">${esc(tc.statusNote)}</p>
-        <nav class="tour-jumps" aria-label="${esc(tc.shortName)}">
-          <a class="tint-link" href="${rest}#prep">${esc(jumpLabels.prep)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
-          <a class="tint-link" href="${rest}#schedule">${esc(jumpLabels.schedule)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
-          <a class="tint-link" href="${rest}#setlist">${esc(jumpLabels.setlist)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
-          <a class="tint-link" href="${rest}#faq">${esc(jumpLabels.faq)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
-        </nav>
+        <div class="tour-cta">
+          ${warmPlayIds.length ? `<a class="btn primary tour-cta-main" href="${esc(playHref(warmPlayIds))}">${playIco}<span>${esc(UI.playAll)}</span></a>` : ""}
+          <a class="tint-link" href="${rest}#shows">${esc(UI.toShows)}${arrow}</a>
+        </div>
       </section>
 
-      <section class="tour-sec" id="schedule" aria-labelledby="scheduleH">
-        <div class="sec-head">
-          <div>
-            <h2 id="scheduleH">${esc(tc.scheduleTitle)}</h2>
-            <p class="sec-sub">${esc(tc.scheduleSub)}</p>
+      <div class="tour-body">
+        ${railHtml}
+        <div class="tour-content">
+          <section class="tour-sec" id="warmup" aria-labelledby="warmH">
+            ${stepHead(1, "warmH", tc.warmTitle, tc.warmSub)}
+            <div class="tour-shelves">${shelvesHtml}</div>
+          </section>
+
+          <section class="tour-sec" id="shows" aria-labelledby="showsH">
+            ${stepHead(2, "showsH", tc.showsTitle, tc.showsSub)}
+            ${coreHtml}
+            <div class="tour-cities">${citiesHtml}</div>
+            <p class="tour-note">${esc(UI.jst)}</p>
+          </section>
+
+          <section class="tour-sec" id="covers" aria-labelledby="coversH">
+            <div class="sec-head"><div><h2 id="coversH">${esc(UI.covers)}<span class="count">${esc(fmt(UI.songs, restCovers.length))}</span></h2><p class="sec-sub">${esc(fmt(UI.coversSub, restCovers.length, warmCoverCnt, ALL_COVERS.length))}${singleTier ? esc(UI.sep2 + singleTier.sub) : ""}</p></div>${singleTier ? playBtn(singleTier.songs.filter(canPlay).map(s => s.id), UI.playTier) : ""}</div>
+            <div class="tour-cover-tiers">${singleTier ? `<div class="tour-cover-tier" id="${singleTier.id}">${tierBody(singleTier)}</div>` : coversHtml}</div>
+          </section>
+
+          <section class="tour-sec" id="tips" aria-labelledby="tipsH">
+            <div class="sec-head"><h2 id="tipsH">${esc(tc.tipsTitle)}</h2></div>
+            <div class="home-guide-grid">${tipsHtml}</div>
+          </section>
+
+          <section class="faq tour-sec" id="faq" aria-labelledby="faqH">
+            <h2 id="faqH">${esc(tc.faqTitle)}</h2>
+            <div class="faq-list">${faqHtml}</div>
+          </section>
+
+          <div class="tour-foot-cta">
+            <a class="tint-link" href="./">${esc(tc.backHomeBtn)}${arrow}</a>
           </div>
         </div>
-        <ul class="tour-shows">${scheduleItemsHtml}</ul>
-      </section>
-
-      <section class="tour-sec" id="rules" aria-labelledby="rulesH">
-        <div class="sec-head">
-          <div>
-            <h2 id="rulesH">${esc(tc.rulesTitle)}</h2>
-            <p class="sec-sub">${esc(tc.rulesSub)}</p>
-          </div>
-        </div>
-        <div class="home-guide-grid">${rulesHtml}</div>
-      </section>
-
-      <section class="tour-sec" id="prep" aria-labelledby="prepH">
-        <div class="sec-head">
-          <div>
-            <h2 id="prepH">${esc(tc.prepTitle)}</h2>
-            <p class="sec-sub">${esc(tc.prepSub)}</p>
-          </div>
-        </div>
-        <div class="tour-groups">${groupsHtml}</div>
-      </section>
-
-      <section class="tour-sec" id="setlist" aria-labelledby="setlistH">
-        <div class="sec-head">
-          <div>
-            <h2 id="setlistH">${esc(tc.spoilerTitle)}</h2>
-            <p class="sec-sub">${esc(tc.spoilerSub)}</p>
-          </div>
-        </div>
-        <details class="faq-item tour-spoiler">
-          <summary>${esc(tc.spoilerSummary)}</summary>
-          <div class="tour-spoiler-body">${spoilerBodyHtml}</div>
-        </details>
-      </section>
-
-      <section class="faq tour-sec" id="faq" aria-labelledby="faqH">
-        <h2 id="faqH">${esc(tc.faqTitle)}</h2>
-        <div class="faq-list">${faqHtml}</div>
-      </section>
-
-      <div class="tour-foot-cta">
-        <a class="pill-btn" href="./#songs?f=cover">${esc(tc.allCoversBtn.replace("{0}", String(COVER_CNT)))}</a>
-        <a class="tint-link" href="./">${esc(tc.backHomeBtn)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg></a>
       </div>
+
+      <button type="button" class="tour-fab" id="tourFab" aria-controls="tourRail" aria-expanded="false" aria-label="${esc(UI.nav)}">
+        <svg class="tour-fab-ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle id="tourFabRing" cx="12" cy="12" r="9" stroke-dasharray="56.55" stroke-dashoffset="56.55"/></svg>
+        <span class="tour-fab-label" id="tourFabLabel">${esc(tc.warmTitle)}</span>
+        <svg class="tour-fab-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14l5-5 5 5"/></svg>
+      </button>
     </main>`;
 
     let tourHtml = page(tpl, L, T, { rest, base: "../../", title: tc.title, desc: tc.desc, ld: tourLd });
@@ -1039,7 +1217,7 @@ function generateLlmsTxt() {
     `完整歌詞與應援全文檔：${SITE}llms-full.txt`,
     ``,
     `## 全場演唱會通用原則`,
-    `1. **手燈顏色通則（迷ったら青）**：如果歌曲未指定螢光棒顏色、或現場來不及更換，請切換至 Ado 的代表色「藍色」。`,
+    `1. **手燈顏色通則**：現場有開中控（無線制御）時，手燈顏色由會場統一控制，不用自己切換。沒開中控時照本站標示的顏色；本站沒標顏色的歌代表還沒有現場資料，請跟著舞台燈光或周圍觀眾。`,
     `2. **抒情歌安靜聽**：標記為「安靜聽」的抒情曲目，請靜心欣賞 Ado 的歌聲，不要在曲中突兀大喊以維護觀賞品質。`,
     `3. **應援動作種類**：`,
     `   - 大合唱 (sing)：全場觀眾在特定段落跟隨 Ado 一起引吭高歌。`,

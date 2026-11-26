@@ -83,9 +83,20 @@ for (const tour of TOURS) {
   }
   for (const sh of (tour.shows || [])) {
     if (!isValidDate(sh.date)) error(`[tour:${tour.id}/${sh.id}] 日期格式錯誤: ${sh.date}`);
-    for (const sid of (sh.songs || [])) {
-      if (!songsMap.has(sid)) error(`[tour:${tour.id}/${sh.id}] 實際歌單找不到歌曲 ID "${sid}"`);
+    // 實際歌單（songs／encore）：歌曲 ID，或本站還沒收錄的 { ja: "曲名" }（可加 id 連到已收錄的歌）
+    for (const key of ["songs", "encore"]) {
+      for (const x of (sh[key] || [])) {
+        if (typeof x === "string") {
+          if (!songsMap.has(x)) error(`[tour:${tour.id}/${sh.id}] ${key} 找不到歌曲 ID "${x}"`);
+        } else if (!x || typeof x !== "object" || !x.ja) {
+          error(`[tour:${tour.id}/${sh.id}] ${key} 的項目要是歌曲 ID，或 { ja: "曲名" }`);
+        } else if (x.id && !songsMap.has(x.id)) {
+          error(`[tour:${tour.id}/${sh.id}] ${key} 找不到歌曲 ID "${x.id}"`);
+        }
+      }
     }
+    if ((sh.encore || []).length && !(sh.songs || []).length) error(`[tour:${tour.id}/${sh.id}] 有安可曲但沒有本篇歌單`);
+    if ((sh.songs || []).length && !(sh.source && sh.source.url)) warn(`[tour:${tour.id}/${sh.id}] 已填實際歌單但沒有來源（source.url）`);
   }
 }
 
@@ -326,6 +337,12 @@ for (const [id, item] of Object.entries(LIVE_VIDEOS || {})) {
     continue;
   }
   if (!YT_RE.test(item.yt)) error(`[${id}] LIVE_VIDEOS 的 YouTube ID 格式不對（應為 11 碼）: ${item.yt}`);
+  if (item.start !== undefined && (typeof item.start !== "number" || !Number.isFinite(item.start) || item.start < 0)) {
+    error(`[${id}] LIVE_VIDEOS 的 start 必須為非負數字: ${item.start}`);
+  }
+  if (item.end !== undefined && (typeof item.end !== "number" || !Number.isFinite(item.end) || item.end <= (item.start || 0))) {
+    error(`[${id}] LIVE_VIDEOS 的 end 必須大於 start: start=${item.start}, end=${item.end}`);
+  }
   if (songsMap.get(id)?.yt === item.yt) warn(`[${id}] LIVE_VIDEOS 的 ${item.yt} 和主 MV 相同`);
 }
 

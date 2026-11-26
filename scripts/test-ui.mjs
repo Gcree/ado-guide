@@ -27,13 +27,15 @@ const BASE = `http://127.0.0.1:${server.address().port}/`;
 // ── 假的 YouTube 播放器：時間照真實時間走，測試可以用 window.__yt 暫停、跳到指定秒數、觸發錯誤 ──
 const FAKE_YT = `
 window.YT = { Player: function (el, o) {
+  window.__ytInit = o;
   let t = (o.playerVars && o.playerVars.start) || 0, st = -1, rate = 1, last = performance.now();
   const sync = () => { const n = performance.now(); if (st === 1) t += (n - last) / 1000 * rate; last = n; };
   Object.assign(this, {
     getCurrentTime: () => { sync(); return t; }, getPlayerState: () => st, getDuration: () => 0,
     playVideo: () => { sync(); st = 1; }, pauseVideo: () => { sync(); st = 2; },
-    seekTo: x => { sync(); t = x; }, loadVideoById: v => { sync(); t = (v && v.startSeconds) || 0; st = 1; },
+    seekTo: x => { sync(); t = x; }, loadVideoById: v => { sync(); window.__ytLastLoad = v; t = (v && v.startSeconds) || 0; st = 1; },
     setPlaybackRate: r => { sync(); rate = r; }, mute() {}, unMute() {},
+    fireState: s => { sync(); st = s; o.events.onStateChange && o.events.onStateChange({ data: s }); },
     fireError: () => o.events.onError && o.events.onError({ data: 150 })
   });
   window.__yt = this;
@@ -566,6 +568,77 @@ await test("Live / MV 切換：#usseewa 切換 #videoSourcePill 正確更新歌�
   assert.ok(Math.abs(tLiveBack - 167.96) < 0.8, `切回 Live 第 49 句應在 167.96s 附近，實際 ${tLiveBack.toFixed(2)}s`);
 });
 
+await test("Live 合輯片段（LIVE_VIDEOS start/end）：tsumitobatsu 預設 Live 帶入區間與 &t=、單曲控制列、區間鎖定、切同影片 villain 正確重載", async page => {
+  await openSong(page, "#tsumitobatsu");
+  assert.equal(await page.isVisible("#videoSourcePill"), true);
+  assert.equal(await page.getAttribute('[data-video-source="live"]', "aria-pressed"), "true");
+  assert.equal(await page.isVisible("#clipBar"), true, "合輯片段應顯示單曲控制列 #clipBar");
+  const init1 = await page.evaluate(() => window.__ytInit);
+  assert.equal(init1.videoId, "mYJshNOfv_w");
+  assert.equal(init1.playerVars.start, 849);
+  assert.equal(init1.playerVars.end, 1140);
+  assert.equal(await page.getAttribute("#cardYt", "href"), "https://www.youtube.com/watch?v=mYJshNOfv_w&t=849s");
+
+  // 單曲控制列應顯示相對長度 4:51，拖動進度條會跳至 849 + 相對秒數
+  await page.waitForFunction(() => /\/\s*4:51$/.test(document.getElementById("clipTime")?.textContent || ""));
+  await page.evaluate(() => {
+    const r = document.getElementById("clipRange");
+    r.value = "60";
+    r.dispatchEvent(new Event("input", { bubbles: true }));
+    r.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  const rangeT = await page.evaluate(() => { window.__yt.pauseVideo(); return window.__yt.getCurrentTime(); });
+  assert.ok(Math.abs(rangeT - 909) < 1.5, `單曲進度條拉到 60s 應落在 909s 附近，實際 ${rangeT}`);
+
+  // 點重播鈕應回到片段起點 849s
+  await page.click("#clipReplay");
+  const replayT = await page.evaluate(() => { window.__yt.pauseVideo(); return window.__yt.getCurrentTime(); });
+  assert.ok(Math.abs(replayT - 849) < 1.5, `點重播鈕應回到 849s，實際 ${replayT}`);
+
+  // 區間鎖定（Clip Guard）：模擬播畢後 YouTube 原生重播跳到 0:00，應立刻拉回 849s
+  await page.evaluate(() => {
+    window.__yt.fireState(0);
+    window.__yt.seekTo(0);
+    window.__yt.fireState(1);
+  });
+  const guardedReplayT = await page.evaluate(() => { window.__yt.pauseVideo(); return window.__yt.getCurrentTime(); });
+  assert.ok(Math.abs(guardedReplayT - 849) < 1.5, `播畢後原生重播跳到 0s 應被拉回 849s，實際 ${guardedReplayT}`);
+
+  // 區間鎖定（Clip Guard）：播放中模擬誤拖原生進度條到區間外（100s），逾寬限期後應拉回 849s
+  await page.evaluate(() => {
+    window.__yt.seekTo(100);
+    window.__yt.playVideo();
+  });
+  await page.waitForFunction(() => window.__yt.getCurrentTime() >= 848 && window.__yt.getCurrentTime() < 860, { timeout: 3000 });
+  await page.evaluate(() => window.__yt.pauseVideo());
+
+  // 點一句歌詞：seek 必須自動加上片段起點 849s
+  await page.locator("#lines .ln").nth(2).click();
+  const seekedT = await page.evaluate(() => { window.__yt.pauseVideo(); return window.__yt.getCurrentTime(); });
+  assert.ok(seekedT >= 849 && seekedT < 1140, `點歌詞跳轉後應落在 849..1140，實際 ${seekedT}`);
+
+  // 切 MV 再切回 Live：MV 應隱藏 #clipBar，切回 Live 應重新顯示並帶入 startSeconds / endSeconds
+  await page.click('[data-video-source="mv"]');
+  await page.waitForFunction(() => window.__ytLastLoad && window.__ytLastLoad.videoId !== "mYJshNOfv_w");
+  assert.equal(await page.evaluate(() => window.__ytLastLoad.endSeconds), undefined);
+  await page.waitForFunction(() => document.getElementById("clipBar")?.hidden === true);
+  await page.click('[data-video-source="live"]');
+  await page.waitForFunction(() => window.__ytLastLoad?.videoId === "mYJshNOfv_w");
+  await page.waitForFunction(() => document.getElementById("clipBar")?.hidden === false);
+  const loadBack = await page.evaluate(() => window.__ytLastLoad);
+  assert.ok(loadBack.startSeconds >= 849 && loadBack.startSeconds < 1140);
+  assert.equal(loadBack.endSeconds, 1140);
+
+  // 切到同支合輯的另一首（villain，1375–1577）：vidKey 不同，必須重新呼叫 loadVideoById
+  await page.evaluate(() => { location.hash = "villain?src=live"; });
+  await page.waitForFunction(() => location.hash === "#villain?src=live" && window.__ytLastLoad?.startSeconds === 1375);
+  const load2 = await page.evaluate(() => window.__ytLastLoad);
+  assert.equal(load2.videoId, "mYJshNOfv_w");
+  assert.equal(load2.startSeconds, 1375);
+  assert.equal(load2.endSeconds, 1577);
+  assert.equal(await page.getAttribute("#cardYt", "href"), "https://www.youtube.com/watch?v=mYJshNOfv_w&t=1375s");
+});
+
 await test("自訂待練清單與常唱熟練度：書籤按鈕、篩選、#list= 分享、quiz-best 等級與進度條", async page => {
   await page.addInitScript(() => {
     localStorage.setItem("quiz-best", JSON.stringify({ usseewa: { score: 96, rate: 1 } }));
@@ -688,8 +761,8 @@ checkSync("建置產物檢查：多語 manifest、字型剝離、karaoke JSON、
     assert.equal(th.includes('"@type":"MusicEvent"'), true, `${rel} 應含 MusicEvent 結構化資料`);
     assert.equal(th.includes('"@type":"FAQPage"'), true, `${rel} 應含 FAQPage 結構化資料`);
     assert.equal(th.includes('"@type":"ItemList"'), true, `${rel} 應含 ItemList 結構化資料`);
-    assert.equal(th.includes('class="faq-item tour-spoiler"'), true, `${rel} 應含預設收合的防雷歌單區`);
-    assert.equal(/class="faq-item tour-spoiler"\s+open/.test(th), false, `${rel} 防雷歌單區預設必須收合`);
+    assert.equal(th.includes('id="warmup"') && th.includes('id="shows"'), true, `${rel} 應含「預熱」與「各場歌單」兩段`);
+    assert.equal(/<details class="tour-day[^"]*"[^>]*\sopen/.test(th), false, `${rel} 各場歌單預設必須收合（不暴雷）`);
   }
   assert.equal(showSongHtml.includes('id="tourBanner"'), false, "歌曲頁不應夾帶隱藏的首頁巡演橫幅");
 });
@@ -728,15 +801,30 @@ await test("新收錄歌曲（#binks、#fairytale）：正常開啟且無 JS 錯
   }
 });
 
-await test("巡演專頁（tour/utattemita-2027/）：首頁橫幅導流、外觀切換、防雷摺疊、待練清單與手機無橫向捲動", async page => {
+await test("巡演專頁（tour/utattemita-2027/）：首頁橫幅導流、外觀切換、各場歌單分 Day、一鍵開練", async page => {
   await page.goto(BASE);
   assert.equal(await page.isVisible("#tourBanner a.tour-banner"), true, "首頁應顯示巡演預習橫幅");
   await page.click("#tourBanner a.tour-banner");
   await page.waitForURL("**/tour/utattemita-2027/");
   assert.match(await page.textContent("#tourH"), /歌ってみたツアー2027/);
-  assert.equal(await page.locator(".tour-show").count(), 6, "應顯示 6 場公演日程");
-  assert.equal(await page.locator(".tour-group").count(), 4, "應顯示 4 組預習歌單");
-  assert.equal(await page.evaluate(() => document.querySelector(".tour-spoiler").open), false, "防雷區預設應收合");
+  assert.equal(await page.locator(".tour-day").count(), 6, "各場歌單應列出 6 場");
+  assert.equal(await page.locator(".tour-city").count(), 3, "6 場應依場館分成 3 組");
+  assert.equal(await page.locator("#show-tokyo-2 .tour-day-label").textContent(), "Day 2", "同場館第二天應標 Day 2");
+  assert.equal(await page.locator("#warmup .tour-shelf").count(), 4, "預熱應有 4 排分組書架");
+  // 預熱＋更多翻唱＝本站全部翻唱，每首只出現一次
+  const coverIds = await page.evaluate(() => [...document.querySelectorAll("#warmup .card, #covers .song")].map(a => a.dataset.id));
+  assert.equal(coverIds.length >= 80, true, "預熱＋更多翻唱應涵蓋所有翻唱曲");
+  assert.equal(new Set(coverIds).size, coverIds.length, "同一首翻唱在頁面上不應重複出現");
+
+  // 書架：歌多的那排按下一組會往右捲、上一組解除停用；放得下的那排不顯示箭頭
+  await page.click('#group-origin-and-hot [data-dir="1"]');
+  await page.waitForFunction(() => document.querySelector("#shelf-origin-and-hot").scrollLeft > 0 && !document.querySelector('#group-origin-and-hot [data-dir="-1"]').disabled);
+  assert.equal(await page.locator("#group-live-verified .shelf-btns").isVisible(), false, "3 首放得下的書架不應顯示箭頭");
+
+  // 本頁導覽：點「全部翻唱」會捲到那段並亮起
+  await page.click('#tourRail a[data-sec="covers"]');
+  await page.waitForFunction(() => document.querySelector('#tourRail a[data-sec="covers"]').classList.contains("is-active"));
+  assert.equal(await page.evaluate(() => [...document.querySelectorAll("details.tour-day")].some(d => d.open)), false, "各場歌單預設應收合");
 
   // 頂欄外觀與語言切換在巡演獨立頁正常運作
   await page.click("#themeBtn");
@@ -745,21 +833,26 @@ await test("巡演專頁（tour/utattemita-2027/）：首頁橫幅導流、外�
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light");
   assert.equal(await page.getAttribute('#langPop [data-lang-link="ja"]', "href"), "jp/tour/utattemita-2027/");
 
-  // 點選「整組載入待練清單」可順利進主站分享清單模式
-  await page.click('#group-live-verified .tour-list-btn');
-  await page.waitForFunction(() =>
-    location.hash.startsWith("#list=") &&
-    !document.getElementById("setlistBar").hidden &&
-    document.querySelectorAll("#songList li:not([hidden])").length === 3
-  );
+  // 「練這組」一按就從清單第一首開始練，下一首照清單走
+  await page.click("#group-live-verified .tour-play");
+  await page.waitForFunction(() => location.hash === "#unravel" && !document.getElementById("song").hidden);
+  assert.match(await page.getAttribute("#nextSong", "href") || "", /hibana/, "下一首應照清單接〈ヒバナ〉");
 });
 
-await test("巡演專頁（手機版面）：無橫向捲動", async page => {
+await test("巡演專頁（手機版面）：無橫向捲動、浮動導覽按鈕", async page => {
   for (const url of ["tour/utattemita-2027/", "en/tour/utattemita-2027/", "jp/tour/utattemita-2027/"]) {
     await page.goto(BASE + url);
     const [sw, cw] = await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]);
     assert.ok(sw <= cw, `${url}：scrollWidth ${sw} > ${cw}`);
   }
+  // 手機：捲過主標後出現浮動導覽按鈕，點開是本頁導覽清單，點一段會收起並捲過去
+  await page.goto(BASE + "tour/utattemita-2027/");
+  await page.evaluate(() => document.getElementById("covers").scrollIntoView());
+  await page.waitForFunction(() => document.getElementById("tourFab").classList.contains("is-shown"));
+  await page.click("#tourFab");
+  await page.waitForFunction(() => getComputedStyle(document.getElementById("tourRail")).display !== "none");
+  await page.click('#tourRail a[data-sec="faq"]');
+  await page.waitForFunction(() => !document.getElementById("tourRail").classList.contains("is-open") && document.getElementById("faq").getBoundingClientRect().top < innerHeight);
 }, { viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
 
 await test("無障礙（A11y）稽核：圖片 alt、按鈕名稱、表單標籤、跳轉連結與 axe-core", async page => {

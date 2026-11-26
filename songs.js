@@ -78,20 +78,20 @@
     { id: "soldiergame", ja: "soldier game", zh: "soldier game", en: "soldier game", ro: "soldier game", date: "2026-01-13", yt: "J3hzdBkd6bg", len: "3:42", hold: true, cover: true  },
     // 翻唱
     { id: "andjuly", ja: "And July", zh: "And July", en: "And July", ro: "And July", date: "2026-10-31", yt: "BcjqWNViVU0", len: "3:51", acts: ["wave"], tips: ["跟著節奏輕輕搖"], sug: true, cover: true  },
-    { id: "ponpokorin", ja: "おどるポンポコリン", zh: "Odoru Ponpokorin", en: "Odoru Ponpokorin", ro: "Odoru Ponpokorin", date: "2026-01-11", yt: "TZYqDl19qLQ", len: "1:25", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true  },
-    { id: "catseye", ja: "CAT'S EYE", zh: "CAT'S EYE", en: "CAT'S EYE", ro: "CAT'S EYE", date: "2025-12-26", yt: "8-Qekf_GBow", len: "3:05", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true  },
-    { id: "kitaro", ja: "ゲゲゲの鬼太郎", zh: "GeGeGe no Kitaro", en: "GeGeGe no Kitaro", ro: "GeGeGe no Kitaro", date: "2025-05-15", yt: "6Qd16SxUjj4", len: "2:15", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true  },
-    { id: "charles", ja: "シャルル", zh: "Charles", en: "Charles", ro: "Charles", date: "2025-04-16", yt: "trIiMhTDKxo", len: "3:45", acts: ["wave"], tips: ["副歌舉手跟著搖"], sug: true, cover: true  },
+    { id: "ponpokorin", ja: "おどるポンポコリン", zh: "Odoru Ponpokorin", en: "Odoru Ponpokorin", ro: "Odoru Ponpokorin", date: "2026-01-11", yt: "TZYqDl19qLQ", len: "1:25", acts: ["clap", "sing"], tips: ["參考原唱：副歌「ピーヒャラ ピーヒャラ パッパパラパ」全場一起拍手大合唱"], sug: true, cover: true  },
+    { id: "catseye", ja: "CAT'S EYE", zh: "CAT'S EYE", en: "CAT'S EYE", ro: "CAT'S EYE", date: "2025-12-26", yt: "8-Qekf_GBow", len: "3:05", acts: ["wave", "sing"], tips: ["主歌隨復古舞曲節拍輕搖，副歌「Cat's Eye」與「we get you...」高舉揮棒並可跟唱"], sug: true, cover: true  },
+    { id: "kitaro", ja: "ゲゲゲの鬼太郎", zh: "GeGeGe no Kitaro", en: "GeGeGe no Kitaro", ro: "GeGeGe no Kitaro", date: "2025-05-15", yt: "6Qd16SxUjj4", len: "2:15", acts: ["clap", "sing"], tips: ["跟著節拍拍手，副歌「ゲッゲッ ゲゲゲのゲー」與「みんなで歌おう ゲゲゲのゲー」全場一起大合唱"], sug: true, cover: true  },
+    { id: "charles", ja: "シャルル", zh: "Charles", en: "Charles", ro: "Charles", date: "2025-04-16", yt: "trIiMhTDKxo", len: "3:45", acts: ["clap", "wave"], tips: ["參考原唱：三段間奏跟著節拍拍手，副歌「愛を謳って…」高舉手燈揮動"], sug: true, cover: true  },
     { id: "hibana", ja: "ヒバナ", zh: "HIBANA", en: "HIBANA", ro: "Hibana", date: "2025-04-25", yt: "EFsSYiNl2AQ", len: "3:25", acts: ["call", "sing", "clap", "wave"], tips: ["前奏和第一段間奏一起喊「Hey」", "副歌的「Nanana...」由觀眾一起唱", "第二段間奏先拍手、再揮螢光棒", "最後副歌整段拍手，結尾的「Nanana...」邊唱邊揮螢光棒"], cover: true  },
     { id: "jikkai", ja: "十戒（1984）", zh: "Jikkai (1984)", en: "Jikkai (1984)", ro: "Jikkai", date: "2025-05-01", yt: "BFVn0ZQwGpk", len: "3:33", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true  },
-    { id: "aishite", ja: "愛して愛して愛して", zh: "愛我愛我愛我", en: "Aishite Aishite Aishite", ro: "Aishite Aishite Aishite", date: "2024-06-07", yt: "HmkbBdD8044", len: "4:16", acts: ["clap", "wave"], tips: ["跟著節拍拍手，副歌舉手"], sug: true, cover: true, live: true  },
-    { id: "kazarijanai", ja: "飾りじゃないのよ涙は", zh: "Kazari janai no yo Namida wa", en: "Kazari Ja Nai no yo Namida wa", ro: "Kazari janai no yo Namida wa", date: "2023-12-12", yt: "Mtfkq7doqWw", len: "4:13", acts: ["wave"], tips: ["跟著節奏輕輕搖"], sug: true, cover: true  },
-    { id: "kamippoina", ja: "神っぽいな", zh: "God-ish", en: "God-ish", ro: "Kamippoina", date: "2022-07-24", yt: "7i_nc5GGIsI", len: "3:25", acts: ["wave"], tips: ["跟著節拍搖螢光棒"], sug: true, cover: true  },
-    { id: "kawaikute", ja: "可愛くてごめん", zh: "Kawaikute Gomen", en: "Kawaikute Gomen", ro: "Kawaikute Gomen", date: "2023-12-12", yt: "axOhZD3boe8", len: "3:40", acts: ["clap"], tips: ["跟著節拍拍手"], sug: true, cover: true  },
-    { id: "tsumitobatsu", ja: "罪と罰", zh: "罪與罰", en: "Crime and Punishment", ro: "Tsumi to Batsu", date: "2022-07-24", yt: "x1UsJ2Znjk0", len: "4:50", acts: ["listen"], tips: ["以聽為主"], sug: true, cover: true  },
+    { id: "aishite", ja: "愛して愛して愛して", zh: "愛我愛我愛我", en: "Aishite Aishite Aishite", ro: "Aishite Aishite Aishite", date: "2024-06-07", yt: "HmkbBdD8044", len: "4:16", acts: ["listen", "wave"], tips: ["主歌與跪地輕唱段壓低手燈安靜聽", "副歌爆發「愛して…」與兩段重拍間奏高舉紅色手燈大力揮動"], cover: true, live: true  },
+    { id: "kazarijanai", ja: "飾りじゃないのよ涙は", zh: "Kazari janai no yo Namida wa", en: "Kazari Ja Nai no yo Namida wa", ro: "Kazari janai no yo Namida wa", date: "2023-12-12", yt: "Mtfkq7doqWw", len: "4:13", acts: ["wave"], tips: ["主歌隨節奏輕輕搖手燈，副歌與「ラララ」段高舉跟著揮"], cover: true  },
+    { id: "kamippoina", ja: "神っぽいな", zh: "God-ish", en: "God-ish", ro: "Kamippoina", date: "2022-07-24", yt: "7i_nc5GGIsI", len: "3:25", acts: ["clap", "wave", "call"], tips: ["參考原唱：「とぅ とぅる…“風”」與「ぽいな ぽいな ぽい」隨快拍拍手或喊拍", "副歌「神っぽいな／アイウォンチュー／アイヘイチュー」隨節奏揮棒"], sug: true, cover: true  },
+    { id: "kawaikute", ja: "可愛くてごめん", zh: "Kawaikute Gomen", en: "Kawaikute Gomen", ro: "Kawaikute Gomen", date: "2023-12-12", yt: "axOhZD3boe8", len: "3:40", acts: ["clap", "call", "gesture"], tips: ["參考原唱：副歌每句「Chu！」比愛心／飛吻手勢，結尾可順著節奏喊「ごめん！」並拍手", "「ムカついちゃうよね？ざまあｗ」可隨節拍舉手呼應"], sug: true, cover: true  },
+    { id: "tsumitobatsu", ja: "罪と罰", zh: "罪與罰", en: "Crime and Punishment", ro: "Tsumi to Batsu", date: "2022-07-24", yt: "x1UsJ2Znjk0", len: "4:50", acts: ["listen", "wave"], tips: ["以聽為主，開頭、C 段與尾奏靜段保持手燈不動", "副歌與吉他獨奏時舉起手燈跟著節奏揮"], cover: true  },
     { id: "dryflower", ja: "ドライフラワー", zh: "Dry Flower", en: "Dried Flower", ro: "Dry Flower", date: "2023-12-12", yt: "qhmrt3ZNgcs", len: "4:49", acts: ["listen"], tips: ["抒情歌，安靜聽"], sug: true, cover: true  },
-    { id: "villain", ja: "ヴィラン", zh: "Villain", en: "Villain", ro: "Villain", date: "2023-12-12", yt: "r_wO7xKI-tw", len: "3:20", acts: ["wave"], tips: ["副歌舉手跟著搖"], sug: true, cover: true  },
-    { id: "burikino", ja: "ブリキノダンス", zh: "Buriki no Dance", en: "Buriki no Dance", ro: "Buriki no Dance", date: "2023-11-29", yt: "iL7uoLCbJoc", len: "3:22", acts: ["clap", "wave"], tips: ["跟著節拍拍手、搖螢光棒"], sug: true, cover: true  },
+    { id: "villain", ja: "ヴィラン", zh: "Villain", en: "Villain", ro: "Villain", date: "2023-12-12", yt: "r_wO7xKI-tw", len: "3:20", acts: ["wave"], tips: ["主歌輕晃，副歌舉手或揮動螢光棒跟著節奏搖"], cover: true  },
+    { id: "burikino", ja: "ブリキノダンス", zh: "Buriki no Dance", en: "Buriki no Dance", ro: "Buriki no Dance", date: "2023-11-29", yt: "iL7uoLCbJoc", len: "3:22", acts: ["call", "wave"], tips: ["全曲高舉螢光棒隨快節奏大力推揮", "副歌前重拍與間奏一起高舉拳頭或螢光棒猛推喊拍"], cover: true  },
     { id: "anobando", ja: "あのバンド", zh: "那個樂團", en: "That Band", ro: "Ano Band", date: "2025-06-06", yt: "rzVKfAQp2No", len: "3:33", acts: ["clap", "wave"], tips: ["跟著節拍拍手、搖螢光棒"], cover: true, live: true  },
     { id: "brain", ja: "BRAIN", zh: "BRAIN", en: "BRAIN", ro: "BRAIN", date: "2026-11-14", yt: "wodpaLwL7II", len: "2:37", hold: true, cover: true  },
     { id: "fairytale", ja: "Fairytale,", zh: "Fairytale,", en: "Fairytale,", ro: "Fairytale,", date: "2026-08-25", yt: "MhViuFoLkbs", len: "4:59", hold: true, cover: true  },
@@ -104,8 +104,8 @@
     { id: "kubozono", ja: "怪盗・窪園チヨコは絶対ミスらない", zh: "怪盗・窪園チヨコは絶対ミスらない", en: "怪盗・窪園チヨコは絶対ミスらない", ro: "Kaito Kubozono Chiyoko wa Zettai Misuranai", date: "2025-07-26", yt: "Wjzd6O_CsEc", len: "4:01", hold: true, cover: true  },
     { id: "daidaigenome", ja: "橙ゲノム", zh: "橙ゲノム", en: "橙ゲノム", ro: "Daidai Genome", date: "2025-07-22", yt: "dir5nFkhpcc", len: "3:39", hold: true, cover: true  },
     { id: "juuzokufuritter", ja: "従属ふりったー", zh: "従属ふりったー", en: "従属ふりったー", ro: "Juuzoku Fritter", date: "2025-07-12", yt: "Tbi4kahNcdc", len: "3:38", hold: true, cover: true  },
-    { id: "egorock", ja: "エゴロック(long ver.)", zh: "エゴロック(long ver.)", en: "エゴロック(long ver.)", ro: "Ego Rock (long ver.)", date: "2025-07-05", yt: "TbOLDRuKsgA", len: "2:49", hold: true, cover: true  },
-    { id: "vivahappy", ja: "ビバハピ", zh: "ビバハピ", en: "ビバハピ", ro: "Viva Happy", date: "2023-03-31", yt: "eXy6ZSEIAX0", len: "3:33", hold: true, cover: true, collab: true  },
+    { id: "egorock", ja: "エゴロック(long ver.)", zh: "エゴロック(long ver.)", en: "エゴロック(long ver.)", ro: "Ego Rock (long ver.)", date: "2025-07-05", yt: "TbOLDRuKsgA", len: "2:49", acts: ["call", "wave"], tips: ["參考原唱：副歌「吐き気の空模様／はみ出し者だろ」後跟著喊「あいやいやあーいやいや」並高舉揮棒", "結尾「ワン ツー スリー ふぁっきゅー」隨倒數拍點全力呼應"], sug: true, cover: true  },
+    { id: "vivahappy", ja: "ビバハピ", zh: "ビバハピ", en: "ビバハピ", ro: "Viva Happy", date: "2023-03-31", yt: "eXy6ZSEIAX0", len: "3:33", acts: ["call", "sing", "wave"], tips: ["參考初音未來 Magical Mirai 原唱應援：A 段合聲接喊「キュン」「ブーブー」「ハイ ハイ」「ハイ！どうぞ」", "副歌「ビバ！ビバ！ハッピー」後接唱「chu lu chu chu」，間奏喊「M・I・K・U」"], sug: true, cover: true, collab: true  },
     { id: "imodemoiijan", ja: "イモでもいいじゃん", zh: "イモでもいいじゃん", en: "イモでもいいじゃん", ro: "Imo Demo Ii Jan", date: "2024-03-31", yt: "zS2bYiGdfLE", len: "3:00", hold: true, collab: true  },
     { id: "villainstella", ja: "Villain (Stella Jang)", zh: "Villain (Stella Jang)", en: "Villain (Stella Jang)", ro: "Villain (Stella Jang)", date: "2024-10-08", yt: "vvG3BhuBLz8", len: "3:10", hold: true, cover: true  },
     { id: "sugarvine", ja: "シュガーバイン", zh: "シュガーバイン", en: "シュガーバイン", ro: "Sugar Vine", date: "2024-09-23", yt: "OyrXt_XnHEE", len: "4:18", hold: true, cover: true  },
@@ -118,10 +118,10 @@
     { id: "blueflame", ja: "Blue Flame", zh: "Blue Flame", en: "Blue Flame", ro: "Blue Flame", date: "2023-11-01", yt: "OqmvHWZ2dhc", len: "3:22", hold: true, cover: true  },
     { id: "interviewer", ja: "インタビュア", zh: "インタビュア", en: "インタビュア", ro: "Interviewer", date: "2023-10-31", yt: "LyorMhAGkxE", len: "4:28", hold: true, cover: true  },
     { id: "shinjinrui", ja: "新人類", zh: "新人類", en: "新人類", ro: "Shinjinrui", date: "2023-07-27", yt: "eoV6Cb8sYGs", len: "2:34", hold: true, cover: true  },
-    { id: "readysteady", ja: "Ready Steady", zh: "Ready Steady", en: "Ready Steady", ro: "Ready Steady", date: "2023-07-28", yt: "lZwThdw6IYA", len: "3:31", hold: true, cover: true, collab: true  },
+    { id: "readysteady", ja: "Ready Steady", zh: "Ready Steady", en: "Ready Steady", ro: "Ready Steady", date: "2023-07-28", yt: "lZwThdw6IYA", len: "3:31", acts: ["wave", "sing"], tips: ["全曲隨快節奏高舉手燈揮動，間奏重拍大幅推揮", "副歌「結構 結構／決行 決行」、「Ready Steady」與 C 段「I want more.」可跟著合聲接唱"], cover: true, collab: true  },
     { id: "overdose", ja: "Overdose", zh: "Overdose", en: "Overdose", ro: "Overdose", date: "2023-03-10", yt: "sGNkT6XyQRc", len: "3:13", hold: true, cover: true  },
-    { id: "darlingdance", ja: "ダーリンダンス", zh: "ダーリンダンス", en: "ダーリンダンス", ro: "Darling Dance", date: "2022-11-26", yt: "2EmstVQeEiA", len: "3:25", hold: true, cover: true  },
-    { id: "precure5", ja: "プリキュア5、スマイル go go!", zh: "プリキュア5、スマイル go go!", en: "プリキュア5、スマイル go go!", ro: "Precure 5, Smile go go!", date: "2022-10-24", yt: "LVgCDkzSJwI", len: "3:57", hold: true, cover: true  },
+    { id: "darlingdance", ja: "ダーリンダンス", zh: "ダーリンダンス", en: "ダーリンダンス", ro: "Darling Dance", date: "2022-11-26", yt: "2EmstVQeEiA", len: "3:25", acts: ["sing"], tips: ["A 段過門和聲、B 段「ねえ」回音、副歌「無…（ななな）」與 C 段「踊れ／叫べ／唄え／ルラッパパ」接唱和聲都能跟著大合唱"], cover: true  },
+    { id: "precure5", ja: "プリキュア5、スマイル go go!", zh: "プリキュア5、スマイル go go!", en: "プリキュア5、スマイル go go!", ro: "Precure 5, Smile go go!", date: "2022-10-24", yt: "LVgCDkzSJwI", len: "3:57", acts: ["call", "sing", "wave"], tips: ["參考原唱：開頭與副歌「yes!」「go!」「go go!」全場呼應喊聲", "「one two three four five!」「five four three two one!」跟著倒數接唱"], sug: true, cover: true  },
     { id: "schadenfreude", ja: "Mr.シャーデンフロイデ", zh: "Mr.シャーデンフロイデ", en: "Mr.シャーデンフロイデ", ro: "Mr. Schadenfreude", date: "2022-09-24", yt: "OSVLeArML9c", len: "4:09", hold: true, cover: true, collab: true  },
     { id: "tokyowayoru", ja: "東京は夜", zh: "東京は夜", en: "東京は夜", ro: "Tokyo wa Yoru", date: "2022-08-23", yt: "1UVwsed3JQU", len: "3:02", hold: true, cover: true, collab: true  },
     { id: "lovedestroy", ja: "ラブ＆デストロイ", zh: "ラブ＆デストロイ", en: "ラブ＆デストロイ", ro: "Love & Destroy", date: "2022-01-14", yt: "wuYIVacOTF8", len: "3:33", hold: true, cover: true  },
@@ -130,14 +130,14 @@
     { id: "scissorhands", ja: "シザーハンズ", zh: "シザーハンズ", en: "シザーハンズ", ro: "Scissorhands", date: "2021-10-17", yt: "Flw53ezXBYg", len: "4:36", hold: true, cover: true  },
     { id: "adamtoibu", ja: "アダムとイブになれたら", zh: "アダムとイブになれたら", en: "アダムとイブになれたら", ro: "Adam to Eve ni Naretara", date: "2021-10-16", yt: "PcA3BIzKxiw", len: "4:27", hold: true, cover: true  },
     { id: "yokubari", ja: "よくばり", zh: "よくばり", en: "よくばり", ro: "Yokubari", date: "2021-09-05", yt: "y-dMrhGdCms", len: "3:28", hold: true, cover: true  },
-    { id: "zaneri", ja: "ザネリ", zh: "ザネリ", en: "ザネリ", ro: "Zaneri", date: "2021-08-25", yt: "pWZwiUaA0O8", len: "4:05", hold: true, cover: true  },
+    { id: "zaneri", ja: "ザネリ", zh: "ザネリ", en: "ザネリ", ro: "Zaneri", date: "2021-08-25", yt: "pWZwiUaA0O8", len: "4:05", acts: ["listen"], tips: ["全場以安靜聆聽為主，專注感受歌聲（副歌可依氣氛極輕微晃動）"], cover: true  },
     { id: "antisystems", ja: "アンチシステム’s", zh: "アンチシステム’s", en: "アンチシステム’s", ro: "Anti-System's", date: "2021-07-15", yt: "P12337hMnbI", len: "1:38", hold: true, cover: true  },
-    { id: "bocca", ja: "ボッカデラベリタ", zh: "ボッカデラベリタ", en: "ボッカデラベリタ", ro: "Bocca della Verita", date: "2020-06-02", yt: "X9aKVLPoKJk", len: "3:20", hold: true, cover: true  },
-    { id: "jama", ja: "邪魔", zh: "邪魔", en: "邪魔", ro: "Jama", date: "2019-06-22", yt: "6uR_UxqGoug", len: "3:28", hold: true, cover: true  },
+    { id: "bocca", ja: "ボッカデラベリタ", zh: "ボッカデラベリタ", en: "ボッカデラベリタ", ro: "Bocca della Verita", date: "2020-06-02", yt: "X9aKVLPoKJk", len: "3:20", acts: ["call", "clap", "wave"], tips: ["參考原唱：貫穿全曲的「アイアイアイヘイチュー」隨重拍高舉手燈喊唱", "間奏跟著尖銳節拍拍手"], sug: true, cover: true  },
+    { id: "jama", ja: "邪魔", zh: "邪魔", en: "邪魔", ro: "Jama", date: "2019-06-22", yt: "6uR_UxqGoug", len: "3:28", acts: ["listen", "wave"], tips: ["開頭清唱、主歌與 C 段先壓低手燈安靜聽", "前奏鼓聲進來後、副歌與尾奏「ラララ…」舉高螢光棒隨重拍揮動"], cover: true  },
     { id: "baka", ja: "馬鹿", zh: "馬鹿", en: "馬鹿", ro: "Baka", date: "2020-06-22", yt: "aOIrxUTBRgs", len: "3:21", hold: true, cover: true  },
-    { id: "otomekaibou", ja: "乙女解剖", zh: "乙女解剖", en: "乙女解剖", ro: "Otome Kaibou", date: "2019-02-11", yt: "N5cSFdGANVc", len: "3:50", hold: true, cover: true  },
+    { id: "otomekaibou", ja: "乙女解剖", zh: "乙女解剖", en: "乙女解剖", ro: "Otome Kaibou", date: "2019-02-11", yt: "N5cSFdGANVc", len: "3:50", acts: ["clap", "wave"], tips: ["參考原唱：間奏隨節拍拍手，副歌「乙女解剖であそぼうよ」高舉手燈跟著節奏揮動"], sug: true, cover: true  },
     { id: "hungrynicole", ja: "ハングリーニコル", zh: "ハングリーニコル", en: "ハングリーニコル", ro: "Hungry Nicole", date: "2019-08-03", yt: "8Lf_sgxIWlg", len: "4:47", hold: true, cover: true  },
-    { id: "renaesaiban", ja: "恋愛裁判", zh: "恋愛裁判", en: "恋愛裁判", ro: "Renai Saiban", date: "2018-08-26", yt: "iHIrEqU5cwM", len: "3:42", hold: true, cover: true  },
+    { id: "renaesaiban", ja: "恋愛裁判", zh: "恋愛裁判", en: "恋愛裁判", ro: "Renai Saiban", date: "2018-08-26", yt: "iHIrEqU5cwM", len: "3:42", acts: ["call", "clap", "wave"], tips: ["參考原唱：主歌「Oh! No! No! No!」「Oh! Jesus!」跟著呼應喊聲，間奏拍手、副歌「恋愛裁判／有罪」高舉手燈揮動"], sug: true, cover: true  },
     { id: "hystericnightgirl", ja: "ヒステリックナイトガール", zh: "ヒステリックナイトガール", en: "ヒステリックナイトガール", ro: "Hysteric Night Girl", date: "2020-07-25", yt: "UoGacSBPYPc", len: "5:08", hold: true, cover: true  },
     { id: "kiraikiraizigahidai", ja: "キライ・キライ・ジガヒダイ！", zh: "キライ・キライ・ジガヒダイ！", en: "キライ・キライ・ジガヒダイ！", ro: "Kirai Kirai Jigahidai!", date: "2018-08-26", yt: "gmJiYoRhO5g", len: "3:34", hold: true, cover: true  },
     { id: "lastresort", ja: "ラストリゾート", zh: "ラストリゾート", en: "ラストリゾート", ro: "Last Resort", date: "2020-03-14", yt: "slcfa-0urok", len: "3:07", hold: true, cover: true  },
@@ -146,16 +146,16 @@
     { id: "hanironokanshou", ja: "半色の感傷", zh: "半色の感傷", en: "半色の感傷", ro: "Han'iro no Kanshou", date: "2020-09-15", yt: "n_sDtV5oZR0", len: "3:54", hold: true, cover: true  },
     { id: "uminaoshi", ja: "うみなおし", zh: "うみなおし", en: "うみなおし", ro: "Uminaoshi", date: "2018-08-26", yt: "cfVYSHvAhaQ", len: "4:08", hold: true, cover: true  },
     { id: "mousoukanshou", ja: "妄想感傷代償連盟", zh: "妄想感傷代償連盟", en: "妄想感傷代償連盟", ro: "Mousou Kanshou Daishou Renmei", date: "2018-08-26", yt: "Io9gOyAlq9g", len: "1:59", hold: true, cover: true  },
-    { id: "basketworm", ja: "バスケットワーム", zh: "バスケットワーム", en: "バスケットワーム", ro: "Basket Worm", date: "2019-11-08", yt: "A4fcb5LV1F8", len: "4:06", hold: true, cover: true  },
+    { id: "basketworm", ja: "バスケットワーム", zh: "バスケットワーム", en: "バスケットワーム", ro: "Basket Worm", date: "2019-11-08", yt: "A4fcb5LV1F8", len: "4:06", acts: ["listen", "wave"], tips: ["主歌和後半段安靜下來的副歌先安靜聽", "前奏樂團進來後、副歌與間奏舉起螢光棒跟著節奏揮"], cover: true  },
     { id: "meltyland", ja: "メルティランドナイトメア", zh: "メルティランドナイトメア", en: "メルティランドナイトメア", ro: "Melty Land Nightmare", date: "2018-10-05", yt: "OZYqBsmtwuA", len: "4:30", hold: true, cover: true  },
     { id: "limbo", ja: "Limbo", zh: "Limbo", en: "Limbo", ro: "Limbo", date: "2020-09-19", yt: "13dECLUD-5Q", len: "2:20", hold: true, cover: true  },
     { id: "additionalmemory", ja: "アディショナルメモリー", zh: "アディショナルメモリー", en: "アディショナルメモリー", ro: "Additional Memory", date: "2018-12-15", yt: "h1q7BNK5U9A", len: "4:00", hold: true, cover: true  },
     { id: "sunnywave", ja: "Sunny Wave", zh: "Sunny Wave", en: "Sunny Wave", ro: "Sunny Wave", date: "2020-09-20", yt: "1M_A3OIEceg", len: "4:34", hold: true, cover: true  },
-    { id: "rabuka", ja: "ラブカ？", zh: "ラブカ？", en: "ラブカ？", ro: "Rabuka?", date: "2020-12-11", yt: "YTQV48V44Sw", len: "3:05", hold: true, cover: true  },
-    { id: "blackrockshooter", ja: "ブラック★ロックシューター", zh: "ブラック★ロックシューター", en: "ブラック★ロックシューター", ro: "BLACK★ROCK SHOOTER", date: "2020-12-13", yt: "nMpD5q5wqPM", len: "4:53", hold: true, cover: true  },
+    { id: "rabuka", ja: "ラブカ？", zh: "ラブカ？", en: "ラブカ？", ro: "Rabuka?", date: "2020-12-11", yt: "YTQV48V44Sw", len: "3:05", acts: ["wave"], tips: ["開頭薩克斯風獨奏先安靜聽，進鼓後跟著搖擺節奏揮螢光棒", "副歌和尾奏舉高大幅揮動"], cover: true  },
+    { id: "blackrockshooter", ja: "ブラック★ロックシューター", zh: "ブラック★ロックシューター", en: "ブラック★ロックシューター", ro: "BLACK★ROCK SHOOTER", date: "2020-12-13", yt: "nMpD5q5wqPM", len: "4:53", acts: ["listen", "clap", "wave"], tips: ["參考初音未來現場原唱應援：開頭清唱先安靜聽，進鼓間奏拍手，副歌「ブラックロックシューター」高舉藍色手燈大力揮動"], sug: true, cover: true  },
     { id: "kiminotaion", ja: "君の体温", zh: "君の体温", en: "君の体温", ro: "Kimi no Taion", date: "2021-01-10", yt: "QLsXgj4_gOc", len: "4:02", hold: true, cover: true  },
     { id: "kirakiraboshi", ja: "きらきら星", zh: "きらきら星", en: "きらきら星", ro: "Kirakiraboshi", date: "2021-03-31", yt: "zs6Mnu4gMHM", len: "0:34", hold: true, cover: true  },
-    { id: "koihasensou", ja: "恋は戦争", zh: "恋は戦争", en: "恋は戦争", ro: "Koi wa Sensou", date: "2021-05-08", yt: "1OI4Bp8fGYw", len: "3:56", hold: true, cover: true  },
+    { id: "koihasensou", ja: "恋は戦争", zh: "恋は戦争", en: "恋は戦争", ro: "Koi wa Sensou", date: "2021-05-08", yt: "1OI4Bp8fGYw", len: "3:56", acts: ["clap", "wave", "call"], tips: ["參考初音未來現場原唱應援：開頭長間奏與副歌間奏跟著搖滾鼓點拍手或喊「Hey!」，副歌高舉手燈用力揮動"], sug: true, cover: true  },
     { id: "sixteenbitgirl", ja: "16ビットガール", zh: "16ビットガール", en: "16ビットガール", ro: "16-bit Girl", date: "2021-05-31", yt: "UcpAHDF8yZI", len: "4:23", hold: true, cover: true  },
     { id: "binks", ja: "ビンクスの酒", zh: "賓克斯的美酒", en: "Binks' Sake", ro: "Binkusu no Sake", date: "2022-08-10", yt: "Z-WdGYi9Pv4", len: "3:26", hold: true },
     { id: "sayonara", ja: "SAYONARA feat. Ado", zh: "SAYONARA feat. Ado", en: "SAYONARA feat. Ado", ro: "SAYONARA feat. Ado", date: "2026-10-04", yt: "gTYb8pTz3VU", len: "1:32", hold: true, collab: true  },
@@ -168,19 +168,21 @@
     { id: "mousoushikkan", ja: "妄想疾患□ガール", zh: "妄想疾患□ガール", en: "妄想疾患□ガール", ro: "Mousou Shikkan Girl", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
     { id: "entersandman", ja: "Enter Sandman", zh: "Enter Sandman", en: "Enter Sandman", ro: "Enter Sandman", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
     { id: "kawakiwoameku", ja: "カワキヲアメク", zh: "カワキヲアメク", en: "カワキヲアメク", ro: "Kawaki wo Ameku", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
-    { id: "lagata", ja: "La Gata Bajo La Lluvia", zh: "La Gata Bajo La Lluvia", en: "La Gata Bajo La Lluvia", ro: "La Gata Bajo La Lluvia", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  }
+    { id: "lagata", ja: "La Gata Bajo La Lluvia", zh: "La Gata Bajo La Lluvia", en: "La Gata Bajo La Lluvia", ro: "La Gata Bajo La Lluvia", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
+    { id: "senbonzakura", ja: "千本桜", zh: "千本櫻", en: "Senbonzakura", ro: "Senbonzakura", date: "2021-12-29", yt: "3tPBEjxqEc4", len: "3:59", acts: ["call", "wave"], tips: ["前奏尾端與第一段間奏隨重拍推棒喊「Hey!」，2A 可接「ワン・ツー・サン・シ！」", "副歌與尾奏大力揮棒，C 段長音放緩輕晃、等鼓點漸強再舉高"], cover: true  },
+    { id: "staywithme", ja: "真夜中のドア〜stay with me", zh: "真夜中のドア〜stay with me", en: "Stay With Me", ro: "Mayonaka no Door ~ stay with me", date: "2026-07-30", yt: "wQceSsMVlA4", len: "5:36", tips: [], free: true, cover: true  }
   ];
   // 正版歌詞：歌ネット（uta-net.com）的歌曲頁編號
   const UT = {"show":343570,"usseewa":292534,"readymade":295824,"freedom":313113,"rule":356726,"ashura":309074,"mondaisaku":332973,"gyakkou":321128,"odo":301298,"shinjidai":319758,"giragira":297951,"kurakura":344008,"saikyo":320568,"aiaia":389756,"rockstar":371304,"staygold":374911,"episodex":364731,"totmusica":322907,"kira":392133,"monstruo":397076,"ibara":336879,"rebellion":324691,"chocolat":349160,"shoka":361947,"pierrot":303332,"aitakute":306065,"akuruhi":315407,"kokoro":313110,"utakata":322805,"sekai":322906,"kaze":322905,"missing":326032,"himawari":340373,"dignity":343573,"radio":344727,"unravel":350288,"hotaru":350286,"value":350381,"mirror":355040,"sakura":362390,"elf":367139,"hanataba":369630,"kazetowatashi":380660,"magic":381653,"angelseek":386914,"vivarium":388255,"haruni":392755,"kagakushu":313108,"hanabi":313112,"domestic":313114,"luckybruto":313111,"motherland":313109,"nukegara":357493,"zero":357492,"hellosignals":371303,"kittocoaster":363098,"lovemeforever":395819,"dnd":399762,"kanjaa":401422,"ravensky":400798,"shinka":401946,"sukideite":398715,"soldiergame":386267,"ponpokorin":385914,"catseye":380030,"kitaro":374762,"charles":371560,"hibana":265028,"jikkai":373551,"aishite":350293,"kazarijanai":350294,"kamippoina":350289,"kawaikute":350291,"tsumitobatsu":350292,"dryflower":350295,"villain":350290,"burikino":350287,"anobando":329198};
 
   // 螢光棒顏色：依 じゅん🌝ぴ 的 note；彩＝カラフル，開頭 ? 是原文的預測（不顯示，當作沒寫）；沒寫的歌用藍（原文：迷ったら青）
-  const PEN = { usseewa: "青赤", readymade: "赤桃水", giragira: "白", odo: "赤青", pierrot: "水紫", aitakute: "桃", ashura: "赤橙", kokoro: "白水", hanabi: "彩", kagakushu: "白水", akuruhi: "白水", domestic: "赤桃青", motherland: "青水白", luckybruto: "青赤", shinjidai: "彩桃", saikyo: "彩橙", gyakkou: "赤", utakata: "緑青赤", sekai: "黄", totmusica: "紫青", kaze: "青水", rebellion: "赤青", missing: "白水", freedom: "白青", mondaisaku: "緑彩", ibara: "水白青", himawari: "黄橙緑水", show: "橙黄", dignity: "青水", kurakura: "水桃", radio: "橙黄緑", chocolat: "赤白", value: "水白", mirror: "青桃", kittocoaster: "水桃", rule: "青水赤", nukegara: "水白", zero: "白", hellosignals: "水桃", shoka: "赤青", sakura: "桃", episodex: "青水白", elf: "緑橙黄", hanataba: "水黄", rockstar: "赤黄", staygold: "赤青紫", kazetowatashi: "青水", magic: "紫桃赤", angelseek: "水白", vivarium: "青", aiaia: "赤橙黄", kira: "青橙", haruni: "桃", sukideite: "?黄", monstruo: "橙赤黄水", lovemeforever: "紫水白", dnd: "紫桃青", kanjaa: "白赤", ravensky: "橙赤紫", shinka: "?赤白", hibana: "赤青黄橙白", anobando: "白赤青", unravel: "赤青白" };
+  const PEN = { usseewa: "青赤", readymade: "赤桃水", giragira: "白", odo: "赤青", pierrot: "水紫", aitakute: "桃", ashura: "赤橙", kokoro: "白水", hanabi: "彩", kagakushu: "白水", akuruhi: "白水", domestic: "赤桃青", motherland: "青水白", luckybruto: "青赤", shinjidai: "彩桃", saikyo: "彩橙", gyakkou: "赤", utakata: "緑青赤", sekai: "黄", totmusica: "紫青", kaze: "青水", rebellion: "赤青", missing: "白水", freedom: "白青", mondaisaku: "緑彩", ibara: "水白青", himawari: "黄橙緑水", show: "橙黄", dignity: "青水", kurakura: "水桃", radio: "橙黄緑", chocolat: "赤白", value: "水白", mirror: "青桃", kittocoaster: "水桃", rule: "青水赤", nukegara: "水白", zero: "白", hellosignals: "水桃", shoka: "赤青", sakura: "桃", episodex: "青水白", elf: "緑橙黄", hanataba: "水黄", rockstar: "赤黄", staygold: "赤青紫", kazetowatashi: "青水", magic: "紫桃赤", angelseek: "水白", vivarium: "青", aiaia: "赤橙黄", kira: "青橙", haruni: "桃", sukideite: "?黄", monstruo: "橙赤黄水", lovemeforever: "紫水白", dnd: "紫桃青", kanjaa: "白赤", ravensky: "橙赤紫", shinka: "?赤白", hibana: "赤青黄橙白", anobando: "白赤青", unravel: "赤青白", basketworm: "水青", jama: "青", rabuka: "赤青", darlingdance: "桃", tsumitobatsu: "赤", villain: "橙", kazarijanai: "黄", burikino: "白紫青", staywithme: "青", senbonzakura: "桃青白", aishite: "赤", readysteady: "青桃", kawaikute: "?桃", blackrockshooter: "?青" };
   // 拍點：[BPM, 第一個小節第一拍的秒數, 小節第一拍可信]。從 MV 音訊分析：BPM 以 songbpm.com 為起點微調，再找拍子位置和和聲換的那一拍；
   // 拍點不清楚的歌不列，燈光改成每句歌詞開頭亮一下
   const BEAT = { aiaia: [138, 1.685, 0], aishite: [115, 0.5, 0], aitakute: [160, 0.97, 1], akuruhi: [147, 0.671, 0], angelseek: [103, 0.5, 0], ashura: [156, 1.522, 1], burikino: [172, 0.695, 1], catseye: [145, 0.635, 1], charles: [148, 1.306, 0], chocolat: [137, 0.033, 1], dignity: [154, 0.447, 1], dnd: [155, 0.38, 1], domestic: [116, 0.726, 1], dryflower: [148, 0.473, 1], elf: [160, 1.47, 1], episodex: [174, 0.152, 1], freedom: [178, 0.203, 1], giragira: [96, 2.05, 1], gyakkou: [145, 0.366, 0], hanabi: [100, 0.95, 1], hanataba: [93.5, 2.005, 0], haruni: [145, 1.055, 1], hellosignals: [170, 0.595, 0], hibana: [200, 0.45, 1], himawari: [95, 0.773, 1], hotaru: [80, 1.79, 0], ibara: [165, 1.064, 1], jikkai: [149, 0.58, 1], kagakushu: [100, 2.11, 1], kamippoina: [142, 0.5, 0], kanjaa: [120, 0.056, 0], kawaikute: [160, 0.5, 1], kazarijanai: [178, 1.001, 1], kaze: [140, 1.686, 1], kazetowatashi: [172, 0.533, 0], kira: [155, 0.362, 1], kitaro: [110.98, 1.646, 0], kittocoaster: [100, 0.5, 0], kokoro: [152, 1.525, 1], kurakura: [94, 1.977, 1], lovemeforever: [135, 0.418, 1], luckybruto: [99, 2.172, 0], magic: [133, 0.853, 1], mirror: [114, 1.208, 1], missing: [137.98, 0.393, 1], mondaisaku: [150, 0.42, 1], monstruo: [130, 0.172, 1], motherland: [130, 0.262, 1], nukegara: [132, 0.461, 1], odo: [128, 1.858, 1], pierrot: [120, 0.68, 0], ponpokorin: [140, 0.496, 1], radio: [118, 1.084, 1], ravensky: [162, 0.997, 1], readymade: [97.51, 1.216, 0], rebellion: [178, 0.344, 1], rockstar: [105, 1.643, 0], rule: [132, 0.107, 1], saikyo: [96, 2.17, 0], sakura: [174, 0.152, 1], sekai: [76, 0.39, 1], shinjidai: [175, 1.208, 1], shoka: [94, 0.59, 0], show: [132, 0.747, 1], soldiergame: [132, 0.631, 1], staygold: [140, 1.564, 1], sukideite: [164, 0.379, 1], totmusica: [130, 0.32, 1], tsumitobatsu: [118.5, 1.827, 0], unravel: [135, 0.396, 1], usseewa: [178, 0.505, 1], utakata: [178, 0.874, 1], value: [160, 0.5, 0], villain: [102, 1.654, 1], vivarium: [97.5, 0.981, 0], zero: [171, 0.017, 1], anobando: [190, 0.45, 1], shinka: [195, 1.092, 0], brain: [151.52, 0.241, 0] };
 
   // 副歌高潮（最後一次副歌開頭）的秒數：MV 音訊和聲比對＋歌詞重複找的，再依歌詞段落人工修正
-  const CLIMAX = { aiaia: 190.36, aishite: 161.24, aitakute: 215.9, akuruhi: 202.94, angelseek: 149.3, ashura: 139.43, burikino: 163.7, catseye: 145.75, charles: 178.85, chocolat: 178.27, dignity: 187.27, dnd: 143.6, domestic: 114.59, dryflower: 229.74, elf: 237.27, episodex: 165.67, freedom: 153.74, giragira: 219.12, gyakkou: 192.71, hanabi: 163.72, hanataba: 183.25, haruni: 181.86, hellosignals: 147.49, hibana: 154.9, himawari: 174.22, hotaru: 265.96, ibara: 209.89, jikkai: 175.46, kagakushu: 184.47, kamippoina: 174.95, kanjaa: 236.06, kawaikute: 188.49, kazarijanai: 173.36, kaze: 211.47, kazetowatashi: 282.75, kira: 137.71, kitaro: 106.47, kittocoaster: 143.9, kokoro: 217.56, kurakura: 146.97, lovemeforever: 206.43, luckybruto: 170.63, magic: 134.64, mirror: 135.86, missing: 118.79, mondaisaku: 160.09, monstruo: 154.83, motherland: 214.34, nukegara: 140.44, odo: 169.11, pierrot: 148.16, ponpokorin: 69.01, radio: 167.91, ravensky: 212.09, readymade: 184.18, rebellion: 133.56, rockstar: 177.47, rule: 178.23, saikyo: 189.47, sakura: 280.79, sekai: 189.4, shinjidai: 160.4, shoka: 180.15, show: 154.95, soldiergame: 176.73, staygold: 184.22, sukideite: 182.07, totmusica: 144.62, tsumitobatsu: 179.27, unravel: 199.14, usseewa: 167.48, utakata: 108.64, value: 150.66, villain: 165.25, vivarium: 171.27, zero: 112.16, anobando: 154.0, shinka: 148.08, brain: 114.29 };
+  const CLIMAX = { aiaia: 190.36, aishite: 64.3, aitakute: 215.9, akuruhi: 202.94, angelseek: 149.3, ashura: 139.43, burikino: 163.7, catseye: 145.75, charles: 178.85, chocolat: 178.27, dignity: 187.27, dnd: 143.6, domestic: 114.59, dryflower: 229.74, elf: 237.27, episodex: 165.67, freedom: 153.74, giragira: 219.12, gyakkou: 192.71, hanabi: 163.72, hanataba: 183.25, haruni: 181.86, hellosignals: 147.49, hibana: 154.9, himawari: 174.22, hotaru: 265.96, ibara: 209.89, jikkai: 175.46, kagakushu: 184.47, kamippoina: 174.95, kanjaa: 236.06, kawaikute: 42.5, kazarijanai: 173.36, kaze: 211.47, kazetowatashi: 282.75, kira: 137.71, kitaro: 106.47, kittocoaster: 143.9, kokoro: 217.56, kurakura: 146.97, lovemeforever: 206.43, luckybruto: 170.63, magic: 134.64, mirror: 135.86, missing: 118.79, mondaisaku: 160.09, monstruo: 154.83, motherland: 214.34, nukegara: 140.44, odo: 169.11, pierrot: 148.16, ponpokorin: 69.01, radio: 167.91, ravensky: 212.09, readymade: 184.18, rebellion: 133.56, rockstar: 177.47, rule: 178.23, saikyo: 189.47, sakura: 280.79, sekai: 189.4, shinjidai: 160.4, shoka: 180.15, show: 154.95, soldiergame: 176.73, staygold: 184.22, sukideite: 182.07, totmusica: 144.62, tsumitobatsu: 179.27, unravel: 199.14, usseewa: 167.48, utakata: 108.64, value: 150.66, villain: 165.25, vivarium: 171.27, zero: 112.16, anobando: 154.0, shinka: 148.08, brain: 114.29, senbonzakura: 57.86, staywithme: 60.72, darlingdance: 60.23, readysteady: 60.29, vivahappy: 61.58, egorock: 35.32, bocca: 48.72, renaesaiban: 64.7, otomekaibou: 69.84, precure5: 44.24, blackrockshooter: 77.81, koihasensou: 99.75 };
   // 官方正式釋出的【LIVE映像】（有真實演唱會畫面與現場實況）
   const LIVE_VIDEOS = {
     show: { yt: "Igr6jQJEoNs", concert: "日本武道館 (2023)" },
@@ -198,7 +200,19 @@
     unravel: { yt: "khplMpm4ctc", concert: "日本武道館 (2023)" },
     hibana: { yt: "JsZASL6V0QU", concert: "さいたま (2025)" },
     kira: { yt: "Cjtt_BlQ6Us", concert: "Rose Bowl (2026)" },
-    sayonara: { yt: "mcN0_IiaN8g", concert: "TMG at Zepp Haneda (2026)" }
+    sayonara: { yt: "mcN0_IiaN8g", concert: "TMG at Zepp Haneda (2026)" },
+    readysteady: { yt: "UHJwIG--Hk4", concert: "横浜アリーナ (2023)" },
+    basketworm: { yt: "mYJshNOfv_w", concert: "喜劇 (2022)", start: 0, end: 248 },
+    jama: { yt: "mYJshNOfv_w", concert: "喜劇 (2022)", start: 248, end: 459 },
+    rabuka: { yt: "mYJshNOfv_w", concert: "カムパネルラ (2022)", start: 459, end: 644 },
+    darlingdance: { yt: "mYJshNOfv_w", concert: "カムパネルラ (2022)", start: 644, end: 849 },
+    tsumitobatsu: { yt: "mYJshNOfv_w", concert: "カムパネルラ (2022)", start: 849, end: 1140 },
+    villain: { yt: "mYJshNOfv_w", concert: "マーズ (2023)", start: 1375, end: 1577 },
+    kazarijanai: { yt: "mYJshNOfv_w", concert: "マーズ (2023)", start: 1577, end: 1829 },
+    burikino: { yt: "mYJshNOfv_w", concert: "マーズ (2023)", start: 1829, end: 2029 },
+    staywithme: { yt: "mYJshNOfv_w", concert: "Wish (2024)", start: 2029, end: 2354 },
+    senbonzakura: { yt: "mYJshNOfv_w", concert: "Wish (2024)", start: 2354, end: 2596 },
+    zaneri: { yt: "mYJshNOfv_w", concert: "Hibana (2025)", start: 2596, end: 2842 }
   };
   // 歷年演唱會現場音源（官方 YouTube 釋出版本，依年代由新至舊）
   const LIVES = {
@@ -256,7 +270,9 @@
     tsumitobatsu: [{ concert: "カムパネルラ (2022)", yt: "nlg5SNNhl6A" }],
     villain: [{ concert: "マーズ (2023)", yt: "xxb6mZmJWCc" }],
     burikino: [{ concert: "マーズ (2023)", yt: "vmAd98XYzNI" }],
-    sayonara: [{ concert: "TMG at Zepp Haneda (2026)", yt: "mcN0_IiaN8g" }]
+    sayonara: [{ concert: "TMG at Zepp Haneda (2026)", yt: "mcN0_IiaN8g" }],
+    senbonzakura: [{ concert: "Wish (2024)", yt: "JWa0ra4AeFA" }],
+    staywithme: [{ concert: "Wish (2024)", yt: "wQceSsMVlA4" }]
   };
   // 搜尋別名：v1.17.0 歌名改成官方譯名或英文後，粉絲習慣的舊中文名稱留在這裡給搜尋用，畫面不顯示
   const ALIAS = {
@@ -272,7 +288,7 @@
     blackrockshooter: ["黑岩射手", "BRS"], koihasensou: ["戀愛戰爭"], mousoushikkan: ["妄想疾患女孩"],
     otomekaibou: ["乙女解剖"], mousoukanshou: ["妄想感傷代償聯盟"], meltyland: ["融化之地噩夢"],
     rabuka: ["Loveca?"], egorock: ["自私搖滾"], shikabanese: ["屍人"], taemanaku: ["不斷湧現的藍色"],
-    kubozono: ["怪盜窪園"], lagata: ["雨中的貓"]
+    kubozono: ["怪盜窪園"], lagata: ["雨中的貓"], staywithme: ["真夜中のドア", "午夜之門"]
   };
   // 出處：動畫、電影、活動的主題曲（只寫確定的）；歌曲頁和搜尋結果會顯示，大家常用作品名找歌
   const TIE = {

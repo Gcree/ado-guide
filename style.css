@@ -684,6 +684,126 @@ main.col {
   gap: 8px;
 }
 
+/* 合輯片段單曲控制列（只在具 start/end 區間的現場片段顯示） */
+.clipbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--fill);
+  position: relative;
+  z-index: 6;
+}
+
+.clipbar[hidden] {
+  display: none;
+}
+
+.clip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  flex: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: var(--tr-color), var(--tr-press);
+}
+
+.clip-btn:hover {
+  background: var(--fill-hover);
+}
+
+.clip-btn:active {
+  transform: scale(.93);
+}
+
+.clip-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.clip-btn svg[hidden] {
+  display: none;
+}
+
+.clip-range {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.clip-range::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--clip-pct, 0%),
+    var(--fill-hover) var(--clip-pct, 0%),
+    var(--fill-hover) 100%
+  );
+}
+
+.clip-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+}
+
+.clip-range::-moz-range-track {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--fill-hover);
+}
+
+.clip-range::-moz-range-progress {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.clip-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+}
+
+.clip-time {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 74px;
+  text-align: right;
+  flex: none;
+}
+
 .mvbar {
   display: flex;
   flex-wrap: wrap;
@@ -2209,6 +2329,11 @@ main.col {
     display: none;
   }
 
+  .clipbar {
+    padding: 4px 10px;
+    gap: 6px;
+  }
+
   .mvbar {
     padding: 6px 12px;
   }
@@ -2484,7 +2609,8 @@ body.immersive-mode .mv .screen {
   border-radius: 6px;
 }
 
-body.immersive-mode .mvbar {
+body.immersive-mode .mvbar,
+body.immersive-mode .clipbar {
   display: none;
 }
 
@@ -8598,7 +8724,9 @@ body.immersive-mode .dock.autohide {
   }
 }
 
-/* ── 首頁巡演預習橫幅與巡演獨立專頁（tour/<id>/） ── */
+/* ── 首頁巡演預習橫幅與巡演獨立專頁（tour/<id>/） ──
+   照主站的做法：卡片一律平的 var(--card)（不加框線、不加漸層），標籤用 4px 小方角（同 .live-tag），
+   顏色只用 token（--tint、--qs-cover-*），淺色模式自動跟著換；版面寬度跟頂欄、頁尾、首頁一樣對齊 1080px */
 .tour-banner-sec {
   min-width: 0;
 }
@@ -8608,75 +8736,93 @@ body.immersive-mode .dock.autohide {
   align-items: center;
   justify-content: space-between;
   gap: 16px 24px;
-  padding: 18px 22px;
-  border-radius: 16px;
-  background: linear-gradient(125deg, color-mix(in srgb, var(--tint) 16%, var(--card)), var(--card) 68%);
-  border: 1px solid color-mix(in srgb, var(--tint) 34%, transparent);
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--card);
   color: var(--text);
   text-decoration: none;
-  transition: transform var(--dur-base) var(--ease-spring), background-color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--dur-hover) var(--ease), var(--tr-press);
 }
 
-.tour-banner:hover {
-  border-color: color-mix(in srgb, var(--tint) 62%, transparent);
-  background: linear-gradient(125deg, color-mix(in srgb, var(--tint) 22%, var(--card)), var(--card-hover) 68%);
+@media (hover: hover) {
+  .tour-banner:hover {
+    background: var(--card-hover);
+  }
 }
 
 .tour-banner:active {
-  transform: scale(.992);
+  transform: scale(.99);
+}
+
+.tour-banner:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
 }
 
 .tour-banner-body {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 4px;
   min-width: 0;
 }
 
+/* 小標籤：跟歌曲列的 .live-tag／.tier-tag.is-t1 同一個樣子 */
 .tour-banner-tag,
-.tour-badge {
+.tour-badge,
+.tour-show-note {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  align-self: flex-start;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
   letter-spacing: .02em;
-  background: color-mix(in srgb, var(--tint) 18%, transparent);
-  color: var(--color-bahama-blue-300);
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--tint) 16%, transparent);
+  color: var(--tint);
 }
 
 :root[data-theme="light"] .tour-banner-tag,
 :root[data-theme="light"] .tour-badge {
-  background: color-mix(in srgb, var(--tint) 14%, transparent);
-  color: var(--color-bahama-blue-800);
+  background: color-mix(in srgb, var(--tint) 13%, transparent);
+  color: color-mix(in srgb, var(--tint) 82%, #000);
+}
+
+.tour-show-note {
+  background: var(--qs-cover-bg);
+  color: var(--qs-cover-fg);
 }
 
 .tour-banner-title {
   font-size: 17px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--text);
 }
 
 .tour-banner-sub {
-  font-size: 14px;
-  line-height: 1.5;
   color: var(--faint);
+  font-size: 15px;
+  line-height: 1.5;
 }
 
+/* 看起來跟 .pill-btn 一樣（整張卡片才是連結，這裡只是視覺） */
 .tour-banner-cta {
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 9px 14px;
+  min-height: 44px;
+  padding: 0 16px 0 20px;
   border-radius: 999px;
   background: var(--fill);
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--tint);
+  font-size: 15px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -8690,185 +8836,200 @@ body.immersive-mode .dock.autohide {
   stroke-linejoin: round;
 }
 
-.tour-main {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(32px, 5vw, 52px);
-  padding-top: clamp(20px, 3vw, 32px);
-  padding-bottom: clamp(48px, 6vw, 72px);
+/* 用 <a> 做的 .pill-btn（巡演頁的「載入待練清單」等） */
+a.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* ── 巡演專頁 ──
+   主標（直接開練）→ ① 預熱 → ② 各場歌單 → 現場小提醒 → 常見問題 */
+main.col.tour-main {
+  /* main.col 是 grid；不鎖欄寬的話，carousel 的內容寬度會把整欄撐到比手機螢幕還寬 */
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1080px;
+  padding-left: max(var(--home-pad), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--home-pad), env(safe-area-inset-right, 0px));
+  padding-top: 8px;
+  gap: clamp(44px, 6vw, 64px);
+  font-size: 17px;
+  line-height: 1.5;
 }
 
 .tour-crumb {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  font-size: 13px;
+  margin-bottom: calc(-1 * clamp(28px, 4vw, 40px));
   color: var(--faint);
+  font-size: 14px;
 }
 
 .tour-crumb a {
   color: var(--faint);
   text-decoration: none;
+  text-underline-offset: 4px;
 }
 
-.tour-crumb a:hover {
-  color: var(--text);
-  text-decoration: underline;
+@media (hover: hover) {
+  .tour-crumb a:hover {
+    color: var(--text);
+    text-decoration: underline;
+  }
 }
 
+/* 主標：跟首頁主視覺一樣直接放在底色上，主要按鈕一按就開始練 */
 .tour-hero {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 14px;
-  padding: clamp(22px, 3.5vw, 34px);
-  border-radius: 20px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--tint) 14%, var(--card)), var(--card) 65%);
-  border: 1px solid color-mix(in srgb, var(--tint) 28%, transparent);
+  min-width: 0;
 }
 
 .tour-hero h1 {
   margin: 0;
-  font-size: clamp(28px, 4.4vw, 44px);
-  line-height: 1.18;
-  letter-spacing: -.02em;
-  color: var(--text);
   font-family: var(--font-ja);
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -.03em;
+  text-wrap: balance;
+}
+
+.tour-meta {
+  margin: -2px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tour-meta-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tint);
+}
+
+.tour-meta-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .tour-lead {
   margin: 0;
-  max-width: 72ch;
-  font-size: 15px;
-  line-height: 1.7;
-  color: var(--muted);
+  max-width: 36em;
+  color: var(--faint);
+  font-size: 17px;
+  line-height: 1.6;
+  text-wrap: pretty;
 }
 
-.tour-status {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--fill);
-  color: var(--text);
-  font-size: 13.5px;
-  line-height: 1.55;
-  align-self: flex-start;
-}
-
-.tour-jumps {
+.tour-cta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
-  margin-top: 4px;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 6px;
 }
 
+.btn.tour-cta-main {
+  height: 48px;
+  padding: 0 24px 0 20px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.tour-play-ico {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* 「練這組」：.pill-btn＋播放圖示，右邊小字是會連播幾首 */
+.pill-btn.tour-play {
+  flex: none;
+  gap: 8px;
+  padding: 0 18px 0 16px;
+}
+
+.tour-play-n {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 段落：①② 步驟標題 */
 .tour-sec {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  scroll-margin-top: 72px;
+  scroll-margin-top: 64px;
 }
 
-.tour-shows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.tour-show {
+.tour-step-head {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 16px 18px;
-  border-radius: 14px;
-  background: var(--card);
+  align-items: flex-start;
+  gap: 14px;
 }
 
-.tour-show-date {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 15px;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-
-.tour-show-note,
-.tour-song-badge {
+.tour-step {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11.5px;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tint) 16%, transparent);
+  color: var(--tint);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+:root[data-theme="light"] .tour-step {
+  background: color-mix(in srgb, var(--tint) 13%, transparent);
+}
+
+.tour-step-copy {
+  min-width: 0;
+}
+
+.tour-step-copy h2 {
+  margin: 0;
+  font-size: 22px;
   font-weight: 700;
-  background: var(--qs-cover-bg);
-  color: var(--qs-cover-fg);
-  vertical-align: middle;
+  line-height: 1.3;
+  letter-spacing: -.01em;
 }
 
-.tour-song-badge {
-  margin-left: 8px;
+.tour-step-copy .sec-sub {
+  margin-top: 4px;
+  max-width: 44em;
+  text-wrap: pretty;
 }
 
-.tour-song-badge.is-upcoming {
-  background: var(--fill);
-  color: var(--faint);
+/* 巡演頁的段落標題比首頁長，手機上要能換行（首頁 .sec-head h2 是不換行的） */
+.tour-sec .sec-head h2 {
+  white-space: normal;
+  text-wrap: balance;
 }
 
-:root[data-theme="light"] .tour-show-note,
-:root[data-theme="light"] .tour-song-badge {
-  background: rgba(124, 58, 237, .12);
-  color: #5b21b6;
-}
-
-:root[data-theme="light"] .tour-song-badge.is-upcoming {
-  background: var(--fill);
-  color: var(--faint);
-}
-
-.tour-show-place {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.tour-show-city {
-  font-weight: 700;
-  color: var(--color-bahama-blue-300);
-}
-
-:root[data-theme="light"] .tour-show-city {
-  color: var(--color-bahama-blue-800);
-}
-
-.tour-show-time {
-  font-size: 13px;
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.tour-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.tour-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  border-radius: 18px;
-  background: var(--card);
-}
-
+/* 分組標題（全部翻唱的分層也用） */
 .tour-group-head {
   display: flex;
   align-items: flex-start;
@@ -8878,131 +9039,271 @@ body.immersive-mode .dock.autohide {
 
 .tour-group-copy {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: baseline;
+  gap: 10px;
   min-width: 0;
 }
 
 .tour-tier {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--tint) 18%, transparent);
-  color: var(--color-bahama-blue-300);
-  font-size: 13px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
-:root[data-theme="light"] .tour-tier {
-  background: color-mix(in srgb, var(--tint) 14%, transparent);
-  color: var(--color-bahama-blue-800);
+  color: var(--tint);
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .tour-group-copy h3 {
   margin: 0;
   font-size: 18px;
-  line-height: 1.35;
+  font-weight: 700;
+  line-height: 1.4;
   color: var(--text);
+  text-wrap: pretty;
 }
 
-.tour-group-copy .count {
+.tour-group-copy .count,
+.tour-city-venue {
   margin-left: 8px;
-  font-size: 13px;
-  font-weight: 600;
+  white-space: nowrap;
   color: var(--faint);
+  font-size: 15px;
+  font-weight: 400;
 }
 
 .tour-group-copy .sec-sub {
-  margin: 4px 0 0;
-}
-
-.tour-list-btn {
-  flex: none;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-}
-
-.tour-songs {
-  border-top: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
-  padding-top: 8px;
+  margin: 2px 0 0;
 }
 
 .tour-song-tip {
-  display: block;
-  margin-top: 3px;
-  font-size: 12.5px;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 13px;
   line-height: 1.45;
-  color: var(--faint);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.tour-spoiler-body {
-  padding: 0 0 20px;
-}
-
-.tour-spoiler-empty {
-  margin: 0;
-  color: var(--faint);
-  font-size: 14.5px;
-  line-height: 1.65;
-}
-
-.tour-setlist-show + .tour-setlist-show {
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
-}
-
-.tour-setlist-head {
+/* ② 各場歌單：一個場館一組，Day 1／Day 2 並排；有歌單的那天才點得開（預設收合，不暴雷） */
+.tour-cities {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  flex-direction: column;
+  gap: 28px;
 }
 
-.tour-setlist-head h4 {
-  margin: 0;
-  font-size: 16px;
-  color: var(--text);
+.tour-city {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
 }
 
-.tour-setlist-ol {
-  list-style: none;
+.tour-city-h {
   margin: 0;
-  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.tour-city-venue {
+  margin-left: 10px;
+  font-family: var(--font-ja);
+}
+
+.tour-days {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 12px;
+  align-items: start;
+  gap: 12px;
 }
 
-.tour-setlist-ol a {
-  display: flex;
+.tour-day {
+  min-width: 0;
+  border-radius: 14px;
+  background: var(--card);
+  transition: background-color var(--dur-hover) var(--ease);
+}
+
+/* 展開的那天佔滿整列，歌單才不會擠在半欄裡 */
+.tour-day[open] {
+  grid-column: 1 / -1;
+}
+
+.tour-day>summary,
+.tour-day.is-pending {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  color: var(--text);
-  text-decoration: none;
-  background: var(--fill);
+  gap: 2px 16px;
+  min-height: 64px;
+  padding: 14px 20px;
 }
 
-.tour-setlist-ol a:hover {
-  background: var(--fill-hover);
+.tour-day>summary {
+  list-style: none;
+  border-radius: 14px;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tour-day>summary::-webkit-details-marker {
+  display: none;
+}
+
+.tour-day>summary::after {
+  content: "";
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  justify-self: end;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--faint);
+  border-bottom: 2px solid var(--faint);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.tour-day[open]>summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+@media (hover: hover) {
+  .tour-day:has(> summary:hover) {
+    background: var(--card-hover);
+  }
+}
+
+.tour-day:has(> summary:focus-visible) {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+.tour-day-top,
+.tour-day-time,
+.tour-day-state {
+  grid-column: 1;
+}
+
+.tour-day-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.tour-day-label {
+  color: var(--tint);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.tour-day-date {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.tour-day-time {
+  color: var(--faint);
+  font-size: 14px;
+}
+
+.tour-day-state {
+  color: var(--faint);
+  font-size: 14px;
+}
+
+.tour-day-state.is-ready {
+  color: var(--tint);
+  font-weight: 600;
+}
+
+.tour-day.is-pending .tour-day-state {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.tour-day-body {
+  padding: 0 20px 12px;
+}
+
+.tour-day-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding-bottom: 4px;
+}
+
+.tour-source {
+  color: var(--faint);
+  font-size: 14px;
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+
+@media (hover: hover) {
+  .tour-source:hover {
+    color: var(--text);
+    text-decoration: underline;
+  }
+}
+
+.tour-core {
+  margin-bottom: 4px;
+}
+
+/* 實際歌單：曲順數字＋歌曲列 */
+.tour-setlist .song,
+.tour-core .song {
+  margin-inline: -8px;
 }
 
 .tour-set-no {
-  font-size: 12px;
-  font-weight: 700;
+  flex: none;
+  width: 22px;
+  margin-right: -4px;
   color: var(--faint);
-  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.song.is-plain {
+  cursor: default;
+}
+
+.song .tour-thumb-empty {
+  display: block;
+  flex: none;
+  width: 80px;
+  height: 45px;
+  border-radius: 6px;
+  background: var(--fill);
+}
+
+.tour-encore {
+  margin: 8px 0 0;
+  padding: 8px 0 4px;
+  color: var(--tint);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.tour-note {
+  margin: 0;
+  color: var(--faint);
+  font-size: 14px;
 }
 
 .tour-foot-cta {
@@ -9010,24 +9311,17 @@ body.immersive-mode .dock.autohide {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 14px 20px;
-  padding-top: 8px;
+  gap: 12px 20px;
 }
 
 @media (max-width: 760px) {
   .tour-banner {
     flex-direction: column;
     align-items: flex-start;
-    padding: 16px 18px;
   }
 
-  .tour-shows,
-  .tour-setlist-ol {
+  .tour-days {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .tour-group {
-    padding: 16px;
   }
 
   .tour-group-head {
@@ -9035,16 +9329,570 @@ body.immersive-mode .dock.autohide {
     align-items: stretch;
   }
 
-  .tour-list-btn {
+  .tour-day-body {
+    padding: 0 14px 8px;
+  }
+
+  .tour-cta .btn.tour-cta-main {
     width: 100%;
+    justify-content: center;
   }
 }
 
 @media (forced-colors: active) {
   .tour-banner,
-  .tour-hero,
-  .tour-show,
-  .tour-group {
+  .tour-day {
     border: 1px solid CanvasText;
   }
+}
+
+/* ── 巡演頁：本頁導覽（浮動進度側欄） ──
+   主要內容維持置中的 1080px 欄位，導覽浮在左邊的留白裡，不佔內容寬度：
+   ≥1440px：完整導覽（文字＋小段落）；1180–1439px：只有進度線和圓點，滑過才顯示段落名；
+   <1180px：底部浮動按鈕（進度環＋目前段落），點開是同一份導覽清單 */
+.tour-content {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(44px, 6vw, 64px);
+  min-width: 0;
+}
+
+.tour-rail {
+  box-sizing: border-box;
+  padding: 16px 14px 12px;
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.tour-rail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tour-rail-pct {
+  color: var(--tint);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tour-rail-list,
+.tour-rail-sub {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tour-rail-list {
+  position: relative;
+  margin-top: 10px;
+}
+
+/* 進度線：底線從第一個點到最後一個點，填滿的部分由腳本算到目前段落 */
+.tour-rail-list::before,
+.tour-rail-list::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: var(--rail-top, 18px);
+  width: 2px;
+  border-radius: 2px;
+}
+
+.tour-rail-list::before {
+  height: var(--rail-len, 0px);
+  background: var(--fill);
+}
+
+.tour-rail-list::after {
+  height: var(--rail-fill, 0px);
+  background: var(--tint);
+  transition: height var(--dur-hover) var(--ease);
+}
+
+.tour-rail a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: var(--faint);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--dur-hover) var(--ease);
+}
+
+.tour-rail-dot {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--fill-hover);
+  background: var(--card);
+  transition: background-color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease), transform var(--dur-base) var(--ease-spring);
+}
+
+.tour-rail a.is-passed .tour-rail-dot {
+  border-color: var(--tint);
+  background: var(--tint);
+}
+
+.tour-rail a.is-active {
+  color: var(--text);
+}
+
+.tour-rail a.is-active .tour-rail-dot {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tint) 22%, transparent);
+}
+
+.tour-rail-sub a {
+  min-height: 30px;
+  padding-left: 26px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tour-rail-sub a.is-active {
+  color: var(--tint);
+}
+
+@media (hover: hover) {
+  .tour-rail a:hover {
+    color: var(--text);
+  }
+}
+
+.tour-rail a:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 0;
+}
+
+/* 手機浮動按鈕：捲過主標才出現 */
+.tour-fab {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 31;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 32px);
+  height: 48px;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--menu);
+  color: var(--text);
+  box-shadow: var(--menu-shadow);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 24px);
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease-spring);
+}
+
+.tour-fab.is-shown {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+.tour-fab:active {
+  transform: translate(-50%, 0) scale(.96);
+}
+
+.tour-fab:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+.tour-fab-ring {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  transform: rotate(-90deg);
+}
+
+.tour-fab-ring circle {
+  fill: none;
+  stroke: var(--fill-hover);
+  stroke-width: 3;
+}
+
+.tour-fab-ring circle + circle {
+  stroke: var(--tint);
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--dur-hover) var(--ease);
+}
+
+.tour-fab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tour-fab-chev {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.tour-fab[aria-expanded="true"] .tour-fab-chev {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 1179px) {
+  .tour-rail {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    z-index: 30;
+    max-width: 380px;
+    max-height: min(70vh, 520px);
+    margin-inline: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 14px;
+    border-radius: 20px;
+    background: var(--menu);
+    box-shadow: var(--menu-shadow);
+    display: none;
+  }
+
+  .tour-rail.is-open {
+    display: block;
+    animation: tour-rail-in var(--dur-base) var(--ease-out);
+  }
+
+  .tour-rail-dot {
+    background: var(--menu);
+  }
+
+  .tour-rail a {
+    min-height: 40px;
+  }
+
+  .tour-rail-sub a {
+    min-height: 36px;
+  }
+}
+
+@keyframes tour-rail-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* 桌機：固定在畫面左側、垂直置中，位置跟著 1080px 內容欄的左緣算 */
+@media (min-width: 1180px) {
+  .tour-rail {
+    position: fixed;
+    top: 50%;
+    z-index: 15;
+    transform: translateY(-50%);
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .tour-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tour-fab {
+    display: none;
+  }
+}
+
+/* 完整導覽：卡片右緣離內容文字至少 24px */
+@media (min-width: 1440px) {
+  .tour-rail {
+    left: max(16px, calc((100vw - 1080px) / 2 - 196px));
+    width: 172px;
+  }
+}
+
+/* 精簡導覽：留白不夠放文字，只留進度線和圓點；滑過或鍵盤聚焦時在旁邊浮出段落名 */
+@media (min-width: 1180px) and (max-width: 1439px) {
+  .tour-rail {
+    left: max(12px, calc((100vw - 1080px) / 2 - 56px));
+    width: 40px;
+    padding: 12px 0;
+    border-radius: 999px;
+    overflow: visible;
+  }
+
+  .tour-rail-head {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .tour-rail-head>span:first-child,
+  .tour-rail-sub {
+    display: none;
+  }
+
+  .tour-rail-pct {
+    font-size: 11px;
+  }
+
+  .tour-rail-list {
+    margin-top: 6px;
+  }
+
+  .tour-rail-list::before,
+  .tour-rail-list::after {
+    left: 19px;
+  }
+
+  .tour-rail a {
+    position: relative;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0;
+  }
+
+  .tour-rail a>span:last-child {
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 10px);
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--menu);
+    box-shadow: var(--menu-shadow);
+    color: var(--text);
+    font-size: 13px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-4px, -50%);
+    transition: opacity var(--dur-hover) var(--ease), transform var(--dur-hover) var(--ease);
+  }
+
+  .tour-rail a:hover>span:last-child,
+  .tour-rail a:focus-visible>span:last-child {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
+/* ── ① 預熱：每組一排首頁書架（.shelf／.shelf-nav 沿用首頁「推薦練習」） ── */
+.tour-shelves {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  margin-top: 8px;
+}
+
+.tour-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  scroll-margin-top: 72px;
+}
+
+/* 標題列：標題｜「練這組」，說明在下一行佔滿整寬（手機上按鈕也不會自己佔一整行） */
+.tour-shelf-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 16px;
+}
+
+.tour-shelf-copy {
+  display: contents;
+}
+
+.tour-shelf-head .tour-play {
+  grid-row: 1;
+  grid-column: 2;
+}
+
+.tour-shelf-copy .sec-sub {
+  grid-column: 1 / -1;
+}
+
+/* 寬螢幕：按鈕直跨標題和說明兩行，標題跟說明貼近 */
+@media (min-width: 761px) {
+  .tour-shelf-head .tour-play {
+    grid-row: 1 / span 2;
+  }
+
+  .tour-shelf-copy .sec-sub {
+    grid-column: 1;
+  }
+}
+
+.tour-shelf-copy h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -.01em;
+}
+
+.tour-shelf-copy .count {
+  color: var(--faint);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.tour-shelf-copy .sec-sub {
+  text-wrap: pretty;
+}
+
+/* 書架卡片左上角的小標（首支投稿、最新翻唱…） */
+.tour-shelf .card {
+  position: relative;
+}
+
+.tour-thumb-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, .72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.tour-shelf-note {
+  color: var(--faint);
+  font-size: 13px;
+}
+
+/* 一排放得下就不需要進度條和箭頭，只留註記 */
+.tour-shelf .shelf-nav.is-static {
+  min-height: 0;
+}
+
+.tour-shelf .shelf-nav.is-static:not(:has(.tour-shelf-note)) {
+  display: none;
+}
+
+/* 「還有 N 首」／「顯示更早的翻唱」：原生 details，不需要腳本 */
+.tour-more>summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: var(--tint);
+  font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tour-more>summary::-webkit-details-marker {
+  display: none;
+}
+
+.tour-more>summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.tour-more[open]>summary::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.tour-more[open] .tour-more-show,
+.tour-more:not([open]) .tour-more-hide {
+  display: none;
+}
+
+.tour-more>summary:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .tour-more>summary:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+}
+
+/* ── ③ 全部翻唱：分 4 層，最後一層依年份 ── */
+.tour-cover-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  margin-top: 4px;
+}
+
+.tour-cover-tier,
+.tour-city {
+  scroll-margin-top: 72px;
+}
+
+.tour-cover-tier {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tour-year {
+  margin: 16px 0 0;
+  color: var(--faint);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tour-older {
+  margin-top: 8px;
+}
+
+.tour-older>summary {
+  font-size: 15px;
 }

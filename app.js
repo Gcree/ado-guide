@@ -1767,9 +1767,38 @@
     return TOOL["prefer-live"] ? "live" : "mv";
   }
 
+  function activeVideoSpec(s = S, src = currentVideoSource(s)) {
+    if (!s) return { yt: "", start: 0, end: 0 };
+    if (src === "live" && s.liveVideo) {
+      const st = Number.isFinite(s.liveVideo.start) && s.liveVideo.start > 0 ? s.liveVideo.start : 0;
+      const en = Number.isFinite(s.liveVideo.end) && s.liveVideo.end > st ? s.liveVideo.end : 0;
+      return { yt: s.liveVideo.yt || "", start: st, end: en };
+    }
+    return { yt: s.yt || "", start: 0, end: 0 };
+  }
+
+  function isClipSpec(spec) {
+    return Boolean(spec && spec.yt && spec.end > spec.start);
+  }
+
+  function activeVideoKey(spec) {
+    return spec && spec.yt ? `${spec.yt}:${spec.start}:${spec.end}` : "";
+  }
+
+  function activeVideoUrl(spec) {
+    if (!spec || !spec.yt) return "";
+    return `https://www.youtube.com/watch?v=${spec.yt}${spec.start > 0 ? `&t=${Math.floor(spec.start)}s` : ""}`;
+  }
+
+  function buildLoadOpts(spec, relStart = 0) {
+    const startSeconds = spec.start + Math.max(0, relStart);
+    return spec.end > spec.start
+      ? { videoId: spec.yt, startSeconds, endSeconds: spec.end }
+      : { videoId: spec.yt, startSeconds };
+  }
+
   function activeVideoId(s = S) {
-    if (!s) return "";
-    return currentVideoSource(s) === "live" && s.liveVideo ? s.liveVideo.yt : s.yt;
+    return activeVideoSpec(s).yt;
   }
 
   function updateVideoSourceUi() {
@@ -1794,10 +1823,13 @@
     }
   }
 
-  function syncCardYtEl(el, curYt) {
+  function syncCardYtEl(el, specOrYt) {
     if (!el) return;
-    if (curYt) {
-      el.href = `https://www.youtube.com/watch?v=${curYt}`;
+    const url = typeof specOrYt === "string"
+      ? (specOrYt ? `https://www.youtube.com/watch?v=${specOrYt}` : "")
+      : activeVideoUrl(specOrYt);
+    if (url) {
+      el.href = url;
       el.target = "_blank";
       el.rel = "noopener";
       el.textContent = T("在 YouTube 開啟 ↗");
@@ -1811,18 +1843,19 @@
 
   function updateExternalLinks(s = S) {
     if (!s) return;
-    const curYt = activeVideoId(s);
+    const spec = activeVideoSpec(s);
+    const url = activeVideoUrl(spec);
     const ytLink2 = document.getElementById("ytLink2");
     if (ytLink2) {
-      if (curYt) {
-        ytLink2.href = `https://www.youtube.com/watch?v=${curYt}`;
+      if (url) {
+        ytLink2.href = url;
         ytLink2.hidden = false;
       } else {
         ytLink2.removeAttribute("href");
         ytLink2.hidden = true;
       }
     }
-    syncCardYtEl(document.getElementById("cardYt"), curYt);
+    syncCardYtEl(document.getElementById("cardYt"), spec);
   }
 
   const normLyricText = txt => String(txt || "")
@@ -1858,8 +1891,9 @@
       document.getElementById("toolQuiz").disabled = !TAGGED;
       document.querySelectorAll('[data-tool="click"]').forEach(b => b.disabled = !BEAT[song.id] || targetSource === "live");
 
-      const targetVid = activeVideoId(song);
-      if (player && ready) {
+      const targetSpec = activeVideoSpec(song, targetSource);
+      const targetKey = activeVideoKey(targetSpec);
+      if (player && ready && targetSpec.yt) {
         let targetStart = 0;
         if (opts && typeof opts.startSeconds === "number") {
           targetStart = opts.startSeconds;
@@ -1880,18 +1914,20 @@
         } else {
           targetStart = Math.max(0, Math.min(DUR(), curTime));
         }
-        vid = targetVid;
+        vid = targetKey;
+        resetClipGuard(1400);
         videoMsg("");
         setVideoLoading(true);
         try {
           player.unMute();
           autoMuted = false;
-          player.loadVideoById({ videoId: targetVid, startSeconds: targetStart });
+          player.loadVideoById(buildLoadOpts(targetSpec, targetStart));
         } catch (e) {}
         syncSwitchLoading();
         ensurePlaying();
       }
       updateExternalLinks(song);
+      updateClipBar(0, false);
 
       if (targetSource === "live") {
         karaokeLoadSeq++;
@@ -1913,8 +1949,13 @@
     }
   }
 
-  // 長度以 YouTube 回報的為準，還沒載好才用資料裡的長度
-  const DUR = () => { try { const d = ready && vid && vid === activeVideoId(S) && player.getDuration(); if (d) return d; } catch (e) {} return S ? S.dur : 1; };
+  // 長度：片段（如合輯章節）用 end - start；整支影片以 YouTube 回報的為準，還沒載好才用資料裡的長度
+  const DUR = () => {
+    const spec = activeVideoSpec(S);
+    if (spec.end > spec.start) return spec.end - spec.start;
+    try { const d = ready && vid && vid === activeVideoKey(spec) && player.getDuration(); if (d) return d; } catch (e) {}
+    return S ? S.dur : 1;
+  };
   function videoMsg(text, loading = false) {
     vstatus.hidden = !text;
     vstatus.classList.toggle("is-loading", !!text && loading);
@@ -1934,11 +1975,179 @@
     try { st = player.getPlayerState(); } catch (e) {}
     setVideoLoading(st === -1 || st === 3);
   };
-  const now = () => { try { return (ready && vid && vid === activeVideoId(S) && player.getCurrentTime()) || 0; } catch (e) { return 0; } };
-  const isPlaying = () => { try { return ready && !!vid && vid === activeVideoId(S) && [1, 3].includes(player.getPlayerState()); } catch (e) { return false; } };
-  function play() { if (ready && player && S && activeVideoId(S) && vid) try { player.playVideo(); } catch (e) {} }
+  const now = () => {
+    const spec = activeVideoSpec(S);
+    try {
+      if (!ready || !vid || vid !== activeVideoKey(spec)) return 0;
+      const raw = player.getCurrentTime() || 0;
+      const rel = Math.max(0, raw - spec.start);
+      return spec.end > spec.start ? Math.min(spec.end - spec.start, rel) : rel;
+    } catch (e) { return 0; }
+  };
+  const isPlaying = () => {
+    const spec = activeVideoSpec(S);
+    try { return ready && !!vid && vid === activeVideoKey(spec) && [1, 3].includes(player.getPlayerState()); } catch (e) { return false; }
+  };
+  // 合輯片段（LIVE_VIDEOS start/end）區間鎖定與單曲迷你控制列
+  const clipBarEl = document.getElementById("clipBar");
+  const clipPlayEl = document.getElementById("clipPlay");
+  const clipReplayEl = document.getElementById("clipReplay");
+  const clipRangeEl = document.getElementById("clipRange");
+  const clipTimeEl = document.getElementById("clipTime");
+  const clipIcoPlay = clipPlayEl ? clipPlayEl.querySelector(".ico-play") : null;
+  const clipIcoPause = clipPlayEl ? clipPlayEl.querySelector(".ico-pause") : null;
+  let clipEndedFlag = false;
+  let clipGuardGraceUntil = 0;
+  let clipGuardToastAt = 0;
+  let clipDragging = false;
+  let lastClipTimeText = "";
+  let lastClipPlaying = null;
+
+  function resetClipGuard(graceMs = 1200) {
+    clipEndedFlag = false;
+    clipGuardGraceUntil = performance.now() + graceMs;
+  }
+
+  function showClipGuardToast() {
+    const nowMs = performance.now();
+    if (nowMs - clipGuardToastAt < 4000) return;
+    clipGuardToastAt = nowMs;
+    toast(T("已鎖定在本曲片段內"));
+  }
+
+  function guardClip() {
+    if (!ready || !player || !S || songV.hidden || !vid) return;
+    const spec = activeVideoSpec(S);
+    if (!isClipSpec(spec) || vid !== activeVideoKey(spec)) return;
+    let st = -1, raw = 0;
+    try {
+      st = player.getPlayerState();
+      raw = player.getCurrentTime() || 0;
+    } catch (e) { return; }
+    if (st !== 1) return;
+    const nowMs = performance.now();
+    if (nowMs < clipGuardGraceUntil) return;
+
+    if (raw < spec.start - 0.8) {
+      resetClipGuard(1000);
+      try { player.seekTo(spec.start, true); } catch (e) {}
+      showClipGuardToast();
+    } else if (raw > spec.end + 2.5) {
+      resetClipGuard(1000);
+      try { player.seekTo(spec.start, true); } catch (e) {}
+      showClipGuardToast();
+    } else if (raw >= spec.end - 0.15) {
+      if (!clipEndedFlag) {
+        clipEndedFlag = true;
+        try { player.pauseVideo(); } catch (e) {}
+        ended();
+      }
+    } else if (clipEndedFlag && raw < spec.end - 1) {
+      clipEndedFlag = false;
+    }
+  }
+
+  function setClipRangeVisual(val, dur) {
+    if (!clipRangeEl) return;
+    const pct = dur > 0 ? Math.max(0, Math.min(100, (val / dur) * 100)) : 0;
+    clipRangeEl.style.setProperty("--clip-pct", `${pct.toFixed(2)}%`);
+  }
+
+  function updateClipBar(t, playing) {
+    if (!clipBarEl) return;
+    const spec = S && !songV.hidden ? activeVideoSpec(S) : null;
+    const show = isClipSpec(spec);
+    if (clipBarEl.hidden !== !show) clipBarEl.hidden = !show;
+    if (!show) return;
+
+    const dur = Math.max(1, spec.end - spec.start);
+    const clamped = Math.max(0, Math.min(dur, Number.isFinite(t) ? t : 0));
+    if (playing !== lastClipPlaying) {
+      lastClipPlaying = playing;
+      if (clipIcoPlay) clipIcoPlay.hidden = playing;
+      if (clipIcoPause) clipIcoPause.hidden = !playing;
+      if (clipPlayEl) {
+        const lbl = T(playing ? "暫停" : "播放");
+        clipPlayEl.setAttribute("aria-label", lbl);
+        clipPlayEl.title = lbl;
+      }
+    }
+    if (clipRangeEl && !clipDragging) {
+      const maxStr = String(dur);
+      if (clipRangeEl.max !== maxStr) clipRangeEl.max = maxStr;
+      clipRangeEl.value = clamped.toFixed(1);
+      setClipRangeVisual(clamped, dur);
+    }
+    if (clipTimeEl && !clipDragging) {
+      const txt = `${fmt(clamped)} / ${fmt(dur)}`;
+      if (txt !== lastClipTimeText) {
+        lastClipTimeText = txt;
+        clipTimeEl.textContent = txt;
+      }
+    }
+  }
+
+  if (clipPlayEl) {
+    clipPlayEl.addEventListener("click", () => {
+      if (isPlaying()) pause();
+      else play();
+    });
+  }
+  if (clipReplayEl) {
+    clipReplayEl.addEventListener("click", () => {
+      seek(0);
+    });
+  }
+  if (clipRangeEl) {
+    const startDrag = () => { clipDragging = true; };
+    const commitDrag = () => {
+      if (!clipDragging) return;
+      clipDragging = false;
+      const v = parseFloat(clipRangeEl.value);
+      if (Number.isFinite(v)) seek(v);
+    };
+    clipRangeEl.addEventListener("pointerdown", startDrag);
+    clipRangeEl.addEventListener("touchstart", startDrag, { passive: true });
+    clipRangeEl.addEventListener("input", () => {
+      const dur = DUR();
+      const v = Math.max(0, Math.min(dur, parseFloat(clipRangeEl.value) || 0));
+      setClipRangeVisual(v, dur);
+      if (clipTimeEl) {
+        lastClipTimeText = `${fmt(v)} / ${fmt(dur)}`;
+        clipTimeEl.textContent = lastClipTimeText;
+      }
+    });
+    clipRangeEl.addEventListener("change", () => {
+      clipDragging = false;
+      const v = parseFloat(clipRangeEl.value);
+      if (Number.isFinite(v)) seek(v);
+    });
+    clipRangeEl.addEventListener("pointerup", commitDrag);
+    clipRangeEl.addEventListener("pointercancel", () => { clipDragging = false; });
+  }
+
+  function play() {
+    if (!ready || !player || !S || !activeVideoId(S) || !vid) return;
+    const spec = activeVideoSpec(S);
+    try {
+      if (isClipSpec(spec)) {
+        const raw = player.getCurrentTime() || 0;
+        const st = player.getPlayerState();
+        if (st === 0 || clipEndedFlag || raw < spec.start - 0.5 || raw >= spec.end - 0.25) {
+          resetClipGuard(1000);
+          player.seekTo(spec.start, true);
+        }
+      }
+      player.playVideo();
+    } catch (e) {}
+  }
   function pause() { clearTimeout(muteTimer); if (ready && player) try { player.pauseVideo(); } catch (e) {} }
-  function seek(t) { if (!ready || !player || !S || !activeVideoId(S) || !vid) return; try { player.seekTo(Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); } catch (e) {} }
+  function seek(t) {
+    const spec = activeVideoSpec(S);
+    if (!ready || !player || !S || !spec.yt || !vid) return;
+    resetClipGuard(1000);
+    try { player.seekTo(spec.start + Math.max(0, Math.min(DUR(), t)), true); player.playVideo(); } catch (e) {}
+  }
 
   // 播放速度：放慢練應援時間點，記在這台裝置
   // 電腦是工具列上的下拉選單，手機是一顆按鈕輪流切換（1 → 0.75 → 0.5）
@@ -1996,8 +2205,9 @@
         playerRetries++;
         resetPlayer();
         if (window.YT && YT.Player) {
-          vid = activeVideoId(S);
-          createPlayer(vid, true);
+          const spec = activeVideoSpec(S);
+          vid = activeVideoKey(spec);
+          createPlayer(spec, true);
         } else {
           if (ytScriptEl) { ytScriptEl.remove(); ytScriptEl = null; }
           if (typeof reloadYT === "function") reloadYT();
@@ -2010,12 +2220,12 @@
     }, 4500);
   }
 
-  function createPlayer(videoId, startPlaying = true) {
-    if (player || !window.YT || !YT.Player || !videoId) return;
+  function createPlayer(spec, startPlaying = true) {
+    if (player || !window.YT || !YT.Player || !spec || !spec.yt) return;
     const origin = location.protocol.startsWith("http") ? location.origin : undefined;
     const startAt = START;
     player = new YT.Player("ytp", {
-      videoId: videoId,
+      videoId: spec.yt,
       playerVars: {
         rel: 0,
         playsinline: 1,
@@ -2023,7 +2233,8 @@
         autoplay: startPlaying ? 1 : 0,
         enablejsapi: 1,
         iv_load_policy: 3,
-        start: START,
+        start: Math.floor(spec.start + START),
+        ...(spec.end > spec.start ? { end: Math.floor(spec.end) } : {}),
         ...(origin ? { origin } : {})
       },
       events: {
@@ -2037,7 +2248,7 @@
           // 等播放器的期間已經回首頁：不要在背景出聲
           if (!S || songV.hidden) { try { player.pauseVideo(); } catch (e) {} START = 0; return; }
           // 等播放器的期間換了歌：交給 loadVideo 換片
-          if (vid !== activeVideoId(S)) { loadVideo(); return; }
+          if (vid !== activeVideoKey(activeVideoSpec(S))) { loadVideo(); return; }
           if (startPlaying) {
             // 點連結時播放器先建好，之後才知道網址上的 @秒數
             if (START && START !== startAt) seek(START);
@@ -2050,9 +2261,27 @@
         onStateChange: e => {
           if (e.data === 3) setVideoLoading(true);
           else if (e.data === 0 || e.data === 1 || e.data === 2 || e.data === 5) setVideoLoading(false);
-          if (e.data === 1) { videoMsg(""); applyRate(); }
+          if (e.data === 1) {
+            videoMsg("");
+            applyRate();
+            const spec = activeVideoSpec(S);
+            if (isClipSpec(spec) && vid === activeVideoKey(spec)) {
+              try {
+                const raw = player.getCurrentTime() || 0;
+                if (clipEndedFlag && (raw < spec.start - 0.8 || raw >= spec.end - 0.25)) {
+                  resetClipGuard(1000);
+                  player.seekTo(spec.start, true);
+                }
+              } catch (err) {}
+            }
+          }
           else if (e.data === 5) applyRate();
-          if (e.data === 0) ended();
+          if (e.data === 0) {
+            if (!clipEndedFlag) {
+              clipEndedFlag = true;
+              ended();
+            }
+          }
         },
         onError: () => { clearTimeout(muteTimer); setVideoLoading(false); videoMsg(T("無法播放影片，請到 YouTube 觀看。")); }
       }
@@ -2062,8 +2291,9 @@
 
   function loadVideo() {
     if (!S || songV.hidden) return;
-    const targetVid = activeVideoId(S);
-    if (!targetVid) {
+    const targetSpec = activeVideoSpec(S);
+    const targetKey = activeVideoKey(targetSpec);
+    if (!targetSpec.yt) {
       clearTimeout(readyTimer);
       clearTimeout(muteTimer);
       if (ready && player && typeof player.pauseVideo === "function") {
@@ -2086,8 +2316,9 @@
     }
     const startSec = START || 0;
     if (!player) {
-      vid = targetVid;
-      createPlayer(vid, true);
+      vid = targetKey;
+      resetClipGuard(1600);
+      createPlayer(targetSpec, true);
       return;
     }
     if (!ready) {
@@ -2095,17 +2326,19 @@
       return;
     }
     // 打開歌曲或切歌播放
-    if (vid !== targetVid) {
-      vid = targetVid;
+    if (vid !== targetKey) {
+      vid = targetKey;
+      resetClipGuard(1400);
       setVideoLoading(true);
       try {
         player.unMute();
         autoMuted = false;
-        player.loadVideoById({ videoId: targetVid, startSeconds: startSec });
+        player.loadVideoById(buildLoadOpts(targetSpec, startSec));
       } catch (e) {}
       syncSwitchLoading();
     } else {
       if (START) seek(START);
+      else if (isClipSpec(targetSpec)) resetClipGuard(800);
       try {
         player.unMute();
         autoMuted = false;
@@ -2138,8 +2371,9 @@
   });
   function tapPlay(targetSong) {
     const src = targetSong === S ? currentVideoSource(targetSong) : (targetSong.liveVideo && TOOL["prefer-live"] ? "live" : "mv");
-    const targetVid = src === "live" && targetSong.liveVideo ? targetSong.liveVideo.yt : targetSong.yt;
-    if (!targetVid) {
+    const targetSpec = activeVideoSpec(targetSong, src);
+    const targetKey = activeVideoKey(targetSpec);
+    if (!targetSpec.yt) {
       if (player && ready && typeof player.pauseVideo === "function") {
         try { player.pauseVideo(); } catch (err) {}
       }
@@ -2149,10 +2383,11 @@
       try {
         player.unMute();
         autoMuted = false;
-        if (vid !== targetVid) {
-          vid = targetVid;
+        if (vid !== targetKey) {
+          vid = targetKey;
+          resetClipGuard(1400);
           setVideoLoading(true);
-          player.loadVideoById({ videoId: targetVid, startSeconds: 0 });
+          player.loadVideoById(buildLoadOpts(targetSpec, 0));
           syncSwitchLoading();
         } else {
           player.playVideo();
@@ -2300,7 +2535,7 @@
     if (cardJa) {
       cardJa.textContent = s.ja + (otherName(s) ? `（${otherName(s)}）` : "");
       const p = penOf(s);
-      const penText = p.keys.map(penName).join(T("、")) + (p.none ? T("（未指定，建議用代表色藍色）") : "");
+      const penText = p.keys.map(penName).join(T("、")) + (p.none ? T("（未指定）") : "");
       document.getElementById("cardPen").textContent = penText;
       const aka = LANG === "zh" ? [...new Set([s.zh !== s.ja ? s.zh : "", ...(s.alias || []), s.en && s.en !== s.ja ? s.en : ""].filter(Boolean))].join("・") : LANG === "en" ? [s.ro && s.ro !== s.en ? s.ro : ""].filter(Boolean).join("・") : "";
       [["cardAka", aka], ["cardTie", s.tie ? T(s.tie) : ""], ["cardAlbum", s.album ? T(s.album) : ""], ["cardDate", (s.date || "").replace(/-/g, "/")]].forEach(([k, v]) => {
@@ -2308,7 +2543,7 @@
         if (dt && dd) { dd.textContent = v; dt.hidden = dd.hidden = !v; }
       });
       document.getElementById("cardTips").textContent = s.tips && s.tips.length ? s.tips.join(T("；")) : (s.free ? T("沒有固定應援，自由跟著節奏搖手燈。") : T("應援還在整理，先熟悉旋律。"));
-      syncCardYtEl(document.getElementById("cardYt"), activeVideoId(s));
+      syncCardYtEl(document.getElementById("cardYt"), activeVideoSpec(s));
       const cardStream = document.getElementById("cardStream");
       if (cardStream) cardStream.innerHTML = (s.stream || []).map(x => `<a href="${esc(x.url)}" class="live-chip" target="_blank" rel="noopener">${esc(x.name)} ↗</a>`).join(" ");
       const cardLiveDt = document.getElementById("cardLiveDt");
@@ -2981,10 +3216,10 @@
         ? [LANG === "en" ? `Scheduled ${dateStr}` : LANG === "ja" ? `${dateStr} リリース予定` : `預計 ${dateStr} 發行`, s.len].filter(Boolean)
         : [dateStr, s.len].filter(Boolean);
       const lead = LANG === "en"
-        ? `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""}${metaParts.length ? ` (${metaParts.join(", ")})` : ""}. ${p.none ? "No fixed penlight color; use Ado's blue." : `Recommended penlight: ${p.keys.map(penName).join(", ")}.`} ${tipText}`
+        ? `Ado's "${dn || s.ja}"${dn ? ` (${s.ja})` : ""}${metaParts.length ? ` (${metaParts.join(", ")})` : ""}. ${p.none ? "No live penlight color on record yet: leave it to central control if the venue uses it, otherwise follow the stage lighting or the crowd." : `Recommended penlight: ${p.keys.map(penName).join(", ")}.`} ${tipText}`
         : LANG === "ja"
-        ? `「${s.ja}」${metaParts.length ? `（${metaParts.join("・")}）` : ""}。${p.none ? "ペンライト色指定なし（青）。" : `おすすめペンライト：${p.keys.map(penName).join("・")}。`}${tipText}`
-        : `〈${s.ja}〉${dn ? `（${dn}）` : ""}${metaParts.length ? `（${metaParts.join("・")}）` : ""}。${p.none ? "手燈未指定固定顏色，建議切換為 Ado 代表色藍色。" : `推薦手燈：${p.keys.map(penName).join("、")}。`}${tipText}`;
+        ? `「${s.ja}」${metaParts.length ? `（${metaParts.join("・")}）` : ""}。${p.none ? "ライブでのペンライト色の情報はまだありません。無線制御があればそのままで、なければステージの照明や周りに合わせましょう。" : `おすすめペンライト：${p.keys.map(penName).join("・")}。`}${tipText}`
+        : `〈${s.ja}〉${dn ? `（${dn}）` : ""}${metaParts.length ? `（${metaParts.join("・")}）` : ""}。${p.none ? "本站還沒有這首的現場手燈色資料：有開中控就交給中控，沒有的話跟著舞台燈光或周圍觀眾。" : `推薦手燈：${p.keys.map(penName).join("、")}。`}${tipText}`;
       inlineEl.innerHTML = `<h2 class="guide-inline-h">${T("〈{0}〉應援速覽", `${esc(s.ja)}${dn ? `（${esc(dn)}）` : ""}`)}</h2><p class="guide-inline-lead">${esc(lead)}</p>`;
       inlineEl.appendChild(cloned);
     }
@@ -4422,6 +4657,7 @@
     let h = rawH;
     routeSource = null;
     let routeFilter = null;
+    let routePlay = false;
     const qIdx = h.indexOf("?");
     if (qIdx >= 0) {
       const q = new URLSearchParams(h.slice(qIdx + 1));
@@ -4429,9 +4665,21 @@
       if (sVal === "live" || sVal === "mv") routeSource = sVal;
       const fVal = (q.get("f") || "").toLowerCase();
       if (fVal) routeFilter = fVal;
+      routePlay = q.get("play") === "1";
       h = h.slice(0, qIdx);
     }
     const parsedList = parseListHash(h, VALID_SONG_IDS);
+    // #list=a,b,c?play=1：直接從清單第一首開始練（巡演頁的「練這組」），上一首／下一首照清單走；回首頁時仍顯示這份分享清單
+    if (parsedList && parsedList.length && routePlay) {
+      sharedList = parsedList;
+      filter = "setlist";
+      shown = LIMIT;
+      activePlayList = [...parsedList];
+      h = parsedList[0];
+      if (!PAGE_SONG) history.replaceState(null, "", `#${h}`);
+      else if (h !== PAGE_SONG) history.replaceState(null, "", new URL(`song/${h}/`, document.baseURI));
+      else history.replaceState(null, "", location.pathname);
+    }
     let [id, at] = h.split("@"), s = BY[id];
     if (!s && parsedList === null && h === "random") {
       const pool = SONGS.filter(x => !x.hold && !x.sug && Boolean(x.yt) && (x.free || (x.tips && x.tips.length > 0)));
@@ -4967,7 +5215,9 @@
     frameId = 0;
     let keepRunning = true;
     try {
+      guardClip();
       const cue = update(), playing = S && !songV.hidden && isPlaying(), t = now();
+      updateClipBar(t, playing);
       clicks(t, playing);
       lampFrame(t, playing);
       quizFrame(t);

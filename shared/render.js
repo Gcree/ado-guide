@@ -93,7 +93,7 @@
       words,
       none,
       text: none
-        ? t("藍色（官方未指定，建議切換為代表色藍色）")
+        ? t("藍色（未指定）")
         : keys.map(k => penName(k, t, true)).join(sep),
       shortText: none ? t("藍（未指定）") : words.join(sep),
       cols: keys.flatMap(k => (k === "彩" ? RAINBOW : [k]).map(c => (PENC[c] ? PENC[c][1] : PENC.青[1])))
@@ -247,7 +247,7 @@
       const parts = [
         leadEn,
         safePen.none
-          ? "No official song-specific penlight color is assigned, so fans switch to Ado's signature blue at concerts."
+          ? "No live penlight color on record yet: leave it to central control if the venue uses it, otherwise follow the stage lighting or the crowd."
           : `Recommended concert penlight color: ${(safePen.words || []).join(", ")}.`,
         safeTips.length
           ? `Main audience participation${actNames.length ? ` (${actNames.join(", ")})` : ""}${cheerLines ? ` across ${cheerLines} cued lyric lines` : ""}: ${safeTips.join("; ")}.`
@@ -267,7 +267,7 @@
       const parts = [
         leadJa,
         safePen.none
-          ? "楽曲固有のペンライト色指定はないため、ライブでは Ado のイメージカラーである青を基本に楽しむのが定番です。"
+          ? "ライブでのペンライト色の情報はまだありません。無線制御があればそのままで、なければステージの照明や周りに合わせましょう。"
           : `ライブのおすすめペンライト色は「${(safePen.words || []).join("・")}」です。`,
         safeTips.length
           ? `主な応援ポイント${actNames.length ? `（${actNames.join("・")}）` : ""}${cheerLines ? `（同期歌詞 ${cheerLines} 行に合図あり）` : ""}：${safeTips.join("／")}。`
@@ -286,7 +286,7 @@
     const parts = [
       leadZh,
       safePen.none
-        ? "這首歌目前沒有固定指定的螢光棒顏色，現場建議切換成 Ado 的代表色藍色。"
+        ? "本站還沒有這首的現場手燈色資料：有開中控就交給中控，沒有的話跟著舞台燈光或周圍觀眾。"
         : `演唱會推薦手燈顏色為「${(safePen.words || []).join("、")}」，也可搭配 PenlightSync 隨音樂自動變色。`,
       safeTips.length
         ? `主要應援方式包含${actNames.join("、")}${cheerLines ? `（共 ${cheerLines} 句標記動作）` : ""}：${safeTips.join("；")}。`

@@ -1,5 +1,5 @@
 // 巡演專頁資料：由 scripts/build.mjs 讀取並自動生成中／英／日三語靜態頁（tour/<id>/、en/tour/<id>/、jp/tour/<id>/）
-// 歌曲資訊（歌名、縮圖、手燈色、應援重點）皆從 songs.js 自動連動，這裡只填巡演場次、預習分組曲目 ID 與開唱後的防雷實際歌單。
+// 歌曲資訊（歌名、縮圖、手燈色、應援重點）皆從 songs.js 自動連動，這裡只填巡演場次、預熱分組曲目 ID 與開演後各場的實際歌單。
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ADO_TOURS = factory();
@@ -20,56 +20,52 @@
           shortName: "翻唱巡迴 2027",
           bannerTag: "2027 巡迴預習",
           bannerTitle: "Ado 歌ってみた翻唱巡迴 2027 歌單預習",
-          bannerSub: "2027/01/10 東京開唱・翻唱專輯《その２》與熱門翻唱分層整理，不暴雷",
+          bannerSub: "2027/01/10 東京開唱・兩張翻唱專輯與 YouTube 翻唱分組整理，不暴雷",
           bannerCta: "看預習歌單",
           title: "Ado 歌ってみた巡迴 2027 歌單預習與應援指南｜翻唱專輯《その２》",
-          desc: "Ado 歌い手活動 10 週年「Adoの歌ってみたツアー2027」（東京・大阪・愛知 6 公演）不暴雷歌單預習：整理《歌ってみたアルバム その２》與第 1 彈收錄曲、已有現場應援紀錄與熱門新翻唱，支援一鍵匯入待練清單與手燈顏色參考。",
-          heroLead: "紀念 Ado 歌い手活動滿 10 週年的「歌ってみた」翻唱主題巡演（東京・大阪・愛知共 6 公演）。本頁將《Adoの歌ってみたアルバム その２》與歷年高人氣翻唱分層整理，開唱前安心預習不暴雷，開唱後另設防雷摺疊區收錄實際演出歌單。",
-          statusNote: "目前為開唱前不暴雷預習清單（2027/01/10 首場後於下方防雷區更新實際歌單）",
-          scheduleTitle: "巡演日程與場館（3 都市・全 6 公演）",
-          scheduleSub: "皆為日本當地時間（JST），實際入場與開演時間請以官方公告為準",
-          rulesTitle: "翻唱巡迴應援速記",
-          rulesSub: "進場前先掌握三個大原則，第一次看翻唱專場也能輕鬆融入",
-          rules: [
+          desc: "Ado 歌い手活動 10 週年「Adoの歌ってみたツアー2027」（東京・大阪・愛知 6 公演）歌單預習：開演前照預熱歌單練兩張《歌ってみたアルバム》與 YouTube 上的翻唱，開演後照每一場（Day 1／Day 2）的實際歌單練，點一下就從第一首開始，不暴雷。",
+          heroLead: "紀念 Ado 歌い手活動 10 週年的「歌ってみた」巡演，2027/1/10 歌い手活動 10 週年紀念日開唱，東京・大阪・愛知共 6 場。開演前先練預熱歌單；開演後每一場的歌單會整理在下面，照你要去的那天練。",
+          warmTitle: "預熱",
+          warmSub: "開演前、還不知道歌單時，照這個順序練：先練有固定應援的，再練兩張翻唱專輯和 YouTube 上的翻唱。",
+          showsTitle: "各場歌單",
+          showsSub: "每場歌單都可能不一樣，同一個場館的 Day 1、Day 2 也可能不同。點開你要去的那天就能照那場練，沒點開不會看到曲目。",
+          tipsTitle: "現場小提醒",
+          tips: [
             {
-              title: "手燈迷惘一律切藍色（迷ったら青）",
-              body: "翻唱曲多數沒有官方指定手燈色；除了〈unravel〉〈ヒバナ〉〈あのバンド〉等已有現場慣例的曲目外，切 Ado 代表色「藍色」或跟隨舞台燈光與周圍觀眾最安心。"
+              title: "有開中控，手燈就不用自己切",
+              body: "現場有開中控時，手燈顏色由會場統一控制，不用自己切。沒開中控時才需要自己切：〈unravel〉〈ヒバナ〉〈あのバンド〉照本站標的顏色；其他翻唱本站還沒有現場手燈色資料，可以跟著舞台燈光或周圍觀眾。"
             },
             {
-              title: "專心聽歌聲，別硬喊不存在的 Call",
-              body: "這場巡演聚焦 Ado 的翻唱原點與唱功表現，許多名曲偏抒情或張力型，沒有固定口號；遇到高潮拍手或 Ado 現場引導再一起互動即可。"
+              title: "沒有固定 Call 就別硬喊",
+              body: "本站沒標應援的歌，代表還沒有現場資料。跟著節奏搖手燈就好，副歌拍手或 Ado 帶動時再一起互動。"
             },
             {
-              title: "一鍵載入待練清單，先從 2 張翻唱專輯聽起",
-              body: "點擊各分組右側的「載入待練清單」即可直接回到主站連播練習；電腦版同樣可搭配 PenlightSync 自動切換官方手燈顏色。"
+              title: "按「練這組」就直接開練",
+              body: "會從清單第一首開始，上一首／下一首照清單走。回到首頁，這份清單還在，可以存成自己的待練清單；電腦版可搭配 PenlightSync 自動切手燈顏色。"
             }
           ],
-          prepTitle: "翻唱預習歌單（不暴雷）",
-          prepSub: "依專輯關聯度、現場應援紀錄與近期熱度分為 4 組，可單首點進看同步歌詞，或整組匯入待練清單",
-          loadListBtn: "整組載入待練清單",
-          allCoversBtn: "在首頁看全部 {0} 首翻唱",
           backHomeBtn: "回 Ado 應援指南首頁",
-          spoilerTitle: "實際演出歌單（セトリ）｜防暴雷區",
-          spoilerSub: "為保留未看場次粉絲的驚喜，實際演出曲目預設收合；不想被暴雷請勿展開",
-          spoilerSummary: "⚠️ 點此展開各場實際演出歌單（含暴雷，2027/01/10 首場後更新）",
-          spoilerPending: "尚未開唱，將於 2027/01/10 東京・有明アリーナ首場結束後依可靠現場紀錄陸續補上。",
-          faqTitle: "翻唱巡迴常見問題",
+          faqTitle: "常見問題",
           faqs: [
             {
               q: "「Adoの歌ってみたツアー2027」跟一般巡演有什麼不同？",
-              a: "這次是紀念 Ado 自 2017 年 1 月 10 日投稿〈君の体温〉展開歌い手活動滿 10 週年的特別巡演，主軸聚焦在「歌ってみた（翻唱）」曲目，並連動 2026 年 12 月 23 日發行的《Adoの歌ってみたアルバム その２》。"
+              a: "官方公告的說法是紀念 Ado 歌い手活動 10 週年的「歌ってみた」巡演，首場 2027 年 1 月 10 日正是歌い手活動 10 週年紀念日。實際會唱哪些歌，官方沒有公布。《Adoの歌ってみたアルバム その２》2026 年 12 月 23 日發行，官方公告沒有把專輯和巡演連在一起，所以本站把它當成預熱的一組，不代表一定會唱。"
             },
             {
-              q: "這份預習歌單會暴雷嗎？",
-              a: "不會。上方 4 組預習清單完全依據已公開的兩張翻唱專輯、過去演唱會曾唱過的翻唱曲與官方 YouTube 熱門翻唱整理，不代表實際曲順。開唱後的真實歌單會獨立放在預設收合的「防暴雷區」中，不展開就不會看到。"
+              q: "預熱歌單會暴雷嗎？",
+              a: "不會。預熱歌單只用兩張翻唱專輯（《その２》只放官方已公布的曲目）、過去演唱會唱過的翻唱曲和 YouTube 上的翻唱整理，跟實際曲順無關。各場實際歌單要自己點開那一天才會看到。"
+            },
+            {
+              q: "每一場的歌單都一樣嗎？",
+              a: "不一定。每一場公開後會分開整理，同一個場館的 Day 1 和 Day 2 也分開列。歌單裡標「替換曲」的是不是每場都唱的歌；還沒公開的場次，可以先練「每場都唱」那份。"
             },
             {
               q: "沒有標示應援或手燈顏色的翻唱曲該怎麼應援？",
-              a: "手燈統一先切 Ado 的代表色「藍色」即可，現場若舞台主色明顯改變或周圍觀眾統一切色再跟著換。沒有固定 Call 的歌就專心欣賞唱功、跟著節奏揮手燈，實際互動一律以現場氣氛和 Ado 的引導為準。"
+              a: "現場有開中控的話，手燈交給中控就好，不用自己切。沒開中控時，本站沒標顏色的歌代表還沒有現場資料，可以跟著舞台燈光或周圍觀眾換色。沒有固定 Call 的歌就跟著節奏搖手燈，互動以現場氣氛和 Ado 的帶動為準。"
             },
             {
               q: "《Adoの歌ってみたアルバム その２》的預留曲什麼時候會有歌詞與 MV？",
-              a: "專輯預定於 2026 年 12 月 23 日發行，待官方釋出音源或 MV 後，本站就會陸續補上逐行同步歌詞與時間軸；若巡演現場發展出固定應援或手燈色，也會一併更新。"
+              a: "專輯 2026 年 12 月 23 日發行，官方預告約 10 首，目前公布 7 首，其他曲目公布後再補。官方釋出音源或 MV 後，本站會陸續補上同步歌詞；巡演現場若出現固定應援或手燈色，也會一起更新。還沒有 MV 的歌不會排進「練這組」的連播。"
             }
           ]
         },
@@ -79,56 +75,52 @@
           shortName: "Utattemita Tour 2027",
           bannerTag: "2027 Tour Prep",
           bannerTitle: "Ado Utattemita Cover Tour 2027 Setlist Prep",
-          bannerSub: "Starts Jan 10, 2027 in Tokyo — spoiler-free cover tiers from Utattemita Album Vol. 2 & fan favorites",
+          bannerSub: "Starts Jan 10, 2027 in Tokyo — spoiler-free prep from both cover albums and YouTube covers",
           bannerCta: "Open prep guide",
           title: "Ado Utattemita Tour 2027 Setlist Prep & Cover Guide | Lightstick Colors",
-          desc: "Spoiler-free prep guide for Ado's 10th anniversary Utattemita Tour 2027 (Tokyo, Osaka, Aichi — 6 shows): Utattemita Album Vol. 2 & Vol. 1 tracks, covers with confirmed live chants, and top YouTube covers with one-click practice lists.",
-          heroLead: "Celebrating the 10th anniversary of Ado's utaite debut, Ado's \"Utattemita\" Tour 2027 brings 6 arena shows across Tokyo, Osaka, and Aichi. Practice key covers from Utattemita Album Vol. 2, Vol. 1, and fan-favorite uploads spoiler-free—plus a spoiler-guarded section for actual setlists once the tour begins.",
-          statusNote: "Spoiler-free pre-tour prep list (actual setlists will be added inside the collapsed spoiler box after Jan 10, 2027)",
-          scheduleTitle: "Tour Schedule & Venues (3 Cities, 6 Shows)",
-          scheduleSub: "All times in Japan Standard Time (JST). Always check official announcements for final door/show times.",
-          rulesTitle: "Cover Tour Cheering Basics",
-          rulesSub: "Three quick rules so you feel confident even if a cover has no fixed chant yet",
-          rules: [
+          desc: "Practice for Ado's 10th anniversary Utattemita Tour 2027 (Tokyo, Osaka, Aichi — 6 shows): a spoiler-free warm-up list from both Utattemita Albums and YouTube covers, then each show's actual setlist (Day 1 / Day 2) once the tour starts. One tap starts from the first song.",
+          heroLead: "Ado's \"Utattemita\" tour for her 10th anniversary as an utaite, opening on the anniversary itself (Jan 10, 2027): 6 shows across Tokyo, Osaka and Aichi. Warm up with the prep list before the tour; once shows start, each show's setlist goes below so you can practice the exact day you're going to.",
+          warmTitle: "Warm-up",
+          warmSub: "Before the tour, with no setlist known yet, practice in this order: covers with established live chants first, then both cover albums and YouTube covers.",
+          showsTitle: "Setlists by Show",
+          showsSub: "Setlists can change from show to show, even between Day 1 and Day 2 at the same venue. Open the day you're attending to practice that setlist; nothing is shown until you open it.",
+          tipsTitle: "Quick Tips for the Show",
+          tips: [
             {
-              title: "When in doubt, go with Ado's blue",
-              body: "Most cover tracks don't have an official lightstick / penlight color. Outside covers with established concert colors (like unravel, HIBANA, and That Band), switch to blue or follow the stage lighting."
+              title: "Central control on? Leave your lightstick alone",
+              body: "When the venue runs central (wireless) control, lightstick colors change automatically, so there's nothing to switch. Only without it do you switch yourself: use the colors listed here for unravel, HIBANA and That Band; for other covers we have no live color data yet, so follow the stage lighting or the crowd."
             },
             {
-              title: "Enjoy the vocals — don't force chants",
-              body: "This tour celebrates Ado's cover roots and vocal range. Many tracks have no set call; clap along when the beat builds or follow Ado's cues on stage."
+              title: "No set call? Don't force one",
+              body: "If a song has no chants listed here, we don't have live data for it yet. Sway to the beat, and clap or join in when the chorus builds or Ado leads the crowd."
             },
             {
-              title: "Load a whole group into your practice list",
-              body: "Use “Load into practice list” on any section below to queue those songs on the main player. Desktop users can also connect PenlightSync for automatic lightstick color changes."
+              title: "“Practice this set” starts right away",
+              body: "It opens the first song and Prev / Next follow the list. Back on the home page the list is still there to save as your own; on desktop, PenlightSync can switch lightstick colors for you."
             }
           ],
-          prepTitle: "Spoiler-Free Prep Playlist",
-          prepSub: "Grouped into 4 tiers by album relevance, confirmed live chants, and popularity—open any song for synced romaji lyrics or queue a whole group",
-          loadListBtn: "Load into practice list",
-          allCoversBtn: "Browse all {0} covers on home",
           backHomeBtn: "Back to Ado Fan Chant Guide",
-          spoilerTitle: "Actual Tour Setlists (Spoiler-Guarded)",
-          spoilerSub: "Kept collapsed by default so fans attending later dates stay spoiler-free",
-          spoilerSummary: "⚠️ Click to reveal actual show setlists (spoilers — updated after Jan 10, 2027)",
-          spoilerPending: "Tour has not started yet. Verified setlists will be added here after the opening night at Ariake Arena on Jan 10, 2027.",
-          faqTitle: "Tour FAQ",
+          faqTitle: "FAQ",
           faqs: [
             {
               q: "What makes Ado's \"Utattemita\" Tour 2027 different from other Ado tours?",
-              a: "It celebrates the 10th anniversary of Ado's first utaite upload (“Kimi no Taion” on Jan 10, 2017), focusing on her cover repertoire alongside the Dec 23, 2026 release of Utattemita Album Vol. 2."
+              a: "The official announcement calls it a \"Utattemita\" (cover) tour for Ado's 10th anniversary as an utaite, opening on the anniversary itself, Jan 10, 2027. The setlist hasn't been announced. Utattemita Album Vol. 2 comes out Dec 23, 2026, but the announcements don't link the album to the tour, so we include it as one warm-up group, not as a confirmed setlist."
             },
             {
-              q: "Will this prep page spoil the actual setlist?",
-              a: "No. The 4 prep sections are built purely from publicly announced cover albums, past live cover performances, and popular YouTube covers. Actual concert setlists are placed separately inside a collapsed spoiler box."
+              q: "Will the warm-up list spoil the actual setlist?",
+              a: "No. It's built only from the two cover albums (Vol. 2 lists only the officially announced tracks), covers Ado has sung live before, and her YouTube covers, and says nothing about the real running order. Actual setlists only appear when you open a specific show."
+            },
+            {
+              q: "Is the setlist the same at every show?",
+              a: "Not necessarily. Each show's setlist is listed separately once published, including Day 1 and Day 2 at the same venue. Songs marked “Rotating” weren't played at every show; for shows that haven't happened yet, start with the “Played at every show” list."
             },
             {
               q: "Which lightstick / penlight color should I use for covers without a listed color?",
-              a: "Default to Ado's signature blue, and match the stage lighting or crowd if a color naturally emerges during the performance."
+              a: "If the venue runs central control, leave it to that. Without it, a song with no color listed here means we have no live data yet — follow the stage lighting or the crowd."
             },
             {
               q: "When will lyrics and MVs be added for the upcoming Utattemita Album Vol. 2 tracks?",
-              a: "Utattemita Album Vol. 2 releases on Dec 23, 2026. Once official audio or MVs drop, synced lyrics and romaji will be added—and any live chants that emerge on tour will be updated too."
+              a: "The album releases on Dec 23, 2026; about 10 tracks are planned and 7 have been announced so far, and we'll add the rest as they're revealed. Once official audio or MVs drop, synced lyrics will be added, along with any chants that emerge on tour. Songs without an MV yet are skipped in “Practice this set”."
             }
           ]
         },
@@ -138,60 +130,61 @@
           shortName: "歌ってみたツアー2027",
           bannerTag: "2027 ツアー予習",
           bannerTitle: "Adoの歌ってみたツアー2027 セトリ予習・応援ガイド",
-          bannerSub: "2027/1/10 有明アリーナ開幕・『歌ってみたアルバム その２』＆人気カバーをネタバレなしで予習",
+          bannerSub: "2027/1/10 有明アリーナ開幕・カバーアルバム2作とYouTubeの歌ってみたをネタバレなしで予習",
           bannerCta: "予習ページへ",
           title: "Adoの歌ってみたツアー2027 セトリ予習・ペンライト色・コールまとめ",
-          desc: "歌い手活動10周年記念「Adoの歌ってみたツアー2027」（東京・大阪・愛知 全6公演）のネタバレなし予習ガイド。『Adoの歌ってみたアルバム その２』＆第1弾収録曲、コール確認済みカバー、人気・最新歌ってみたをまとめて練習リストへ一括追加できます。",
-          heroLead: "Adoの歌い手活動10周年記念日（2027年1月10日）に開幕する「Adoの歌ってみたツアー2027」（東京・大阪・愛知 全6公演）向けの予習ページ。『Adoの歌ってみたアルバム その２』や定番カバーをネタバレなしで整理し、開幕後の実際のセトリは折りたたみネタバレ防止エリアに掲載します。",
-          statusNote: "現在は開幕前のネタバレなし予習リストです（2027/1/10 東京初日以降、下部の折りたたみエリアに実セトリを追記）",
-          scheduleTitle: "公演日程・会場一覧（全国3都市・全6公演）",
-          scheduleSub: "開場・開演時間は変更になる場合があります。最新情報は必ず公式サイトをご確認ください。",
-          rulesTitle: "歌ってみたツアー応援の基本",
-          rulesSub: "カバー曲が中心の公演でも迷わず楽しめる3つのポイント",
-          rules: [
+          desc: "歌い手活動10周年記念「Adoの歌ってみたツアー2027」（東京・大阪・愛知 全6公演）の予習ガイド。開幕前は『歌ってみたアルバム』2作とYouTubeの歌ってみたの予習リスト、開幕後は公演ごと（DAY1／DAY2）の実際のセトリで、ワンタップで1曲目から練習できます。",
+          heroLead: "歌い手活動10周年の記念日・2027年1月10日に開幕する「歌ってみた」ツアー、東京・大阪・愛知の全6公演。開幕前は予習リストで、開幕後は参戦する公演のセトリでそのまま練習できます。",
+          warmTitle: "予習",
+          warmSub: "セトリがわからない開幕前は、この順番で練習：まずライブで応援が定着している曲、次にカバーアルバム2作とYouTubeの歌ってみた。",
+          showsTitle: "公演ごとのセトリ",
+          showsSub: "セトリは公演ごとに変わることがあり、同じ会場の DAY1・DAY2 でも変わる可能性があります。参戦する日を開くとその公演のセトリで練習できます。開くまで曲目は表示されません。",
+          tipsTitle: "当日のポイント",
+          tips: [
             {
-              title: "ペンライト色に迷ったら「青」",
-              body: "カバー曲は公式指定色がない曲が多数です。〈unravel〉〈ヒバナ〉〈あのバンド〉などライブ実績のある曲以外は、Adoのイメージカラーの青か、会場の照明に合わせれば安心です。"
+              title: "無線制御があればペンライト操作は不要",
+              body: "会場で無線制御（一斉制御）が入っているときは、ペンライトの色は自動で変わるので自分で切り替える必要はありません。制御がないときだけ自分で：〈unravel〉〈ヒバナ〉〈あのバンド〉は当サイト記載の色、その他のカバーはまだライブでの色の情報がないので、ステージの照明や周りに合わせましょう。"
             },
             {
-              title: "無理にコールを入れず、歌声を堪能する",
-              body: "歌い手10周年の原点回帰となるツアーのため、聴かせる楽曲も多く想定されます。決まったコールがない曲はリズムに合わせて自由にペンライトを振り、Adoの煽りに合わせて盛り上がりましょう。"
+              title: "決まったコールがない曲は無理に入れない",
+              body: "当サイトで応援が未記載の曲は、まだライブの情報がない曲です。リズムに合わせてペンライトを振り、サビの手拍子やAdoの煽りに合わせて盛り上がりましょう。"
             },
             {
-              title: "グループごとに練習リストへ一括追加",
-              body: "各セクションの「練習リストに追加」から、そのまま連続再生で予習できます。PC版なら PenlightSync を使った公式ペンライト自動連動にも対応しています。"
+              title: "「このリストで練習」ですぐ再生",
+              body: "1曲目から開き、前の曲／次の曲もリスト順に進みます。トップに戻るとリストが残っているので、自分の練習リストとして保存もできます。PC版は PenlightSync でペンライト色の自動連動にも対応。"
             }
           ],
-          prepTitle: "歌ってみた予習リスト（ネタバレなし）",
-          prepSub: "アルバム収録・ライブ実績・人気度で4グループに整理。曲名から同期歌詞ページへ、ボタンから練習リストへ一括追加できます",
-          loadListBtn: "練習リストで連続再生",
-          allCoversBtn: "トップで全{0}曲のカバーを見る",
           backHomeBtn: "Ado 応援ガイド トップへ",
-          spoilerTitle: "実際のセットリスト（ネタバレ防止エリア）",
-          spoilerSub: "これから参戦する方への配慮として、公演ごとの実セトリはデフォルトで閉じています",
-          spoilerSummary: "⚠️ クリックして各公演の実際のセトリを表示（ネタバレ注意・2027/1/10 初日以降更新）",
-          spoilerPending: "公演開始前です。2027年1月10日の東京・有明アリーナ初日終了後、確認できたセットリストを順次掲載します。",
-          faqTitle: "歌ってみたツアー よくある質問",
+          faqTitle: "よくある質問",
           faqs: [
             {
               q: "「Adoの歌ってみたツアー2027」はいつものライブと何が違いますか？",
-              a: "2017年1月10日の「君の体温」初投稿から歌い手活動10周年を記念する特別ツアーで、カバー楽曲（歌ってみた）が主軸となります。2026年12月23日発売の『Adoの歌ってみたアルバム その２』とも連動しています。"
+              a: "公式発表では、歌い手活動10周年を迎えるAdoの「歌ってみた」ツアーで、初日の2027年1月10日が歌い手活動10周年の記念日です。セトリは発表されていません。『Adoの歌ってみたアルバム その２』は2026年12月23日発売ですが、公式発表ではツアーとの関連は示されていないため、当サイトでは予習リストの1グループとして載せています（披露が確定しているわけではありません）。"
             },
             {
-              q: "この予習リストを見るとセトリのネタバレになりますか？",
-              a: "なりません。上の4グループは公表済みの歌ってみたアルバム2作品、過去ライブで披露されたカバー曲、YouTube人気カバーから構成した予習用リストです。実際の公演セトリは下の折りたたみエリアに分離しています。"
+              q: "予習リストはネタバレになりますか？",
+              a: "なりません。カバーアルバム2作品（『その２』は公式発表済みの曲のみ）、過去ライブで披露されたカバー曲、YouTubeの歌ってみたから作った予習用リストで、実際の曲順とは関係ありません。実際のセトリは公演を開いたときだけ表示されます。"
+            },
+            {
+              q: "セトリは全公演同じですか？",
+              a: "同じとは限りません。公開された公演ごとに分けて掲載し、同じ会場の DAY1 と DAY2 も別々に載せます。「日替わり」が付いた曲は全公演では歌われていない曲です。まだ開催前の公演は「全公演で披露」のリストから練習するのがおすすめです。"
             },
             {
               q: "応援やペンライト色が未記載のカバー曲はどうすればいいですか？",
-              a: "ペンライトは基本の「青」にしておき、会場の照明や周囲の雰囲気に合わせて切り替えるのがおすすめです。コールや手拍子も現地の空気とAdoのリードに合わせれば大丈夫です。"
+              a: "無線制御が入っていればそのままでOK、自分で切り替える必要はありません。制御がないときは、当サイトで色が未記載の曲はまだライブの情報がないので、ステージの照明や周りに合わせましょう。コールや手拍子も現地の空気とAdoの煽りに合わせれば大丈夫です。"
             },
             {
               q: "『Adoの歌ってみたアルバム その２』の発売予定曲はいつ歌詞が追加されますか？",
-              a: "2026年12月23日のリリース後、公式音源・MVの公開にあわせて同期歌詞とタイムラインを順次追加します。ツアーで定着した応援やペンライト色も確認でき次第反映します。"
+              a: "2026年12月23日発売、全10曲程度の予定で、現在発表されているのは7曲です（残りは発表され次第追加）。発売後、公式音源・MVの公開にあわせて同期歌詞を順次追加します。ツアーで定着した応援やペンライト色も確認でき次第反映します。MVがまだない曲は「このリストで練習」の連続再生には含まれません。"
             }
           ]
         }
       },
+      // 公演場次：照日期排。同一個場館連續幾天會自動標成 Day 1、Day 2…
+      // 開演後填實際歌單：
+      //   songs  照曲順寫歌曲 ID；本站還沒收錄的歌寫成 { ja: "曲名" }
+      //   encore 安可曲（寫法同 songs，沒有就留空）
+      //   source 來源 { name: "…", url: "…" }（有可靠來源才填歌單，見 CLAUDE.md）
       shows: [
         {
           id: "tokyo-1",
@@ -204,7 +197,9 @@
           addressLocality: "Tokyo",
           addressCountry: "JP",
           note: { zh: "歌い手 10 週年紀念日・首場", en: "10th Anniversary Opening Night", ja: "歌い手10周年記念日・初日" },
-          songs: []
+          songs: [],
+          encore: [],
+          source: null
         },
         {
           id: "tokyo-2",
@@ -216,7 +211,9 @@
           venue: { zh: "有明アリーナ", en: "Ariake Arena", ja: "有明アリーナ" },
           addressLocality: "Tokyo",
           addressCountry: "JP",
-          songs: []
+          songs: [],
+          encore: [],
+          source: null
         },
         {
           id: "osaka-1",
@@ -228,7 +225,9 @@
           venue: { zh: "Asueアリーナ大阪", en: "Asue Arena Osaka", ja: "Asueアリーナ大阪" },
           addressLocality: "Osaka",
           addressCountry: "JP",
-          songs: []
+          songs: [],
+          encore: [],
+          source: null
         },
         {
           id: "osaka-2",
@@ -240,7 +239,9 @@
           venue: { zh: "Asueアリーナ大阪", en: "Asue Arena Osaka", ja: "Asueアリーナ大阪" },
           addressLocality: "Osaka",
           addressCountry: "JP",
-          songs: []
+          songs: [],
+          encore: [],
+          source: null
         },
         {
           id: "aichi-1",
@@ -252,7 +253,9 @@
           venue: { zh: "ポートメッセなごや 第1展示館", en: "Port Messe Nagoya Hall 1", ja: "ポートメッセなごや 第1展示館" },
           addressLocality: "Nagoya",
           addressCountry: "JP",
-          songs: []
+          songs: [],
+          encore: [],
+          source: null
         },
         {
           id: "aichi-2",
@@ -265,87 +268,65 @@
           addressLocality: "Nagoya",
           addressCountry: "JP",
           note: { zh: "最終場", en: "Tour Final", ja: "千秋楽" },
-          songs: []
+          songs: [],
+          encore: [],
+          source: null
         }
       ],
       groups: [
+        // 預熱歌單：照這個順序練（陣列順序就是頁面順序）。short 是書架標題，sub 一句話說明（只寫查證過的事實：官方公告或本站已有來源的資料）
+        {
+          id: "live-verified",
+          short: { zh: "有固定應援", en: "Set chants", ja: "応援定着曲" },
+          sub: {
+            zh: "本站已用現場資料確認手燈色和應援的翻唱，先練這幾首。",
+            en: "Covers whose lightstick colors and chants we've confirmed from live sources — start here.",
+            ja: "ライブの情報でペンライト色と応援を確認済みのカバー。まずはここから。"
+          },
+          songs: ["unravel", "hibana", "anobando"]
+        },
         {
           id: "album-2",
-          tier: "1",
-          title: {
-            zh: "《Adoの歌ってみたアルバム その２》（2026/12/23 發行）",
-            en: "Utattemita Album Vol. 2 (Dec 23, 2026)",
-            ja: "『Adoの歌ってみたアルバム その２』（2026/12/23 発売）"
-          },
+          short: { zh: "翻唱專輯 その２", en: "Album Vol. 2", ja: "アルバム その２" },
           sub: {
-            zh: "本巡演最核心的新翻唱專輯，目前收錄已公開的 7 首曲目（含 5 首發片預留曲）",
-            en: "The centerpiece release for this tour — 7 announced tracks so far (including 5 upcoming album tracks)",
-            ja: "本ツアーの核となる最新カバーアルバム。公開済みの7曲（発売予定5曲含む）を収録"
+            zh: "《Adoの歌ってみたアルバム その２》2026/12/23 發行，官方預告約 10 首，這裡是已公布的 7 首。",
+            en: "Utattemita Album Vol. 2, out Dec 23, 2026 — about 10 tracks planned; these are the 7 announced so far.",
+            ja: "『Adoの歌ってみたアルバム その２』2026/12/23発売。全10曲程度のうち、発表済みの7曲。"
           },
           songs: ["kuchibashi", "fairytale", "unknownmothergoose", "mousoushikkan", "entersandman", "kawakiwoameku", "lagata"]
         },
         {
           id: "album-1",
-          tier: "2",
-          title: {
-            zh: "《Adoの歌ってみたアルバム》（2023）全 10 曲",
-            en: "Utattemita Album Vol. 1 (2023) — All 10 Tracks",
-            ja: "『Adoの歌ってみたアルバム』（2023）全10曲"
-          },
+          short: { zh: "翻唱專輯 第 1 張", en: "Album Vol. 1", ja: "アルバム 第1弾" },
           sub: {
-            zh: "第一張官方翻唱專輯全曲收錄，〈愛して愛して愛して〉〈罪と罰〉〈神っぽいな〉等都是現場超高人氣曲",
-            en: "All 10 tracks from Ado's first official cover album, including fan-favorite staples like Aishite and God-ish",
-            ja: "第1弾カバーアルバム全10曲。「愛して愛して愛して」「罪と罰」「神っぽいな」など定番曲ぞろい"
+            zh: "2023 年的《Adoの歌ってみたアルバム》，〈愛して愛して愛して〉〈罪と罰〉〈ヴィラン〉等曲在過去演唱會唱過。",
+            en: "Utattemita Album (2023); Aishite, Tsumi to Batsu, Villain and others have been sung at past concerts.",
+            ja: "2023年の『Adoの歌ってみたアルバム』。「愛して愛して愛して」「罪と罰」「ヴィラン」などは過去のライブで披露済み。"
           },
           songs: ["unravel", "aishite", "kamippoina", "tsumitobatsu", "burikino", "villain", "kawaikute", "kazarijanai", "dryflower", "hotaru"]
         },
         {
-          id: "live-verified",
-          tier: "3",
-          title: {
-            zh: "已有現場應援紀錄的翻唱曲",
-            en: "Covers with Confirmed Live Chants",
-            ja: "ライブ応援・コール確認済みのカバー曲"
-          },
-          sub: {
-            zh: "過去大型演唱會已確立手燈色與拍手／喊聲慣例的翻唱曲，建議優先把應援練熟",
-            en: "Covers with established concert penlight colors and crowd cues from past Ado live shows",
-            ja: "過去のライブでペンライト色やコール・手拍子が定着しているカバー曲。まず押さえておきたい3曲"
-          },
-          songs: ["unravel", "hibana", "anobando"]
-        },
-        {
           id: "origin-and-hot",
-          tier: "4",
-          title: {
-            zh: "10 週年原點＆熱門・近期新翻唱精選",
-            en: "10th Anniversary Origin, Recent & Fan-Favorite Covers",
-            ja: "10周年の原点＆人気・最新歌ってみた厳選"
-          },
+          short: { zh: "YouTube 翻唱", en: "YouTube covers", ja: "YouTubeの歌ってみた" },
           sub: {
-            zh: "從 2017/01/10 首支投稿〈君の体温〉出發，精選 2025–2026 最新翻唱與高人氣代表作",
-            en: "Starting from Ado's Jan 10, 2017 debut cover “Kimi no Taion”, plus 2025–2026 releases and top fan-favorite covers",
-            ja: "2017年1月10日の初投稿「君の体温」をはじめ、2025〜2026年の最新カバーと人気曲12選"
+            zh: "沒收進翻唱專輯、在 YouTube 發表的歌ってみた，依發表日期由新到舊。",
+            en: "Covers released on YouTube but not on either album, newest first.",
+            ja: "アルバム未収録の、YouTubeで公開された歌ってみた。新しい順。"
           },
-          // 特別加註的曲目標籤（例如 10 週年原點、最新翻唱）
-          badges: {
-            kiminotaion: { zh: "2017/1/10 首支投稿", en: "2017 Debut Cover", ja: "2017/1/10 初投稿" },
-            brain: { zh: "最新翻唱", en: "New Cover", ja: "最新カバー" },
-            andjuly: { zh: "近期翻唱", en: "Recent", ja: "新着" }
-          },
+          // 想在縮圖左上角加註的標籤寫在 badges: { 歌曲ID: { zh, en, ja } }（要有來源的事實，不寫推測）
           songs: [
-            "kiminotaion",
             "brain",
             "andjuly",
             "eaasou",
             "soldiergame",
             "ponpokorin",
             "catseye",
-            "charles",
-            "jikkai",
             "kitaro",
+            "jikkai",
+            "charles",
             "overdose",
-            "darlingdance"
+            "darlingdance",
+            "kiminotaion"
           ]
         }
       ]
