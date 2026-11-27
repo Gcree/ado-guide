@@ -64,13 +64,11 @@ jobs:
       # 畫面冒煙測試：開建置好的網站走一遍首頁、歌曲頁、分享、測驗模式、離線；沒過就不發布
       - name: UI test
         run: npm run test:ui
-      - name: Upload built site
+      - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
-          name: site-dist
           path: dist
-          retention-days: 1
 
   deploy:
     needs: verify
@@ -84,14 +82,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Download built site
-        uses: actions/download-artifact@v4
-        with:
-          name: site-dist
-          path: dist
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
