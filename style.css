@@ -3977,111 +3977,6 @@ body.no-lights .climax-surge {
   background: var(--raised) !important;
 }
 
-/* ── 反拍專屬視覺節奏儀與提示 (Offbeat Rhythm UX) ── */
-.offbeat-meter {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 4px 2px;
-  margin-top: 2px;
-}
-
-.beat-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  position: relative;
-  transition: transform .08s var(--ease), background-color .08s var(--ease), border-color .08s var(--ease), box-shadow .08s var(--ease);
-  user-select: none;
-}
-
-.beat-step .step-num {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--faint);
-  line-height: 1;
-}
-
-.beat-step .step-txt {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--muted);
-  line-height: 1.2;
-}
-
-.beat-step .step-sub {
-  font-size: 11px;
-  color: var(--faint);
-  line-height: 1;
-  margin-top: 1px;
-}
-
-.beat-step .step-ico {
-  width: 13px;
-  height: 13px;
-  fill: none;
-  stroke: currentColor;
-  margin-top: 1px;
-}
-
-.beat-step .step-ico .ico,
-.beat-step .step-ico path {
-  stroke: currentColor !important;
-  stroke-width: 2;
-}
-
-/* 第 2、4 拍（拍手目標拍） */
-.beat-step.target-clap {
-  border-color: color-mix(in srgb, var(--clap, var(--primary)) 55%, transparent);
-  background: color-mix(in srgb, var(--clap, var(--primary)) 12%, var(--surface));
-}
-
-.beat-step.target-clap .step-txt {
-  color: var(--clap, var(--primary));
-}
-
-.beat-step.target-clap .step-ico {
-  stroke: var(--clap, var(--primary));
-}
-
-/* 正在播到的這拍 (Current Beat) */
-.beat-step.current {
-  border-color: var(--color-slate-400);
-  background: var(--raised);
-}
-
-.beat-step.current .step-num {
-  color: var(--text);
-}
-
-/* 反拍拍下的那一瞬間 (Hit Flash) */
-.beat-step.target-clap.hit {
-  background: var(--clap, var(--primary)) !important;
-  border-color: var(--text) !important;
-  transform: scale(1.1) translateY(-2px);
-  box-shadow: 0 0 16px var(--clap, var(--primary)), 0 4px 10px rgba(0, 0, 0, .4);
-}
-
-.beat-step.target-clap.hit .step-num,
-.beat-step.target-clap.hit .step-txt,
-.beat-step.target-clap.hit .step-sub {
-  color: var(--on-paper) !important;
-  font-weight: 800;
-}
-
-.beat-step.target-clap.hit .step-ico,
-.beat-step.target-clap.hit .step-ico .ico,
-.beat-step.target-clap.hit .step-ico path {
-  stroke: var(--on-paper) !important;
-}
-
 /* Cue 提示列反拍標籤 */
 .cue-offbeat-pattern {
   display: inline-flex;
@@ -4152,27 +4047,6 @@ body.no-lights .climax-surge {
   background: var(--clap, var(--primary));
   border-radius: 4px;
   padding: 1px 4px;
-}
-
-@media (max-width: 600px) {
-  .offbeat-meter {
-    gap: 6px;
-    padding: 4px 0;
-  }
-
-  .beat-step {
-    width: 48px;
-    height: 56px;
-    border-radius: 12px;
-  }
-
-  .beat-step .step-num {
-    font-size: 11px;
-  }
-
-  .beat-step .step-txt {
-    font-size: 13.5px;
-  }
 }
 
 
@@ -7489,10 +7363,6 @@ html:not(.on-song) #fx {
   outline-offset: 2px;
 }
 
-.beat-step {
-  background: var(--raised);
-}
-
 .cue-offbeat-pattern {
   border: 0;
   background: var(--fill);
@@ -9324,7 +9194,6 @@ body.immersive-mode .dock.autohide {
   .faq-item,
   .reel-card,
   .alert .card,
-  .beat-step,
   .toast,
   .rel-block .rel-link,
   .thumb.thumb-ph,
