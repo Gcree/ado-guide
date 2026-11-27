@@ -8784,10 +8784,118 @@ body.immersive-mode .dock.autohide {
   padding-right: 40px;
 }
 
-/* 手機：「速覽」靠右，放在原本「這首重點」的位置 */
+/* 手機：歌詞區的標題列跟顏色說明併成一列（左邊顏色說明、右邊「大合唱」「速覽」），不要各佔一整列把歌詞擠小；
+   顏色說明太長會在左欄裡換行，按鈕固定在右上 */
 @media (max-width: 900px) {
+  body:not(.immersive-mode) .lyrics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: center;
+    row-gap: 6px;
+    padding: 10px 6px 0;
+  }
+
+  body:not(.immersive-mode) .lyrics-top {
+    grid-column: 2;
+    grid-row: 1;
+    flex-wrap: nowrap;
+    gap: 6px;
+    width: auto;
+    padding: 0 6px 0 0;
+  }
+
+  /* 顏色說明只排一行，放不下就左右滑（右邊淡出提示還有），不換行多吃一列 */
+  body:not(.immersive-mode) .legend {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    white-space: nowrap;
+    padding: 0 14px 0 14px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent);
+  }
+
+  body:not(.immersive-mode) .legend::-webkit-scrollbar {
+    display: none;
+  }
+
+  body:not(.immersive-mode) .legend > * {
+    flex-shrink: 0;
+  }
+
+  body:not(.immersive-mode) .lyrics-scroll {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    align-self: stretch;
+    height: 100%;
+  }
+
   #guideBtn {
-    margin-left: auto;
+    margin-left: 0;
+  }
+}
+
+/* 手機直拿：整頁捲動，不在歌詞框裡捲（Safari 要整頁捲動才會把網址列、工具列縮小）。
+   歌曲切換列和 MV 黏在畫面上面，歌詞從它們下面捲過去；往下捲時切換列收起來（body.songbar-hidden，app.js 控制），MV 往上補位 */
+@media (max-width: 900px) and (min-height: 501px) {
+  body.on-song:not(.immersive-mode) #song {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  body.on-song:not(.immersive-mode) .grid {
+    flex: none;
+  }
+
+  /* 黏住的兩塊都鋪滿底色，往下多鋪 8px 蓋住卡片之間的縫和圓角，歌詞捲上來不會從縫裡透出來；往上的影子蓋住瀏海那一條 */
+  body.on-song:not(.immersive-mode) .songbar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 25;
+    background: var(--ground);
+    padding-bottom: 8px;
+    margin-bottom: -8px;
+    box-shadow: 0 calc(-1 * env(safe-area-inset-top, 0px)) 0 var(--ground);
+    transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out);
+  }
+
+  body.on-song.songbar-hidden:not(.immersive-mode) .songbar {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  body.on-song:not(.immersive-mode) .left {
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + var(--songbar-h, 56px));
+    z-index: 5;
+    background: var(--ground);
+    padding-bottom: 8px;
+    margin-bottom: -8px;
+    box-shadow: 0 calc(-1 * env(safe-area-inset-top, 0px) - 8px) 0 var(--ground);
+    transition: top var(--dur-base) var(--ease-out);
+  }
+
+  body.on-song.songbar-hidden:not(.immersive-mode) .left {
+    top: env(safe-area-inset-top, 0px);
+  }
+
+  body.on-song:not(.immersive-mode) .lyrics {
+    flex: none;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    grid-template-rows: auto auto;
+  }
+
+  body.on-song:not(.immersive-mode) .lyrics-scroll {
+    height: auto;
+    overflow: visible;
   }
 }
 

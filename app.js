@@ -1523,24 +1523,60 @@
   // 歌詞捲動：自己做 0.26 秒先快後慢的動畫，把目前這行放到框的正中央；新的一行來了就從現在位置接著捲，不會疊在一起
   // 歌詞在唱到的那一刻亮起，不提前（提前會覺得歌詞比音樂快）
   const sc = document.getElementById("lyScroll");
+  // 手機直拿：整頁捲動，不在歌詞框裡捲（Safari 要整頁捲動才會把網址列、工具列縮小）；歌曲切換列和 MV 黏在上面，歌詞從下面捲過去
+  const pageScrollMq = matchMedia("(max-width: 900px) and (min-height: 501px)");
+  const pageScroll = () => pageScrollMq.matches && !document.body.classList.contains("immersive-mode");
+  // 歌曲切換列：往下捲（含自動捲歌詞）就收起來讓位給歌詞，往上滑一點、或回到最上面就出來，換歌不用捲回頂端
+  const songBarEl = document.querySelector("#song .songbar");
+  const setBar = hide => document.body.classList.toggle("songbar-hidden", hide);
+  let lastY = scrollY;
+  addEventListener("scroll", () => {
+    const y = scrollY, d = y - lastY;
+    lastY = y;
+    if (!pageScroll() || !document.body.classList.contains("on-song")) { if (document.body.classList.contains("songbar-hidden")) setBar(false); return; }
+    if (y < 40) setBar(false);
+    else if (d > 4) setBar(true);
+    else if (d < -4 && glideId === null) setBar(false);
+  }, { passive: true });
+  const getTop = () => pageScroll() ? scrollY : sc.scrollTop;
+  const setTop = v => { if (pageScroll()) scrollTo({ top: v, behavior: "instant" }); else sc.scrollTop = v; };
   let glideId = null, holdUntil = 0;
   function glide(to) {
     if (glideId !== null) cancelAnimationFrame(glideId);
     glideId = null;
-    if (reduce) { sc.scrollTop = to; return; }
-    const from = sc.scrollTop, d = to - from, t0 = performance.now();
-    const step = ms => { const k = Math.min(1, (ms - t0) / 260); sc.scrollTop = from + d * (1 - Math.pow(1 - k, 3)); glideId = k < 1 ? requestAnimationFrame(step) : null; };
+    if (reduce) { setTop(to); return; }
+    const from = getTop(), d = to - from, t0 = performance.now();
+    const step = ms => { const k = Math.min(1, (ms - t0) / 260); setTop(from + d * (1 - Math.pow(1 - k, 3))); glideId = k < 1 ? requestAnimationFrame(step) : null; };
     glideId = requestAnimationFrame(step);
+  }
+  // 整頁捲動時看得到歌詞的範圍：黏在上面的 MV 下緣（切換列收起來時 MV 往上補位），到底部工具列上緣
+  function pageView(barHidden) {
+    const left = document.querySelector("#song .left"), dock = document.getElementById("dock");
+    const top = (parseFloat(getComputedStyle(songBarEl).top) || 0) + (barHidden ? 0 : songBarEl.offsetHeight) + left.offsetHeight;
+    const dockTop = dock ? dock.getBoundingClientRect().top : innerHeight;
+    return { top, h: Math.max(0, Math.min(innerHeight, dockTop) - top) };
   }
   function centerLine(el) {
     if (!el || !el.offsetParent || performance.now() < holdUntil) return;
-    const r = el.getBoundingClientRect(), b = sc.getBoundingClientRect();
-    const to = Math.max(0, Math.min(sc.scrollHeight - sc.clientHeight, sc.scrollTop + r.top - b.top - (sc.clientHeight - r.height) / 2));
-    if (Math.abs(to - sc.scrollTop) >= 4) glide(to);
+    const r = el.getBoundingClientRect();
+    let to;
+    if (pageScroll()) {
+      // 先照「切換列收起來」算；算出來還在頁首附近，就讓切換列留著再算一次
+      const root = document.scrollingElement || document.documentElement, max = root.scrollHeight - innerHeight;
+      const at = v => Math.max(0, Math.min(max, scrollY + r.top - v.top - (v.h - r.height) / 2));
+      to = at(pageView(true));
+      if (to < 40) to = at(pageView(false));
+      setBar(to >= 40);
+    } else {
+      const b = sc.getBoundingClientRect();
+      to = Math.max(0, Math.min(sc.scrollHeight - sc.clientHeight, sc.scrollTop + r.top - b.top - (sc.clientHeight - r.height) / 2));
+    }
+    if (Math.abs(to - getTop()) >= 4) glide(to);
   }
-  // 自己滑歌詞時，自動捲動先停 3 秒，不跟手指搶，並暫時解凍景深方便閱讀
+  // 自己滑歌詞時，自動捲動先停 3 秒，不跟手指搶，並暫時解凍景深方便閱讀（整頁捲動時滑哪裡都算）
   let userScrollTimer = null;
-  ["wheel", "touchmove"].forEach(ev => sc.addEventListener(ev, () => {
+  ["wheel", "touchmove"].forEach(ev => addEventListener(ev, e => {
+    if (!pageScroll() && !sc.contains(e.target)) return;
     holdUntil = performance.now() + 3000;
     sc.classList.add("user-scrolling");
     clearTimeout(userScrollTimer);
@@ -1551,8 +1587,9 @@
   // 沉浸模式：上面也留半個框，前幾句也能捲到正中間（字幕永遠在同一個高度）
   // 留白放在歌詞清單（#lines）上，不放在捲動框上：捲動框的內距會撐住它自己的高度，視窗變矮時縮不回來
   const padEnd = () => {
-    const half = LINES.length ? Math.round(sc.clientHeight / 2) + "px" : "", imm = document.body.classList.contains("immersive-mode"), list = document.getElementById("lines");
+    const half = LINES.length ? Math.round((pageScroll() ? innerHeight : sc.clientHeight) / 2) + "px" : "", imm = document.body.classList.contains("immersive-mode"), list = document.getElementById("lines");
     sc.style.paddingBottom = imm ? "" : half;
+    if (songBarEl.offsetHeight) document.getElementById("song").style.setProperty("--songbar-h", songBarEl.offsetHeight + "px");
     list.style.paddingTop = imm ? half : "";
     list.style.paddingBottom = imm ? half : "";
   };
@@ -1633,7 +1670,7 @@
     if (!lyHave(S) && !lyFailed) { box.innerHTML = `<div class="empty is-loading"><span class="spinner" aria-hidden="true"></span><span>${T("正在載入歌詞…")}</span></div>`; legend.innerHTML = ""; legend.hidden = true; SING = []; singJump.hidden = true; return; }
     if (!LINES.length) {
       box.innerHTML = `<div class="empty"><b>${T("這首還沒有逐行時間軸")}</b>${S.tips.length ? `<ul class="summary">${S.tips.map(t => `<li>${esc(t)}</li>`).join("")}</ul><span>${T("先邊看 MV 邊照上面的重點練。")}</span>` : `<span>${T("應援還在整理，先看 MV 熟悉旋律，副歌跟著現場氣氛就好。")}</span>`}<span>${T('歌詞請看<a href="{0}" target="_blank" rel="noopener">歌ネット的正版歌詞頁</a>。', S.ut)}</span></div>`;
-      legend.innerHTML = ""; legend.hidden = true; SING = []; singJump.hidden = true; sc.scrollTop = 0; padEnd(); return;
+      legend.innerHTML = ""; legend.hidden = true; SING = []; singJump.hidden = true; setTop(0); padEnd(); return;
     }
     LINES.forEach((l, i) => {
       const el = document.createElement("div");
@@ -1665,7 +1702,7 @@
     legend.hidden = legendActs.length === 0;
     SING = LINES.filter((l, i) => l.acts.includes("sing") && !(i && LINES[i - 1].acts.includes("sing"))).map(l => l.t);
     singJump.hidden = !SING.length;
-    sc.scrollTop = 0; holdUntil = 0; padEnd();
+    setTop(0); holdUntil = 0; padEnd();
     if (karaokeTiming && S && karaokeTiming.songId === S.id) {
       applyKaraokeTimingToDom(S);
     }
