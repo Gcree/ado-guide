@@ -171,11 +171,18 @@
   // 重播一次 CSS 進場動畫：拿掉 class、強迫重排、再加回去；播完就收掉，下次重畫不會又播
   const replay = (el, cls, ms = 500) => { if (!el || reduce) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); clearTimeout(el._replay); el._replay = setTimeout(() => el.classList.remove(cls), ms); };
   // 換頁、換主題時新舊畫面交叉淡化；不支援或減少動態就直接換
+  let activeVt = null;
   const transition = (fn, cls) => {
     if (reduce || !document.startViewTransition) return fn();
     if (cls) document.documentElement.classList.add(cls);
     const vt = document.startViewTransition(fn);
-    vt.finished.catch(() => {}).finally(() => cls && document.documentElement.classList.remove(cls));
+    activeVt = vt;
+    // 連續快速切歌時舊的 ViewTransition 會被新轉場中斷並 reject .ready / .updateCallbackDone，需一併吸收避免 unhandledrejection
+    vt.ready?.catch(() => {});
+    vt.updateCallbackDone?.catch(() => {});
+    vt.finished?.catch(() => {}).finally(() => {
+      if (cls && activeVt === vt) document.documentElement.classList.remove(cls);
+    });
   };
   const toast = (() => { const el = document.getElementById("toast"); let t = 0; return msg => { el.textContent = msg; /* 「加到主畫面」提示也在畫面上時，疊在它上面 */ const pwa = document.getElementById("pwaToast"); el.style.bottom = pwa && !pwa.hidden && pwa.classList.contains("show") ? `${Math.round(innerHeight - pwa.getBoundingClientRect().top + 10)}px` : ""; el.classList.add("show"); clearTimeout(t); t = setTimeout(() => el.classList.remove("show"), Math.min(7000, 2600 + String(msg).length * (LANG === "zh" || LANG === "ja" ? 80 : 30))); }; })();
 
