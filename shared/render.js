@@ -12,7 +12,7 @@
   const ACT_MAP = {
     sing:    { name: "大合唱",   icon: "i-sing",    how: "跟著一起唱" },
     clap:    { name: "拍手",     icon: "i-clap",    how: "跟著節拍拍手" },
-    wave:    { name: "舉手揮動", icon: "i-wave",    how: "舉手左右揮" },
+    wave:    { name: "舉手揮動", icon: "i-wave",    how: "舉手前後揮" },
     jump:    { name: "跳躍",     icon: "i-jump",    how: "跟著節奏跳" },
     call:    { name: "喊聲",     icon: "i-call",    how: "跟著喊短句" },
     gesture: { name: "手勢",     icon: "i-gesture", how: "跟 Ado 做同樣的動作" },

@@ -1967,22 +1967,27 @@ main.col {
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, .15);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, .55), 0 0 0 1px color-mix(in srgb, var(--act, var(--accent)) 40%, transparent);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .1);
   transform: scale(calc(1 + var(--pulse, 0) * .02));
 }
 
+/* 標題是一顆小膠囊：動作色只留在這裡和動畫上，字卡外框不再上色 */
 .alert .ahead {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 11px 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--act, var(--accent)) 14%, transparent);
   color: var(--act, var(--text));
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .alert .ahead svg {
-  width: 22px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
 }
 
 .alert .ahead em {
@@ -2023,7 +2028,7 @@ main.col {
   color: var(--muted);
 }
 
-/* 喊聲、手勢：大字，每拍跳一下 */
+/* 喊聲、手勢：大字放在對話框裡 */
 .alert .big {
   font-family: var(--font-ja);
   font-size: clamp(28px, 3.6vw, 44px);
@@ -2033,7 +2038,7 @@ main.col {
   transform: translateY(calc(var(--pulse, 0) * -6px));
 }
 
-/* 拍手：每拍亮一顆，小節第一拍那顆比較大 */
+/* 「唱」最後的拍三下：每下亮一顆 */
 .alert .dots {
   display: flex;
   align-items: center;
@@ -2060,45 +2065,560 @@ main.col {
   box-shadow: 0 0 18px var(--act);
 }
 
-/* 揮手：一支螢光棒跟著拍子左右擺 */
-.alert .swing {
-  width: 132px;
-  height: 72px;
+/* ── 字卡動畫（app.js 的 AL_* 圖）──
+   畫成現場真的會做的樣子：兩隻手在拍、小人在跳、舉著手燈揮、一起唱、握拳喊。
+   時間由 app.js 寫入的 --ph（這拍走了多少，0＝拍點）和 --ph2（兩拍一輪）決定：
+   動畫一律停住，用負的 animation-delay 對到相位，所以暫停、拖時間軸都跟著 MV。
+   每個元素的基本 transform 就是拍點那一刻的姿勢，減少動態（動畫被關掉）時就停在那裡。 */
+.alert {
+  --al-track: var(--line);
+  --al-rest: var(--faint);
+  --al-kid: #cbd5e1;
+  --al-grip: #f8fafc;
+  --al-ink: #0b1220;
+  --al-shadow: rgba(0, 0, 0, .35);
+}
+
+.alert .al-stage {
+  display: block;
+  width: 160px;
+  height: 96px;
+  margin: 0 auto;
   overflow: visible;
 }
 
-.alert .swing .arc {
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 2;
-  stroke-dasharray: 3 6;
+.alert .al-trio {
+  width: 150px;
+  height: 84px;
+}
+
+.alert .al-shouter {
+  width: 76px;
+  height: 72px;
+  flex: none;
+}
+
+.alert .al-stage * {
+  animation-duration: 1s;
+  animation-iteration-count: infinite;
+  animation-play-state: paused;
+  animation-fill-mode: both;
+  animation-delay: calc(var(--ph, 0) * -1s);
+}
+
+/* 拍手：兩隻手在拍點合上，彈開時往外傾；反拍那組兩拍一輪，只在第 2、4 拍合上 */
+.alert .al-hand {
+  fill: color-mix(in srgb, var(--act) 14%, transparent);
+  stroke: var(--act);
+  stroke-width: 2.4;
   stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-box: view-box;
 }
 
-.alert .swing .stick {
-  transform-origin: 66px 70px;
-  transform: rotate(var(--ang, 0deg));
+.alert .al-hl,
+.alert .al-hl2 {
+  transform-origin: 88px 104px;
 }
 
-.alert .swing line {
+.alert .al-hr,
+.alert .al-hr2 {
+  transform-origin: 112px 104px;
+}
+
+.alert .al-hl {
+  transform: translateX(3px);
+  animation-name: al-clap-l;
+}
+
+.alert .al-hr {
+  transform: translateX(-3px);
+  animation-name: al-clap-r;
+}
+
+.alert .al-hl2 {
+  transform: translateX(-15px) rotate(-9deg);
+  animation-name: al-clap-l2;
+}
+
+.alert .al-hr2 {
+  transform: translateX(15px) rotate(9deg);
+  animation-name: al-clap-r2;
+}
+
+.alert .al-burst,
+.alert .al-burst2 {
+  fill: none;
+  stroke: var(--act);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  transform-box: view-box;
+  transform-origin: 100px 36px;
+  opacity: 0;
+  animation-timing-function: var(--ease-out);
+}
+
+.alert .al-burst {
+  animation-name: al-burst;
+}
+
+.alert .al-burst2 {
+  animation-name: al-burst2;
+}
+
+.alert .al-hl2,
+.alert .al-hr2,
+.alert .al-burst2 {
+  animation-delay: calc(var(--ph2, 0) * -1s);
+}
+
+@keyframes al-clap-l {
+  0% { transform: translateX(3px) rotate(0deg); animation-timing-function: cubic-bezier(.05, .7, .1, 1); }
+  45% { transform: translateX(-15px) rotate(-9deg); animation-timing-function: cubic-bezier(.55, 0, .9, .4); }
+  100% { transform: translateX(3px) rotate(0deg); }
+}
+
+@keyframes al-clap-r {
+  0% { transform: translateX(-3px) rotate(0deg); animation-timing-function: cubic-bezier(.05, .7, .1, 1); }
+  45% { transform: translateX(15px) rotate(9deg); animation-timing-function: cubic-bezier(.55, 0, .9, .4); }
+  100% { transform: translateX(-3px) rotate(0deg); }
+}
+
+@keyframes al-clap-l2 {
+  0%, 20% { transform: translateX(-15px) rotate(-9deg); animation-timing-function: cubic-bezier(.55, 0, .9, .4); }
+  50% { transform: translateX(3px) rotate(0deg); animation-timing-function: cubic-bezier(.05, .7, .1, 1); }
+  80%, 100% { transform: translateX(-15px) rotate(-9deg); }
+}
+
+@keyframes al-clap-r2 {
+  0%, 20% { transform: translateX(15px) rotate(9deg); animation-timing-function: cubic-bezier(.55, 0, .9, .4); }
+  50% { transform: translateX(-3px) rotate(0deg); animation-timing-function: cubic-bezier(.05, .7, .1, 1); }
+  80%, 100% { transform: translateX(15px) rotate(9deg); }
+}
+
+@keyframes al-burst {
+  0% { opacity: 1; transform: scale(.7); }
+  30%, 100% { opacity: 0; transform: scale(1.25); }
+}
+
+@keyframes al-burst2 {
+  0%, 49.9% { opacity: 0; transform: scale(.7); }
+  50% { opacity: 1; transform: scale(.7); }
+  65%, 100% { opacity: 0; transform: scale(1.25); }
+}
+
+/* 下面一排拍子記號：亮的是現在這拍（app.js 加 .on） */
+.alert .al-beats circle {
+  fill: var(--al-track);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: fill .06s var(--ease), transform .06s var(--ease);
+}
+
+.alert .al-beats circle.tgt {
+  fill: none;
+  stroke: var(--act);
+  stroke-width: 1.6;
+}
+
+.alert .al-beats circle.on {
+  fill: var(--act);
+  transform: scale(1.3);
+}
+
+.alert .al-beats .rest {
+  stroke: var(--al-rest);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke .06s var(--ease);
+}
+
+.alert .al-beats .rest.on {
+  stroke: var(--text);
+}
+
+/* 正面的小人：圓頭、膠囊身體、短手腳，顏色就是動作色 */
+.alert .al-fill {
+  fill: var(--act);
+}
+
+.alert .al-limb {
   stroke: var(--act);
   stroke-width: 6;
   stroke-linecap: round;
 }
 
-/* 跳躍：圖示在拍子上彈起 */
-.alert .hop {
-  width: 56px;
-  height: 56px;
-  transform: translateY(calc(var(--pulse, 0) * -14px));
+.alert .al-ink {
+  fill: var(--al-ink);
 }
 
-.alert .hop .ico {
+.alert .al-ink-ln {
+  fill: none;
+  stroke: var(--al-ink);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.alert .al-mouth {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: al-mouth;
+  animation-timing-function: var(--ease-sine);
+}
+
+@keyframes al-mouth {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(.4); }
+}
+
+/* 大合唱：三個小人一起晃著唱，音符往上飄；下面細線是這句唱到哪裡 */
+.alert .al-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation-name: al-sway;
+  animation-timing-function: var(--ease-sine);
+}
+
+.alert .al-note {
+  fill: var(--act);
+  animation-name: al-note;
+  animation-timing-function: var(--ease-out);
+}
+
+.alert .al-note path {
+  fill: none;
+  stroke: var(--act);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.alert .al-sway,
+.alert .al-note {
+  animation-delay: calc(var(--ph2, 0) * -1s);
+}
+
+.alert .al-note.n2 {
+  animation-delay: calc((var(--ph2, 0) + .5) * -1s);
+}
+
+@keyframes al-sway {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+
+@keyframes al-note {
+  0% { opacity: 0; transform: translateY(6px); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+
+.alert .al-prog {
+  justify-self: stretch;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--al-track);
+  overflow: hidden;
+}
+
+.alert .al-prog i {
+  display: block;
+  height: 100%;
+  background: var(--act);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--prog, 0));
+}
+
+/* 喊聲、手勢：握拳往上舉、張大嘴喊，要喊的字在對話框裡，每拍彈一下 */
+.alert .al-shout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.alert .al-emit {
+  fill: none;
+  stroke: var(--act);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  animation-name: al-emit;
+  animation-timing-function: var(--ease-out);
+}
+
+.alert .al-emit.e2 {
+  animation-delay: calc((var(--ph, 0) + .9) * -1s);
+}
+
+.alert .al-emit.e3 {
+  animation-delay: calc((var(--ph, 0) + .8) * -1s);
+}
+
+.alert .al-bob {
+  animation-name: al-bob;
+  animation-timing-function: var(--ease-out);
+}
+
+.alert .al-fist {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transform: rotate(18deg);
+  animation-name: al-fist;
+  animation-timing-function: var(--ease-out);
+}
+
+.alert .al-bubble {
+  position: relative;
+  padding: 4px 16px 6px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--act) 16%, var(--raised));
+  transform-origin: 0 50%;
+  animation: al-pop 1s infinite paused both;
+  animation-timing-function: var(--ease-out);
+  animation-delay: calc(var(--ph, 0) * -1s);
+}
+
+.alert .al-bubble::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: 2px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.alert .al-bubble .big {
+  position: relative;
+  transform: none;
+}
+
+@keyframes al-emit {
+  0% { opacity: 0; transform: translateX(3px); }
+  12% { opacity: 1; }
+  60%, 100% { opacity: 0; transform: translateX(-4px); }
+}
+
+@keyframes al-bob {
+  0% { transform: translateY(-5px); }
+  35%, 100% { transform: translateY(0); }
+}
+
+@keyframes al-fist {
+  0% { transform: rotate(18deg); }
+  55% { transform: rotate(45deg); animation-timing-function: cubic-bezier(.55, 0, .9, .4); }
+  100% { transform: rotate(18deg); }
+}
+
+@keyframes al-pop {
+  0% { transform: scale(1.08); }
+  35%, 100% { transform: scale(1); }
+}
+
+/* 揮手：側面的小人把手燈舉在頭上，手臂幾乎不動，手腕帶著手燈前後揮；拍點揮到前面的黃點 */
+.alert .al-arc {
+  fill: none;
+  stroke: var(--al-rest);
+  stroke-width: 2;
+  stroke-dasharray: .5 6;
+  stroke-linecap: round;
+}
+
+.alert .al-arc-end {
+  fill: var(--al-rest);
+}
+
+.alert .al-arc-tip {
+  fill: var(--act);
+}
+
+.alert .al-wfill {
+  fill: var(--al-kid);
+}
+
+.alert .al-wlimb {
+  stroke: var(--al-kid);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.alert .al-grip {
+  stroke: var(--al-grip);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.alert .al-blade {
+  stroke: var(--act);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+
+.alert .al-ghost .al-blade {
+  opacity: .2;
+}
+
+.alert .al-warm {
+  transform-box: view-box;
+  transform-origin: 100px 88px;
+  transform: rotate(6deg);
+  animation-name: al-warm;
+  animation-timing-function: var(--ease-sine);
+}
+
+.alert .al-light {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transform: rotate(25deg);
+  animation-name: al-light;
+  animation-timing-function: var(--ease-sine);
+}
+
+.alert .al-ghost {
+  animation-delay: calc((var(--ph, 0) + .84) * -1s);
+}
+
+.alert .al-glow {
+  animation-name: al-glow;
+  animation-timing-function: var(--ease-out);
+}
+
+.alert .al-wbody {
+  animation-name: al-wbob;
+  animation-timing-function: var(--ease-out);
+}
+
+@keyframes al-warm {
+  0%, 100% { transform: rotate(6deg); }
+  50% { transform: rotate(-4deg); }
+}
+
+@keyframes al-light {
+  0%, 100% { transform: rotate(25deg); }
+  50% { transform: rotate(-15deg); }
+}
+
+@keyframes al-glow {
+  0% { filter: drop-shadow(0 0 7px var(--act)); }
+  45%, 100% { filter: drop-shadow(0 0 0 transparent); }
+}
+
+@keyframes al-wbob {
+  0% { transform: translateY(1.5px); }
+  40%, 100% { transform: translateY(0); }
+}
+
+/* 跳躍：拍點落地蹲低、手放下，起跳時舉起雙手；影子跟著縮放，落地時地面泛起一圈 */
+.alert .al-ground {
+  stroke: var(--al-track);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.alert .al-shadow {
+  fill: var(--al-shadow);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: al-shadow;
+  animation-timing-function: var(--ease-sine);
+}
+
+.alert .al-land {
+  fill: none;
   stroke: var(--act);
   stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation-name: al-land;
+  animation-timing-function: var(--ease-out);
 }
 
+.alert .al-jump {
+  transform-box: view-box;
+  transform-origin: 100px 106px;
+  animation-name: al-jump;
+}
 
+.alert .al-arm-l,
+.alert .al-arm-r {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation-timing-function: var(--ease-out);
+}
+
+.alert .al-arm-l {
+  transform: rotate(-140deg);
+  animation-name: al-arm-l;
+}
+
+.alert .al-arm-r {
+  transform: rotate(140deg);
+  animation-name: al-arm-r;
+}
+
+.alert .al-leg-l,
+.alert .al-leg-r {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation-timing-function: var(--ease-sine);
+}
+
+.alert .al-leg-l {
+  transform: rotate(15deg);
+  animation-name: al-leg-l;
+}
+
+.alert .al-leg-r {
+  transform: rotate(-15deg);
+  animation-name: al-leg-r;
+}
+
+@keyframes al-shadow {
+  0%, 100% { transform: scale(1); opacity: .9; }
+  50% { transform: scale(.5); opacity: .35; }
+}
+
+@keyframes al-land {
+  0% { opacity: .8; transform: scale(1); }
+  40%, 100% { opacity: 0; transform: scale(2.4); }
+}
+
+@keyframes al-jump {
+  0% { transform: translateY(0) scale(1.05, .86); animation-timing-function: cubic-bezier(.2, .6, .35, 1); }
+  16% { transform: translateY(-3px) scale(.97, 1.05); animation-timing-function: cubic-bezier(.2, .6, .35, 1); }
+  50% { transform: translateY(-28px) scale(1, 1); animation-timing-function: cubic-bezier(.55, 0, .9, .5); }
+  100% { transform: translateY(0) scale(1.05, .86); }
+}
+
+@keyframes al-arm-l {
+  0% { transform: rotate(-140deg); }
+  35%, 75% { transform: rotate(-25deg); }
+  100% { transform: rotate(-140deg); }
+}
+
+@keyframes al-arm-r {
+  0% { transform: rotate(140deg); }
+  35%, 75% { transform: rotate(25deg); }
+  100% { transform: rotate(140deg); }
+}
+
+@keyframes al-leg-l {
+  0% { transform: rotate(15deg); }
+  30%, 80% { transform: rotate(3deg); }
+  100% { transform: rotate(15deg); }
+}
+
+@keyframes al-leg-r {
+  0% { transform: rotate(-15deg); }
+  30%, 80% { transform: rotate(-3deg); }
+  100% { transform: rotate(-15deg); }
+}
 
 @media (max-width: 900px) {
 
@@ -2191,6 +2711,21 @@ main.col {
     gap: 6px;
     padding: 12px 16px 14px;
     border-radius: 18px;
+  }
+
+  .alert .al-stage {
+    width: 128px;
+    height: 77px;
+  }
+
+  .alert .al-trio {
+    width: 120px;
+    height: 68px;
+  }
+
+  .alert .al-shouter {
+    width: 60px;
+    height: 57px;
   }
 
   .alert .words,
@@ -2387,6 +2922,21 @@ main.col {
   .alert .card {
     gap: 4px;
     padding: 8px 14px 10px;
+  }
+
+  .alert .al-stage {
+    width: 100px;
+    height: 60px;
+  }
+
+  .alert .al-trio {
+    width: 96px;
+    height: 54px;
+  }
+
+  .alert .al-shouter {
+    width: 48px;
+    height: 46px;
   }
 
   .alert .words,
@@ -3791,7 +4341,7 @@ html:not(.on-song) #fx {
 .mark {
   flex: 0 1 auto;
   min-width: 0;
-  margin-right: auto;
+  margin-right: 4px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -3805,6 +4355,85 @@ html:not(.on-song) #fx {
   text-decoration: none;
   white-space: nowrap;
   transition: opacity var(--dur-hover) var(--ease);
+}
+
+/* 頂欄站內頁面導覽按鈕（首頁／新手須知／2027 巡迴） */
+.bar-nav {
+  flex: none;
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bar-nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: var(--tr-color), background-color var(--dur-hover) var(--ease), transform var(--dur-press) var(--ease);
+}
+
+.bar-nav-link[aria-current="page"] {
+  background: var(--fill);
+  color: var(--text);
+}
+
+@media (hover: hover) {
+  .bar-nav-link:hover {
+    background: var(--fill);
+    color: var(--text);
+  }
+}
+
+.bar-nav-link:active {
+  background: var(--fill-press);
+  transform: scale(.96);
+}
+
+.bar-nav-link:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .bar .col {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .mark {
+    margin-right: auto;
+  }
+
+  .bar-nav {
+    order: 10;
+    flex: 1 0 100%;
+    margin-right: 0;
+    gap: 6px;
+    padding-bottom: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .bar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bar-nav-link {
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 13.5px;
+  }
 }
 
 .mark svg {
@@ -6821,7 +7450,7 @@ html:not(.on-song) #fx {
 /* 動作字卡、應援速覽、反拍提示：拿掉框線，靠底色分層 */
 .alert .card {
   border: 0;
-  box-shadow: var(--menu-shadow), 0 0 0 1.5px color-mix(in srgb, var(--act, var(--accent)) 45%, transparent);
+  box-shadow: var(--menu-shadow), 0 0 0 1px rgba(255, 255, 255, .1);
 }
 
 .song-guide-card {
@@ -6973,6 +7602,12 @@ html:not(.on-song) #fx {
 
 :root[data-theme="light"] body:not(.immersive-mode) .pen i {
   box-shadow: var(--dot-ring);
+}
+
+:root[data-theme="light"] .alert {
+  --al-kid: #a7b1c2;
+  --al-grip: #cbd5e1;
+  --al-shadow: rgba(15, 23, 42, .14);
 }
 
 :root[data-theme="light"] body:not(.immersive-mode) .alert .words {
@@ -9363,11 +9998,10 @@ main.col.tour-main {
   min-width: 0;
 }
 
+/* 完整導覽與手機清單：不加卡片底，只有左緣一條細細的閱讀進度線（底線＋已讀的 tint 填色），
+   目前段落用粗體白字標出；圓點只在精簡導覽（1180–1439px）出現 */
 .tour-rail {
   box-sizing: border-box;
-  padding: 16px 14px 12px;
-  border-radius: 16px;
-  background: var(--card);
 }
 
 .tour-rail-head {
@@ -9375,16 +10009,19 @@ main.col.tour-main {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 4px;
+  padding-left: 16px;
   color: var(--faint);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
+  letter-spacing: .04em;
 }
 
 .tour-rail-pct {
-  color: var(--tint);
-  font-size: 13px;
-  font-weight: 700;
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .tour-rail-list,
@@ -9399,20 +10036,20 @@ main.col.tour-main {
   margin-top: 10px;
 }
 
-/* 進度線：底線從第一個點到最後一個點，填滿的部分由腳本算到目前段落 */
+/* 進度線：底線從第一項畫到最後一項，填滿的部分由腳本算到目前讀到的位置 */
 .tour-rail-list::before,
 .tour-rail-list::after {
   content: "";
   position: absolute;
-  left: 9px;
-  top: var(--rail-top, 18px);
+  left: 0;
+  top: var(--rail-top, 0px);
   width: 2px;
   border-radius: 2px;
 }
 
 .tour-rail-list::before {
   height: var(--rail-len, 0px);
-  background: var(--fill);
+  background: var(--line);
 }
 
 .tour-rail-list::after {
@@ -9425,29 +10062,50 @@ main.col.tour-main {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 36px;
-  padding: 0 4px;
-  border-radius: 8px;
+  min-height: 32px;
+  padding: 5px 8px 5px 16px;
+  box-sizing: border-box;
+  border-radius: 0 8px 8px 0;
   color: var(--faint);
   font-size: 14px;
-  font-weight: 600;
-  line-height: 1.3;
+  font-weight: 500;
+  line-height: 1.35;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
   transition: color var(--dur-hover) var(--ease);
 }
 
+.tour-rail a.is-active {
+  position: relative;
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* 目前段落旁邊的進度線一定是亮的（剛捲進這一段、填色還沒長過來時也一樣） */
+.tour-rail-item>a.is-active::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--tint);
+}
+
 .tour-rail-dot {
+  display: none;
   position: relative;
   z-index: 1;
   flex: none;
   box-sizing: border-box;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid var(--fill-hover);
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
   background: var(--card);
-  transition: background-color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease), transform var(--dur-base) var(--ease-spring);
+  transition: background-color var(--dur-hover) var(--ease), border-color var(--dur-hover) var(--ease), height var(--dur-base) var(--ease-spring);
 }
 
 .tour-rail a.is-passed .tour-rail-dot {
@@ -9455,24 +10113,19 @@ main.col.tour-main {
   background: var(--tint);
 }
 
-.tour-rail a.is-active {
-  color: var(--text);
-}
-
+/* 目前段落的圓點拉長成一小段膠囊，跟進度線連成一體 */
 .tour-rail a.is-active .tour-rail-dot {
-  transform: scale(1.25);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tint) 22%, transparent);
+  height: 20px;
 }
 
 .tour-rail-sub a {
-  min-height: 30px;
-  padding-left: 26px;
+  min-height: 28px;
+  padding-left: 28px;
   font-size: 13px;
-  font-weight: 500;
 }
 
 .tour-rail-sub a.is-active {
-  color: var(--tint);
+  font-weight: 600;
 }
 
 @media (hover: hover) {
@@ -9483,7 +10136,7 @@ main.col.tour-main {
 
 .tour-rail a:focus-visible {
   outline: 2px solid var(--tint);
-  outline-offset: 0;
+  outline-offset: -2px;
 }
 
 /* 手機浮動按鈕：捲過主標才出現 */
@@ -9582,7 +10235,7 @@ main.col.tour-main {
     margin-inline: auto;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 16px 14px;
+    padding: 16px 16px 12px;
     border-radius: 20px;
     background: var(--menu);
     box-shadow: var(--menu-shadow);
@@ -9592,10 +10245,6 @@ main.col.tour-main {
   .tour-rail.is-open {
     display: block;
     animation: tour-rail-in var(--dur-base) var(--ease-out);
-  }
-
-  .tour-rail-dot {
-    background: var(--menu);
   }
 
   .tour-rail a {
@@ -9650,7 +10299,16 @@ main.col.tour-main {
     width: 40px;
     padding: 12px 0;
     border-radius: 999px;
+    background: var(--card);
     overflow: visible;
+  }
+
+  .tour-rail-dot {
+    display: block;
+  }
+
+  .tour-rail-item>a.is-active::before {
+    display: none;
   }
 
   .tour-rail-head {
@@ -9934,4 +10592,416 @@ main.col.tour-main {
 .tour-venue-3d:focus-visible {
   outline: 2px solid var(--tint);
   outline-offset: 2px;
+}
+
+/* ── 演唱會新手須知＆全曲手燈顏色（guide/） ──
+   版面沿用巡演頁（.tour-main／.tour-hero／本頁導覽 .tour-rail／.tour-fab），這裡只放這一頁自己的東西，全部掛在 .on-guide 底下。
+   原則（格式塔＋少即是多）：
+   - 一種結構走到底：段落標題 → 一塊卡片底 → 一行灰色附註。卡片裡都是「左欄標籤｜右欄內容」的列，列之間只有一條細線
+   - 標籤欄寬三段共用（--guide-label），所以規定標題、色名在整頁同一條垂直線上（連續、對齊）
+   - 一塊底色就是一組（共同區域）；顏色只用在色點，歌名膠囊一律中性（相似）；唯一的強調是禁令那塊淡紅底
+   顏色只用 token，淺色模式自動跟著換；手機改成上下排，不會橫向捲動 */
+.guide-entry-link {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.on-guide {
+  --guide-warn: #ff8a5c;
+  --guide-label: 13.5rem;
+  --guide-pad-x: 20px;
+  --guide-pad-y: 18px;
+}
+
+:root[data-theme="light"] .on-guide {
+  --guide-warn: #b42318;
+}
+
+.on-guide .guide-hero h1 {
+  max-width: 18em;
+}
+
+/* 色點：色列標籤、膠囊、主標目錄、圖例共用；彩色是一圈彩虹，未指定是虛線圈 */
+.on-guide .guide-dots {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.on-guide .guide-dots i {
+  flex: none;
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: var(--dot-ring);
+}
+
+.on-guide .guide-dots i.rb {
+  background: conic-gradient(#ff4a5a, #ff9a3c, #ffd84a, #4ee08a, #5fd4ff, #5d9dfe, #a374ff, #ff4a5a);
+}
+
+.on-guide .guide-dots i.is-none {
+  box-sizing: border-box;
+  background: transparent;
+  border: 1.5px dashed var(--faint);
+  box-shadow: none;
+}
+
+.on-guide .guide-star {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  fill: var(--tint);
+}
+
+/* 主標下一行目錄（位置同巡演頁的日期列）：文字連結，名稱＋灰色計數 */
+.on-guide .guide-map ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 24px;
+  margin: -4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.on-guide .guide-map a {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+  min-height: 32px;
+  color: var(--text);
+  font-size: 15px;
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+
+.on-guide .guide-map b {
+  font-weight: 700;
+}
+
+.on-guide .guide-map a>span:last-child {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.on-guide .guide-map .guide-dots i {
+  width: 8px;
+  height: 8px;
+}
+
+@media (hover: hover) {
+  .on-guide .guide-map a:hover b {
+    text-decoration: underline;
+  }
+}
+
+.on-guide .guide-map a:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 嚴重的禁止字眼：紅字粗體（文案裡用 **字** 標） */
+.on-guide .guide-hot {
+  color: var(--guide-warn);
+  font-weight: 800;
+}
+
+.on-guide .guide-head .sec-sub {
+  margin-top: 4px;
+  max-width: 44em;
+  text-wrap: pretty;
+}
+
+/* 段落結尾的附註（以官方公告為準、顏色來源）：灰色小字，不加框 */
+.on-guide .guide-note {
+  margin: 0;
+  max-width: 48em;
+  color: var(--faint);
+  font-size: 14px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+/* 共用的列：左欄標籤｜右欄內容 */
+.on-guide .guide-rule,
+.on-guide .guide-color {
+  display: grid;
+  grid-template-columns: var(--guide-label) minmax(0, 1fr);
+  gap: 8px 24px;
+  align-items: start;
+  min-width: 0;
+  padding: var(--guide-pad-y) var(--guide-pad-x);
+  scroll-margin-top: 72px;
+}
+
+.on-guide .guide-rule+.guide-rule,
+.on-guide .guide-color+.guide-color {
+  border-top: 1px solid var(--line);
+}
+
+.on-guide .guide-label {
+  margin: 0;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-wrap: balance;
+}
+
+/* ① 現場規定：兩塊卡片底，禁令一塊（淡紅底＋一個「禁止」標籤）、其餘一塊 */
+.on-guide .guide-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.on-guide .guide-group {
+  border-radius: var(--radius-card);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.on-guide .guide-group.is-warn {
+  background: color-mix(in srgb, var(--guide-warn) 7%, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--guide-warn) 30%, transparent);
+}
+
+.on-guide .guide-group.is-warn .guide-rule {
+  border-color: color-mix(in srgb, var(--guide-warn) 18%, var(--line));
+}
+
+.on-guide .guide-rule-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: var(--guide-pad-y) var(--guide-pad-x) 0;
+  color: var(--guide-warn);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.on-guide .guide-rule-tag+.guide-rule {
+  padding-top: 10px;
+}
+
+.on-guide .guide-rule-tag svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.on-guide .guide-rule-body {
+  min-width: 0;
+}
+
+.on-guide .guide-rule-body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.on-guide .guide-rule-body ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--faint);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.on-guide .guide-rule-body li {
+  position: relative;
+  padding-left: 14px;
+}
+
+.on-guide .guide-rule-body li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: .72em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ② 全曲手燈顏色：圖例一行灰字＋一張表 */
+.on-guide .guide-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: -4px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--faint);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.on-guide .guide-legend:empty {
+  display: none;
+}
+
+.on-guide .guide-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.on-guide .guide-legend .guide-dots i {
+  width: 7px;
+  height: 7px;
+}
+
+.on-guide .guide-wall {
+  min-width: 0;
+  border-radius: var(--radius-card);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.on-guide .guide-color .guide-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  min-height: 32px;
+}
+
+.on-guide .guide-color .guide-label .count {
+  color: var(--faint);
+  font-size: 13.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.on-guide .guide-color .guide-label small {
+  flex-basis: 100%;
+  padding-left: 22px;
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.on-guide .guide-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.on-guide .guide-pills li {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.on-guide .guide-pill-song {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 4px 12px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--text);
+  font-family: var(--font-ja);
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--dur-hover) var(--ease);
+}
+
+.on-guide .guide-pill-song.is-must {
+  padding-left: 9px;
+}
+
+@media (hover: hover) {
+  .on-guide .guide-pill-song:hover {
+    background: var(--fill-hover);
+  }
+}
+
+.on-guide .guide-pill-song:active {
+  background: var(--fill-press);
+}
+
+.on-guide .guide-pill-song:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 2px;
+}
+
+.on-guide .guide-pill-dots i {
+  width: 7px;
+  height: 7px;
+}
+
+/* 主標的兩顆按鈕：去首頁挑歌（實心主要按鈕）、巡演預習（淺底），沿用全站 .btn 的圓角膠囊 */
+.on-guide .guide-cta {
+  gap: 10px;
+}
+
+/* 手機：列改成上下排（標籤在上、內容在下），左緣仍對齊 */
+@media (max-width: 760px) {
+  .on-guide {
+    --guide-pad-x: 16px;
+    --guide-pad-y: 14px;
+  }
+
+  .on-guide .guide-rule,
+  .on-guide .guide-color {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .on-guide .guide-color {
+    gap: 8px;
+  }
+
+  .on-guide .guide-map ul {
+    gap: 2px 18px;
+  }
+
+  /* 手機兩顆按鈕平分一排，放不下就各佔一排，文字置中 */
+  .on-guide .guide-cta .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@media (forced-colors: active) {
+  .on-guide .guide-dots i,
+  .on-guide .guide-pill-song,
+  .on-guide .guide-group,
+  .on-guide .guide-wall {
+    border: 1px solid CanvasText;
+  }
 }

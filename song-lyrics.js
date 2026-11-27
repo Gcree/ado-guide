@@ -39757,7 +39757,7 @@
   },
   {
     "id": "mousoushikkan",
-    "title": "妄想疾患□ガール",
+    "title": "妄想疾患■ガール",
     "youtubeId": "",
     "duration": 0,
     "lyrics": []
@@ -39779,6 +39779,20 @@
   {
     "id": "lagata",
     "title": "La Gata Bajo La Lluvia",
+    "youtubeId": "",
+    "duration": 0,
+    "lyrics": []
+  },
+  {
+    "id": "minagoroshi",
+    "title": "みなごろし",
+    "youtubeId": "",
+    "duration": 0,
+    "lyrics": []
+  },
+  {
+    "id": "gerende",
+    "title": "ゲレンデがとけるほど恋したい Live ver.",
     "youtubeId": "",
     "duration": 0,
     "lyrics": []

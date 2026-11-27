@@ -165,10 +165,12 @@
     { id: "kinmokusei", ja: "金木犀", zh: "金木犀", en: "金木犀", ro: "Kinmokusei", date: "2019-12-16", yt: "Baw-cAvS5xc", len: "2:21", hold: true, collab: true  },
     { id: "taemanaku", ja: "絶え間なく藍色", zh: "絶え間なく藍色", en: "絶え間なく藍色", ro: "Taemanaku Aiiro", date: "2020-05-05", yt: "i8qxs5oJ24E", len: "3:41", hold: true, collab: true  },
     { id: "unknownmothergoose", ja: "アンノウン・マザーグース", zh: "アンノウン・マザーグース", en: "アンノウン・マザーグース", ro: "Unknown Mother-Goose", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
-    { id: "mousoushikkan", ja: "妄想疾患□ガール", zh: "妄想疾患□ガール", en: "妄想疾患□ガール", ro: "Mousou Shikkan Girl", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
+    { id: "mousoushikkan", ja: "妄想疾患■ガール", zh: "妄想疾患■ガール", en: "妄想疾患■ガール", ro: "Mousou Shikkan Girl", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
     { id: "entersandman", ja: "Enter Sandman", zh: "Enter Sandman", en: "Enter Sandman", ro: "Enter Sandman", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
     { id: "kawakiwoameku", ja: "カワキヲアメク", zh: "カワキヲアメク", en: "カワキヲアメク", ro: "Kawaki wo Ameku", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
     { id: "lagata", ja: "La Gata Bajo La Lluvia", zh: "La Gata Bajo La Lluvia", en: "La Gata Bajo La Lluvia", ro: "La Gata Bajo La Lluvia", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
+    { id: "minagoroshi", ja: "みなごろし", zh: "みなごろし", en: "みなごろし", ro: "Minagoroshi", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
+    { id: "gerende", ja: "ゲレンデがとけるほど恋したい Live ver.", zh: "ゲレンデがとけるほど恋したい Live ver.", en: "ゲレンデがとけるほど恋したい Live ver.", ro: "Gerende ga Tokeru hodo Koishitai Live ver.", date: "2026-12-23", yt: "", len: "", hold: true, cover: true, upcoming: true  },
     { id: "senbonzakura", ja: "千本桜", zh: "千本櫻", en: "Senbonzakura", ro: "Senbonzakura", date: "2021-12-29", yt: "3tPBEjxqEc4", len: "3:59", acts: ["call", "wave"], tips: ["前奏尾端與第一段間奏隨重拍推棒喊「Hey!」，2A 可接「ワン・ツー・サン・シ！」", "副歌與尾奏大力揮棒，C 段長音放緩輕晃、等鼓點漸強再舉高"], cover: true  },
     { id: "staywithme", ja: "真夜中のドア〜stay with me", zh: "真夜中のドア〜stay with me", en: "Stay With Me", ro: "Mayonaka no Door ~ stay with me", date: "2026-07-30", yt: "wQceSsMVlA4", len: "5:36", tips: [], free: true, cover: true  }
   ];
@@ -285,10 +287,11 @@
     anobando: ["那支樂團", "那個樂隊", "孤獨搖滾", "Bocchi"],
     binks: ["賓克斯的酒"], unknownmothergoose: ["無名鵝媽媽", "未知鵝媽媽"], kawakiwoameku: ["乾渴的吶喊", "家有女友"],
     darlingdance: ["親愛共舞"], bocca: ["Bocca della Verità"], renaesaiban: ["戀愛審判"],
-    blackrockshooter: ["黑岩射手", "BRS"], koihasensou: ["戀愛戰爭"], mousoushikkan: ["妄想疾患女孩"],
+    blackrockshooter: ["黑岩射手", "BRS"], koihasensou: ["戀愛戰爭"], mousoushikkan: ["妄想疾患女孩", "妄想疾患□ガール"],
     otomekaibou: ["乙女解剖"], mousoukanshou: ["妄想感傷代償聯盟"], meltyland: ["融化之地噩夢"],
     rabuka: ["Loveca?"], egorock: ["自私搖滾"], shikabanese: ["屍人"], taemanaku: ["不斷湧現的藍色"],
-    kubozono: ["怪盜窪園"], lagata: ["雨中的貓"], staywithme: ["真夜中のドア", "午夜之門"]
+    kubozono: ["怪盜窪園"], lagata: ["雨中的貓"], staywithme: ["真夜中のドア", "午夜之門"],
+    minagoroshi: ["皆殺し"], gerende: ["ゲレンデがとけるほど恋したい", "在雪場融化般的戀愛"]
   };
   // 出處：動畫、電影、活動的主題曲（只寫確定的）；歌曲頁和搜尋結果會顯示，大家常用作品名找歌
   const TIE = {
@@ -330,7 +333,7 @@
     { name: "《残夢》（2024）", ids: ["nukegara", "missing", "dignity", "chocolat", "kurakura", "mondaisaku", "rebellion", "radio", "himawari", "akuruhi", "mirror", "rule", "show", "ibara", "value", "zero"] },
     { name: "《ウタの歌 ONE PIECE FILM RED》（2022）", ids: ["shinjidai", "saikyo", "gyakkou", "utakata", "totmusica", "sekai", "kaze", "binks"] },
     { name: "《Adoの歌ってみたアルバム》（2023）", ids: ["dryflower", "kazarijanai", "aishite", "tsumitobatsu", "kawaikute", "villain", "kamippoina", "unravel", "burikino", "hotaru"] },
-    { name: "《Adoの歌ってみたアルバム その２》（2026）", ids: ["unknownmothergoose", "mousoushikkan", "kuchibashi", "entersandman", "kawakiwoameku", "fairytale", "lagata"] }
+    { name: "《Adoの歌ってみたアルバム その２》（2026）", ids: ["kawakiwoameku", "mousoushikkan", "kuchibashi", "minagoroshi", "entersandman", "lagata", "natsuyo", "unknownmothergoose", "fairytale", "gerende"] }
   ];
   const ALBUM = {};
   ALBUMS.forEach(a => a.ids.forEach(id => { ALBUM[id] = a.name; }));
@@ -490,7 +493,9 @@
     mousoushikkan: { w: ["もじゃ"], c: ["もじゃ"], a: ["れるりり"] },
     entersandman: { w: ["Metallica"], c: ["Metallica"] },
     kawakiwoameku: { w: ["美波"], c: ["美波"] },
-    lagata: { w: ["Rafael Pérez-Botija García"], c: ["Rafael Pérez-Botija García"] }
+    lagata: { w: ["Rafael Pérez-Botija García"], c: ["Rafael Pérez-Botija García"] },
+    minagoroshi: { w: ["なきそ"], c: ["なきそ"] },
+    gerende: { w: ["広瀬香美"], c: ["広瀬香美"] }
   };
   // 同一部作品（電影、動畫、節目、專輯）裡的歌：歌曲頁「關聯曲」用
   const SERIES = [
@@ -500,7 +505,7 @@
     { name: "ABEMA《今天，喜歡上你了。》", ids: ["haruni", "sukideite"] },
     { name: "動畫《CAT'S EYE 貓眼》", ids: ["magic", "catseye"] },
     { name: "《Adoの歌ってみたアルバム》", ids: ["unravel", "aishite", "kazarijanai", "kamippoina", "kawaikute", "tsumitobatsu", "dryflower", "villain", "burikino", "hotaru"] },
-    { name: "《Adoの歌ってみたアルバム その２》", ids: ["unknownmothergoose", "mousoushikkan", "kuchibashi", "entersandman", "kawakiwoameku", "fairytale", "lagata"] }
+    { name: "《Adoの歌ってみたアルバム その２》", ids: ["kawakiwoameku", "mousoushikkan", "kuchibashi", "minagoroshi", "entersandman", "lagata", "natsuyo", "unknownmothergoose", "fairytale", "gerende"] }
   ];
   // 推薦練習分層（依 setlist.fm + OTO SQUARE 演出頻率 × 應援互動度整理，非單場歌單）
   // 1＝必練（首頁「推薦練習」書架順序）；2＝高頻但型態不同（跟唱／聆聽）；3＝進階／看巡演

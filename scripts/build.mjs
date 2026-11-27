@@ -68,7 +68,7 @@ const require = createRequire(import.meta.url);
 const renderModPath = path.join(root, "shared/render.js");
 if (!fs.existsSync(renderModPath)) throw new Error("build.mjs 找不到共用模組：shared/render.js");
 const {
-  ACT_MAP, PENC, TIER_LABEL, esc, fmt, isoDuration, isNote, isOffbeat,
+  ACT_MAP, PENC, PEN_ORDER, TIER_LABEL, esc, fmt, isoDuration, isNote, isOffbeat,
   penOf: sharedPenOf, penDots: sharedPenDots, jaHTML,
   relatedOf: sharedRelatedOf, songInlineSummary: sharedSongInlineSummary,
   mainAct, lineAct
@@ -77,6 +77,8 @@ const LYRICS = require(path.join(root, "song-lyrics.js"));
 const LYRICS_LIVE = require(path.join(root, "song-lyrics-live.js"));
 const { SONGS, UT, PEN, SERIES, PRACTICE = {} } = require(path.join(root, "songs.js"));
 const { TOURS = [] } = fs.existsSync(path.join(root, "tours.js")) ? require(path.join(root, "tours.js")) : {};
+// 演唱會新手攻略＆全曲手燈顏色總表（guide/）的三語文案；歌單與顏色由下面從 SONGS 算
+const { GUIDE } = require(path.join(root, "guide-data.js"));
 
 const relatedOf = (s, T) => sharedRelatedOf(s, SONGS, SERIES, T);
 const songInlineSummary = (s, code, pen, tips, lines, T) => sharedSongInlineSummary(s, code, pen, tips, lines, T, namePart);
@@ -155,8 +157,12 @@ function songPageTitle(s, code) {
     en: [`Ado "${n || s.ja}"${n ? ` (${s.ja})` : ""} Fan Chant Guide | ${hook}`, `Ado "${n || s.ja}" Fan Chant Guide | ${hook}`],
     ja: [`Ado「${s.ja}」ライブコール・応援ガイド｜${hook}`, `Ado「${s.ja}」ライブ応援ガイド｜${hook}`]
   }[code];
-  const max = code === "en" ? 65 : 34;
-  return tries.find(t => t.length <= max) || songTitle(s, code);
+  // 英文：Google 大約顯示 60 字元；歌名本身很長時再退成只放歌名＋「Fan Chant Guide」，最後才截斷
+  if (code === "en") {
+    const fit = [...tries, songTitle(s, code), `Ado "${n || s.ja}" Fan Chants`].find(t => t.length <= 60);
+    return fit || cut(`Ado "${n || s.ja}" Fan Chants`, 60);
+  }
+  return tries.find(t => t.length <= 34) || songTitle(s, code);
 }
 function songDesc(s, code, p, tips, T) {
   const n = namePart(s, code), tie = s.tie ? T(s.tie) : "";
@@ -233,6 +239,8 @@ const UPDATED = (read("CHANGELOG.md").match(/^## v\d+\.\d+\.\d+ — (\d{4}-\d{2}
 const SONG_DATES = songLastmod(root, SONGS.map(s => s.id));
 if (!SONG_DATES) console.warn("拿不到 git 歷史（淺層 clone？），歌曲頁的 lastmod 改用網站更新日 " + UPDATED);
 const songUpdated = id => (SONG_DATES && SONG_DATES[id]) || UPDATED;
+// 攻略頁的更新日：文案的更新日和表上任何一首歌最後改動的日期，取最新的
+const GUIDE_UPDATED = [GUIDE.updated, ...INDEXABLE_SONGS.map(s => songUpdated(s.id))].filter(Boolean).sort().pop();
 // Ado 本人：維基百科與 Wikidata 讓搜尋引擎、AI 確定是哪一位 Ado（同名的人很多）
 const ADO = {
   "@type": "MusicGroup",
@@ -327,9 +335,26 @@ function translateTemplate(html, L, T) {
 }
 
 // 英文、日文版在子資料夾：共用的 CSS、JS、圖示往上一層找；<html> 標上語言
+const NAV_COPY = {
+  zh: { label: "站內導覽", home: "首頁", guide: "新手須知", tour: "2027 巡迴" },
+  en: { label: "Site navigation", home: "Home", guide: "Guide", tour: "2027 Tour" },
+  ja: { label: "サイト内ナビ", home: "トップ", guide: "初心者ガイド", tour: "2027ツアー" }
+};
+function renderBarNav(L, rest) {
+  const n = NAV_COPY[L.code] || NAV_COPY.zh;
+  const activeTour = TOURS.find(t => t.active) || TOURS[0];
+  const cur = rest === "" ? "home" : rest === "guide/" ? "guide" : rest.startsWith("tour/") ? "tour" : "";
+  const items = [
+    ["home", "./", n.home],
+    ["guide", "guide/", n.guide],
+    ...(activeTour ? [["tour", `tour/${activeTour.id}/`, n.tour]] : [])
+  ];
+  return `<nav class="bar-nav" aria-label="${esc(n.label)}">${items.map(([k, href, text]) => `<a class="bar-nav-link" href="${href}" data-nav="${k}"${cur === k ? ' aria-current="page"' : ""}>${esc(text)}</a>`).join("")}</nav>`;
+}
 function langTemplate(L, T) {
   const up = L.dir ? "../" : "";
-  let html = translateTemplate(src, L, T);
+  const preSrc = mustReplace(src, /<!--\s*build:nav:start\s*-->[\s\S]*?<!--\s*build:nav:end\s*-->/, "<!-- build:nav -->", "src build:nav");
+  let html = translateTemplate(preSrc, L, T);
   html = mustReplace(
     html,
     /[ \t]*<!--\s*fonts:tw:start\s*-->\r?\n?([\s\S]*?)[ \t]*<!--\s*fonts:tw:end\s*-->\r?\n?/,
@@ -395,6 +420,7 @@ function page(tpl, L, T, { rest, title, desc, ld, base, song, robots, extra = ""
   html = mustReplace(html, /<meta property="og:description" content="[^"]*">/, () => `<meta property="og:description" content="${esc(desc)}">`, "page og:description");
   html = mustReplace(html, /<meta property="og:type" content="[^"]*">/, () => `<meta property="og:type" content="${song ? "music.song" : "website"}">`, "page og:type");
   html = mustReplace(html, /<!-- build:seo[^>]*-->/, () => seoBlock, "page build:seo");
+  html = mustReplace(html, "<!-- build:nav -->", () => renderBarNav(L, rest), "page build:nav");
   if (base) html = mustReplace(html, '<meta charset="utf-8">', `<meta charset="utf-8">\n<base href="${base}">`, "page <meta charset>");
   if (song) html = mustReplace(html, /<html lang="([^"]+)" /, (m, lang) => `<html lang="${lang}" data-song="${song.id}" `, "page data-song");
   return langLinks(html, L, rest);
@@ -432,7 +458,10 @@ const MANIFEST_COPY = {
 // ── 每種語言產生首頁＋每首歌的獨立頁 ──
 function renderLang(L) {
   const T = makeT(L.code);
-  const tpl = langTemplate(L, T);
+  const GC = GUIDE.copy[L.code];
+  const arrowIco = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg>`;
+  // 頁尾「網站」那組加一條攻略頁連結（首頁、歌曲頁、巡演頁、攻略頁都有）；文字放 guide-data.js，不進執行期字典
+  const tpl = mustReplace(langTemplate(L, T), '<button type="button" id="logBtn"', () => `<a href="guide/">${esc(GC.linkFoot)}</a>\n            <button type="button" id="logBtn"`, "footer guide link");
   const thumbHtml = (s, w, h, lazy) => s.yt
     ? `<img class="thumb" src="https://i.ytimg.com/vi/${s.yt}/mqdefault.jpg" alt="" width="${w}" height="${h}" decoding="async"${lazy ? ' loading="lazy"' : ""}>`
     : `<span class="thumb thumb-ph" aria-hidden="true"><span>${esc(s.upcoming ? T("預留曲目") : T("尚無 MV"))}</span></span>`;
@@ -483,8 +512,9 @@ function renderLang(L) {
       list: "Ado 演唱會歌曲應援清單", listDesc: `Ado ${INDEXABLE_SONGS.length} 首歌曲的演唱會應援教學與同步歌詞`
     },
     en: {
-      title: `Ado Fan Chant Guide | Lightstick Colors & Sing-Alongs (${SONGS.length} Songs)`,
-      desc: `Going to an Ado concert? Each of ${SONGS.length} songs has its own page: play the official MV with synced lyrics and romaji, and see exactly where to clap, sing along, shout "Hey!", and which penlight / lightstick color to use. Unofficial, made by fans, spoiler-free.`,
+      title: `Ado Fan Chant Guide | Lightstick Colors & Chants (${SONGS.length} Songs)`,
+      // Google 摘要大約 155 字元：只留「每首一頁、MV＋同步歌詞、拍手合唱喊聲與手燈色」這幾個重點
+      desc: `Ado concert chant guide for ${SONGS.length} songs: official MVs with synced lyrics and romaji show where to clap, sing along, shout "Hey!" and which penlight to use.`,
       site: `An unofficial fan-made guide to Ado concert chants: ${SONGS.length} songs with synced lyrics, romaji, sing-along parts, clap and call cues, and penlight / lightstick colors.`,
       list: "Ado concert chant guide by song", listDesc: `Chant guides and synced lyrics for ${INDEXABLE_SONGS.length} Ado songs`
     },
@@ -561,6 +591,8 @@ function renderLang(L) {
   homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntLiveVideo">)[^<]*(<\/b>)/, (m, a, b) => `${a}${LIVE_VID_CNT}${b}`, "home #cntLiveVideo");
   homeHtml = mustReplace(homeHtml, /(<b class="cnt" id="cntLiveAudio">)[^<]*(<\/b>)/, (m, a, b) => `${a}${LIVE_AUD_CNT}${b}`, "home #cntLiveAudio");
   homeHtml = mustReplace(homeHtml, /(<div class="home-legend" id="homeLegend"[^>]*>)(<\/div>)/, (m, a, b) => `${a}${homeLegendHtml}${b}`, "home #homeLegend");
+  // 「演唱會應援練習原則」下面接一條到攻略＆手燈總表的入口（歌曲頁會連同這段一起剝掉）
+  homeHtml = mustReplace(homeHtml, /(<section class="home-guide" id="homeGuide"[\s\S]*?)(\s*<\/section>)/, (m, a, b) => `${a}\n        <a class="tint-link guide-entry-link" href="guide/">${esc(GC.linkHome)}${arrowIco}</a>${b}`, "home #homeGuide guide link");
   write(`${L.dir}index.html`, homeHtml);
 
   // ── 各歌曲獨立頁面（完全靜態預渲染標題、應援重點、手燈顏色、歌詞與 JSON-LD 結構化資料） ──
@@ -775,7 +807,8 @@ function renderLang(L) {
     var items=links.map(function(a){return{a:a,el:document.getElementById(a.getAttribute("data-sec")),top:!a.closest(".tour-rail-sub"),li:a.closest(".tour-rail-item")};}).filter(function(x){return x.el;});
     var tops=items.filter(function(x){return x.top;}),list=rail.querySelector(".tour-rail-list");
     var pct=document.getElementById("tourRailPct"),hero=document.querySelector(".tour-hero"),fabLabel=document.getElementById("tourFabLabel"),ring=document.getElementById("tourFabRing"),C=2*Math.PI*9,tick2=0;
-    function dotY(it){var d=it.a.querySelector(".tour-rail-dot")||it.a,r=d.getBoundingClientRect();return r.top-list.getBoundingClientRect().top+r.height/2;}
+    // 進度線的位置：精簡導覽有圓點時用圓點中心；完整導覽、手機清單不顯示圓點，進度線貼著每一項的左緣，從這一項上緣畫到它（含小段落）的下緣
+    function seg(it){var lt=list.getBoundingClientRect().top,d=it.a.querySelector(".tour-rail-dot");if(d&&d.offsetWidth){var r=d.getBoundingClientRect(),c=r.top-lt+r.height/2;return{a:c,b:c};}return{a:it.a.getBoundingClientRect().top-lt,b:(it.li||it.a).getBoundingClientRect().bottom-lt};}
     function update(){
       tick2=0;if(!tops.length)return;
       var y=scrollY,vh=innerHeight,line=vh*.32,act=-1,sub=null;
@@ -784,9 +817,9 @@ function renderLang(L) {
       items.forEach(function(it){if(!it.top&&at&&it.li===at.li&&it.el.getBoundingClientRect().top<=line)sub=it;});
       items.forEach(function(it){var on=it===at||it===sub;it.a.classList.toggle("is-active",on);if(on)it.a.setAttribute("aria-current","location");else it.a.removeAttribute("aria-current");});
       tops.forEach(function(it,i){it.a.classList.toggle("is-passed",i<=act);});
-      var ys=tops.map(dotY),h=ys[0];
-      if(at){var r=at.el.getBoundingClientRect(),nx=tops[act+1],span=nx?nx.el.getBoundingClientRect().top-r.top:r.height,f=Math.max(0,Math.min(1,(line-r.top)/Math.max(1,span)));h=ys[act]+(nx?f*(ys[act+1]-ys[act]):0);}
-      list.style.setProperty("--rail-top",ys[0]+"px");list.style.setProperty("--rail-len",(ys[ys.length-1]-ys[0])+"px");list.style.setProperty("--rail-fill",Math.max(0,h-ys[0])+"px");
+      var ys=tops.map(seg),h=ys[0].a;
+      if(at){var r=at.el.getBoundingClientRect(),nx=tops[act+1],span=nx?nx.el.getBoundingClientRect().top-r.top:r.height,f=Math.max(0,Math.min(1,(line-r.top)/Math.max(1,span)));h=ys[act].a+f*((nx?ys[act+1].a:ys[act].b)-ys[act].a);}
+      list.style.setProperty("--rail-top",ys[0].a+"px");list.style.setProperty("--rail-len",(ys[ys.length-1].b-ys[0].a)+"px");list.style.setProperty("--rail-fill",Math.max(0,h-ys[0].a)+"px");
       var start=tops[0].el.getBoundingClientRect().top+y-line,end=document.documentElement.scrollHeight-vh,p=Math.max(0,Math.min(1,(y-start)/Math.max(1,end-start)));
       if(pct)pct.textContent=Math.round(p*100)+"%";
       if(ring)ring.style.strokeDashoffset=String(C*(1-p));
@@ -1143,6 +1176,7 @@ function renderLang(L) {
           <section class="tour-sec" id="tips" aria-labelledby="tipsH">
             <div class="sec-head"><h2 id="tipsH">${esc(tc.tipsTitle)}</h2></div>
             <div class="home-guide-grid">${tipsHtml}</div>
+            <a class="tint-link guide-entry-link" href="guide/">${esc(GC.linkTour)}${arrow}</a>
           </section>
 
           <section class="faq tour-sec" id="faq" aria-labelledby="faqH">
@@ -1171,6 +1205,188 @@ function renderLang(L) {
     tourHtml = tourHtml.replace(/<button type="button" id="(?:logBtn|feedbackBtn|pwaInstallBtn)"[^>]*>[^<]*<\/button>\s*/g, "");
     tourHtml = mustReplace(tourHtml, /<div class="toast" id="toast"[\s\S]*?<\/body>/, () => `${tourInlineScript}\n</body>`, "tour strip dialogs & app scripts");
     write(`${L.dir}${rest}index.html`, tourHtml);
+  }
+
+  // ── 演唱會新手攻略＆手燈色票小抄（guide/）：跟巡演頁一樣是獨立靜態頁，不載主站大型腳本 ──
+  //    找歌、篩選、測驗交給首頁；這頁只做：主標（目錄＋去首頁挑歌、巡演預習兩顆按鈕）→ ① 現場規定（禁令排最前）→ ② 全曲手燈顏色表 → ③ 常見問題
+  {
+    const rest = "guide/";
+    const url = home + rest;
+    if (L.code === "zh") urls.push(rest);
+    const fill = (str, map) => String(str).replace(/\{(\w+)\}/g, (m, k) => (k in map ? map[k] : m));
+    const sep = L.code === "en" ? ", " : T("、");
+
+    // 色票牆上的歌：所有可索引的歌（已確認應援或自由搖、已發行）；每首只放進主色（第一個顏色）那張卡，
+    // 卡內必練曲照 PRACTICE[1] 的順序排最前面，其餘照發行日期
+    const MUST = PRACTICE[1] || [];
+    const wallSongs = INDEXABLE_SONGS.slice().sort((a, b) => {
+      const ia = MUST.indexOf(a.id), ib = MUST.indexOf(b.id);
+      if (ia >= 0 || ib >= 0) return (ia < 0 ? 1e3 : ia) - (ib < 0 ? 1e3 : ib);
+      return a.date.localeCompare(b.date) || a.no - b.no;
+    });
+    const penInfo = new Map(wallSongs.map(s => [s.id, penOf(s, T)]));
+    const colorsOf = s => (penInfo.get(s.id).none ? [] : penInfo.get(s.id).keys);
+    const mainOf = s => colorsOf(s)[0] || "none";
+    const colorName = k => (k === "none" ? GC.noneName : k === "彩" ? T("彩色") : T(PENC[k][0]));
+    const colorHex = k => (PENC[k] ? PENC[k][1] : PENC.青[1]);
+    const dotHtml = k => (k === "彩" ? `<i class="rb"></i>` : `<i style="--c:${colorHex(k)}"></i>`);
+    const swatchAttr = k => (k === "none" ? ' data-none="1"' : k === "彩" ? ' data-rb="1"' : ` style="--gc:${colorHex(k)}"`);
+    const wallKeys = [...PEN_ORDER, "none"].filter(k => wallSongs.some(s => mainOf(s) === k));
+    const usedColors = wallKeys.filter(k => k !== "none");
+    const nameFor = s => (L.code === "en" ? `"${namePart(s, "en") || s.ja}"` : `〈${s.ja}〉`);
+    const mustSongs = MUST.map(id => SONG_BY_ID.get(id)).filter(Boolean);
+    const vars = { mustN: mustSongs.length, must: mustSongs.map(nameFor).join(sep), covers: wallSongs.filter(s => s.cover).length, songs: wallSongs.length, all: SONGS.length, n: usedColors.length };
+
+    // 版面原則（格式塔＋少即是多）：
+    //  - 三段都用同一個結構：段落標題（h2＋灰色計數）→ 一塊卡片底 → 一行灰色附註；不再用說明框、編號、跳轉列
+    //  - 卡片裡一律是「左欄標籤｜右欄內容」的列，列與列之間只用一條細線分隔：左緣、標籤欄寬上下對齊（連續），一塊底色就是一組（共同區域）
+    //  - 顏色只出現一次：色列的色點；歌名膠囊一律中性底色，靠所在的那一列分組（相近），不再每顆染色
+    //  - 禁止事項是唯一的強調：兩條禁令收在同一塊淡紅底、上面一個「禁止」標籤，嚴重字眼紅字
+    const counts = {
+      rules: fill(GC.rulesCount, { 0: GC.rules.length }),
+      colors: fill(GC.colorsCount, vars),
+      faq: fill(GC.faqCount, { 0: GC.faqs.length })
+    };
+    // 文案裡 **字** 是嚴重的禁止字眼：畫面上顯示成紅字（<strong class="guide-hot">），其他地方（導覽、結構化資料）用 plain 拿掉記號
+    const plain = str => String(str).replace(/\*\*/g, "");
+    const rich = str => esc(str).replace(/\*\*(.+?)\*\*/g, '<strong class="guide-hot">$1</strong>');
+    const headHtml = (id, title, sub) => `<div class="sec-head guide-head"><div><h2 id="${id}H">${esc(title)}<span class="count">${esc(counts[id])}</span></h2>${sub ? `<p class="sec-sub">${rich(sub)}</p>` : ""}</div></div>`;
+    const starIco = `<svg class="guide-star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.7l5.9-.9z"/></svg>`;
+
+    // 歌名膠囊：必練曲前面有星號；雙色以上的歌在後面帶迷你色點（螢幕閱讀器念出全部顏色）。點下去直接進那首的 MV 同步練習頁
+    const pillHtml = s => {
+      const cols = colorsOf(s);
+      const must = MUST.includes(s.id) ? `${starIco}<span class="sr-only">${esc(GC.mustTag)}：</span>` : "";
+      const extra = cols.length > 1 ? `<span class="guide-dots guide-pill-dots" aria-hidden="true">${cols.slice(1).map(dotHtml).join("")}</span><span class="sr-only">（${esc(penInfo.get(s.id).words.join(sep))}）</span>` : "";
+      return `<li><a class="guide-pill-song${must ? " is-must" : ""}" href="song/${s.id}/" data-id="${s.id}">${must}<span lang="ja">${esc(s.ja)}</span>${extra}</a></li>`;
+    };
+    // 色票表：每個主色一列（左欄色點＋色名＋曲數，右欄歌名），整張表是同一塊卡片底
+    const COLOR_SLUG = { 青: "blue", 水: "cyan", 白: "white", 赤: "red", 桃: "pink", 紫: "purple", 橙: "orange", 黄: "yellow", 緑: "green", 彩: "rainbow", none: "none" };
+    const colorRows = wallKeys.map(k => ({ k, songs: wallSongs.filter(s => mainOf(s) === k), id: `color-${COLOR_SLUG[k] || "x"}` }));
+    const swatchDot = k => (k === "none" ? `<i class="is-none"></i>` : dotHtml(k));
+    const rowHtml = (c, i) => `<section class="guide-color" id="${c.id}" data-g="${c.k}" aria-labelledby="guideC${i}">
+              <h3 class="guide-label" id="guideC${i}"><span class="guide-dots" aria-hidden="true">${swatchDot(c.k)}</span><span>${esc(colorName(c.k))}</span><span class="count">${esc(fill(GC.songsN, { 0: c.songs.length }))}</span>${c.k === "none" ? `<small>${esc(GC.noneHint)}</small>` : ""}</h3>
+              <ul class="guide-pills">${c.songs.map(pillHtml).join("")}</ul>
+            </section>`;
+    // 圖例只在用得到的時候出現：有必練曲才放星號、有雙色歌才放迷你色點
+    const hasMulti = wallSongs.some(s => colorsOf(s).length > 1);
+    const legendHtml = `<ul class="guide-legend">${mustSongs.length ? `<li>${starIco}${esc(GC.legendMust)}</li>` : ""}${hasMulti ? `<li><span class="guide-dots" aria-hidden="true">${usedColors.slice(1, 3).map(dotHtml).join("")}</span>${esc(GC.legendDots)}</li>` : ""}</ul>`;
+    const colorsHtml = `<section class="tour-sec guide-colors-sec" id="colors" aria-labelledby="colorsH">
+            ${headHtml("colors", GC.colorsTitle, GC.colorsSub)}
+            ${legendHtml}
+            <div class="guide-wall">
+            ${colorRows.map(rowHtml).join("\n            ")}
+            </div>
+            <p class="guide-note">${rich(GC.colorsNote)}</p>
+          </section>`;
+
+    // ① 規則：同一種列（左欄標題｜右欄說明＋重點）；禁令兩條收進同一塊淡紅底（只標一次「禁止」），其餘三條一塊一般卡片底
+    const warnIco = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>`;
+    const ruleHtml = r => `<article class="guide-rule${r.warn ? " is-warn" : ""}" id="${r.id}" aria-labelledby="${r.id}-h">
+                <h3 class="guide-label" id="${r.id}-h">${rich(r.title)}</h3>
+                <div class="guide-rule-body"><p>${rich(r.body)}</p>${r.points && r.points.length ? `<ul>${r.points.map(x => `<li>${rich(x)}</li>`).join("")}</ul>` : ""}</div>
+              </article>`;
+    const warnRules = GC.rules.filter(r => r.warn), otherRules = GC.rules.filter(r => !r.warn);
+    const rulesHtml = `<section class="tour-sec guide-rules-sec" id="rules" aria-labelledby="rulesH">
+            ${headHtml("rules", GC.rulesTitle, "")}
+            <div class="guide-rules">
+              ${warnRules.length ? `<div class="guide-group is-warn"><p class="guide-rule-tag">${warnIco}${esc(GC.warnTag)}</p>${warnRules.map(ruleHtml).join("")}</div>` : ""}
+              ${otherRules.length ? `<div class="guide-group">${otherRules.map(ruleHtml).join("")}</div>` : ""}
+            </div>
+            <p class="guide-note">${rich(GC.rulesNote)}</p>
+          </section>`;
+
+    const faqs = GC.faqs.map(f => ({ q: plain(fill(f.q, vars)), a: fill(f.a, vars) }));
+    const faqHtml = `<section class="faq tour-sec" id="faq" aria-labelledby="faqH">
+            ${headHtml("faq", GC.faqTitle, "")}
+            <div class="faq-list">${faqs.map(f => `<details class="faq-item"><summary>${esc(f.q)}</summary><p>${rich(f.a)}</p></details>`).join("")}</div>
+          </section>`;
+
+    // 主標下一行目錄（像巡演頁的日期列）：三段的名稱＋計數（跟段落標題同一組數字），文字連結；離開這頁的兩顆按鈕放在說明下面
+    const mapHtml = `<nav class="guide-map" aria-label="${esc(GC.mapLabel)}"><ul>${["rules", "colors", "faq"].map(id => `<li><a href="${rest}#${id}">${id === "colors" ? `<span class="guide-dots" aria-hidden="true">${usedColors.slice(0, 4).map(dotHtml).join("")}</span>` : ""}<b>${esc({ rules: GC.rulesTitle, colors: GC.colorsTitle, faq: GC.faqTitle }[id])}</b><span>${esc(counts[id])}</span></a></li>`).join("")}</ul></nav>`;
+
+    const tour0 = TOURS.find(t => t.copy && t.copy[L.code]);
+    const tourHref = tour0 ? `tour/${tour0.id}/` : "";
+    const railLink = id => `<a href="${rest}#${id}" data-sec="${id}" data-label="${esc({ rules: GC.rulesTitle, colors: GC.colorsTitle, faq: GC.faqTitle }[id])}"><span class="tour-rail-dot" aria-hidden="true"></span><span>${esc({ rules: GC.rulesTitle, colors: GC.colorsTitle, faq: GC.faqTitle }[id])}</span></a>`;
+    const railHtml = `<nav class="tour-rail" id="tourRail" aria-label="${esc(GC.nav)}">
+          <div class="tour-rail-head"><span>${esc(GC.nav)}</span><span class="tour-rail-pct" id="tourRailPct" aria-hidden="true">0%</span></div>
+          <ol class="tour-rail-list">${["rules", "colors", "faq"].map(id => `<li class="tour-rail-item">${railLink(id)}</li>`).join("")}</ol>
+        </nav>`;
+
+    const guideMainHtml = `<main class="col tour-main guide-main" id="main">
+      <nav class="tour-crumb" aria-label="Breadcrumb">
+        <a href="./">${esc(L.name)}</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">${esc(GC.shortName)}</span>
+      </nav>
+
+      <section class="tour-hero guide-hero" aria-labelledby="guideH">
+        <span class="tour-badge">${esc(GC.badge)}</span>
+        <h1 id="guideH">${esc(GC.h1)}</h1>
+        ${mapHtml}
+        <p class="tour-lead">${rich(GC.lead)}</p>
+        <div class="tour-cta guide-cta">
+          <a class="btn primary tour-cta-main guide-home-link" href="./">${esc(fill(GC.ctaHome, vars))}</a>
+          ${tourHref ? `<a class="btn ghost tour-cta-main guide-tour-link" href="${tourHref}">${esc(GC.toTour)}</a>` : ""}
+        </div>
+      </section>
+
+      <div class="tour-body">
+        ${railHtml}
+        <div class="tour-content">
+          ${rulesHtml}
+          ${colorsHtml}
+          ${faqHtml}
+        </div>
+      </div>
+
+      <button type="button" class="tour-fab" id="tourFab" aria-controls="tourRail" aria-expanded="false" aria-label="${esc(GC.nav)}">
+        <svg class="tour-fab-ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle id="tourFabRing" cx="12" cy="12" r="9" stroke-dasharray="56.55" stroke-dashoffset="56.55"/></svg>
+        <span class="tour-fab-label" id="tourFabLabel">${esc(GC.rulesTitle)}</span>
+        <svg class="tour-fab-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14l5-5 5 5"/></svg>
+      </button>
+    </main>`;
+    const guideLd = {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": `${url}#webpage`,
+          "url": url,
+          "name": GC.title,
+          "description": GC.desc,
+          "inLanguage": L.html,
+          "isPartOf": { "@type": "WebSite", "@id": `${home}#website` },
+          "about": ADO,
+          "dateModified": GUIDE_UPDATED,
+          "author": { "@type": "Person", "@id": `${SITE}#author`, "name": "Kuti", "sameAs": [THREADS, INSTAGRAM] },
+          "breadcrumb": { "@id": `${url}#breadcrumb` }
+        },
+        {
+          "@type": "BreadcrumbList",
+          "@id": `${url}#breadcrumb`,
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": L.name, "item": home },
+            { "@type": "ListItem", "position": 2, "name": GC.shortName, "item": url }
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "@id": `${url}#faq`,
+          "mainEntity": faqs.map(f => ({ "@type": "Question", "name": f.q, "acceptedAnswer": { "@type": "Answer", "text": plain(f.a) } }))
+        }
+      ]
+    };
+
+    let guideHtml = page(tpl, L, T, { rest, base: "../", title: GC.title, desc: GC.desc, ld: guideLd });
+    guideHtml = mustReplace(guideHtml, '<body>', '<body class="on-guide">', "guide <body>");
+    guideHtml = mustReplace(guideHtml, /<canvas id="fx"[\s\S]*?<div class="shell">/, '<div class="shell">', "guide strip canvases");
+    guideHtml = mustReplace(guideHtml, /<main class="col" id="main">[\s\S]*?<\/main>/, () => guideMainHtml, "guide <main>");
+    guideHtml = guideHtml.replace('<a href="#songs">', '<a href="./#songs">');
+    guideHtml = guideHtml.replace('<a href="guide/">', '<a href="guide/" aria-current="page">');
+    guideHtml = guideHtml.replace(/<button type="button" id="(?:logBtn|feedbackBtn|pwaInstallBtn)"[^>]*>[^<]*<\/button>\s*/g, "");
+    guideHtml = mustReplace(guideHtml, /<div class="toast" id="toast"[\s\S]*?<\/body>/, () => `${tourInlineScript}\n</body>`, "guide strip dialogs & app scripts");
+    write(`${L.dir}${rest}index.html`, guideHtml);
   }
   if (L.code !== "zh") {
     const copy = MANIFEST_COPY[L.code];
@@ -1201,6 +1417,7 @@ const lastmodOf = rest => {
   if (m) return songUpdated(m[1]);
   const tm = /^tour\/([^/]+)\/$/.exec(rest);
   if (tm) return TOUR_BY_ID.get(tm[1])?.updated || UPDATED;
+  if (rest === "guide/") return GUIDE_UPDATED;
   return UPDATED;
 };
 const alts = rest => LANGS.map(x => `    <xhtml:link rel="alternate" hreflang="${x.hreflang}" href="${SITE}${x.dir}${rest}"/>`).concat(`    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}${rest}"/>`).join("\n");
@@ -1220,6 +1437,7 @@ function generateLlmsTxt() {
     `> English: ${SITE}en/ ・ 日本語: ${SITE}jp/`,
     ``,
     `網站首頁：${SITE}`,
+    `${GUIDE.copy.zh.llms}：${SITE}guide/`,
     ...(TOURS.length ? TOURS.map(t => `巡演專頁（${t.copy.zh.shortName}）：${SITE}tour/${t.id}/`) : []),
     `完整歌詞與應援全文檔：${SITE}llms-full.txt`,
     ``,
@@ -1230,7 +1448,7 @@ function generateLlmsTxt() {
     `   - 大合唱 (sing)：全場觀眾在特定段落跟隨 Ado 一起引吭高歌。`,
     `   - 拍手 (clap)：隨鼓點或指定拍點擊掌（如 FREEDOM / 逆光的固定拍手節奏）。`,
     `   - 呼喊 (call)：在間奏或喊口號時喊「Hey! Hey!」給予現場回應。`,
-    `   - 舉手揮動 (wave)：跟隨 Ado 動作舉起手燈左右擺動。`,
+    `   - 舉手揮動 (wave)：跟隨 Ado 動作舉起手燈前後揮動。`,
     `   - 跳躍 (jump)：間奏或副歌特定小節跳躍。`,
     `   - 手勢 (gesture)：跟隨 Ado 在台上的招牌手勢動作。`,
     `   - 安靜聽 (listen)：留給 Ado 唱，全場專心聆聽。`,
@@ -1373,7 +1591,7 @@ write("CNAME", "ado.kuti.cc\n");
 fs.cpSync(path.join(root, "assets"), path.join(out, "assets"), { recursive: true });
 
 const kCount = Object.keys(karaokeHashes).length;
-console.log(`輸出到 ${out}：中文、英文（en/）、日文（ja/）各首頁＋${SONGS.length} 首歌頁（${INDEXABLE_SONGS.length} 首納入索引與 sitemap，${SONGS.length - INDEXABLE_SONGS.length} 首標記 noindex）＋${TOURS.length} 個巡演專頁、${Object.keys(lyIndex).length} 首歌詞檔${kCount ? `、${kCount} 首卡拉OK快取` : ""}${Object.keys(ROMAJI).length ? `（${Object.keys(ROMAJI).length} 首有羅馬拼音）` : "（沒有 song-romaji.json，英文版不放羅馬拼音）"}${esbuild ? "（已啟用 esbuild 壓縮）" : ""}、sitemap.xml、robots.txt、llms.txt、llms-full.txt、404.html`);
+console.log(`輸出到 ${out}：中文、英文（en/）、日文（ja/）各首頁＋${SONGS.length} 首歌頁（${INDEXABLE_SONGS.length} 首納入索引與 sitemap，${SONGS.length - INDEXABLE_SONGS.length} 首標記 noindex）＋${TOURS.length} 個巡演專頁＋新手攻略＆手燈色票牆（guide/）、${Object.keys(lyIndex).length} 首歌詞檔${kCount ? `、${kCount} 首卡拉OK快取` : ""}${Object.keys(ROMAJI).length ? `（${Object.keys(ROMAJI).length} 首有羅馬拼音）` : "（沒有 song-romaji.json，英文版不放羅馬拼音）"}${esbuild ? "（已啟用 esbuild 壓縮）" : ""}、sitemap.xml、robots.txt、llms.txt、llms-full.txt、404.html`);
 for (const code of ["en", "ja"]) {
   if (missing[code].size) console.log(`⚠ ${code} 還沒翻譯 ${missing[code].size} 句（畫面先顯示中文）：${[...missing[code]].slice(0, 8).join("｜")}${missing[code].size > 8 ? "…" : ""}`);
 }

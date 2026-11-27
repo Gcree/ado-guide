@@ -53,7 +53,7 @@
             },
             {
               q: "預熱歌單會暴雷嗎？",
-              a: "不會。預熱歌單只用兩張翻唱專輯（《その２》只放官方已公布的曲目）、過去演唱會唱過的翻唱曲和 YouTube 上的翻唱整理，跟實際曲順無關。各場實際歌單要自己點開那一天才會看到。"
+              a: "不會。預熱歌單只用兩張翻唱專輯（含《その２》官方公布的全 10 首曲目）、過去演唱會唱過的翻唱曲和 YouTube 上的翻唱整理，跟實際曲順無關。各場實際歌單要自己點開那一天才會看到。"
             },
             {
               q: "每一場的歌單都一樣嗎？",
@@ -65,7 +65,7 @@
             },
             {
               q: "《Adoの歌ってみたアルバム その２》的預留曲什麼時候會有歌詞與 MV？",
-              a: "專輯 2026 年 12 月 23 日發行，官方預告約 10 首，目前公布 7 首，其他曲目公布後再補。官方釋出音源或 MV 後，本站會陸續補上同步歌詞；巡演現場若出現固定應援或手燈色，也會一起更新。還沒有 MV 的歌不會排進「練這組」的連播。"
+              a: "專輯 2026 年 12 月 23 日發行，全 10 首曲目（含 CD 限定 Bonus Track〈ゲレンデがとけるほど恋したい Live ver.〉）皆已於官方試聽影片公布。其中〈くちばしにチェリー〉〈夏夜のマジック〉〈Fairytale,〉已有 MV 可直接練；其餘曲目在官方釋出音源或 MV 後會陸續補上同步歌詞與巡演應援。還沒有 MV 的歌不會排進「練這組」的連播。"
             }
           ]
         },
@@ -108,7 +108,7 @@
             },
             {
               q: "Will the warm-up list spoil the actual setlist?",
-              a: "No. It's built only from the two cover albums (Vol. 2 lists only the officially announced tracks), covers Ado has sung live before, and her YouTube covers, and says nothing about the real running order. Actual setlists only appear when you open a specific show."
+              a: "No. It's built only from the two cover albums (including all 10 officially announced tracks on Vol. 2), covers Ado has sung live before, and her YouTube covers, and says nothing about the real running order. Actual setlists only appear when you open a specific show."
             },
             {
               q: "Is the setlist the same at every show?",
@@ -120,7 +120,7 @@
             },
             {
               q: "When will lyrics and MVs be added for the upcoming Utattemita Album Vol. 2 tracks?",
-              a: "The album releases on Dec 23, 2026; about 10 tracks are planned and 7 have been announced so far, and we'll add the rest as they're revealed. Once official audio or MVs drop, synced lyrics will be added, along with any chants that emerge on tour. Songs without an MV yet are skipped in “Practice this set”."
+              a: "The album releases on Dec 23, 2026, with all 10 tracks announced (including the CD-only bonus track “Gerende ga Tokeru hodo Koishitai Live ver.”). Kuchibashi ni Cherry, Natsuyo no Magic, and Fairytale, already have MVs to practice now; synced lyrics and any live chants for the remaining tracks will be added once official audio or MVs drop. Songs without an MV yet are skipped in “Practice this set”."
             }
           ]
         },
@@ -163,7 +163,7 @@
             },
             {
               q: "予習リストはネタバレになりますか？",
-              a: "なりません。カバーアルバム2作品（『その２』は公式発表済みの曲のみ）、過去ライブで披露されたカバー曲、YouTubeの歌ってみたから作った予習用リストで、実際の曲順とは関係ありません。実際のセトリは公演を開いたときだけ表示されます。"
+              a: "なりません。カバーアルバム2作品（『その２』公式発表の全10曲を含む）、過去ライブで披露されたカバー曲、YouTubeの歌ってみたから作った予習用リストで、実際の曲順とは関係ありません。実際のセトリは公演を開いたときだけ表示されます。"
             },
             {
               q: "セトリは全公演同じですか？",
@@ -175,7 +175,7 @@
             },
             {
               q: "『Adoの歌ってみたアルバム その２』の発売予定曲はいつ歌詞が追加されますか？",
-              a: "2026年12月23日発売、全10曲程度の予定で、現在発表されているのは7曲です（残りは発表され次第追加）。発売後、公式音源・MVの公開にあわせて同期歌詞を順次追加します。ツアーで定着した応援やペンライト色も確認でき次第反映します。MVがまだない曲は「このリストで練習」の連続再生には含まれません。"
+              a: "2026年12月23日発売、CD限定ボーナストラック『ゲレンデがとけるほど恋したい Live ver.』を含む全10曲がクロスフェード動画で発表済みです。「くちばしにチェリー」「夏夜のマジック」「Fairytale,」はMVでそのまま練習でき、残りの曲も公式音源・MVの公開にあわせて同期歌詞やツアーで定着した応援を順次追加します。MVがまだない曲は「このリストで練習」の連続再生には含まれません。"
             }
           ]
         }
@@ -300,11 +300,14 @@
           id: "album-2",
           short: { zh: "翻唱專輯 その２", en: "Album Vol. 2", ja: "アルバム その２" },
           sub: {
-            zh: "《Adoの歌ってみたアルバム その２》2026/12/23 發行，官方預告約 10 首，這裡是已公布的 7 首。",
-            en: "Utattemita Album Vol. 2, out Dec 23, 2026 — about 10 tracks planned; these are the 7 announced so far.",
-            ja: "『Adoの歌ってみたアルバム その２』2026/12/23発売。全10曲程度のうち、発表済みの7曲。"
+            zh: "《Adoの歌ってみたアルバム その２》2026/12/23 發行，全 10 首（含 CD 限定 Bonus Track）已全數公布；已有 MV 的 3 首排在最前。",
+            en: "Utattemita Album Vol. 2, out Dec 23, 2026 — all 10 tracks announced (including a CD-only bonus track); the 3 with MVs appear first.",
+            ja: "『Adoの歌ってみたアルバム その２』2026/12/23発売。CD限定ボーナストラックを含む全10曲（MV公開済みの3曲を先頭に表示）。"
           },
-          songs: ["kuchibashi", "fairytale", "unknownmothergoose", "mousoushikkan", "entersandman", "kawakiwoameku", "lagata"]
+          badges: {
+            gerende: { zh: "CD 限定 Bonus", en: "CD Bonus Track", ja: "CD限定ボーナス" }
+          },
+          songs: ["kawakiwoameku", "mousoushikkan", "kuchibashi", "minagoroshi", "entersandman", "lagata", "natsuyo", "unknownmothergoose", "fairytale", "gerende"]
         },
         {
           id: "album-1",
@@ -335,7 +338,6 @@
             "catseye",
             "suiseiressha",
             "yuukinoreason",
-            "natsuyo",
             "egorock",
             "kitaro",
             "jikkai",

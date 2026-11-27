@@ -21,7 +21,7 @@
   const ACT_MAP = SHARED.ACT_MAP || {
     sing:    { name: "大合唱",   icon: "i-sing",    how: "跟著一起唱" },
     clap:    { name: "拍手",     icon: "i-clap",    how: "跟著節拍拍手" },
-    wave:    { name: "舉手揮動", icon: "i-wave",    how: "舉手左右揮" },
+    wave:    { name: "舉手揮動", icon: "i-wave",    how: "舉手前後揮" },
     jump:    { name: "跳躍",     icon: "i-jump",    how: "跟著節奏跳" },
     call:    { name: "喊聲",     icon: "i-call",    how: "跟著喊短句" },
     gesture: { name: "手勢",     icon: "i-gesture", how: "跟 Ado 做同樣的動作" },
@@ -2645,14 +2645,60 @@
   const al = document.getElementById("alert"), alIcon = document.getElementById("alIcon"), alName = document.getElementById("alName"),
         alBody = document.getElementById("alBody"), alHow = document.getElementById("alHow"), cueFrame = document.getElementById("cueFrame");
   const screenEl = document.getElementById("screen");
-  let alertOn = store.get("alert-off") !== "1", alKey = "", alKind = "", alDots = [], alWords = [], alSing = [], alSteps = [];
+  let alertOn = store.get("alert-off") !== "1", alKey = "", alKind = "", alDots = [], alWords = [], alSing = [], alBeats = [];
   // 大字提醒開關：在練習工具列上
   const alertBtns = [document.getElementById("alertTool")];
   const paintAlert = () => alertBtns.forEach(b => b.setAttribute("aria-pressed", alertOn));
   paintAlert();
   alertBtns.forEach(b => b.addEventListener("click", () => { alertOn = !alertOn; paintAlert(); store.set("alert-off", alertOn ? "0" : "1"); }));
   const dotsHTML = (n, first) => `<div class="dots">${Array.from({ length: n }, (_, i) => `<i${first && !i ? ' class="first"' : ""}></i>`).join("")}</div>`;
-  // 字卡內容：大合唱寫出要唱的字，喊聲寫出要喊的話，拍手是每拍亮的圓點，揮手是擺動的螢光棒，跳躍是彈起的圖示；反拍拍手特製 4 拍視覺儀
+  // 字卡動畫：畫成現場真的會做的樣子（兩隻手在拍、小人在跳、舉著手燈揮）。
+  // 時間不靠 CSS 自己跑：alerts() 每格寫入 --ph（這拍走了多少，0＝拍點）和 --ph2（兩拍一輪），
+  // CSS 動畫停住、用負的 animation-delay 對到那個相位，所以暫停、拖時間軸都跟著 MV 走
+  const alSvg = (cls, vb, inner) => `<svg class="al-stage ${cls}" viewBox="${vb}" aria-hidden="true">${inner}</svg>`;
+  const AL_HAND_L = "M79 104V75L71.5 65.5a4.2 4.2 0 0 1 6.6-5.2L79 61.5V46a9 9 0 0 1 18 0V104";
+  const AL_HAND_R = "M121 104V75L128.5 65.5a4.2 4.2 0 0 0-6.6-5.2L121 61.5V46a9 9 0 0 0-18 0V104";
+  // 兩隻手＋拍到時上方閃三道線；n 是 "" 每拍拍、"2" 只拍第 2、4 拍
+  const alHands = n => `<path class="al-burst${n}" d="M100 30V20M90 32l-6-7M110 32l6-7"/><path class="al-hand al-hl${n}" d="${AL_HAND_L}"/><path class="al-hand al-hr${n}" d="${AL_HAND_R}"/>`;
+  // 下面一排四拍記號：拍手是四顆點（第 1 拍大一號）；反拍是短線（不拍）和圓圈（要拍）
+  const alBeatRow = off => `<g class="al-beats">${[82, 94, 106, 118].map((x, j) => off && !(j % 2)
+    ? `<line class="rest" x1="${x - 3}" y1="116" x2="${x + 3}" y2="116"/>`
+    : `<circle${off ? ' class="tgt"' : ""} cx="${x}" cy="116" r="${off ? 3.2 : j ? 2.5 : 3}"/>`).join("")}</g>`;
+  // 正面的小人：圓頭、膠囊身體、短手腳，臉只有眼睛和嘴
+  const alLimb = (x1, y1, y2, extra = "") => `<line class="al-limb${extra}" x1="${x1}" y1="${y1}" x2="${x1}" y2="${y2}"/>`;
+  const alArmRest = (x, rot) => `<line class="al-limb" x1="${x}" y1="82" x2="${x}" y2="68" transform="rotate(${rot} ${x} 82)"/>`;
+  const AL_BODY = `<rect class="al-fill" x="85" y="74" width="30" height="24" rx="12"/><circle class="al-fill" cx="100" cy="57" r="18"/>`;
+  const AL_LEGS = alLimb(94, 94, 103) + alLimb(106, 94, 103);
+  const AL_SINGER = AL_LEGS + alArmRest(88, -145) + alArmRest(112, 145) + AL_BODY
+    + `<path class="al-ink-ln" d="M90.5 57q3-3 6 0M103.5 57q3-3 6 0"/><ellipse class="al-ink al-mouth" cx="100" cy="64" rx="3.2" ry="3.8"/>`;
+  const AL_NOTES = `<g class="al-note"><ellipse cx="123" cy="40" rx="3.6" ry="2.8" transform="rotate(-20 123 40)"/><path d="M126.4 39V26q4.6 1.3 5 5.6"/></g>`
+    + `<g class="al-note n2"><ellipse cx="74" cy="46" rx="3" ry="2.3" transform="rotate(-20 74 46)"/><path d="M76.8 45.2V34"/></g>`;
+  const AL_TRIO = alSvg("al-trio", "20 20 160 90",
+    `<g transform="translate(-27 19.08) scale(.82)" opacity=".55"><g class="al-sway">${AL_SINGER}</g></g>`
+    + `<g transform="translate(63 19.08) scale(.82)" opacity=".55"><g class="al-sway">${AL_SINGER}</g></g>`
+    + `<g class="al-sway">${AL_SINGER}</g>${AL_NOTES}`);
+  const AL_SHOUTER = alSvg("al-shouter", "56 30 84 80",
+    `<path class="al-emit" d="M75.4 56.1A6 6 0 0 0 75.4 63.9"/><path class="al-emit e2" d="M71.6 52.9A11 11 0 0 0 71.6 67.1"/><path class="al-emit e3" d="M67.7 49.7A16 16 0 0 0 67.7 70.3"/>`
+    + `<g class="al-bob">${AL_LEGS}${alArmRest(88, -150)}${alLimb(115, 80, 54, " al-fist")}${AL_BODY}`
+    + `<path class="al-ink-ln" d="M90 52.5l5 3-5 3M110 52.5l-5 3 5 3"/><ellipse class="al-ink al-mouth" cx="100" cy="64.5" rx="4.4" ry="5"/></g>`);
+  // 喊聲、手勢：喊的人＋對話框裡的大字
+  const alShout = text => `<div class="al-shout">${AL_SHOUTER}<div class="al-bubble"><div class="big">${esc(text)}</div></div></div>`;
+  const AL_CLAP = alSvg("", "0 0 200 120", alHands("") + alBeatRow(false));
+  const AL_OFFBEAT = alSvg("", "0 0 200 120", alHands("2") + alBeatRow(true));
+  // 揮手：側面的小人把手燈舉在頭上，手臂幾乎不動、手腕帶著手燈前後揮，拍點揮到前面的黃點
+  const AL_WAVE = alSvg("al-wave", "0 0 200 120",
+    `<path class="al-arc" d="M102.1 18.6A46 46 0 0 1 133.4 21.3"/><circle class="al-arc-end" cx="102.1" cy="18.6" r="2"/><circle class="al-arc-tip" cx="133.4" cy="21.3" r="3"/>`
+    + `<g class="al-warm"><line class="al-wlimb" x1="100" y1="88" x2="112" y2="66"/>`
+    + `<g class="al-light al-ghost"><line x1="114" y1="63" x2="114" y2="56" stroke="none"/><line class="al-blade" x1="114" y1="52" x2="114" y2="24"/></g>`
+    + `<g class="al-light"><line class="al-grip" x1="114" y1="63" x2="114" y2="56"/><line class="al-blade al-glow" x1="114" y1="52" x2="114" y2="24"/></g></g>`
+    + `<g class="al-wbody"><line class="al-wlimb" x1="87" y1="104" x2="87" y2="112"/><line class="al-wlimb" x1="98" y1="104" x2="98" y2="112"/>`
+    + `<rect class="al-wfill" x="78" y="80" width="28" height="27" rx="13"/><circle class="al-wfill" cx="90" cy="60" r="18"/>`
+    + `<circle class="al-ink" cx="99" cy="58" r="2.4"/><path class="al-ink-ln" d="M101.5 69.5q2.5 1.4 4.5-.6"/></g>`);
+  // 跳躍：拍點落地蹲低、手放下，起跳時舉起雙手；影子跟著縮放，落地時地面泛起一圈
+  const AL_JUMP = alSvg("", "0 0 200 120",
+    `<line class="al-ground" x1="56" y1="106" x2="144" y2="106"/><ellipse class="al-shadow" cx="100" cy="107" rx="18" ry="3"/><ellipse class="al-land" cx="100" cy="106" rx="16" ry="3"/>`
+    + `<g class="al-jump">${alLimb(94, 94, 103, " al-leg-l")}${alLimb(106, 94, 103, " al-leg-r")}${alLimb(88, 82, 68, " al-arm-l")}${alLimb(112, 82, 68, " al-arm-r")}${AL_BODY}`
+    + `<circle class="al-ink" cx="93.5" cy="56" r="2.3"/><circle class="al-ink" cx="106.5" cy="56" r="2.3"/><path class="al-ink-ln" d="M97 62q3 2.6 6 0"/></g>`);
   function cardFor(cue, l) {
     const offbeat = isOffbeat(l.call) || isOffbeat(cue.name);
     if (offbeat) {
@@ -2660,7 +2706,7 @@
         act: "clap",
         name: T("反拍拍手（第 2、4 拍）"),
         kind: "offbeat",
-        body: `<div class="offbeat-meter"><div class="beat-step step-1"><span class="step-num">1</span><span class="step-txt">${T("空")}</span><span class="step-sub">—</span></div><div class="beat-step target-clap step-2"><span class="step-num">2</span><span class="step-txt">${T("拍！")}</span><svg class="step-ico" viewBox="0 0 24 24"><use href="#i-clap"/></svg></div><div class="beat-step step-3"><span class="step-num">3</span><span class="step-txt">${T("空")}</span><span class="step-sub">—</span></div><div class="beat-step target-clap step-4"><span class="step-num">4</span><span class="step-txt">${T("拍！")}</span><svg class="step-ico" viewBox="0 0 24 24"><use href="#i-clap"/></svg></div></div>`,
+        body: AL_OFFBEAT,
         how: T("口訣：一 [拍] 三 [拍]（空・拍・空・拍）")
       };
     }
@@ -2669,12 +2715,13 @@
     const head = { act, name: ACT[act].name + (extra.length ? `<em>＋${extra.join(T("、"))}</em>` : "") };
     // 整句都要唱（沒標要唱哪幾個字）時，整句放大
     const words = l.sing.length ? l.sing : act === "sing" && l.ja && !l.call ? [l.ja] : null;
-    if (words) return { ...head, kind: "sing", words, body: `<div class="words">${words.map(w => jaHTML(w)).join("　")}</div>`, how: "" };
-    if (l.call) return { ...head, kind: "big", body: `<div class="big">${esc(l.call)}</div>`, how: "" };
-    if (act === "clap") return { ...head, kind: "dots", body: dotsHTML(4, true), how: ACT.clap.how };
-    if (act === "wave") return { ...head, kind: "swing", body: '<svg class="swing" viewBox="0 0 132 72"><path class="arc" d="M14 54a54 54 0 0 1 104 0"/><g class="stick"><line x1="66" y1="70" x2="66" y2="16"/></g></svg>', how: ACT.wave.how };
-    if (act === "jump") return { ...head, kind: "hop", body: `<svg class="hop"><use href="#i-jump"/></svg>`, how: ACT.jump.how };
-    return { ...head, kind: "big", body: `<div class="big">${esc(ACT[act].how)}</div>`, how: "" };
+    // 大合唱：三個小人一起晃著唱，下面是要唱的字（唱到的亮起）和這句的進度線
+    if (words) return { ...head, kind: "sing", words, body: `${AL_TRIO}<div class="words">${words.map(w => jaHTML(w)).join("　")}</div><div class="al-prog"><i></i></div>`, how: "" };
+    if (l.call) return { ...head, kind: "big", body: alShout(l.call), how: "" };
+    if (act === "clap") return { ...head, kind: "clap", body: AL_CLAP, how: ACT.clap.how };
+    if (act === "wave") return { ...head, kind: "wave", body: AL_WAVE, how: ACT.wave.how };
+    if (act === "jump") return { ...head, kind: "jump", body: AL_JUMP, how: ACT.jump.how };
+    return { ...head, kind: "big", body: alShout(ACT[act].how), how: "" };
   }
   function showCard(key, c) {
     if (key === alKey) return;
@@ -2684,7 +2731,7 @@
     alName.innerHTML = c.name; alBody.innerHTML = c.body; alHow.textContent = c.how;
     alDots = [...alBody.querySelectorAll(".dots i")];
     alWords = [...alBody.querySelectorAll(".k")];
-    alSteps = [...alBody.querySelectorAll(".beat-step")];
+    alBeats = [...alBody.querySelectorAll(".al-beats > *")];
     placeCard();
   }
   function placeCard() {
@@ -2719,6 +2766,12 @@
     const nextKey = "l" + cue.key;
     if (nextKey !== alKey) showCard(nextKey, cardFor(cue, l));
     cueFrame.style.opacity = (.6 + .4 * pulse).toFixed(2);
+    // 字卡動畫的時間：沒有拍點資料時當成每秒 2 拍；減少動態時停在拍點姿勢，只剩下面的拍子記號在亮
+    const bx = b ? b.x : (t - l.t) * 2, bk = Math.floor(bx), bf = bx - bk;
+    const bar = b && b.known ? b.bar : ((bk % 4) + 4) % 4;
+    al.style.setProperty("--ph", reduce ? "0" : bf.toFixed(3));
+    al.style.setProperty("--ph2", reduce ? "0" : (((bar % 2) + bf) / 2).toFixed(3));
+    alBeats.forEach((x, j) => x.classList.toggle("on", j === bar && bf < .5));
     if (alKind === "sing") {
       // 唱到的字亮起：要唱的字在這行的位置，照這行的進度換算
       const end = lineEnd(cue.key), frac = Math.max(0, Math.min(1, (t - l.t) / Math.max(.5, (end - l.t) * .9)));
@@ -2726,19 +2779,7 @@
       const at = Math.min(...alSing.map(w => ja.lastIndexOf(w)).filter(i => i >= 0), ja.length), len = Math.max(1, ja.length - at);
       const lit = Math.round(Math.max(0, Math.min(1, (frac * ja.length - at) / len)) * alWords.length);
       alWords.forEach((k, i) => k.classList.toggle("lit", i < lit));
-    } else if (alKind === "dots") {
-      const on = b ? (b.known ? b.bar : ((b.k % 4) + 4) % 4) : Math.floor((t - l.t) * 2) % 4;
-      alDots.forEach((x, j) => x.classList.toggle("on", j === on && (!b || b.f < .5)));
-    } else if (alKind === "offbeat") {
-      const bar = b ? (b.known ? b.bar : ((b.k % 4) + 4) % 4) : Math.floor((t - l.t) * 2) % 4;
-      const hit = (!b || b.f < .45);
-      alSteps.forEach((x, j) => {
-        const isCurrent = j === bar;
-        x.classList.toggle("current", isCurrent);
-        x.classList.toggle("hit", isCurrent && (j === 1 || j === 3) && hit);
-      });
-    } else if (alKind === "swing" && !reduce) {
-      al.style.setProperty("--ang", (Math.cos(Math.PI * (b ? b.x : (t - l.t) * 2)) * 28).toFixed(1) + "deg");
+      al.style.setProperty("--prog", frac.toFixed(3));
     }
   }
 
